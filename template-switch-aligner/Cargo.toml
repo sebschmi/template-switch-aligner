@@ -9,3 +9,5 @@ rust-version = "1.80.1"
 
 [dependencies]
 compact-genome = "2.1.1"
+traitsequence = "2.0.0"
+ndarray = "0.16.1"
