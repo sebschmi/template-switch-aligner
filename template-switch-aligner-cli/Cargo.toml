@@ -2,7 +2,7 @@
 name = "template-switch-aligner-cli"
 description = "A sequence-to-sequence aligner that accounts for template switches"
 repository = "https://github.com/sebschmi/template-switch-aligner"
-author = "Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"
+authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.80.1"

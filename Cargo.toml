@@ -1,3 +1,4 @@
 [workspace]
 
 members = ["template-switch-aligner", "template-switch-aligner-cli"]
+resolver = "2"
