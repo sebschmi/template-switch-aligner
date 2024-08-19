@@ -1,0 +1,80 @@
+name: Tests and Lints
+
+on: [push, pull_request]
+
+env:
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  rust_check:
+    name: Rust check
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: true
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: cargo check
+        run: cargo check --bins --tests
+
+  rust_format:
+    name: Rust format
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: true
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with: 
+          components: rustfmt
+
+      - name: cargo format
+        uses: actions-rust-lang/rustfmt@v1
+
+  rust_lint:
+    name: Rust lint
+    runs-on: ubuntu-latest
+    needs: ["rust_check", "rust_format"]
+
+    strategy:
+      fail-fast: true
+      matrix:
+        toolchain: [null, "stable", "beta", "nightly"]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with: 
+          components: clippy
+          toolchain: ${{matrix.toolchain}}
+
+      - name: cargo clippy
+        run: cargo clippy --bins --tests
+
+  rust_test:
+    name: Rust test
+    runs-on: ubuntu-latest
+    needs: ["rust_check", "rust_lint"]
+
+    strategy:
+      fail-fast: true
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: cargo test
+        run: cargo test
