@@ -10,4 +10,6 @@ rust-version = "1.80.1"
 
 [dependencies]
 lib_tsalign = { version = "0.1.0", path = "../lib_tsalign" }
-clap = "4.5.16"
+clap = { version = "4.5.16", features = ["derive"] }
+compact-genome.workspace = true
+traitsequence.workspace = true

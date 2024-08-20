@@ -2,10 +2,10 @@ use crate::{alignment_matrix::BaseAlignmentType, score::Score};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AlignmentConfiguration {
-    match_score: Score,
-    substitution_score: Score,
-    insertion_score: Score,
-    deletion_score: Score,
+    pub match_score: Score,
+    pub substitution_score: Score,
+    pub insertion_score: Score,
+    pub deletion_score: Score,
 }
 
 impl AlignmentConfiguration {
