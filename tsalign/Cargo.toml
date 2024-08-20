@@ -1,6 +1,7 @@
 [package]
 name = "tsalign"
 description = "A sequence-to-sequence aligner that accounts for template switches"
+license = "BSD-2-Clause"
 repository = "https://github.com/sebschmi/template-switch-aligner"
 authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
 version = "0.1.0"
