@@ -150,6 +150,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
+name = "lib_tsalign"
+version = "0.1.0"
+dependencies = [
+ "compact-genome",
+ "ndarray",
+ "traitsequence",
+]
+
+[[package]]
 name = "matrixmultiply"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -290,22 +299,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
-name = "template-switch-aligner"
-version = "0.1.0"
-dependencies = [
- "compact-genome",
- "ndarray",
- "traitsequence",
-]
-
-[[package]]
-name = "template-switch-aligner-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
-]
-
-[[package]]
 name = "thiserror"
 version = "1.0.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -330,6 +323,14 @@ name = "traitsequence"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4cd2caadbd36e66fb9aea075afd8c4e693773b276e9842928fb2c8a8d29d889"
+
+[[package]]
+name = "tsalign"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "lib_tsalign",
+]
 
 [[package]]
 name = "unicode-ident"

@@ -1,5 +1,5 @@
 [package]
-name = "template-switch-aligner"
+name = "tsalign"
 description = "A sequence-to-sequence aligner that accounts for template switches"
 repository = "https://github.com/sebschmi/template-switch-aligner"
 authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
@@ -8,6 +8,5 @@ edition = "2021"
 rust-version = "1.80.1"
 
 [dependencies]
-compact-genome = "2.1.1"
-traitsequence = "2.0.0"
-ndarray = "0.16.1"
+lib_tsalign = { version = "0.1.0", path = "../lib_tsalign" }
+clap = "4.5.16"

@@ -1,4 +1,4 @@
 [workspace]
 
-members = ["template-switch-aligner", "template-switch-aligner-cli"]
+members = ["tsalign", "lib_tsalign"]
 resolver = "2"
