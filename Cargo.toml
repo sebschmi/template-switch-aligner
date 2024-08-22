@@ -4,5 +4,5 @@ members = ["tsalign", "lib_tsalign"]
 resolver = "2"
 
 [workspace.dependencies]
-compact-genome = "2.1.1"
+compact-genome = "3.0.0"
 traitsequence = "2.0.0"
