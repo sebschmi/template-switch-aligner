@@ -98,6 +98,8 @@ fn align_a_star_gap_affine_edit_distance<
         "Score per base: {:.2}",
         (alignment.score.as_i64() * 2) as f64 / (reference.len() + query.len()) as f64
     );
+    println!("Opened nodes: {}", alignment.opened_nodes);
+    println!("Closed nodes: {}", alignment.closed_nodes);
     println!("CIGAR: {}", alignment.cigar());
 }
 

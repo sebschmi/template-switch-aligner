@@ -75,6 +75,8 @@ pub trait AlignmentGraphNode: Sized + Ord {
 pub struct Alignment<AlignmentType> {
     pub alignment: Vec<(usize, AlignmentType)>,
     pub score: Score,
+    pub opened_nodes: usize,
+    pub closed_nodes: usize,
 }
 
 impl<AlignmentType> Alignment<AlignmentType> {
@@ -160,7 +162,12 @@ where
     // Pop root element.
     alignment.pop().unwrap();
     alignment.reverse();
-    Alignment { alignment, score }
+    Alignment {
+        alignment,
+        score,
+        opened_nodes: closed_list.len() + open_list.len(),
+        closed_nodes: closed_list.len(),
+    }
 }
 
 pub fn gap_affine_edit_distance_a_star_align<
