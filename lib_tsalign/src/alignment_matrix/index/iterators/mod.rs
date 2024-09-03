@@ -11,7 +11,7 @@ pub struct AlignmentMatrixQueryIterator {
 }
 
 /// An iterator over the alignment matrix indices skipping row and column zero.
-/// 
+///
 /// The iterator is query-major, i.e. it increments the reference position every iteration, and increments the query position only after reaching the limit of the reference.
 pub struct AlignmentMatrixInnerIterator {
     index: AlignmentMatrixIndex,
