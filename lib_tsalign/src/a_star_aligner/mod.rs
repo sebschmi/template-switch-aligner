@@ -1,13 +1,14 @@
 use std::{
     collections::{BinaryHeap, HashMap},
-    fmt::Display,
     hash::Hash,
 };
 
+use alignment_result::AlignmentResult;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 
 use crate::score::Score;
 
+pub mod alignment_result;
 pub mod gap_affine_edit_distance;
 
 /// A node of the alignment graph.
@@ -72,29 +73,6 @@ pub trait AlignmentGraphNode: Sized + Ord {
     ) -> bool;
 }
 
-pub struct Alignment<AlignmentType> {
-    pub alignment: Vec<(usize, AlignmentType)>,
-    pub score: Score,
-    pub opened_nodes: usize,
-    pub closed_nodes: usize,
-}
-
-impl<AlignmentType> Alignment<AlignmentType> {
-    pub fn cigar(&self) -> String
-    where
-        AlignmentType: Display,
-    {
-        let mut result = String::new();
-
-        for (amount, alignment_type) in &self.alignment {
-            use std::fmt::Write;
-            write!(&mut result, "{amount}{alignment_type}").unwrap();
-        }
-
-        result
-    }
-}
-
 fn a_star_align<
     AlphabetType: Alphabet,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -103,7 +81,7 @@ fn a_star_align<
     reference: &SubsequenceType,
     query: &SubsequenceType,
     context: Node::Context,
-) -> Alignment<Node::AlignmentType>
+) -> AlignmentResult<Node::AlignmentType>
 where
     Node::Identifier: Hash + Eq + Clone,
     Node::AlignmentType: Eq,
@@ -162,12 +140,14 @@ where
     // Pop root element.
     alignment.pop().unwrap();
     alignment.reverse();
-    Alignment {
+    AlignmentResult::new(
         alignment,
         score,
-        opened_nodes: closed_list.len() + open_list.len(),
-        closed_nodes: closed_list.len(),
-    }
+        closed_list.len() + open_list.len(),
+        closed_list.len(),
+        reference.len(),
+        query.len(),
+    )
 }
 
 pub fn gap_affine_edit_distance_a_star_align<
@@ -177,6 +157,6 @@ pub fn gap_affine_edit_distance_a_star_align<
     reference: &SubsequenceType,
     query: &SubsequenceType,
     context: gap_affine_edit_distance::ScoringTable,
-) -> Alignment<gap_affine_edit_distance::AlignmentType> {
+) -> AlignmentResult<gap_affine_edit_distance::AlignmentType> {
     a_star_align::<_, _, gap_affine_edit_distance::Node>(reference, query, context)
 }
