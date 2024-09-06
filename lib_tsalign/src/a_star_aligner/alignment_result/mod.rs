@@ -1,11 +1,11 @@
 use std::fmt::{Display, Formatter, Result, Write};
 
-use crate::score::Score;
+use crate::cost::Cost;
 
 pub struct AlignmentResult<AlignmentType> {
     pub alignment: Vec<(usize, AlignmentType)>,
-    pub score: Score,
-    pub score_per_base: f64,
+    pub cost: Cost,
+    pub cost_per_base: f64,
     pub opened_nodes: usize,
     pub closed_nodes: usize,
 }
@@ -13,7 +13,7 @@ pub struct AlignmentResult<AlignmentType> {
 impl<AlignmentType> AlignmentResult<AlignmentType> {
     pub fn new(
         alignment: Vec<(usize, AlignmentType)>,
-        score: Score,
+        cost: Cost,
         opened_nodes: usize,
         closed_nodes: usize,
         reference_length: usize,
@@ -21,8 +21,8 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
     ) -> Self {
         Self {
             alignment,
-            score,
-            score_per_base: (score.as_i64() * 2) as f64 / (reference_length + query_length) as f64,
+            cost,
+            cost_per_base: (cost.as_u64() * 2) as f64 / (reference_length + query_length) as f64,
             opened_nodes,
             closed_nodes,
         }
@@ -51,8 +51,8 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
 
 impl<AlignmentType: Display> Display for AlignmentResult<AlignmentType> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        writeln!(f, "Score: {}", self.score.as_i64())?;
-        writeln!(f, "Score per base: {:.2}", self.score_per_base)?;
+        writeln!(f, "Cost: {}", self.cost)?;
+        writeln!(f, "Cost per base: {:.2}", self.cost_per_base)?;
         writeln!(f, "Opened nodes: {}", self.opened_nodes)?;
         writeln!(f, "Closed nodes: {}", self.closed_nodes)?;
         write!(f, "CIGAR: ")?;

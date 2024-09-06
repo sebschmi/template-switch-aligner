@@ -1,23 +1,23 @@
-use crate::{alignment_matrix::BaseAlignmentType, score::Score};
+use crate::{alignment_matrix::BaseAlignmentType, cost::Cost};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AlignmentConfiguration {
-    pub match_score: Score,
-    pub substitution_score: Score,
-    pub insertion_score: Score,
-    pub deletion_score: Score,
+    pub match_cost: Cost,
+    pub substitution_cost: Cost,
+    pub insertion_cost: Cost,
+    pub deletion_cost: Cost,
 }
 
 impl AlignmentConfiguration {
-    pub fn score(&self, alignment_type: BaseAlignmentType) -> Score {
+    pub fn cost(&self, alignment_type: BaseAlignmentType) -> Cost {
         match alignment_type {
             BaseAlignmentType::None => {
-                panic!("Alignment type 'None' has no score")
+                panic!("Alignment type 'None' has no cost")
             }
-            BaseAlignmentType::Insertion => self.insertion_score,
-            BaseAlignmentType::Deletion => self.deletion_score,
-            BaseAlignmentType::Match => self.match_score,
-            BaseAlignmentType::Substitution => self.substitution_score,
+            BaseAlignmentType::Insertion => self.insertion_cost,
+            BaseAlignmentType::Deletion => self.deletion_cost,
+            BaseAlignmentType::Match => self.match_cost,
+            BaseAlignmentType::Substitution => self.substitution_cost,
         }
     }
 }
@@ -25,10 +25,10 @@ impl AlignmentConfiguration {
 impl Default for AlignmentConfiguration {
     fn default() -> Self {
         Self {
-            match_score: 1.into(),
-            substitution_score: (-1).into(),
-            insertion_score: (-2).into(),
-            deletion_score: (-2).into(),
+            match_cost: 0.into(),
+            substitution_cost: 2.into(),
+            insertion_cost: 3.into(),
+            deletion_cost: 3.into(),
         }
     }
 }

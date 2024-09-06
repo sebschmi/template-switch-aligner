@@ -28,23 +28,23 @@ struct Cli {
     #[clap(long, short)]
     query: PathBuf,
 
-    #[clap(long, short, allow_negative_numbers = true, default_value = "1")]
-    match_score: i64,
+    #[clap(long, short, default_value = "0")]
+    match_cost: u64,
 
-    #[clap(long, short, allow_negative_numbers = true, default_value = "-1")]
-    substitution_score: i64,
+    #[clap(long, short, default_value = "2")]
+    substitution_cost: u64,
 
-    #[clap(long, short, allow_negative_numbers = true, default_value = "-2")]
-    insertion_score: i64,
+    #[clap(long, short, default_value = "3")]
+    insertion_cost: u64,
 
-    #[clap(long, short, allow_negative_numbers = true, default_value = "-2")]
-    deletion_score: i64,
+    #[clap(long, short, default_value = "3")]
+    deletion_cost: u64,
 
-    #[clap(long, short = 'o', allow_negative_numbers = true, default_value = "-3")]
-    gap_open_score: i64,
+    #[clap(long, short = 'o', default_value = "3")]
+    gap_open_cost: u64,
 
-    #[clap(long, short = 'e', allow_negative_numbers = true, default_value = "-1")]
-    gap_extend_score: i64,
+    #[clap(long, short = 'e', default_value = "1")]
+    gap_extend_cost: u64,
 
     #[clap(long, default_value = "a-star-gap-affine-edit-distance")]
     alignment_method: AlignmentMethod,
@@ -86,10 +86,10 @@ fn align_a_star_gap_affine_edit_distance<
         reference,
         query,
         ScoringTable {
-            match_score: cli.match_score.into(),
-            substitution_score: cli.substitution_score.into(),
-            gap_open_score: cli.gap_open_score.into(),
-            gap_extend_score: cli.gap_extend_score.into(),
+            match_cost: cli.match_cost.into(),
+            substitution_cost: cli.substitution_cost.into(),
+            gap_open_cost: cli.gap_open_cost.into(),
+            gap_extend_cost: cli.gap_extend_cost.into(),
         },
     );
 
@@ -105,13 +105,13 @@ fn align_matrix<
     query: &SubsequenceType,
 ) {
     let configuration = AlignmentConfiguration {
-        match_score: cli.match_score.into(),
-        substitution_score: cli.substitution_score.into(),
-        insertion_score: cli.insertion_score.into(),
-        deletion_score: cli.deletion_score.into(),
+        match_cost: cli.match_cost.into(),
+        substitution_cost: cli.substitution_cost.into(),
+        insertion_cost: cli.insertion_cost.into(),
+        deletion_cost: cli.deletion_cost.into(),
     };
 
     let mut alignment_matrix = AlignmentMatrix::new(configuration, reference.len(), query.len());
-    let score = alignment_matrix.align(reference, query);
-    println!("Score: {}", score.as_i64());
+    let cost = alignment_matrix.align(reference, query);
+    println!("Cost: {}", cost);
 }

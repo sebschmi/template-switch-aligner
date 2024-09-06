@@ -8,7 +8,7 @@ use index::{
 };
 use ndarray::Array2;
 
-use crate::{alignment_configuration::AlignmentConfiguration, score::Score};
+use crate::{alignment_configuration::AlignmentConfiguration, cost::Cost};
 
 pub mod index;
 
@@ -20,7 +20,7 @@ pub struct AlignmentMatrix {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AlignmentMatrixEntry {
-    pub score: Score,
+    pub cost: Cost,
     pub alignment_type: BaseAlignmentType,
 }
 
@@ -69,23 +69,23 @@ impl AlignmentMatrix {
         &mut self,
         reference: &SequenceType,
         query: &SequenceType,
-    ) -> Score {
+    ) -> Cost {
         self.initialise();
         self.align_inner(reference, query);
-        self.matrix[[self.matrix.dim().0 - 1, self.matrix.dim().1 - 1]].score
+        self.matrix[[self.matrix.dim().0 - 1, self.matrix.dim().1 - 1]].cost
     }
 
     fn initialise(&mut self) {
         // Initialise matrix origin.
-        self.matrix[[0, 0]].score = Score::ZERO;
+        self.matrix[[0, 0]].cost = Cost::ZERO;
         self.matrix[[0, 0]].alignment_type = BaseAlignmentType::None;
 
         // Initialise matrix edges.
         for index in self.reference_index_iter(0).skip(1) {
-            self.set_deletion_score(index);
+            self.set_deletion_cost(index);
         }
         for index in self.query_index_iter(0).skip(1) {
-            self.set_insertion_score(index);
+            self.set_insertion_cost(index);
         }
     }
 
@@ -99,19 +99,19 @@ impl AlignmentMatrix {
         query: &SequenceType,
     ) {
         for index in self.inner_index_iter() {
-            self.set_max_score(index, reference, query);
+            self.set_min_cost(index, reference, query);
         }
     }
 
-    fn set_insertion_score(&mut self, index: AlignmentMatrixIndex) {
+    fn set_insertion_cost(&mut self, index: AlignmentMatrixIndex) {
         self.matrix[index] = self.compute_insertion_entry(index);
     }
 
-    fn set_deletion_score(&mut self, index: AlignmentMatrixIndex) {
+    fn set_deletion_cost(&mut self, index: AlignmentMatrixIndex) {
         self.matrix[index] = self.compute_deletion_entry(index);
     }
 
-    fn set_max_score<
+    fn set_min_cost<
         AlphabetType: Alphabet,
         SequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -126,13 +126,13 @@ impl AlignmentMatrix {
 
         // Handle insertions.
         let insertion_entry = self.compute_insertion_entry(index);
-        if insertion_entry > entry {
+        if insertion_entry < entry {
             entry = insertion_entry;
         }
 
         // Handle deletions.
         let deletion_entry = self.compute_deletion_entry(index);
-        if deletion_entry > entry {
+        if deletion_entry < entry {
             entry = deletion_entry;
         }
 
@@ -141,20 +141,20 @@ impl AlignmentMatrix {
 
     fn compute_insertion_entry(&self, index: AlignmentMatrixIndex) -> AlignmentMatrixEntry {
         let alignment_type = BaseAlignmentType::Insertion;
-        let predecessor_score = self.matrix[index.predecessor(alignment_type)].score;
+        let predecessor_cost = self.matrix[index.predecessor(alignment_type)].cost;
 
         AlignmentMatrixEntry {
-            score: predecessor_score + self.configuration.score(alignment_type),
+            cost: predecessor_cost + self.configuration.cost(alignment_type),
             alignment_type,
         }
     }
 
     fn compute_deletion_entry(&self, index: AlignmentMatrixIndex) -> AlignmentMatrixEntry {
         let alignment_type = BaseAlignmentType::Deletion;
-        let predecessor_score = self.matrix[index.predecessor(alignment_type)].score;
+        let predecessor_cost = self.matrix[index.predecessor(alignment_type)].cost;
 
         AlignmentMatrixEntry {
-            score: predecessor_score + self.configuration.score(alignment_type),
+            cost: predecessor_cost + self.configuration.cost(alignment_type),
             alignment_type,
         }
     }
@@ -175,10 +175,10 @@ impl AlignmentMatrix {
         } else {
             BaseAlignmentType::Substitution
         };
-        let precedessor_score = self.matrix[index.match_or_substitution_predecessor()].score;
+        let precedessor_cost = self.matrix[index.match_or_substitution_predecessor()].cost;
 
         AlignmentMatrixEntry {
-            score: precedessor_score + self.configuration.score(alignment_type),
+            cost: precedessor_cost + self.configuration.cost(alignment_type),
             alignment_type,
         }
     }
@@ -195,7 +195,7 @@ impl AlignmentMatrix {
 
 impl PartialOrd for AlignmentMatrixEntry {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match self.score.partial_cmp(&other.score) {
+        match self.cost.partial_cmp(&other.cost) {
             ord @ (Some(core::cmp::Ordering::Greater | core::cmp::Ordering::Less) | None) => ord,
             ord @ Some(core::cmp::Ordering::Equal) => {
                 if self.alignment_type == other.alignment_type {
@@ -211,7 +211,7 @@ impl PartialOrd for AlignmentMatrixEntry {
 impl Default for AlignmentMatrixEntry {
     fn default() -> Self {
         Self {
-            score: Score::MIN,
+            cost: Cost::MAX,
             alignment_type: BaseAlignmentType::None,
         }
     }
@@ -219,24 +219,21 @@ impl Default for AlignmentMatrixEntry {
 
 impl core::fmt::Display for AlignmentMatrix {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let mut score_column_widths = vec![0; self.matrix.dim().1];
+        let mut cost_column_widths = vec![0; self.matrix.dim().1];
         for reference_index in 0..self.matrix.dim().0 {
-            for (query_index, score_column_width) in score_column_widths.iter_mut().enumerate() {
-                let score = self.matrix[[reference_index, query_index]].score.as_i64();
-                let mut local_score_column_width = 1;
+            for (query_index, cost_column_width) in cost_column_widths.iter_mut().enumerate() {
+                let cost = self.matrix[[reference_index, query_index]].cost.as_u64();
+                let mut local_cost_column_width = 1;
 
-                if score < 0 {
-                    local_score_column_width += 1;
-                }
                 let mut limit = 1;
                 for _ in 1..=10 {
                     limit *= 10;
-                    if score.abs() >= limit {
-                        local_score_column_width += 1;
+                    if cost >= limit {
+                        local_cost_column_width += 1;
                     }
                 }
 
-                *score_column_width = local_score_column_width.max(*score_column_width);
+                *cost_column_width = local_cost_column_width.max(*cost_column_width);
             }
         }
 
@@ -247,8 +244,8 @@ impl core::fmt::Display for AlignmentMatrix {
                 write!(
                     f,
                     "{: >width$}",
-                    self.matrix[[reference_index, query_index]].score.as_i64(),
-                    width = score_column_widths[query_index],
+                    self.matrix[[reference_index, query_index]].cost,
+                    width = cost_column_widths[query_index],
                 )?;
                 write!(
                     f,
@@ -296,27 +293,27 @@ mod tests {
             reference.len(),
             query.len(),
         );
-        assert_eq!(matrix.align(reference, query), 1.into());
+        assert_eq!(matrix.align(reference, query), 3.into());
 
         let mut manual_matrix = matrix.clone();
         manual_matrix.manual_debug_fill(
             [
-                (1, BaseAlignmentType::Match),
-                (-1, BaseAlignmentType::Deletion),
-                (-3, BaseAlignmentType::Deletion),
-                (-1, BaseAlignmentType::Insertion),
-                (2, BaseAlignmentType::Match),
-                (0, BaseAlignmentType::Deletion),
-                (-3, BaseAlignmentType::Insertion),
                 (0, BaseAlignmentType::Match),
-                (1, BaseAlignmentType::Substitution),
-                (-5, BaseAlignmentType::Insertion),
-                (-2, BaseAlignmentType::Insertion),
-                (1, BaseAlignmentType::Match),
+                (3, BaseAlignmentType::Deletion),
+                (6, BaseAlignmentType::Deletion),
+                (3, BaseAlignmentType::Insertion),
+                (0, BaseAlignmentType::Match),
+                (3, BaseAlignmentType::Deletion),
+                (6, BaseAlignmentType::Insertion),
+                (3, BaseAlignmentType::Match),
+                (2, BaseAlignmentType::Substitution),
+                (9, BaseAlignmentType::Insertion),
+                (6, BaseAlignmentType::Insertion),
+                (3, BaseAlignmentType::Match),
             ]
             .into_iter()
-            .map(|(score, alignment_type)| AlignmentMatrixEntry {
-                score: score.into(),
+            .map(|(cost, alignment_type)| AlignmentMatrixEntry {
+                cost: cost.into(),
                 alignment_type,
             }),
         );
@@ -347,6 +344,6 @@ mod tests {
             reference.len(),
             query.len(),
         );
-        assert_eq!(matrix.align(reference, query), 5.into());
+        assert_eq!(matrix.align(reference, query), 4.into());
     }
 }

@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 
-use crate::score::Score;
+use crate::cost::Cost;
 
 use super::AlignmentGraphNode;
 
@@ -10,7 +10,7 @@ use super::AlignmentGraphNode;
 pub(super) struct Node {
     identifier: Identifier,
     predecessor: Option<Identifier>,
-    score: Score,
+    cost: Cost,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -35,10 +35,10 @@ pub enum AlignmentType {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ScoringTable {
-    pub match_score: Score,
-    pub substitution_score: Score,
-    pub gap_open_score: Score,
-    pub gap_extend_score: Score,
+    pub match_cost: Cost,
+    pub substitution_cost: Cost,
+    pub gap_open_cost: Cost,
+    pub gap_extend_cost: Cost,
 }
 
 impl AlignmentGraphNode for Node {
@@ -52,7 +52,7 @@ impl AlignmentGraphNode for Node {
         Self {
             identifier: Identifier::new(0, 0),
             predecessor: None,
-            score: 0.into(),
+            cost: 0.into(),
         }
     }
 
@@ -72,13 +72,13 @@ impl AlignmentGraphNode for Node {
             output.extend([Self {
                 identifier: self.identifier.increment_both(),
                 predecessor: Some(self.identifier),
-                score: self.score
+                cost: self.cost
                     + if reference[self.identifier.reference_index]
                         == query[self.identifier.query_index]
                     {
-                        context.match_score
+                        context.match_cost
                     } else {
-                        context.substitution_score
+                        context.substitution_cost
                     },
             }]);
         }
@@ -87,15 +87,15 @@ impl AlignmentGraphNode for Node {
             output.extend([Self {
                 identifier: self.identifier.increment_reference(),
                 predecessor: Some(self.identifier),
-                score: self.score
+                cost: self.cost
                     + if let Some(predecessor) = self.predecessor {
                         if predecessor.increment_reference() == self.identifier {
-                            context.gap_extend_score
+                            context.gap_extend_cost
                         } else {
-                            context.gap_open_score
+                            context.gap_open_cost
                         }
                     } else {
-                        context.gap_open_score
+                        context.gap_open_cost
                     },
             }]);
         }
@@ -104,15 +104,15 @@ impl AlignmentGraphNode for Node {
             output.extend([Self {
                 identifier: self.identifier.increment_query(),
                 predecessor: Some(self.identifier),
-                score: self.score
+                cost: self.cost
                     + if let Some(predecessor) = self.predecessor {
                         if predecessor.increment_query() == self.identifier {
-                            context.gap_extend_score
+                            context.gap_extend_cost
                         } else {
-                            context.gap_open_score
+                            context.gap_open_cost
                         }
                     } else {
-                        context.gap_open_score
+                        context.gap_open_cost
                     },
             }]);
         }
@@ -122,8 +122,8 @@ impl AlignmentGraphNode for Node {
         &self.identifier
     }
 
-    fn score(&self) -> Score {
-        self.score
+    fn cost(&self) -> Cost {
+        self.cost
     }
 
     fn predecessor(&self) -> Option<&Self::Identifier> {
@@ -181,7 +181,7 @@ impl PartialOrd for Node {
 
 impl Ord for Node {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.score.cmp(&other.score)
+        self.cost.cmp(&other.cost)
     }
 }
 
