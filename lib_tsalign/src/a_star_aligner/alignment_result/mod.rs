@@ -9,15 +9,18 @@ pub struct AlignmentResult<AlignmentType> {
     pub duration_seconds: f64,
     pub opened_nodes: usize,
     pub closed_nodes: usize,
+    pub suboptimal_opened_nodes: usize,
 }
 
 impl<AlignmentType> AlignmentResult<AlignmentType> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         alignment: Vec<(usize, AlignmentType)>,
         cost: Cost,
         duration_seconds: f64,
         opened_nodes: usize,
         closed_nodes: usize,
+        suboptimal_opened_nodes: usize,
         reference_length: usize,
         query_length: usize,
     ) -> Self {
@@ -28,6 +31,7 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
             duration_seconds,
             opened_nodes,
             closed_nodes,
+            suboptimal_opened_nodes,
         }
     }
 
@@ -55,12 +59,17 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
 impl<AlignmentType: Display> Display for AlignmentResult<AlignmentType> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         writeln!(f, "Cost: {}", self.cost)?;
-        writeln!(f, "Cost per base: {:.2}", self.cost_per_base)?;
-        writeln!(f, "Opened nodes: {}", self.opened_nodes)?;
-        writeln!(f, "Closed nodes: {}", self.closed_nodes)?;
         write!(f, "CIGAR: ")?;
         self.write_cigar(f)?;
         writeln!(f)?;
+        writeln!(f, "Cost per base: {:.2}", self.cost_per_base)?;
+        writeln!(f, "Opened nodes: {}", self.opened_nodes)?;
+        writeln!(f, "Closed nodes: {}", self.closed_nodes)?;
+        writeln!(
+            f,
+            "Suboptimal openend nodes: {}",
+            self.suboptimal_opened_nodes
+        )?;
         write!(f, "Duration: {:.2}s", self.duration_seconds)?;
 
         Ok(())

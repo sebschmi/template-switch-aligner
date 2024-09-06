@@ -90,6 +90,8 @@ where
 
     let mut closed_list: HashMap<Node::Identifier, Node> = Default::default();
     let mut open_list = BinaryHeap::new_min();
+    // Opened nodes that do not have optimal costs.
+    let mut suboptimal_opened_nodes = 0;
 
     open_list.push(Node::create_root());
 
@@ -101,6 +103,7 @@ where
         if let Some(previous_visit) = closed_list.get(node.identifier()) {
             // If we have already visited the node, we now must be visiting it with a higher cost.
             debug_assert!(previous_visit.cost() <= node.cost());
+            suboptimal_opened_nodes += 1;
             continue;
         }
 
@@ -152,6 +155,7 @@ where
         duration,
         closed_list.len() + open_list.len(),
         closed_list.len(),
+        suboptimal_opened_nodes,
         reference.len(),
         query.len(),
     )
