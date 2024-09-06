@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, fmt::Display, hash::Hash};
 
 use alignment_result::AlignmentResult;
 use binary_heap_plus::BinaryHeap;
@@ -8,6 +8,8 @@ use crate::cost::Cost;
 
 pub mod alignment_result;
 pub mod gap_affine_edit_distance;
+#[cfg(test)]
+mod tests;
 
 /// A node of the alignment graph.
 /// The node must implement [`Ord`](std::cmp::Ord), ordering it by its cost, ascending.
@@ -81,7 +83,7 @@ fn a_star_align<
     context: Node::Context,
 ) -> AlignmentResult<Node::AlignmentType>
 where
-    Node::Identifier: Hash + Eq + Clone,
+    Node::Identifier: Hash + Eq + Clone + Display,
     Node::AlignmentType: Eq,
 {
     let mut closed_list: HashMap<Node::Identifier, Node> = Default::default();
@@ -95,7 +97,7 @@ where
         };
 
         if let Some(previous_visit) = closed_list.get(node.identifier()) {
-            // If we have already visited the node, we now must be visiting it with a worse cost.
+            // If we have already visited the node, we now must be visiting it with a higher cost.
             debug_assert!(previous_visit.cost() <= node.cost());
             continue;
         }

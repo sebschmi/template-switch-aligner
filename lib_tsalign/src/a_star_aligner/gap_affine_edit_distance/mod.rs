@@ -17,6 +17,14 @@ pub(super) struct Node {
 pub(super) struct Identifier {
     reference_index: usize,
     query_index: usize,
+    gap_type: GapType,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum GapType {
+    Insertion,
+    Deletion,
+    None,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,7 +58,7 @@ impl AlignmentGraphNode for Node {
 
     fn create_root() -> Self {
         Self {
-            identifier: Identifier::new(0, 0),
+            identifier: Identifier::new(0, 0, GapType::None),
             predecessor: None,
             cost: 0.into(),
         }
@@ -169,7 +177,8 @@ impl AlignmentGraphNode for Node {
         query: &SubsequenceType,
         _context: &Self::Context,
     ) -> bool {
-        self.identifier == Identifier::new(reference.len(), query.len())
+        self.identifier.reference_index == reference.len()
+            && self.identifier.query_index == query.len()
     }
 }
 
@@ -181,15 +190,29 @@ impl PartialOrd for Node {
 
 impl Ord for Node {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        /*match self.cost.cmp(&other.cost) {
+            std::cmp::Ordering::Equal => other
+                .identifier
+                .anti_diagonal()
+                .cmp(&self.identifier.anti_diagonal()),
+            ordering => ordering,
+        }*/
+        /*match self.cost.cmp(&other.cost) {
+            std::cmp::Ordering::Equal => self
+                .predecessor_gap_secondary_cost()
+                .cmp(&other.predecessor_gap_secondary_cost()),
+            ordering => ordering,
+        }*/
         self.cost.cmp(&other.cost)
     }
 }
 
 impl Identifier {
-    const fn new(reference_index: usize, query_index: usize) -> Self {
+    const fn new(reference_index: usize, query_index: usize, gap_type: GapType) -> Self {
         Self {
             reference_index,
             query_index,
+            gap_type,
         }
     }
 
@@ -197,6 +220,7 @@ impl Identifier {
         Self {
             reference_index: self.reference_index + 1,
             query_index: self.query_index,
+            gap_type: GapType::Deletion,
         }
     }
 
@@ -204,6 +228,7 @@ impl Identifier {
         Self {
             reference_index: self.reference_index,
             query_index: self.query_index + 1,
+            gap_type: GapType::Insertion,
         }
     }
 
@@ -211,6 +236,7 @@ impl Identifier {
         Self {
             reference_index: self.reference_index + 1,
             query_index: self.query_index + 1,
+            gap_type: GapType::None,
         }
     }
 }
@@ -224,5 +250,11 @@ impl Display for AlignmentType {
             AlignmentType::Match => write!(f, "M"),
             AlignmentType::Root => Ok(()),
         }
+    }
+}
+
+impl Display for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.reference_index, self.query_index)
     }
 }

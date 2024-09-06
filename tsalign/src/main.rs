@@ -21,12 +21,16 @@ use lib_tsalign::{
 #[derive(Parser)]
 struct Cli {
     /// The path to the reference fasta file.
-    #[clap(long, short)]
-    reference: PathBuf,
+    #[clap(long, short, requires = "query")]
+    reference: Option<PathBuf>,
 
     /// The path to the query fasta file.
-    #[clap(long, short)]
-    query: PathBuf,
+    #[clap(long, short, requires = "reference")]
+    query: Option<PathBuf>,
+
+    /// The path to a fasta file containing both the reference and the query.
+    #[clap(long, short, conflicts_with_all = ["reference", "query"])]
+    twin_fasta: Option<PathBuf>,
 
     #[clap(long, short, default_value = "0")]
     match_cost: u64,
@@ -60,11 +64,40 @@ fn main() {
     let cli = Cli::parse();
 
     let mut sequence_store = DefaultSequenceStore::<DnaAlphabet>::new();
-    let reference_sequences = read_fasta_file(&cli.reference, &mut sequence_store).unwrap();
-    let query_sequences = read_fasta_file(&cli.query, &mut sequence_store).unwrap();
 
-    let reference = sequence_store.get(&reference_sequences[0].sequence_handle);
-    let query = sequence_store.get(&query_sequences[0].sequence_handle);
+    let (reference, query) = if let Some(twin_fasta) = &cli.twin_fasta {
+        let sequences = read_fasta_file(twin_fasta, &mut sequence_store).unwrap();
+
+        assert_eq!(
+            sequences.len(),
+            2,
+            "Twin sequence file contains not exactly two records"
+        );
+        (
+            sequence_store.get(&sequences[0].sequence_handle),
+            sequence_store.get(&sequences[1].sequence_handle),
+        )
+    } else if let (Some(reference), Some(query)) = (&cli.reference, &cli.query) {
+        let reference_sequences = read_fasta_file(reference, &mut sequence_store).unwrap();
+        let query_sequences = read_fasta_file(query, &mut sequence_store).unwrap();
+
+        assert_eq!(
+            reference_sequences.len(),
+            1,
+            "Reference sequence file contains not exactly one record"
+        );
+        assert_eq!(
+            query_sequences.len(),
+            1,
+            "Query sequence file contains not exactly one record"
+        );
+        (
+            sequence_store.get(&reference_sequences[0].sequence_handle),
+            sequence_store.get(&query_sequences[0].sequence_handle),
+        )
+    } else {
+        panic!("No fasta input file given")
+    };
 
     match cli.alignment_method {
         AlignmentMethod::Matrix => align_matrix(cli, reference, query),
