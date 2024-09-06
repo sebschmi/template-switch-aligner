@@ -13,7 +13,7 @@ pub struct AlignmentResult<AlignmentType> {
 }
 
 impl<AlignmentType> AlignmentResult<AlignmentType> {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub fn new(
         alignment: Vec<(usize, AlignmentType)>,
         cost: Cost,

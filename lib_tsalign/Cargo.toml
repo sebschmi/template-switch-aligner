@@ -6,7 +6,7 @@ repository = "https://github.com/sebschmi/template-switch-aligner"
 authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
 version = "0.2.1"
 edition = "2021"
-rust-version = "1.80.1"
+rust-version.workspace = true
 
 [dependencies]
 compact-genome.workspace = true

@@ -2,6 +2,7 @@
 
 members = ["tsalign", "lib_tsalign"]
 resolver = "2"
+package.rust-version = "1.81.0"
 
 [workspace.dependencies]
 compact-genome = "3.0.0"
