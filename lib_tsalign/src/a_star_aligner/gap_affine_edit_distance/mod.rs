@@ -190,20 +190,13 @@ impl PartialOrd for Node {
 
 impl Ord for Node {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        /*match self.cost.cmp(&other.cost) {
+        match self.cost.cmp(&other.cost) {
             std::cmp::Ordering::Equal => other
                 .identifier
                 .anti_diagonal()
                 .cmp(&self.identifier.anti_diagonal()),
             ordering => ordering,
-        }*/
-        /*match self.cost.cmp(&other.cost) {
-            std::cmp::Ordering::Equal => self
-                .predecessor_gap_secondary_cost()
-                .cmp(&other.predecessor_gap_secondary_cost()),
-            ordering => ordering,
-        }*/
-        self.cost.cmp(&other.cost)
+        }
     }
 }
 
@@ -238,6 +231,10 @@ impl Identifier {
             query_index: self.query_index + 1,
             gap_type: GapType::None,
         }
+    }
+
+    const fn anti_diagonal(&self) -> usize {
+        self.reference_index + self.query_index
     }
 }
 
