@@ -6,6 +6,7 @@ pub struct AlignmentResult<AlignmentType> {
     pub alignment: Vec<(usize, AlignmentType)>,
     pub cost: Cost,
     pub cost_per_base: f64,
+    pub duration_seconds: f64,
     pub opened_nodes: usize,
     pub closed_nodes: usize,
 }
@@ -14,6 +15,7 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
     pub fn new(
         alignment: Vec<(usize, AlignmentType)>,
         cost: Cost,
+        duration_seconds: f64,
         opened_nodes: usize,
         closed_nodes: usize,
         reference_length: usize,
@@ -23,6 +25,7 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
             alignment,
             cost,
             cost_per_base: (cost.as_u64() * 2) as f64 / (reference_length + query_length) as f64,
+            duration_seconds,
             opened_nodes,
             closed_nodes,
         }
@@ -57,6 +60,8 @@ impl<AlignmentType: Display> Display for AlignmentResult<AlignmentType> {
         writeln!(f, "Closed nodes: {}", self.closed_nodes)?;
         write!(f, "CIGAR: ")?;
         self.write_cigar(f)?;
+        writeln!(f)?;
+        write!(f, "Duration: {:.2}s", self.duration_seconds)?;
 
         Ok(())
     }

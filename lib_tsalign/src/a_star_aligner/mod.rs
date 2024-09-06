@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, hash::Hash};
+use std::{collections::HashMap, fmt::Display, hash::Hash, time::Instant};
 
 use alignment_result::AlignmentResult;
 use binary_heap_plus::BinaryHeap;
@@ -86,6 +86,8 @@ where
     Node::Identifier: Hash + Eq + Clone + Display,
     Node::AlignmentType: Eq,
 {
+    let start_time = Instant::now();
+
     let mut closed_list: HashMap<Node::Identifier, Node> = Default::default();
     let mut open_list = BinaryHeap::new_min();
 
@@ -140,9 +142,14 @@ where
     // Pop root element.
     alignment.pop().unwrap();
     alignment.reverse();
+
+    let end_time = Instant::now();
+    let duration = (end_time - start_time).as_secs_f64();
+
     AlignmentResult::new(
         alignment,
         cost,
+        duration,
         closed_list.len() + open_list.len(),
         closed_list.len(),
         reference.len(),

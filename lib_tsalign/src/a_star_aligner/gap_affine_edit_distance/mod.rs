@@ -191,6 +191,10 @@ impl PartialOrd for Node {
 impl Ord for Node {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match self.cost.cmp(&other.cost) {
+            // This secondary ordering may make things actually slower.
+            // While it does reduce the number of visited nodes a little bit,
+            // it also makes heap operations more expensive.
+            // Preliminary testing showed that this would be a slowdown.
             std::cmp::Ordering::Equal => other
                 .identifier
                 .anti_diagonal()
