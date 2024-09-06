@@ -10,6 +10,7 @@ pub struct AlignmentResult<AlignmentType> {
     pub opened_nodes: usize,
     pub closed_nodes: usize,
     pub suboptimal_opened_nodes: usize,
+    pub suboptimal_opened_nodes_ratio: f64,
 }
 
 impl<AlignmentType> AlignmentResult<AlignmentType> {
@@ -32,6 +33,8 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
             opened_nodes,
             closed_nodes,
             suboptimal_opened_nodes,
+            suboptimal_opened_nodes_ratio: suboptimal_opened_nodes as f64
+                / (opened_nodes - suboptimal_opened_nodes) as f64,
         }
     }
 
@@ -69,6 +72,11 @@ impl<AlignmentType: Display> Display for AlignmentResult<AlignmentType> {
             f,
             "Suboptimal openend nodes: {}",
             self.suboptimal_opened_nodes
+        )?;
+        writeln!(
+            f,
+            "Suboptimal openend nodes per optimal opened node: {:.2}",
+            self.suboptimal_opened_nodes_ratio
         )?;
         write!(f, "Duration: {:.2}s", self.duration_seconds)?;
 

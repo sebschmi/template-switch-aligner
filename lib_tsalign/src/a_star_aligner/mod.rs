@@ -90,6 +90,7 @@ where
 
     let mut closed_list: HashMap<Node::Identifier, Node> = Default::default();
     let mut open_list = BinaryHeap::new_min();
+    let mut opened_nodes = 0;
     // Opened nodes that do not have optimal costs.
     let mut suboptimal_opened_nodes = 0;
 
@@ -113,7 +114,9 @@ where
             break identifier;
         }
 
+        let open_nodes_without_new_successors = open_list.len();
         node.generate_successors(reference, query, &context, &mut open_list);
+        opened_nodes += open_list.len() - open_nodes_without_new_successors;
 
         closed_list.insert(node.identifier().clone(), node);
     };
@@ -153,7 +156,7 @@ where
         alignment,
         cost,
         duration,
-        closed_list.len() + open_list.len(),
+        opened_nodes,
         closed_list.len(),
         suboptimal_opened_nodes,
         reference.len(),
