@@ -6,7 +6,7 @@ use lib_tsalign::a_star_aligner::{
             node_ord::{AntiDiagonalNodeOrdStrategy, CostOnlyNodeOrdStrategy, NodeOrdStrategy},
             AlignmentStrategySelection,
         },
-        ScoringTable,
+        Context, ScoringTable,
     },
     template_switch_distance_a_star_align,
 };
@@ -65,11 +65,15 @@ fn align_a_star_template_switch_distance_call<
         template_switch_distance_a_star_align::<_, _, AlignmentStrategySelection<NodeOrd>>(
             reference,
             query,
-            ScoringTable {
-                match_cost: cli.match_cost.into(),
-                substitution_cost: cli.substitution_cost.into(),
-                gap_open_cost: cli.gap_open_cost.into(),
-                gap_extend_cost: cli.gap_extend_cost.into(),
+            Context {
+                scoring_table: ScoringTable {
+                    match_cost: cli.match_cost.into(),
+                    substitution_cost: cli.substitution_cost.into(),
+                    gap_open_cost: cli.gap_open_cost.into(),
+                    gap_extend_cost: cli.gap_extend_cost.into(),
+                },
+                flank_length: cli.ts_flank_length,
+                flank_non_match_extra_cost: cli.ts_flank_non_match_extra_cost.into(),
             },
         );
 

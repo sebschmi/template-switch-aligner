@@ -29,7 +29,7 @@ pub trait AlignmentGraphNode: Sized + Ord {
     type AlignmentType;
 
     /// Create the root node of the alignment graph.
-    fn create_root() -> Self;
+    fn create_root(context: &Self::Context) -> Self;
 
     /// Generate the successors of this node.
     fn generate_successors<
@@ -96,7 +96,7 @@ where
     // Opened nodes that do not have optimal costs.
     let mut suboptimal_opened_nodes = 0;
 
-    open_list.push(Node::create_root());
+    open_list.push(Node::create_root(&context));
 
     let target_node_identifier = loop {
         let Some(node) = open_list.pop() else {
@@ -184,7 +184,7 @@ pub fn template_switch_distance_a_star_align<
 >(
     reference: &SubsequenceType,
     query: &SubsequenceType,
-    context: template_switch_distance::ScoringTable,
+    context: template_switch_distance::Context,
 ) -> AlignmentResult<template_switch_distance::AlignmentType> {
     a_star_align::<_, _, template_switch_distance::Node<Strategies>>(reference, query, context)
 }

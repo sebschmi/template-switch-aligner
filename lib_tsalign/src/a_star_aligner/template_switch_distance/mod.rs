@@ -26,6 +26,7 @@ pub enum Identifier {
     Primary {
         reference_index: usize,
         query_index: usize,
+        steps_since_last_template_switch: usize,
         gap_type: GapType,
     },
 }
@@ -59,21 +60,28 @@ pub struct ScoringTable {
     pub gap_extend_cost: Cost,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Context {
+    pub scoring_table: ScoringTable,
+    pub flank_length: usize,
+    pub flank_non_match_extra_cost: Cost,
+}
+
 impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode for Node<Strategies> {
     type Identifier = Identifier;
 
-    type Context = ScoringTable;
+    type Context = Context;
 
     type AlignmentType = AlignmentType;
 
-    fn create_root() -> Self {
+    fn create_root(context: &Self::Context) -> Self {
         Self {
             node_data: NodeData {
-                identifier: Identifier::new_primary(0, 0, GapType::None),
+                identifier: Identifier::new_primary(0, 0, usize::MAX, GapType::None),
                 predecessor: None,
                 cost: Cost::ZERO,
             },
-            strategies: AlignmentStrategy::create_root(),
+            strategies: AlignmentStrategy::create_root(context),
         }
     }
 
@@ -92,54 +100,55 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode for Node<Strategi
                 reference_index,
                 query_index,
                 gap_type,
+                ..
             } => {
                 if reference_index < reference.len() && query_index < query.len() {
                     output.extend([Self {
                         node_data: NodeData {
-                            identifier: self.node_data.identifier.increment_both(),
+                            identifier: self.node_data.identifier.generate_diagonal_successor(),
                             predecessor: Some(self.node_data.identifier),
                             cost: self.node_data.cost
                                 + if reference[reference_index] == query[query_index] {
-                                    context.match_cost
+                                    context.scoring_table.match_cost
                                 } else {
-                                    context.substitution_cost
+                                    context.scoring_table.substitution_cost
                                 },
                         },
-                        strategies: self.strategies.generate_successor(),
+                        strategies: self.strategies.generate_successor(context),
                     }]);
                 }
 
                 if reference_index < reference.len() {
-                    let identifier = self.node_data.identifier.increment_reference();
+                    let identifier = self.node_data.identifier.generate_deletion_successor();
                     output.extend([Self {
                         node_data: NodeData {
                             identifier,
                             predecessor: Some(self.node_data.identifier),
                             cost: self.node_data.cost
                                 + if gap_type == identifier.gap_type() {
-                                    context.gap_extend_cost
+                                    context.scoring_table.gap_extend_cost
                                 } else {
-                                    context.gap_open_cost
+                                    context.scoring_table.gap_open_cost
                                 },
                         },
-                        strategies: self.strategies.generate_successor(),
+                        strategies: self.strategies.generate_successor(context),
                     }]);
                 }
 
                 if query_index < query.len() {
-                    let identifier = self.node_data.identifier.increment_query();
+                    let identifier = self.node_data.identifier.generate_insertion_successor();
                     output.extend([Self {
                         node_data: NodeData {
                             identifier,
                             predecessor: Some(self.node_data.identifier),
                             cost: self.node_data.cost
                                 + if gap_type == identifier.gap_type() {
-                                    context.gap_extend_cost
+                                    context.scoring_table.gap_extend_cost
                                 } else {
-                                    context.gap_open_cost
+                                    context.scoring_table.gap_open_cost
                                 },
                         },
-                        strategies: self.strategies.generate_successor(),
+                        strategies: self.strategies.generate_successor(context),
                     }]);
                 }
             }
@@ -173,6 +182,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode for Node<Strategi
                     reference_index,
                     query_index,
                     gap_type,
+                    ..
                 } => match gap_type {
                     GapType::Insertion => AlignmentType::Insertion,
                     GapType::Deletion => AlignmentType::Deletion,
@@ -218,51 +228,66 @@ impl<Strategies: AlignmentStrategySelector> Ord for Node<Strategies> {
 }
 
 impl Identifier {
-    const fn new_primary(reference_index: usize, query_index: usize, gap_type: GapType) -> Self {
+    const fn new_primary(
+        reference_index: usize,
+        query_index: usize,
+        steps_since_last_template_switch: usize,
+        gap_type: GapType,
+    ) -> Self {
         Self::Primary {
             reference_index,
             query_index,
+            steps_since_last_template_switch,
             gap_type,
         }
     }
 
-    const fn increment_reference(self) -> Self {
+    const fn generate_deletion_successor(self) -> Self {
         match self {
             Self::Primary {
                 reference_index,
                 query_index,
+                steps_since_last_template_switch,
                 ..
             } => Self::Primary {
                 reference_index: reference_index + 1,
                 query_index,
+                steps_since_last_template_switch: steps_since_last_template_switch
+                    .saturating_add(1),
                 gap_type: GapType::Deletion,
             },
         }
     }
 
-    const fn increment_query(self) -> Self {
+    const fn generate_insertion_successor(self) -> Self {
         match self {
             Self::Primary {
                 reference_index,
                 query_index,
+                steps_since_last_template_switch,
                 ..
             } => Self::Primary {
                 reference_index,
                 query_index: query_index + 1,
+                steps_since_last_template_switch: steps_since_last_template_switch
+                    .saturating_add(1),
                 gap_type: GapType::Insertion,
             },
         }
     }
 
-    const fn increment_both(self) -> Self {
+    const fn generate_diagonal_successor(self) -> Self {
         match self {
             Self::Primary {
                 reference_index,
                 query_index,
+                steps_since_last_template_switch,
                 ..
             } => Self::Primary {
                 reference_index: reference_index + 1,
                 query_index: query_index + 1,
+                steps_since_last_template_switch: steps_since_last_template_switch
+                    .saturating_add(1),
                 gap_type: GapType::None,
             },
         }
@@ -320,11 +345,12 @@ impl std::fmt::Display for Identifier {
             Self::Primary {
                 reference_index,
                 query_index,
+                steps_since_last_template_switch,
                 gap_type,
             } => write!(
                 f,
-                "Primary({}, {}, {})",
-                reference_index, query_index, gap_type
+                "Primary({}, {}, {}, {})",
+                reference_index, query_index, steps_since_last_template_switch, gap_type
             ),
         }
     }

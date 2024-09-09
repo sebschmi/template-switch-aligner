@@ -53,6 +53,12 @@ struct Cli {
     #[clap(long, short = 'e', default_value = "1")]
     gap_extend_cost: u64,
 
+    #[clap(long, default_value = "5")]
+    ts_flank_length: usize,
+
+    #[clap(long, default_value = "1")]
+    ts_flank_non_match_extra_cost: u64,
+
     #[clap(long, default_value = "a-star-template-switch")]
     alignment_method: AlignmentMethod,
 

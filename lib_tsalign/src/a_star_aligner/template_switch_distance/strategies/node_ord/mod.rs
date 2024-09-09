@@ -1,4 +1,4 @@
-use crate::a_star_aligner::template_switch_distance::NodeData;
+use crate::a_star_aligner::template_switch_distance::{Context, NodeData};
 
 use super::AlignmentStrategy;
 
@@ -35,21 +35,21 @@ impl NodeOrdStrategy for AntiDiagonalNodeOrdStrategy {
 }
 
 impl AlignmentStrategy for CostOnlyNodeOrdStrategy {
-    fn create_root() -> Self {
+    fn create_root(_context: &Context) -> Self {
         Self
     }
 
-    fn generate_successor(&self) -> Self {
+    fn generate_successor(&self, _context: &Context) -> Self {
         *self
     }
 }
 
 impl AlignmentStrategy for AntiDiagonalNodeOrdStrategy {
-    fn create_root() -> Self {
+    fn create_root(_context: &Context) -> Self {
         Self
     }
 
-    fn generate_successor(&self) -> Self {
+    fn generate_successor(&self, _context: &Context) -> Self {
         *self
     }
 }

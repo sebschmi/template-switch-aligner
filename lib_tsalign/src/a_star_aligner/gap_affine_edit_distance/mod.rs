@@ -54,7 +54,7 @@ impl AlignmentGraphNode for Node {
 
     type AlignmentType = AlignmentType;
 
-    fn create_root() -> Self {
+    fn create_root(_context: &Self::Context) -> Self {
         Self {
             identifier: Identifier::new(0, 0, GapType::None),
             predecessor: None,
