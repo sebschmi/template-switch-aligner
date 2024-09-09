@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 
 use crate::cost::Cost;
@@ -60,7 +58,7 @@ impl AlignmentGraphNode for Node {
         Self {
             identifier: Identifier::new(0, 0, GapType::None),
             predecessor: None,
-            cost: 0.into(),
+            cost: Cost::ZERO,
         }
     }
 
@@ -242,7 +240,7 @@ impl Identifier {
     }
 }
 
-impl Display for AlignmentType {
+impl std::fmt::Display for AlignmentType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AlignmentType::Insertion => write!(f, "I"),
@@ -254,8 +252,22 @@ impl Display for AlignmentType {
     }
 }
 
-impl Display for Identifier {
+impl std::fmt::Display for GapType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}, {})", self.reference_index, self.query_index)
+        match self {
+            GapType::Insertion => write!(f, "I"),
+            GapType::Deletion => write!(f, "D"),
+            GapType::None => write!(f, "M/S"),
+        }
+    }
+}
+
+impl std::fmt::Display for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "({}, {}, {})",
+            self.reference_index, self.query_index, self.gap_type
+        )
     }
 }

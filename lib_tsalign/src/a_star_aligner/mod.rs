@@ -8,6 +8,7 @@ use crate::cost::Cost;
 
 pub mod alignment_result;
 pub mod gap_affine_edit_distance;
+pub mod template_switch_distance;
 #[cfg(test)]
 mod tests;
 
@@ -173,4 +174,15 @@ pub fn gap_affine_edit_distance_a_star_align<
     context: gap_affine_edit_distance::ScoringTable,
 ) -> AlignmentResult<gap_affine_edit_distance::AlignmentType> {
     a_star_align::<_, _, gap_affine_edit_distance::Node>(reference, query, context)
+}
+
+pub fn template_switch_distance_a_star_align<
+    AlphabetType: Alphabet,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+>(
+    reference: &SubsequenceType,
+    query: &SubsequenceType,
+    context: template_switch_distance::ScoringTable,
+) -> AlignmentResult<template_switch_distance::AlignmentType> {
+    a_star_align::<_, _, template_switch_distance::Node>(reference, query, context)
 }

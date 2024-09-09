@@ -12,7 +12,8 @@ use compact_genome::{
 };
 use lib_tsalign::{
     a_star_aligner::{
-        gap_affine_edit_distance::ScoringTable, gap_affine_edit_distance_a_star_align,
+        gap_affine_edit_distance, gap_affine_edit_distance_a_star_align, template_switch_distance,
+        template_switch_distance_a_star_align,
     },
     alignment_configuration::AlignmentConfiguration,
     alignment_matrix::AlignmentMatrix,
@@ -50,14 +51,15 @@ struct Cli {
     #[clap(long, short = 'e', default_value = "1")]
     gap_extend_cost: u64,
 
-    #[clap(long, default_value = "a-star-gap-affine-edit-distance")]
+    #[clap(long, default_value = "a-star-template-switch")]
     alignment_method: AlignmentMethod,
 }
 
 #[derive(Clone, ValueEnum)]
 enum AlignmentMethod {
     Matrix,
-    AStarGapAffineEditDistance,
+    AStarGapAffine,
+    AStarTemplateSwitch,
 }
 
 fn main() {
@@ -101,32 +103,13 @@ fn main() {
 
     match cli.alignment_method {
         AlignmentMethod::Matrix => align_matrix(cli, reference, query),
-        AlignmentMethod::AStarGapAffineEditDistance => {
+        AlignmentMethod::AStarGapAffine => {
             align_a_star_gap_affine_edit_distance(cli, reference, query)
         }
+        AlignmentMethod::AStarTemplateSwitch => {
+            align_a_star_template_switch_distance(cli, reference, query)
+        }
     }
-}
-
-fn align_a_star_gap_affine_edit_distance<
-    AlphabetType: Alphabet,
-    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
->(
-    cli: Cli,
-    reference: &SubsequenceType,
-    query: &SubsequenceType,
-) {
-    let alignment = gap_affine_edit_distance_a_star_align(
-        reference,
-        query,
-        ScoringTable {
-            match_cost: cli.match_cost.into(),
-            substitution_cost: cli.substitution_cost.into(),
-            gap_open_cost: cli.gap_open_cost.into(),
-            gap_extend_cost: cli.gap_extend_cost.into(),
-        },
-    );
-
-    println!("{}", alignment);
 }
 
 fn align_matrix<
@@ -147,4 +130,48 @@ fn align_matrix<
     let mut alignment_matrix = AlignmentMatrix::new(configuration, reference.len(), query.len());
     let cost = alignment_matrix.align(reference, query);
     println!("Cost: {}", cost);
+}
+
+fn align_a_star_gap_affine_edit_distance<
+    AlphabetType: Alphabet,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+>(
+    cli: Cli,
+    reference: &SubsequenceType,
+    query: &SubsequenceType,
+) {
+    let alignment = gap_affine_edit_distance_a_star_align(
+        reference,
+        query,
+        gap_affine_edit_distance::ScoringTable {
+            match_cost: cli.match_cost.into(),
+            substitution_cost: cli.substitution_cost.into(),
+            gap_open_cost: cli.gap_open_cost.into(),
+            gap_extend_cost: cli.gap_extend_cost.into(),
+        },
+    );
+
+    println!("{}", alignment);
+}
+
+fn align_a_star_template_switch_distance<
+    AlphabetType: Alphabet,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+>(
+    cli: Cli,
+    reference: &SubsequenceType,
+    query: &SubsequenceType,
+) {
+    let alignment = template_switch_distance_a_star_align(
+        reference,
+        query,
+        template_switch_distance::ScoringTable {
+            match_cost: cli.match_cost.into(),
+            substitution_cost: cli.substitution_cost.into(),
+            gap_open_cost: cli.gap_open_cost.into(),
+            gap_extend_cost: cli.gap_extend_cost.into(),
+        },
+    );
+
+    println!("{}", alignment);
 }
