@@ -11,13 +11,15 @@ use compact_genome::{
     io::fasta::read_fasta_file,
 };
 use lib_tsalign::{
-    a_star_aligner::{
-        gap_affine_edit_distance, gap_affine_edit_distance_a_star_align, template_switch_distance,
-        template_switch_distance_a_star_align,
-    },
+    a_star_aligner::{gap_affine_edit_distance, gap_affine_edit_distance_a_star_align},
     alignment_configuration::AlignmentConfiguration,
     alignment_matrix::AlignmentMatrix,
 };
+use template_switch_distance_type_selectors::{
+    align_a_star_template_switch_distance, TemplateSwitchNodeOrdStrategy,
+};
+
+mod template_switch_distance_type_selectors;
 
 #[derive(Parser)]
 struct Cli {
@@ -53,6 +55,9 @@ struct Cli {
 
     #[clap(long, default_value = "a-star-template-switch")]
     alignment_method: AlignmentMethod,
+
+    #[clap(long, default_value = "anti-diagonal")]
+    ts_node_ord_strategy: TemplateSwitchNodeOrdStrategy,
 }
 
 #[derive(Clone, ValueEnum)]
@@ -144,28 +149,6 @@ fn align_a_star_gap_affine_edit_distance<
         reference,
         query,
         gap_affine_edit_distance::ScoringTable {
-            match_cost: cli.match_cost.into(),
-            substitution_cost: cli.substitution_cost.into(),
-            gap_open_cost: cli.gap_open_cost.into(),
-            gap_extend_cost: cli.gap_extend_cost.into(),
-        },
-    );
-
-    println!("{}", alignment);
-}
-
-fn align_a_star_template_switch_distance<
-    AlphabetType: Alphabet,
-    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
->(
-    cli: Cli,
-    reference: &SubsequenceType,
-    query: &SubsequenceType,
-) {
-    let alignment = template_switch_distance_a_star_align(
-        reference,
-        query,
-        template_switch_distance::ScoringTable {
             match_cost: cli.match_cost.into(),
             substitution_cost: cli.substitution_cost.into(),
             gap_open_cost: cli.gap_open_cost.into(),

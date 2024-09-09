@@ -3,6 +3,7 @@ use std::{collections::HashMap, fmt::Display, hash::Hash, time::Instant};
 use alignment_result::AlignmentResult;
 use binary_heap_plus::BinaryHeap;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
+use template_switch_distance::strategies::AlignmentStrategySelector;
 
 use crate::cost::Cost;
 
@@ -179,10 +180,11 @@ pub fn gap_affine_edit_distance_a_star_align<
 pub fn template_switch_distance_a_star_align<
     AlphabetType: Alphabet,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    Strategies: AlignmentStrategySelector,
 >(
     reference: &SubsequenceType,
     query: &SubsequenceType,
     context: template_switch_distance::ScoringTable,
 ) -> AlignmentResult<template_switch_distance::AlignmentType> {
-    a_star_align::<_, _, template_switch_distance::Node>(reference, query, context)
+    a_star_align::<_, _, template_switch_distance::Node<Strategies>>(reference, query, context)
 }
