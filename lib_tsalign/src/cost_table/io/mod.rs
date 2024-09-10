@@ -9,7 +9,7 @@ use nom::{
     bytes::complete::{tag, take, take_till1},
     character::complete::{char, satisfy},
     combinator::opt,
-    multi::{many0, many1},
+    multi::{count, many0, many1},
     sequence::{preceded, tuple},
     IResult,
 };
@@ -38,16 +38,25 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
     }
 }
 
-#[expect(unused)]
 fn parse_plain<AlphabetType: Alphabet>(
     input: &str,
 ) -> IResult<&str, GapAffineAlignmentCostTable<AlphabetType>> {
     let (input, name) = opt(parse_name)(input)?;
-    let (input, substitution_table) = parse_substitution_table::<AlphabetType>(input)?;
+    let (input, substitution_cost_table) = parse_substitution_cost_table::<AlphabetType>(input)?;
+    let (input, gap_open_cost_vector) = parse_gap_open_cost_vector::<AlphabetType>(input)?;
+    let (input, gap_extend_cost_vector) = parse_gap_extend_cost_vector::<AlphabetType>(input)?;
 
     let name = name.unwrap_or("").to_string();
 
-    todo!()
+    let cost_table = GapAffineAlignmentCostTable {
+        name,
+        substitution_cost_table,
+        gap_open_cost_vector,
+        gap_extend_cost_vector,
+        phantom_data: Default::default(),
+    };
+
+    Ok((input, cost_table))
 }
 
 fn parse_name(input: &str) -> IResult<&str, &str> {
@@ -57,15 +66,14 @@ fn parse_name(input: &str) -> IResult<&str, &str> {
     take_till1(is_any_whitespace)(input)
 }
 
-#[expect(unused)]
-fn parse_substitution_table<AlphabetType: Alphabet>(input: &str) -> IResult<&str, Vec<Cost>> {
+fn parse_substitution_cost_table<AlphabetType: Alphabet>(input: &str) -> IResult<&str, Vec<Cost>> {
     // Identifier
     let input = skip_any_whitespace(input)?;
-    let input = tag("SubstitutionTable")(input)?.0;
+    let input = tag("SubstitutionCostTable")(input)?.0;
 
     // First row gives the order of the characters in the columns
     let (input, column_character_order) =
-        parse_substitution_table_first_row::<AlphabetType>(input)?;
+        parse_substitution_cost_table_first_row::<AlphabetType>(input)?;
 
     // Next is a fancy separator line
     let input = tuple((
@@ -77,27 +85,129 @@ fn parse_substitution_table<AlphabetType: Alphabet>(input: &str) -> IResult<&str
     .0;
 
     // Then we have the rows
-    todo!()
+    let (input, mut rows) = count(
+        parse_substitution_cost_table_row::<AlphabetType>,
+        AlphabetType::SIZE,
+    )(input)?;
+    rows.sort_unstable_by_key(|(character, _)| character.index());
+
+    // And finally we can write everything into a matrix, ensuring that everything is in the correct order
+    let mut substitution_cost_table = Vec::with_capacity(AlphabetType::SIZE * AlphabetType::SIZE);
+    for (_, row) in rows.iter() {
+        for column in 0..AlphabetType::SIZE {
+            let column_index = column_character_order
+                .iter()
+                .position(|character| character.index() == column)
+                .unwrap();
+            substitution_cost_table.push(row[column_index]);
+        }
+    }
+
+    Ok((input, substitution_cost_table))
 }
 
-fn parse_substitution_table_first_row<AlphabetType: Alphabet>(
+fn parse_substitution_cost_table_first_row<AlphabetType: Alphabet>(
     input: &str,
 ) -> IResult<&str, Vec<AlphabetType::CharacterType>> {
     let input = skip_any_whitespace(input)?;
     let input = tag("|")(input)?.0;
-    let (input, characters) = many1(preceded(
-        parse_whitespace,
-        parse_alphabet_character::<AlphabetType::CharacterType>,
-    ))(input)?;
+    let (input, characters) = count(
+        preceded(
+            parse_whitespace,
+            parse_alphabet_character::<AlphabetType::CharacterType>,
+        ),
+        AlphabetType::SIZE,
+    )(input)?;
 
-    if characters.len() == AlphabetType::SIZE {
-        Ok((input, characters))
-    } else {
+    let mut sorted_characters = characters.clone();
+    sorted_characters.sort();
+    sorted_characters.dedup();
+
+    if characters.len() != AlphabetType::SIZE || sorted_characters.len() != AlphabetType::SIZE {
         Err(nom::Err::Failure(nom::error::Error {
             input,
             code: nom::error::ErrorKind::Verify,
         }))
+    } else {
+        Ok((input, characters))
     }
+}
+
+fn parse_substitution_cost_table_row<AlphabetType: Alphabet>(
+    input: &str,
+) -> IResult<&str, (AlphabetType::CharacterType, Vec<Cost>)> {
+    let input = skip_any_whitespace(input)?;
+    let (input, character) = parse_alphabet_character(input)?;
+    let input = skip_whitespace(input)?;
+    let input = tag("|")(input)?.0;
+    let (input, cost_vector) = count(
+        preceded(parse_whitespace, nom::character::complete::u64),
+        AlphabetType::SIZE,
+    )(input)?;
+    let cost_vector = cost_vector.into_iter().map(Cost::from).collect();
+    Ok((input, (character, cost_vector)))
+}
+
+fn parse_gap_open_cost_vector<AlphabetType: Alphabet>(input: &str) -> IResult<&str, Vec<Cost>> {
+    // Identifier
+    let input = skip_any_whitespace(input)?;
+    let input = tag("GapOpenCostVector")(input)?.0;
+
+    parse_cost_vector::<AlphabetType>(input)
+}
+
+fn parse_gap_extend_cost_vector<AlphabetType: Alphabet>(input: &str) -> IResult<&str, Vec<Cost>> {
+    // Identifier
+    let input = skip_any_whitespace(input)?;
+    let input = tag("GapExtendCostVector")(input)?.0;
+
+    parse_cost_vector::<AlphabetType>(input)
+}
+
+fn parse_cost_vector<AlphabetType: Alphabet>(input: &str) -> IResult<&str, Vec<Cost>> {
+    let (input, index_row) = parse_cost_vector_index_row::<AlphabetType>(input)?;
+    let (input, value_row) = parse_cost_vector_value_row::<AlphabetType>(input)?;
+
+    let mut combined_row: Vec<_> = index_row.into_iter().zip(value_row).collect();
+    combined_row.sort_unstable_by_key(|(character, _)| character.index());
+    let cost_vector = combined_row.into_iter().map(|(_, cost)| cost).collect();
+    Ok((input, cost_vector))
+}
+
+fn parse_cost_vector_index_row<AlphabetType: Alphabet>(
+    input: &str,
+) -> IResult<&str, Vec<AlphabetType::CharacterType>> {
+    let input = skip_any_whitespace(input)?;
+    let (input, characters) = count(
+        preceded(
+            parse_whitespace,
+            parse_alphabet_character::<AlphabetType::CharacterType>,
+        ),
+        AlphabetType::SIZE,
+    )(input)?;
+
+    let mut sorted_characters = characters.clone();
+    sorted_characters.sort();
+    sorted_characters.dedup();
+
+    if characters.len() != AlphabetType::SIZE || sorted_characters.len() != AlphabetType::SIZE {
+        Err(nom::Err::Failure(nom::error::Error {
+            input,
+            code: nom::error::ErrorKind::Verify,
+        }))
+    } else {
+        Ok((input, characters))
+    }
+}
+
+fn parse_cost_vector_value_row<AlphabetType: Alphabet>(input: &str) -> IResult<&str, Vec<Cost>> {
+    let input = skip_any_whitespace(input)?;
+    let (input, cost_vector) = count(
+        preceded(parse_whitespace, nom::character::complete::u64),
+        AlphabetType::SIZE,
+    )(input)?;
+    let cost_vector = cost_vector.into_iter().map(Cost::from).collect();
+    Ok((input, cost_vector))
 }
 
 fn parse_alphabet_character<CharacterType: AlphabetCharacter>(

@@ -9,7 +9,7 @@ pub mod io;
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct GapAffineAlignmentCostTable<AlphabetType: Alphabet> {
     name: String,
-    substitution_table: Vec<Cost>,
+    substitution_cost_table: Vec<Cost>,
     gap_open_cost_vector: Vec<Cost>,
     gap_extend_cost_vector: Vec<Cost>,
     phantom_data: PhantomData<AlphabetType>,
@@ -18,13 +18,13 @@ pub struct GapAffineAlignmentCostTable<AlphabetType: Alphabet> {
 impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
     pub fn new(
         name: impl Into<String>,
-        substitution_table: impl Into<Vec<Cost>>,
+        substitution_cost_table: impl Into<Vec<Cost>>,
         gap_open_cost_vector: impl Into<Vec<Cost>>,
         gap_extend_cost_vector: impl Into<Vec<Cost>>,
     ) -> Self {
         Self {
             name: name.into(),
-            substitution_table: substitution_table.into(),
+            substitution_cost_table: substitution_cost_table.into(),
             gap_open_cost_vector: gap_open_cost_vector.into(),
             gap_extend_cost_vector: gap_extend_cost_vector.into(),
             phantom_data: Default::default(),
@@ -34,7 +34,7 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
     pub fn new_zero() -> Self {
         Self {
             name: "new_zero".to_string(),
-            substitution_table: vec![Cost::ZERO; AlphabetType::SIZE * AlphabetType::SIZE],
+            substitution_cost_table: vec![Cost::ZERO; AlphabetType::SIZE * AlphabetType::SIZE],
             gap_open_cost_vector: vec![Cost::ZERO; AlphabetType::SIZE],
             gap_extend_cost_vector: vec![Cost::ZERO; AlphabetType::SIZE],
             phantom_data: Default::default(),
@@ -53,7 +53,7 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         let c1 = c1.into().index();
         let c2 = c2.into().index();
 
-        self.substitution_table[c1 * AlphabetType::SIZE + c2]
+        self.substitution_cost_table[c1 * AlphabetType::SIZE + c2]
     }
 
     pub fn gap_open_cost(&self, c: impl Into<AlphabetType::CharacterType>) -> Cost {
