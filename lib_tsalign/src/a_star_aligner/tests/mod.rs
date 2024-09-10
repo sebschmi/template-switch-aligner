@@ -1,9 +1,6 @@
 use compact_genome::{
-    implementation::vec_sequence::VectorGenome,
-    interface::{
-        alphabet::dna_alphabet::DnaAlphabet,
-        sequence::{GenomeSequence, OwnedGenomeSequence},
-    },
+    implementation::{alphabets::dna_alphabet::DnaAlphabet, vec_sequence::VectorGenome},
+    interface::sequence::{GenomeSequence, OwnedGenomeSequence},
 };
 
 use super::{gap_affine_edit_distance::ScoringTable, gap_affine_edit_distance_a_star_align};

@@ -268,8 +268,10 @@ impl core::fmt::Display for AlignmentMatrix {
 #[cfg(test)]
 mod tests {
     use compact_genome::{
-        implementation::bit_vec_sequence_store::BitVectorSequenceStore,
-        interface::{alphabet::dna_alphabet::DnaAlphabet, sequence_store::SequenceStore},
+        implementation::{
+            alphabets::dna_alphabet::DnaAlphabet, bit_vec_sequence_store::BitVectorSequenceStore,
+        },
+        interface::sequence_store::SequenceStore,
     };
     use traitsequence::interface::Sequence;
 

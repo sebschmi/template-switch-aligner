@@ -2,12 +2,8 @@ use std::path::PathBuf;
 
 use clap::{Parser, ValueEnum};
 use compact_genome::{
-    implementation::DefaultSequenceStore,
-    interface::{
-        alphabet::{dna_alphabet::DnaAlphabet, Alphabet},
-        sequence::GenomeSequence,
-        sequence_store::SequenceStore,
-    },
+    implementation::{alphabets::dna_alphabet::DnaAlphabet, DefaultSequenceStore},
+    interface::{alphabet::Alphabet, sequence::GenomeSequence, sequence_store::SequenceStore},
     io::fasta::read_fasta_file,
 };
 use lib_tsalign::{

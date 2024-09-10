@@ -4,7 +4,6 @@ use node_ord::NodeOrdStrategy;
 
 use super::Context;
 
-pub mod flank_cost;
 pub mod node_ord;
 
 pub trait AlignmentStrategySelector: Eq + Clone + std::fmt::Debug {
