@@ -16,6 +16,9 @@ use nom::{
 
 use std::io::{Read, Write};
 
+#[cfg(test)]
+mod tests;
+
 impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
     pub fn read_plain(mut reader: impl Read) -> Result<Self> {
         let mut input = String::new();
@@ -32,9 +35,98 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
             .map(|(_, output)| output)
     }
 
-    #[expect(unused)]
-    pub fn write_plain(&self, writer: impl Write) -> Result<()> {
-        todo!()
+    pub fn write_plain(&self, mut writer: impl Write) -> Result<()> {
+        writeln!(writer, "# {}", self.name)?;
+        writeln!(writer)?;
+
+        writeln!(writer, "SubstitutionCostTable")?;
+
+        let column_width = self
+            .substitution_cost_table
+            .iter()
+            .map(|substitution_cost| format!("{}", substitution_cost.as_u64()).len())
+            .max()
+            .unwrap();
+
+        write!(writer, "  |")?;
+        for column_index in 0..AlphabetType::SIZE {
+            let character = AlphabetType::CharacterType::from_index(column_index).unwrap();
+            for _ in 0..column_width {
+                write!(writer, " ")?;
+            }
+            write!(writer, "{character}")?;
+        }
+        writeln!(writer)?;
+
+        write!(writer, "--+")?;
+        for _ in 0..(AlphabetType::SIZE * (column_width + 1)) {
+            write!(writer, "-")?;
+        }
+        writeln!(writer)?;
+
+        for row_index in 0..AlphabetType::SIZE {
+            let character = AlphabetType::CharacterType::from_index(row_index).unwrap();
+            write!(writer, "{character} |")?;
+            for column_index in 0..AlphabetType::SIZE {
+                let cost = self.substitution_cost_table
+                    [row_index * AlphabetType::SIZE + column_index]
+                    .as_u64();
+                write!(writer, " {cost: >column_width$}")?;
+            }
+            writeln!(writer)?;
+        }
+        writeln!(writer)?;
+
+        writeln!(writer, "GapOpenCostVector")?;
+
+        let column_width = self
+            .gap_open_cost_vector
+            .iter()
+            .map(|gap_open_cost| format!("{}", gap_open_cost.as_u64()).len())
+            .max()
+            .unwrap();
+
+        for column_index in 0..AlphabetType::SIZE {
+            let character = AlphabetType::CharacterType::from_index(column_index).unwrap();
+            for _ in 0..column_width {
+                write!(writer, " ")?;
+            }
+            write!(writer, "{character}")?;
+        }
+        writeln!(writer)?;
+
+        for column_index in 0..AlphabetType::SIZE {
+            let cost = self.gap_open_cost_vector[column_index].as_u64();
+            write!(writer, " {cost: >column_width$}")?;
+        }
+        writeln!(writer)?;
+        writeln!(writer)?;
+
+        writeln!(writer, "GapExtendCostVector")?;
+
+        let column_width = self
+            .gap_extend_cost_vector
+            .iter()
+            .map(|gap_extend_cost| format!("{}", gap_extend_cost.as_u64()).len())
+            .max()
+            .unwrap();
+
+        for column_index in 0..AlphabetType::SIZE {
+            let character = AlphabetType::CharacterType::from_index(column_index).unwrap();
+            for _ in 0..column_width {
+                write!(writer, " ")?;
+            }
+            write!(writer, "{character}")?;
+        }
+        writeln!(writer)?;
+
+        for column_index in 0..AlphabetType::SIZE {
+            let cost = self.gap_extend_cost_vector[column_index].as_u64();
+            write!(writer, " {cost: >column_width$}")?;
+        }
+        writeln!(writer)?;
+
+        Ok(())
     }
 }
 
@@ -63,7 +155,8 @@ fn parse_name(input: &str) -> IResult<&str, &str> {
     let input = skip_any_whitespace(input)?;
     let input = char('#')(input)?.0;
     let input = many0(satisfy(is_whitespace))(input)?.0;
-    take_till1(is_any_whitespace)(input)
+    let (input, result) = take_till1(is_any_line_break)(input)?;
+    Ok((input, result.trim()))
 }
 
 fn parse_substitution_cost_table<AlphabetType: Alphabet>(input: &str) -> IResult<&str, Vec<Cost>> {
@@ -243,9 +336,13 @@ fn skip_any_whitespace(
 }
 
 fn is_any_whitespace(c: char) -> bool {
-    c.is_whitespace() || c == '\n' || c == '\r'
+    is_whitespace(c) || is_any_line_break(c)
 }
 
 fn is_whitespace(c: char) -> bool {
     c.is_whitespace()
+}
+
+fn is_any_line_break(c: char) -> bool {
+    c == '\n' || c == '\r'
 }
