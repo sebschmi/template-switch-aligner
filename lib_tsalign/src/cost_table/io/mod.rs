@@ -14,24 +14,41 @@ use nom::{
     IResult,
 };
 
-use std::io::{Read, Write};
+use std::{
+    collections::HashMap,
+    io::{Read, Write},
+};
 
 #[cfg(test)]
 mod tests;
 
 impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
+    pub fn read_plain_multi(mut reader: impl Read) -> Result<HashMap<String, Self>> {
+        let mut input = String::new();
+        reader.read_to_string(&mut input)?;
+        let mut input = input.as_str();
+        let mut result = HashMap::new();
+
+        loop {
+            let (next_input, table) = parse_plain(input).map_err(translate_nom_error)?;
+            input = next_input;
+            result.insert(table.name().to_string(), table);
+
+            input = skip_any_whitespace(input).map_err(translate_nom_error)?;
+            if input.is_empty() {
+                break;
+            }
+        }
+
+        Ok(result)
+    }
+
     pub fn read_plain(mut reader: impl Read) -> Result<Self> {
         let mut input = String::new();
         reader.read_to_string(&mut input)?;
 
         parse_plain(&input)
-            .map_err(|error| match error {
-                nom::Err::Incomplete(needed) => Error::ParserIncomplete(needed),
-                nom::Err::Error(error) | nom::Err::Failure(error) => Error::Parser {
-                    input: error.input.to_string(),
-                    kind: error.code,
-                },
-            })
+            .map_err(translate_nom_error)
             .map(|(_, output)| output)
     }
 
@@ -345,4 +362,14 @@ fn is_whitespace(c: char) -> bool {
 
 fn is_any_line_break(c: char) -> bool {
     c == '\n' || c == '\r'
+}
+
+fn translate_nom_error(error: nom::Err<nom::error::Error<&str>>) -> Error {
+    match error {
+        nom::Err::Incomplete(needed) => Error::ParserIncomplete(needed),
+        nom::Err::Error(error) | nom::Err::Failure(error) => Error::Parser {
+            input: error.input.to_string(),
+            kind: error.code,
+        },
+    }
 }
