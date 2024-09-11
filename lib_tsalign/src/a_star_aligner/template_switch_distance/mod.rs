@@ -56,8 +56,8 @@ pub enum AlignmentType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Context<Alphabet> {
     pub costs: TemplateSwitchCostTable<Alphabet>,
-    pub left_flank_length: usize,
-    pub right_flank_length: usize,
+    pub left_flank_length: isize,
+    pub right_flank_length: isize,
 }
 
 impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alphabet>
@@ -96,13 +96,16 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
             Identifier::Primary {
                 reference_index,
                 query_index,
-                flank_index: 0,
+                flank_index,
                 gap_type,
             } => {
                 if reference_index < reference.len() && query_index < query.len() {
-                    let diagonal_successor = Self {
+                    let mut diagonal_successor = Self {
                         node_data: NodeData {
-                            identifier: self.node_data.identifier.generate_diagonal_successor(),
+                            identifier: self
+                                .node_data
+                                .identifier
+                                .generate_primary_diagonal_successor(0),
                             predecessor: Some(self.node_data.identifier),
                             cost: self.node_data.cost
                                 + context.costs.primary_edit_costs.match_or_substitution_cost(
@@ -113,15 +116,29 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         strategies: self.strategies.generate_successor(context),
                     };
 
-                    output.extend([diagonal_successor]);
+                    if flank_index == 0 {
+                        diagonal_successor.node_data.identifier.set_flank_index(0);
+                        output.extend([diagonal_successor.clone()]);
+                    }
 
-                    /*if context.left_flank_length > 0 {
-                        diagonal_successor.node_data.identifier =
-                    }*/
+                    if flank_index == context.left_flank_length {
+                        todo!("generate template switch start node");
+                    }
+
+                    if flank_index < context.left_flank_length {
+                        diagonal_successor
+                            .node_data
+                            .identifier
+                            .set_flank_index(flank_index + 1);
+                        output.extend([diagonal_successor.clone()]);
+                    }
                 }
 
                 if reference_index < reference.len() {
-                    let identifier = self.node_data.identifier.generate_deletion_successor();
+                    let identifier = self
+                        .node_data
+                        .identifier
+                        .generate_primary_deletion_successor(0);
                     output.extend([Self {
                         node_data: NodeData {
                             identifier,
@@ -144,7 +161,10 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 }
 
                 if query_index < query.len() {
-                    let identifier = self.node_data.identifier.generate_insertion_successor();
+                    let identifier = self
+                        .node_data
+                        .identifier
+                        .generate_primary_insertion_successor(0);
                     output.extend([Self {
                         node_data: NodeData {
                             identifier,
@@ -165,20 +185,6 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         strategies: self.strategies.generate_successor(context),
                     }]);
                 }
-            }
-
-            #[expect(unused)]
-            Identifier::Primary {
-                reference_index,
-                query_index,
-                flank_index,
-                gap_type,
-            } if flank_index != 0 => {
-                todo!()
-            }
-
-            Identifier::Primary { .. } => {
-                unreachable!("above match guard conditions are exhaustive")
             }
         }
     }
@@ -274,12 +280,11 @@ impl Identifier {
         }
     }
 
-    const fn generate_deletion_successor(self) -> Self {
+    const fn generate_primary_deletion_successor(self, flank_index: isize) -> Self {
         match self {
             Self::Primary {
                 reference_index,
                 query_index,
-                flank_index,
                 ..
             } => Self::Primary {
                 reference_index: reference_index + 1,
@@ -290,12 +295,11 @@ impl Identifier {
         }
     }
 
-    const fn generate_insertion_successor(self) -> Self {
+    const fn generate_primary_insertion_successor(self, flank_index: isize) -> Self {
         match self {
             Self::Primary {
                 reference_index,
                 query_index,
-                flank_index,
                 ..
             } => Self::Primary {
                 reference_index,
@@ -306,12 +310,11 @@ impl Identifier {
         }
     }
 
-    const fn generate_diagonal_successor(self) -> Self {
+    const fn generate_primary_diagonal_successor(self, flank_index: isize) -> Self {
         match self {
             Self::Primary {
                 reference_index,
                 query_index,
-                flank_index,
                 ..
             } => Self::Primary {
                 reference_index: reference_index + 1,
@@ -319,6 +322,15 @@ impl Identifier {
                 flank_index,
                 gap_type: GapType::None,
             },
+        }
+    }
+
+    fn set_flank_index(&mut self, flank_index: isize) {
+        match self {
+            Self::Primary {
+                flank_index: current_flank_index,
+                ..
+            } => *current_flank_index = flank_index,
         }
     }
 

@@ -94,8 +94,8 @@ fn align_a_star_template_switch_distance_call<
         query,
         Context::<AlphabetType> {
             costs,
-            left_flank_length: config.left_flank_length,
-            right_flank_length: config.right_flank_length,
+            left_flank_length: config.left_flank_length.try_into().unwrap(),
+            right_flank_length: config.right_flank_length.try_into().unwrap(),
         },
     );
 
