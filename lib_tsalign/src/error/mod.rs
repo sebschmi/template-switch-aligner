@@ -1,4 +1,3 @@
-use nom::Needed;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -15,5 +14,5 @@ pub enum Error {
     },
 
     #[error("Parsing was unsuccessful due to incomplete input: {0:?}")]
-    ParserIncomplete(Needed),
+    ParserIncomplete(nom::Needed),
 }
