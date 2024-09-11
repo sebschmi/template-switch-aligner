@@ -13,7 +13,7 @@ use lib_tsalign::{
         },
         template_switch_distance_a_star_align,
     },
-    cost_table::GapAffineAlignmentCostTable,
+    cost_table::TemplateSwitchCostTable,
 };
 
 use crate::Cli;
@@ -69,16 +69,12 @@ fn align_a_star_template_switch_distance_call<
     let mut config_path = cli.configuration_directory.clone();
     config_path.push("tsa_costs.txt");
     let config_file = std::io::BufReader::new(std::fs::File::open(config_path).unwrap());
-    let primary_edit_costs = GapAffineAlignmentCostTable::read_plain(config_file).unwrap();
+    let costs = TemplateSwitchCostTable::read_plain(config_file).unwrap();
 
     let alignment = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<AlphabetType, NodeOrd>,
         _,
-    >(
-        reference,
-        query,
-        Context::<AlphabetType> { primary_edit_costs },
-    );
+    >(reference, query, Context::<AlphabetType> { costs });
 
     println!("{}", alignment);
 }

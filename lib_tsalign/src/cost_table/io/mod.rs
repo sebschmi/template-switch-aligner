@@ -32,7 +32,9 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         loop {
             let (next_input, table) = parse_plain(input).map_err(translate_nom_error)?;
             input = next_input;
-            result.insert(table.name().to_string(), table);
+            if let Some(previous_table) = result.insert(table.name().to_string(), table) {
+                return Err(Error::DuplicateCostTableName(previous_table.name));
+            }
 
             input = skip_any_whitespace(input).map_err(translate_nom_error)?;
             if input.is_empty() {

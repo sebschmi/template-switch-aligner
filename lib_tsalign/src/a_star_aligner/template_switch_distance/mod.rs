@@ -2,7 +2,7 @@ use strategies::{
     node_ord::NodeOrdStrategy, AlignmentStrategies, AlignmentStrategy, AlignmentStrategySelector,
 };
 
-use crate::{cost::Cost, cost_table::GapAffineAlignmentCostTable};
+use crate::{cost::Cost, cost_table::TemplateSwitchCostTable};
 
 use super::AlignmentGraphNode;
 
@@ -54,7 +54,7 @@ pub enum AlignmentType {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Context<Alphabet> {
-    pub primary_edit_costs: GapAffineAlignmentCostTable<Alphabet>,
+    pub costs: TemplateSwitchCostTable<Alphabet>,
 }
 
 impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alphabet>
@@ -102,7 +102,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                             identifier: self.node_data.identifier.generate_diagonal_successor(),
                             predecessor: Some(self.node_data.identifier),
                             cost: self.node_data.cost
-                                + context.primary_edit_costs.match_or_substitution_cost(
+                                + context.costs.primary_edit_costs.match_or_substitution_cost(
                                     reference[reference_index].clone(),
                                     query[query_index].clone(),
                                 ),
@@ -120,10 +120,12 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                             cost: self.node_data.cost
                                 + if gap_type == identifier.gap_type() {
                                     context
+                                        .costs
                                         .primary_edit_costs
                                         .gap_extend_cost(reference[reference_index].clone())
                                 } else {
                                     context
+                                        .costs
                                         .primary_edit_costs
                                         .gap_open_cost(reference[reference_index].clone())
                                 },
@@ -141,10 +143,12 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                             cost: self.node_data.cost
                                 + if gap_type == identifier.gap_type() {
                                     context
+                                        .costs
                                         .primary_edit_costs
                                         .gap_extend_cost(query[query_index].clone())
                                 } else {
                                     context
+                                        .costs
                                         .primary_edit_costs
                                         .gap_open_cost(query[query_index].clone())
                                 },
