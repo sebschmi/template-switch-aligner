@@ -1,0 +1,4 @@
+match_cost = 0
+substitution_cost = 2
+gap_open_cost = 3
+gap_extend_cost = 1

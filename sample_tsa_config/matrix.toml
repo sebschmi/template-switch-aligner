@@ -1,0 +1,3 @@
+match_cost = 0
+substitution_cost = 2
+indel_cost = 2

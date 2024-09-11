@@ -156,7 +156,7 @@ fn align_a_star_gap_affine_edit_distance<
     }
 
     let mut config_path = cli.configuration_directory.clone();
-    config_path.push("gap_affine_a_star.toml");
+    config_path.push("a_star_gap_affine.toml");
     let mut config_file = BufReader::new(File::open(config_path).unwrap());
     let mut config = String::new();
     config_file.read_to_string(&mut config).unwrap();
