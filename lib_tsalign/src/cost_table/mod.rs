@@ -76,16 +76,21 @@ pub struct TemplateSwitchCostTable<AlphabetType> {
 impl<AlphabetType: Alphabet> TemplateSwitchCostTable<AlphabetType> {
     pub fn read_plain(reader: impl std::io::Read) -> crate::error::Result<Self> {
         let mut cost_tables = GapAffineAlignmentCostTable::read_plain_multi(reader)?;
-        let keys: Vec<_> = cost_tables.keys().cloned().collect();
-        let expected_keys: Vec<_> = [
+
+        let mut keys: Vec<_> = cost_tables.keys().cloned().collect();
+        let mut expected_keys: Vec<_> = [
             "Primary Edit Costs",
             "Secondary Edit Costs",
             "Left Flank Edit Costs",
             "Right Flank Edit Costs",
         ]
         .into_iter()
-        .map(|name| name.to_string())
+        .map(ToString::to_string)
         .collect();
+
+        keys.sort_unstable();
+        expected_keys.sort_unstable();
+
         if keys != expected_keys {
             return Err(Error::WrongCostTableNames {
                 actual: keys,

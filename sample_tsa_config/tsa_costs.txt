@@ -1,0 +1,71 @@
+# Primary Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T
+--+------------
+A |  0  2  2  2
+C |  2  0  2  2
+G |  2  2  0  2
+T |  2  2  2  0
+
+GapOpenCostVector
+ A C G T
+ 3 3 3 3
+
+GapExtendCostVector
+ A C G T
+ 1 1 1 1
+
+# Secondary Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T
+--+------------
+A |  0  8  8  8
+C |  8  0  8  8
+G |  8  8  0  8
+T |  8  8  8  0
+
+GapOpenCostVector
+ A C G T
+ 9 9 9 9
+
+GapExtendCostVector
+ A C G T
+ 2 2 2 2
+
+# Left Flank Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T
+--+------------
+A |  0  3  3  3
+C |  3  0  3  3
+G |  3  3  0  3
+T |  3  3  3  0
+
+GapOpenCostVector
+ A C G T
+ 4 4 4 4
+
+GapExtendCostVector
+ A C G T
+ 1 1 1 1
+
+# Right Flank Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T
+--+------------
+A |  0  3  3  3
+C |  3  0  3  3
+G |  3  3  0  3
+T |  3  3  3  0
+
+GapOpenCostVector
+ A C G T
+ 4 4 4 4
+
+GapExtendCostVector
+ A C G T
+ 1 1 1 1
