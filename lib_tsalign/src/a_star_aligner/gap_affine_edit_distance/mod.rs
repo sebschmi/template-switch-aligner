@@ -47,7 +47,7 @@ pub struct ScoringTable {
     pub gap_extend_cost: Cost,
 }
 
-impl AlignmentGraphNode for Node {
+impl<AlphabetType: Alphabet> AlignmentGraphNode<AlphabetType> for Node {
     type Identifier = Identifier;
 
     type Context = ScoringTable;
@@ -63,7 +63,6 @@ impl AlignmentGraphNode for Node {
     }
 
     fn generate_successors<
-        AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -137,7 +136,6 @@ impl AlignmentGraphNode for Node {
     }
 
     fn predecessor_alignment_type<
-        AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -166,10 +164,7 @@ impl AlignmentGraphNode for Node {
         }
     }
 
-    fn is_target<
-        AlphabetType: Alphabet,
-        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    >(
+    fn is_target<SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized>(
         &self,
         reference: &SubsequenceType,
         query: &SubsequenceType,

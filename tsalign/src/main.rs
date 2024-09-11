@@ -1,4 +1,8 @@
-use std::path::PathBuf;
+use std::{
+    fs::File,
+    io::{BufReader, Read},
+    path::PathBuf,
+};
 
 use clap::{Parser, ValueEnum};
 use compact_genome::{
@@ -31,29 +35,11 @@ struct Cli {
     #[clap(long, short, conflicts_with_all = ["reference", "query"])]
     twin_fasta: Option<PathBuf>,
 
-    #[clap(long, short, default_value = "0")]
-    match_cost: u64,
-
-    #[clap(long, short, default_value = "2")]
-    substitution_cost: u64,
-
-    #[clap(long, short, default_value = "3")]
-    insertion_cost: u64,
-
-    #[clap(long, short, default_value = "3")]
-    deletion_cost: u64,
-
-    #[clap(long, short = 'o', default_value = "3")]
-    gap_open_cost: u64,
-
-    #[clap(long, short = 'e', default_value = "1")]
-    gap_extend_cost: u64,
-
-    #[clap(long, default_value = "5")]
-    ts_flank_length: usize,
-
-    #[clap(long, default_value = "1")]
-    ts_flank_non_match_extra_cost: u64,
+    /// A directory containing the configuration files.
+    ///
+    /// See the README for its layout.
+    #[clap(long, short, default_value = "sample_tsa_config")]
+    configuration_directory: PathBuf,
 
     #[clap(long, default_value = "a-star-template-switch")]
     alignment_method: AlignmentMethod,
@@ -127,11 +113,25 @@ fn align_matrix<
     reference: &SubsequenceType,
     query: &SubsequenceType,
 ) {
+    #[derive(serde::Deserialize)]
+    struct MatrixConfig {
+        match_cost: u64,
+        substitution_cost: u64,
+        indel_cost: u64,
+    }
+
+    let mut config_path = cli.configuration_directory.clone();
+    config_path.push("matrix.toml");
+    let mut config_file = BufReader::new(File::open(config_path).unwrap());
+    let mut config = String::new();
+    config_file.read_to_string(&mut config).unwrap();
+    let matrix_config: MatrixConfig = toml::from_str(&config).unwrap();
+
     let configuration = AlignmentConfiguration {
-        match_cost: cli.match_cost.into(),
-        substitution_cost: cli.substitution_cost.into(),
-        insertion_cost: cli.insertion_cost.into(),
-        deletion_cost: cli.deletion_cost.into(),
+        match_cost: matrix_config.match_cost.into(),
+        substitution_cost: matrix_config.substitution_cost.into(),
+        insertion_cost: matrix_config.indel_cost.into(),
+        deletion_cost: matrix_config.indel_cost.into(),
     };
 
     let mut alignment_matrix = AlignmentMatrix::new(configuration, reference.len(), query.len());
@@ -147,14 +147,29 @@ fn align_a_star_gap_affine_edit_distance<
     reference: &SubsequenceType,
     query: &SubsequenceType,
 ) {
+    #[derive(serde::Deserialize)]
+    struct GapAffineConfig {
+        match_cost: u64,
+        substitution_cost: u64,
+        gap_open_cost: u64,
+        gap_extend_cost: u64,
+    }
+
+    let mut config_path = cli.configuration_directory.clone();
+    config_path.push("gap_affine_a_star.toml");
+    let mut config_file = BufReader::new(File::open(config_path).unwrap());
+    let mut config = String::new();
+    config_file.read_to_string(&mut config).unwrap();
+    let gap_affine_config: GapAffineConfig = toml::from_str(&config).unwrap();
+
     let alignment = gap_affine_edit_distance_a_star_align(
         reference,
         query,
         gap_affine_edit_distance::ScoringTable {
-            match_cost: cli.match_cost.into(),
-            substitution_cost: cli.substitution_cost.into(),
-            gap_open_cost: cli.gap_open_cost.into(),
-            gap_extend_cost: cli.gap_extend_cost.into(),
+            match_cost: gap_affine_config.match_cost.into(),
+            substitution_cost: gap_affine_config.substitution_cost.into(),
+            gap_open_cost: gap_affine_config.gap_open_cost.into(),
+            gap_extend_cost: gap_affine_config.gap_extend_cost.into(),
         },
     );
 

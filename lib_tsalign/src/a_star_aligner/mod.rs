@@ -16,7 +16,7 @@ mod tests;
 /// A node of the alignment graph.
 /// The node must implement [`Ord`](std::cmp::Ord), ordering it by its cost, ascending.
 /// The graph defined by the node type must be cycle-free.
-pub trait AlignmentGraphNode: Sized + Ord {
+pub trait AlignmentGraphNode<AlphabetType: Alphabet>: Sized + Ord {
     /// A unique identifier of the node.
     /// For example, in case of traditional edit distance, this would be the tuple (i, j) indicating which alignment matrix cell this node belongs to.
     type Identifier;
@@ -33,7 +33,6 @@ pub trait AlignmentGraphNode: Sized + Ord {
 
     /// Generate the successors of this node.
     fn generate_successors<
-        AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -54,7 +53,6 @@ pub trait AlignmentGraphNode: Sized + Ord {
 
     /// Returns the type of alignment used to generate this node from the predecessor.
     fn predecessor_alignment_type<
-        AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -64,10 +62,7 @@ pub trait AlignmentGraphNode: Sized + Ord {
     ) -> Self::AlignmentType;
 
     /// Returns true if this node is a target node of the alignment process.
-    fn is_target<
-        AlphabetType: Alphabet,
-        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    >(
+    fn is_target<SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized>(
         &self,
         reference: &SubsequenceType,
         query: &SubsequenceType,
@@ -78,7 +73,7 @@ pub trait AlignmentGraphNode: Sized + Ord {
 fn a_star_align<
     AlphabetType: Alphabet,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    Node: AlignmentGraphNode,
+    Node: AlignmentGraphNode<AlphabetType>,
 >(
     reference: &SubsequenceType,
     query: &SubsequenceType,
@@ -178,13 +173,12 @@ pub fn gap_affine_edit_distance_a_star_align<
 }
 
 pub fn template_switch_distance_a_star_align<
-    AlphabetType: Alphabet,
-    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
     Strategies: AlignmentStrategySelector,
+    SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
 >(
     reference: &SubsequenceType,
     query: &SubsequenceType,
-    context: template_switch_distance::Context,
+    context: template_switch_distance::Context<Strategies::Alphabet>,
 ) -> AlignmentResult<template_switch_distance::AlignmentType> {
     a_star_align::<_, _, template_switch_distance::Node<Strategies>>(reference, query, context)
 }

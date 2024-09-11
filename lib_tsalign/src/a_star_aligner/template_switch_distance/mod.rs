@@ -2,7 +2,7 @@ use strategies::{
     node_ord::NodeOrdStrategy, AlignmentStrategies, AlignmentStrategy, AlignmentStrategySelector,
 };
 
-use crate::cost::Cost;
+use crate::{cost::Cost, cost_table::GapAffineAlignmentCostTable};
 
 use super::AlignmentGraphNode;
 
@@ -52,25 +52,17 @@ pub enum AlignmentType {
     Root,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ScoringTable {
-    pub match_cost: Cost,
-    pub substitution_cost: Cost,
-    pub gap_open_cost: Cost,
-    pub gap_extend_cost: Cost,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Context<Alphabet> {
+    pub primary_edit_costs: GapAffineAlignmentCostTable<Alphabet>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Context {
-    pub scoring_table: ScoringTable,
-    pub flank_length: usize,
-    pub flank_non_match_extra_cost: Cost,
-}
-
-impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode for Node<Strategies> {
+impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alphabet>
+    for Node<Strategies>
+{
     type Identifier = Identifier;
 
-    type Context = Context;
+    type Context = Context<Strategies::Alphabet>;
 
     type AlignmentType = AlignmentType;
 
@@ -86,8 +78,10 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode for Node<Strategi
     }
 
     fn generate_successors<
-        AlphabetType: compact_genome::interface::alphabet::Alphabet,
-        SubsequenceType: compact_genome::interface::sequence::GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+        SubsequenceType: compact_genome::interface::sequence::GenomeSequence<
+                Strategies::Alphabet,
+                SubsequenceType,
+            > + ?Sized,
     >(
         &self,
         reference: &SubsequenceType,
@@ -108,11 +102,10 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode for Node<Strategi
                             identifier: self.node_data.identifier.generate_diagonal_successor(),
                             predecessor: Some(self.node_data.identifier),
                             cost: self.node_data.cost
-                                + if reference[reference_index] == query[query_index] {
-                                    context.scoring_table.match_cost
-                                } else {
-                                    context.scoring_table.substitution_cost
-                                },
+                                + context.primary_edit_costs.match_or_substitution_cost(
+                                    reference[reference_index].clone(),
+                                    query[query_index].clone(),
+                                ),
                         },
                         strategies: self.strategies.generate_successor(context),
                     }]);
@@ -126,9 +119,13 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode for Node<Strategi
                             predecessor: Some(self.node_data.identifier),
                             cost: self.node_data.cost
                                 + if gap_type == identifier.gap_type() {
-                                    context.scoring_table.gap_extend_cost
+                                    context
+                                        .primary_edit_costs
+                                        .gap_extend_cost(reference[reference_index].clone())
                                 } else {
-                                    context.scoring_table.gap_open_cost
+                                    context
+                                        .primary_edit_costs
+                                        .gap_open_cost(reference[reference_index].clone())
                                 },
                         },
                         strategies: self.strategies.generate_successor(context),
@@ -143,9 +140,13 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode for Node<Strategi
                             predecessor: Some(self.node_data.identifier),
                             cost: self.node_data.cost
                                 + if gap_type == identifier.gap_type() {
-                                    context.scoring_table.gap_extend_cost
+                                    context
+                                        .primary_edit_costs
+                                        .gap_extend_cost(query[query_index].clone())
                                 } else {
-                                    context.scoring_table.gap_open_cost
+                                    context
+                                        .primary_edit_costs
+                                        .gap_open_cost(query[query_index].clone())
                                 },
                         },
                         strategies: self.strategies.generate_successor(context),
@@ -168,8 +169,10 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode for Node<Strategi
     }
 
     fn predecessor_alignment_type<
-        AlphabetType: compact_genome::interface::alphabet::Alphabet,
-        SubsequenceType: compact_genome::interface::sequence::GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+        SubsequenceType: compact_genome::interface::sequence::GenomeSequence<
+                Strategies::Alphabet,
+                SubsequenceType,
+            > + ?Sized,
     >(
         &self,
         reference: &SubsequenceType,
@@ -201,8 +204,10 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode for Node<Strategi
     }
 
     fn is_target<
-        AlphabetType: compact_genome::interface::alphabet::Alphabet,
-        SubsequenceType: compact_genome::interface::sequence::GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+        SubsequenceType: compact_genome::interface::sequence::GenomeSequence<
+                Strategies::Alphabet,
+                SubsequenceType,
+            > + ?Sized,
     >(
         &self,
         reference: &SubsequenceType,

@@ -1,14 +1,19 @@
+use std::fmt::Debug;
+
 use clap::ValueEnum;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
-use lib_tsalign::a_star_aligner::{
-    template_switch_distance::{
-        strategies::{
-            node_ord::{AntiDiagonalNodeOrdStrategy, CostOnlyNodeOrdStrategy, NodeOrdStrategy},
-            AlignmentStrategySelection,
+use lib_tsalign::{
+    a_star_aligner::{
+        template_switch_distance::{
+            strategies::{
+                node_ord::{AntiDiagonalNodeOrdStrategy, CostOnlyNodeOrdStrategy, NodeOrdStrategy},
+                AlignmentStrategySelection,
+            },
+            Context,
         },
-        Context, ScoringTable,
+        template_switch_distance_a_star_align,
     },
-    template_switch_distance_a_star_align,
+    cost_table::GapAffineAlignmentCostTable,
 };
 
 use crate::Cli;
@@ -20,7 +25,7 @@ pub enum TemplateSwitchNodeOrdStrategy {
 }
 
 pub fn align_a_star_template_switch_distance<
-    AlphabetType: Alphabet,
+    AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
 >(
     cli: Cli,
@@ -31,7 +36,7 @@ pub fn align_a_star_template_switch_distance<
 }
 
 fn align_a_star_template_switch_distance_select_node_ord_strategy<
-    AlphabetType: Alphabet,
+    AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
 >(
     cli: Cli,
@@ -53,7 +58,7 @@ fn align_a_star_template_switch_distance_select_node_ord_strategy<
 }
 
 fn align_a_star_template_switch_distance_call<
-    AlphabetType: Alphabet,
+    AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
     NodeOrd: NodeOrdStrategy,
 >(
@@ -61,21 +66,19 @@ fn align_a_star_template_switch_distance_call<
     reference: &SubsequenceType,
     query: &SubsequenceType,
 ) {
-    let alignment =
-        template_switch_distance_a_star_align::<_, _, AlignmentStrategySelection<NodeOrd>>(
-            reference,
-            query,
-            Context {
-                scoring_table: ScoringTable {
-                    match_cost: cli.match_cost.into(),
-                    substitution_cost: cli.substitution_cost.into(),
-                    gap_open_cost: cli.gap_open_cost.into(),
-                    gap_extend_cost: cli.gap_extend_cost.into(),
-                },
-                flank_length: cli.ts_flank_length,
-                flank_non_match_extra_cost: cli.ts_flank_non_match_extra_cost.into(),
-            },
-        );
+    let mut config_path = cli.configuration_directory.clone();
+    config_path.push("tsa_costs.txt");
+    let config_file = std::io::BufReader::new(std::fs::File::open(config_path).unwrap());
+    let primary_edit_costs = GapAffineAlignmentCostTable::read_plain(config_file).unwrap();
+
+    let alignment = template_switch_distance_a_star_align::<
+        AlignmentStrategySelection<AlphabetType, NodeOrd>,
+        _,
+    >(
+        reference,
+        query,
+        Context::<AlphabetType> { primary_edit_costs },
+    );
 
     println!("{}", alignment);
 }

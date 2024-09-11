@@ -35,21 +35,21 @@ impl NodeOrdStrategy for AntiDiagonalNodeOrdStrategy {
 }
 
 impl AlignmentStrategy for CostOnlyNodeOrdStrategy {
-    fn create_root(_context: &Context) -> Self {
+    fn create_root<Alphabet>(_context: &Context<Alphabet>) -> Self {
         Self
     }
 
-    fn generate_successor(&self, _context: &Context) -> Self {
+    fn generate_successor<Alphabet>(&self, _context: &Context<Alphabet>) -> Self {
         *self
     }
 }
 
 impl AlignmentStrategy for AntiDiagonalNodeOrdStrategy {
-    fn create_root(_context: &Context) -> Self {
+    fn create_root<Alphabet>(_context: &Context<Alphabet>) -> Self {
         Self
     }
 
-    fn generate_successor(&self, _context: &Context) -> Self {
+    fn generate_successor<Alphabet>(&self, _context: &Context<Alphabet>) -> Self {
         *self
     }
 }

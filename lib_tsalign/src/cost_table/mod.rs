@@ -7,7 +7,7 @@ use crate::cost::Cost;
 pub mod io;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct GapAffineAlignmentCostTable<AlphabetType: Alphabet> {
+pub struct GapAffineAlignmentCostTable<AlphabetType> {
     name: String,
     substitution_cost_table: Vec<Cost>,
     gap_open_cost_vector: Vec<Cost>,

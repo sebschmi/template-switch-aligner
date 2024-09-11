@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use compact_genome::interface::alphabet::Alphabet;
 use node_ord::NodeOrdStrategy;
 
 use super::Context;
@@ -7,6 +8,7 @@ use super::Context;
 pub mod node_ord;
 
 pub trait AlignmentStrategySelector: Eq + Clone + std::fmt::Debug {
+    type Alphabet: Alphabet;
     type NodeOrd: NodeOrdStrategy;
 }
 
@@ -16,19 +18,19 @@ pub struct AlignmentStrategies<Selector: AlignmentStrategySelector> {
 }
 
 pub trait AlignmentStrategy: Eq + Clone + std::fmt::Debug {
-    fn create_root(context: &Context) -> Self;
+    fn create_root<Alphabet>(context: &Context<Alphabet>) -> Self;
 
-    fn generate_successor(&self, context: &Context) -> Self;
+    fn generate_successor<Alphabet>(&self, context: &Context<Alphabet>) -> Self;
 }
 
 impl<Selector: AlignmentStrategySelector> AlignmentStrategy for AlignmentStrategies<Selector> {
-    fn create_root(context: &Context) -> Self {
+    fn create_root<Alphabet>(context: &Context<Alphabet>) -> Self {
         Self {
             node_ord_strategy: Selector::NodeOrd::create_root(context),
         }
     }
 
-    fn generate_successor(&self, context: &Context) -> Self {
+    fn generate_successor<Alphabet>(&self, context: &Context<Alphabet>) -> Self {
         Self {
             node_ord_strategy: self.node_ord_strategy.generate_successor(context),
         }
@@ -36,10 +38,13 @@ impl<Selector: AlignmentStrategySelector> AlignmentStrategy for AlignmentStrateg
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct AlignmentStrategySelection<NodeOrd: NodeOrdStrategy> {
-    phantom_data: PhantomData<NodeOrd>,
+pub struct AlignmentStrategySelection<AlphabetType: Alphabet, NodeOrd: NodeOrdStrategy> {
+    phantom_data: PhantomData<(AlphabetType, NodeOrd)>,
 }
 
-impl<NodeOrd: NodeOrdStrategy> AlignmentStrategySelector for AlignmentStrategySelection<NodeOrd> {
+impl<AlphabetType: Alphabet + std::fmt::Debug + Clone + Eq, NodeOrd: NodeOrdStrategy>
+    AlignmentStrategySelector for AlignmentStrategySelection<AlphabetType, NodeOrd>
+{
+    type Alphabet = AlphabetType;
     type NodeOrd = NodeOrd;
 }
