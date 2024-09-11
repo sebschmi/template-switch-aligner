@@ -26,8 +26,9 @@ pub enum Identifier {
     Primary {
         reference_index: usize,
         query_index: usize,
-        steps_since_last_template_switch: usize,
         gap_type: GapType,
+        /// Negative for left flank, positive for right flank.
+        flank_index: isize,
     },
 }
 
@@ -71,7 +72,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
     fn create_root(context: &Self::Context) -> Self {
         Self {
             node_data: NodeData {
-                identifier: Identifier::new_primary(0, 0, usize::MAX, GapType::None),
+                identifier: Identifier::new_primary(0, 0, 0, GapType::None),
                 predecessor: None,
                 cost: Cost::ZERO,
             },
@@ -95,11 +96,11 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
             Identifier::Primary {
                 reference_index,
                 query_index,
+                flank_index: 0,
                 gap_type,
-                ..
             } => {
                 if reference_index < reference.len() && query_index < query.len() {
-                    output.extend([Self {
+                    let diagonal_successor = Self {
                         node_data: NodeData {
                             identifier: self.node_data.identifier.generate_diagonal_successor(),
                             predecessor: Some(self.node_data.identifier),
@@ -110,7 +111,13 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                                 ),
                         },
                         strategies: self.strategies.generate_successor(context),
-                    }]);
+                    };
+
+                    output.extend([diagonal_successor]);
+
+                    /*if context.left_flank_length > 0 {
+                        diagonal_successor.node_data.identifier =
+                    }*/
                 }
 
                 if reference_index < reference.len() {
@@ -158,6 +165,20 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         strategies: self.strategies.generate_successor(context),
                     }]);
                 }
+            }
+
+            #[expect(unused)]
+            Identifier::Primary {
+                reference_index,
+                query_index,
+                flank_index,
+                gap_type,
+            } if flank_index != 0 => {
+                todo!()
+            }
+
+            Identifier::Primary { .. } => {
+                unreachable!("above match guard conditions are exhaustive")
             }
         }
     }
@@ -242,13 +263,13 @@ impl Identifier {
     const fn new_primary(
         reference_index: usize,
         query_index: usize,
-        steps_since_last_template_switch: usize,
+        flank_index: isize,
         gap_type: GapType,
     ) -> Self {
         Self::Primary {
             reference_index,
             query_index,
-            steps_since_last_template_switch,
+            flank_index,
             gap_type,
         }
     }
@@ -258,13 +279,12 @@ impl Identifier {
             Self::Primary {
                 reference_index,
                 query_index,
-                steps_since_last_template_switch,
+                flank_index,
                 ..
             } => Self::Primary {
                 reference_index: reference_index + 1,
                 query_index,
-                steps_since_last_template_switch: steps_since_last_template_switch
-                    .saturating_add(1),
+                flank_index,
                 gap_type: GapType::Deletion,
             },
         }
@@ -275,13 +295,12 @@ impl Identifier {
             Self::Primary {
                 reference_index,
                 query_index,
-                steps_since_last_template_switch,
+                flank_index,
                 ..
             } => Self::Primary {
                 reference_index,
                 query_index: query_index + 1,
-                steps_since_last_template_switch: steps_since_last_template_switch
-                    .saturating_add(1),
+                flank_index,
                 gap_type: GapType::Insertion,
             },
         }
@@ -292,13 +311,12 @@ impl Identifier {
             Self::Primary {
                 reference_index,
                 query_index,
-                steps_since_last_template_switch,
+                flank_index,
                 ..
             } => Self::Primary {
                 reference_index: reference_index + 1,
                 query_index: query_index + 1,
-                steps_since_last_template_switch: steps_since_last_template_switch
-                    .saturating_add(1),
+                flank_index,
                 gap_type: GapType::None,
             },
         }
@@ -356,12 +374,12 @@ impl std::fmt::Display for Identifier {
             Self::Primary {
                 reference_index,
                 query_index,
-                steps_since_last_template_switch,
+                flank_index,
                 gap_type,
             } => write!(
                 f,
-                "Primary({}, {}, {}, {})",
-                reference_index, query_index, steps_since_last_template_switch, gap_type
+                "Primary({}R, {}Q, {}F, {})",
+                reference_index, query_index, flank_index, gap_type
             ),
         }
     }
