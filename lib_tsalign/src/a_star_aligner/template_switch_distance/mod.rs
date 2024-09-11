@@ -55,6 +55,8 @@ pub enum AlignmentType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Context<Alphabet> {
     pub costs: TemplateSwitchCostTable<Alphabet>,
+    pub left_flank_length: usize,
+    pub right_flank_length: usize,
 }
 
 impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alphabet>

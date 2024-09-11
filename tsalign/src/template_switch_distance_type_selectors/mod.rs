@@ -66,15 +66,38 @@ fn align_a_star_template_switch_distance_call<
     reference: &SubsequenceType,
     query: &SubsequenceType,
 ) {
+    use std::io::Read;
+
     let mut config_path = cli.configuration_directory.clone();
     config_path.push("tsa_costs.txt");
     let config_file = std::io::BufReader::new(std::fs::File::open(config_path).unwrap());
     let costs = TemplateSwitchCostTable::read_plain(config_file).unwrap();
 
+    #[derive(serde::Deserialize)]
+    struct TemplateSwitchConfig {
+        left_flank_length: usize,
+        right_flank_length: usize,
+    }
+
+    let mut config_path = cli.configuration_directory.clone();
+    config_path.push("a_star_template_switch.toml");
+    let mut config_file = std::io::BufReader::new(std::fs::File::open(config_path).unwrap());
+    let mut config = String::new();
+    config_file.read_to_string(&mut config).unwrap();
+    let config: TemplateSwitchConfig = toml::from_str(&config).unwrap();
+
     let alignment = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<AlphabetType, NodeOrd>,
         _,
-    >(reference, query, Context::<AlphabetType> { costs });
+    >(
+        reference,
+        query,
+        Context::<AlphabetType> {
+            costs,
+            left_flank_length: config.left_flank_length,
+            right_flank_length: config.right_flank_length,
+        },
+    );
 
     println!("{}", alignment);
 }
