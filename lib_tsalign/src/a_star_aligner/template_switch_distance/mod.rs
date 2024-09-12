@@ -27,7 +27,7 @@ pub enum Identifier {
         reference_index: usize,
         query_index: usize,
         gap_type: GapType,
-        /// Negative for left flank, positive for right flank.
+        /// Positive for left flank, negative for right flank.
         flank_index: isize,
     },
 }
@@ -100,90 +100,112 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 gap_type,
             } => {
                 if reference_index < reference.len() && query_index < query.len() {
-                    let mut diagonal_successor = Self {
-                        node_data: NodeData {
-                            identifier: self
-                                .node_data
-                                .identifier
-                                .generate_primary_diagonal_successor(0),
-                            predecessor: Some(self.node_data.identifier),
-                            cost: self.node_data.cost
-                                + context.costs.primary_edit_costs.match_or_substitution_cost(
-                                    reference[reference_index].clone(),
-                                    query[query_index].clone(),
-                                ),
-                        },
-                        strategies: self.strategies.generate_successor(context),
-                    };
+                    // Diagonal characters
+                    let r = reference[reference_index].clone();
+                    let q = query[query_index].clone();
 
                     if flank_index == 0 {
-                        diagonal_successor.node_data.identifier.set_flank_index(0);
-                        output.extend([diagonal_successor.clone()]);
-                    }
-
-                    if flank_index == context.left_flank_length {
+                        output.extend([self.generate_primary_diagonal_successor(
+                            0,
+                            context
+                                .costs
+                                .primary_edit_costs
+                                .match_or_substitution_cost(r, q),
+                            context,
+                        )]);
+                    } else if flank_index > 0 && flank_index < context.left_flank_length {
+                        output.extend([self.generate_primary_diagonal_successor(
+                            flank_index + 1,
+                            context
+                                .costs
+                                .left_flank_edit_costs
+                                .match_or_substitution_cost(r, q),
+                            context,
+                        )]);
+                    } else if flank_index < 0 {
+                        output.extend([self.generate_primary_diagonal_successor(
+                            flank_index + 1,
+                            context
+                                .costs
+                                .right_flank_edit_costs
+                                .match_or_substitution_cost(r, q),
+                            context,
+                        )]);
+                    } else if flank_index == context.left_flank_length {
                         todo!("generate template switch start node");
-                    }
-
-                    if flank_index < context.left_flank_length {
-                        diagonal_successor
-                            .node_data
-                            .identifier
-                            .set_flank_index(flank_index + 1);
-                        output.extend([diagonal_successor.clone()]);
                     }
                 }
 
                 if reference_index < reference.len() {
-                    let identifier = self
-                        .node_data
-                        .identifier
-                        .generate_primary_deletion_successor(0);
-                    output.extend([Self {
-                        node_data: NodeData {
-                            identifier,
-                            predecessor: Some(self.node_data.identifier),
-                            cost: self.node_data.cost
-                                + if gap_type == identifier.gap_type() {
-                                    context
-                                        .costs
-                                        .primary_edit_costs
-                                        .gap_extend_cost(reference[reference_index].clone())
-                                } else {
-                                    context
-                                        .costs
-                                        .primary_edit_costs
-                                        .gap_open_cost(reference[reference_index].clone())
-                                },
-                        },
-                        strategies: self.strategies.generate_successor(context),
-                    }]);
+                    // Deleted character
+                    let r = reference[reference_index].clone();
+
+                    if flank_index == 0 {
+                        output.extend([self.generate_primary_deletion_successor(
+                            0,
+                            context
+                                .costs
+                                .primary_edit_costs
+                                .gap_costs(r, gap_type != GapType::Deletion),
+                            context,
+                        )]);
+                    } else if flank_index > 0 && flank_index < context.left_flank_length {
+                        output.extend([self.generate_primary_deletion_successor(
+                            flank_index + 1,
+                            context
+                                .costs
+                                .left_flank_edit_costs
+                                .gap_costs(r, gap_type != GapType::Deletion),
+                            context,
+                        )]);
+                    } else if flank_index < 0 {
+                        output.extend([self.generate_primary_deletion_successor(
+                            flank_index + 1,
+                            context
+                                .costs
+                                .right_flank_edit_costs
+                                .gap_costs(r, gap_type != GapType::Deletion),
+                            context,
+                        )]);
+                    } else if flank_index == context.left_flank_length {
+                        todo!("generate template switch start node");
+                    }
                 }
 
                 if query_index < query.len() {
-                    let identifier = self
-                        .node_data
-                        .identifier
-                        .generate_primary_insertion_successor(0);
-                    output.extend([Self {
-                        node_data: NodeData {
-                            identifier,
-                            predecessor: Some(self.node_data.identifier),
-                            cost: self.node_data.cost
-                                + if gap_type == identifier.gap_type() {
-                                    context
-                                        .costs
-                                        .primary_edit_costs
-                                        .gap_extend_cost(query[query_index].clone())
-                                } else {
-                                    context
-                                        .costs
-                                        .primary_edit_costs
-                                        .gap_open_cost(query[query_index].clone())
-                                },
-                        },
-                        strategies: self.strategies.generate_successor(context),
-                    }]);
+                    // Inserted character
+                    let q = query[query_index].clone();
+
+                    if flank_index == 0 {
+                        output.extend([self.generate_primary_insertion_successor(
+                            0,
+                            context
+                                .costs
+                                .primary_edit_costs
+                                .gap_costs(q, gap_type != GapType::Insertion),
+                            context,
+                        )]);
+                    } else if flank_index > 0 && flank_index < context.left_flank_length {
+                        output.extend([self.generate_primary_insertion_successor(
+                            flank_index + 1,
+                            context
+                                .costs
+                                .left_flank_edit_costs
+                                .gap_costs(q, gap_type != GapType::Insertion),
+                            context,
+                        )]);
+                    } else if flank_index < 0 {
+                        output.extend([self.generate_primary_insertion_successor(
+                            flank_index + 1,
+                            context
+                                .costs
+                                .right_flank_edit_costs
+                                .gap_costs(q, gap_type != GapType::Insertion),
+                            context,
+                        )]);
+                    } else if flank_index == context.left_flank_length {
+                        todo!("generate template switch start node");
+                    }
                 }
             }
         }
@@ -262,6 +284,83 @@ impl<Strategies: AlignmentStrategySelector> Ord for Node<Strategies> {
         self.strategies
             .node_ord_strategy
             .cmp(&self.node_data, &other.node_data)
+    }
+}
+
+impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
+    fn generate_primary_diagonal_successor(
+        &self,
+        successor_flank_index: isize,
+        cost_increment: Cost,
+        context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
+    ) -> Self {
+        #[expect(irrefutable_let_patterns)]
+        let predecessor_identifier @ Identifier::Primary { .. } = self.node_data.identifier
+        else {
+            unreachable!("This method is only called on primary nodes.")
+        };
+
+        let cost = self.node_data.cost + cost_increment;
+        let node_data = NodeData {
+            identifier: predecessor_identifier
+                .generate_primary_diagonal_successor(successor_flank_index),
+            predecessor: Some(predecessor_identifier),
+            cost,
+        };
+        Self {
+            node_data,
+            strategies: self.strategies.generate_successor(context),
+        }
+    }
+
+    fn generate_primary_deletion_successor(
+        &self,
+        successor_flank_index: isize,
+        cost_increment: Cost,
+        context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
+    ) -> Self {
+        #[expect(irrefutable_let_patterns)]
+        let predecessor_identifier @ Identifier::Primary { .. } = self.node_data.identifier
+        else {
+            unreachable!("This method is only called on primary nodes.")
+        };
+
+        let cost = self.node_data.cost + cost_increment;
+        let node_data = NodeData {
+            identifier: predecessor_identifier
+                .generate_primary_deletion_successor(successor_flank_index),
+            predecessor: Some(predecessor_identifier),
+            cost,
+        };
+        Self {
+            node_data,
+            strategies: self.strategies.generate_successor(context),
+        }
+    }
+
+    fn generate_primary_insertion_successor(
+        &self,
+        successor_flank_index: isize,
+        cost_increment: Cost,
+        context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
+    ) -> Self {
+        #[expect(irrefutable_let_patterns)]
+        let predecessor_identifier @ Identifier::Primary { .. } = self.node_data.identifier
+        else {
+            unreachable!("This method is only called on primary nodes.")
+        };
+
+        let cost = self.node_data.cost + cost_increment;
+        let node_data = NodeData {
+            identifier: predecessor_identifier
+                .generate_primary_insertion_successor(successor_flank_index),
+            predecessor: Some(predecessor_identifier),
+            cost,
+        };
+        Self {
+            node_data,
+            strategies: self.strategies.generate_successor(context),
+        }
     }
 }
 

@@ -63,6 +63,14 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
     pub fn gap_extend_cost(&self, c: impl Into<AlphabetType::CharacterType>) -> Cost {
         self.gap_extend_cost_vector[c.into().index()]
     }
+
+    pub fn gap_costs(&self, c: impl Into<AlphabetType::CharacterType>, is_first: bool) -> Cost {
+        if is_first {
+            self.gap_open_cost(c)
+        } else {
+            self.gap_extend_cost(c)
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
