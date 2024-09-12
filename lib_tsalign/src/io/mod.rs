@@ -1,6 +1,19 @@
-use nom::{character::complete::satisfy, multi::many0, IResult};
+use nom::{
+    bytes::complete::take_till1,
+    character::complete::{char, satisfy},
+    multi::many0,
+    IResult,
+};
 
 use crate::error::Error;
+
+pub fn parse_title(input: &str) -> IResult<&str, &str> {
+    let input = skip_any_whitespace(input)?;
+    let input = char('#')(input)?.0;
+    let input = many0(satisfy(is_whitespace))(input)?.0;
+    let (input, result) = take_till1(is_any_line_break)(input)?;
+    Ok((input, result.trim()))
+}
 
 pub fn parse_whitespace(input: &str) -> IResult<&str, ()> {
     skip_whitespace(input).map(|input| (input, ()))
@@ -27,7 +40,7 @@ pub fn is_any_whitespace(c: char) -> bool {
 }
 
 pub fn is_whitespace(c: char) -> bool {
-    c.is_whitespace()
+    c.is_whitespace() && !is_any_line_break(c)
 }
 
 pub fn is_any_line_break(c: char) -> bool {

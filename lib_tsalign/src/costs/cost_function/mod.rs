@@ -2,6 +2,8 @@ use crate::error::Error;
 
 use super::cost::Cost;
 
+pub mod io;
+
 /// A step-wise cost funtion.
 ///
 /// The function is represented as a list of points sorted by the input coordinate.
@@ -14,7 +16,7 @@ use super::cost::Cost;
 ///
 /// The function can be evaluated via its [`evaluate`](Self::evaluate) function.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct CostFunction<SourceType: Clone + Ord> {
+pub struct CostFunction<SourceType> {
     function: Vec<(SourceType, Cost)>,
 }
 
@@ -33,7 +35,7 @@ impl<SourceType: Clone + Ord> CostFunction<SourceType> {
     }
 }
 
-impl<SourceType: Clone + Ord> TryFrom<Vec<(SourceType, Cost)>> for CostFunction<SourceType> {
+impl<SourceType: Ord> TryFrom<Vec<(SourceType, Cost)>> for CostFunction<SourceType> {
     type Error = Error;
     fn try_from(function: Vec<(SourceType, Cost)>) -> Result<Self, Self::Error> {
         for (index, window) in function.windows(2).enumerate() {
@@ -46,7 +48,7 @@ impl<SourceType: Clone + Ord> TryFrom<Vec<(SourceType, Cost)>> for CostFunction<
     }
 }
 
-impl<SourceType: Clone + Ord> From<CostFunction<SourceType>> for Vec<(SourceType, Cost)> {
+impl<SourceType> From<CostFunction<SourceType>> for Vec<(SourceType, Cost)> {
     fn from(value: CostFunction<SourceType>) -> Self {
         value.function
     }

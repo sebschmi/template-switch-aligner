@@ -266,6 +266,7 @@ dependencies = [
  "compact-genome",
  "ndarray",
  "nom",
+ "num-traits",
  "thiserror",
  "traitsequence",
 ]

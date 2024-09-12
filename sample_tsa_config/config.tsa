@@ -1,3 +1,14 @@
+# Limits
+
+left_flank_length = 10
+right_flank_length = 10
+
+# Jump Costs
+
+Offset1
+ -inf -100 -10 10 100
+  inf    5   0  5 inf
+
 # Primary Edit Costs
 
 SubstitutionCostTable

@@ -3,17 +3,16 @@ use crate::{
     costs::cost::Cost,
     error::{Error, Result},
     io::{
-        is_any_line_break, is_whitespace, parse_any_whitespace, parse_whitespace,
-        skip_any_whitespace, skip_whitespace, translate_nom_error,
+        parse_any_whitespace, parse_title, parse_whitespace, skip_any_whitespace, skip_whitespace,
+        translate_nom_error,
     },
 };
 
 use compact_genome::interface::alphabet::{Alphabet, AlphabetCharacter};
 use nom::{
-    bytes::complete::{tag, take, take_till1},
-    character::complete::{char, satisfy},
+    bytes::complete::{tag, take},
     combinator::opt,
-    multi::{count, many0, many1},
+    multi::{count, many1},
     sequence::{preceded, tuple},
     IResult,
 };
@@ -152,10 +151,8 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         Ok(())
     }
 
-    pub(crate) fn parse_plain(
-        input: &str,
-    ) -> IResult<&str, GapAffineAlignmentCostTable<AlphabetType>> {
-        let (input, name) = opt(parse_name)(input)?;
+    pub(crate) fn parse_plain(input: &str) -> IResult<&str, Self> {
+        let (input, name) = opt(parse_title)(input)?;
         let (input, substitution_cost_table) =
             parse_substitution_cost_table::<AlphabetType>(input)?;
         let (input, gap_open_cost_vector) = parse_gap_open_cost_vector::<AlphabetType>(input)?;
@@ -163,7 +160,7 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
 
         let name = name.unwrap_or("").to_string();
 
-        let cost_table = GapAffineAlignmentCostTable {
+        let cost_table = Self {
             name,
             substitution_cost_table,
             gap_open_cost_vector,
@@ -173,14 +170,6 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
 
         Ok((input, cost_table))
     }
-}
-
-fn parse_name(input: &str) -> IResult<&str, &str> {
-    let input = skip_any_whitespace(input)?;
-    let input = char('#')(input)?.0;
-    let input = many0(satisfy(is_whitespace))(input)?.0;
-    let (input, result) = take_till1(is_any_line_break)(input)?;
-    Ok((input, result.trim()))
 }
 
 fn parse_substitution_cost_table<AlphabetType: Alphabet>(input: &str) -> IResult<&str, Vec<Cost>> {
