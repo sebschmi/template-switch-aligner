@@ -5,7 +5,7 @@ use binary_heap_plus::BinaryHeap;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use template_switch_distance::strategies::AlignmentStrategySelector;
 
-use crate::cost::Cost;
+use crate::{config, costs::cost::Cost};
 
 pub mod alignment_result;
 pub mod gap_affine_edit_distance;
@@ -178,7 +178,7 @@ pub fn template_switch_distance_a_star_align<
 >(
     reference: &SubsequenceType,
     query: &SubsequenceType,
-    context: template_switch_distance::Context<Strategies::Alphabet>,
+    context: config::TemplateSwitchConfig<Strategies::Alphabet>,
 ) -> AlignmentResult<template_switch_distance::AlignmentType> {
     a_star_align::<_, _, template_switch_distance::Node<Strategies>>(reference, query, context)
 }

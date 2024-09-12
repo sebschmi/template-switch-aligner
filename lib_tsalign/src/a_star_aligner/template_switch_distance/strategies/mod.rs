@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use compact_genome::interface::alphabet::Alphabet;
 use node_ord::NodeOrdStrategy;
 
-use super::Context;
+use crate::config::TemplateSwitchConfig;
 
 pub mod node_ord;
 
@@ -18,19 +18,19 @@ pub struct AlignmentStrategies<Selector: AlignmentStrategySelector> {
 }
 
 pub trait AlignmentStrategy: Eq + Clone + std::fmt::Debug {
-    fn create_root<Alphabet>(context: &Context<Alphabet>) -> Self;
+    fn create_root<Alphabet>(context: &TemplateSwitchConfig<Alphabet>) -> Self;
 
-    fn generate_successor<Alphabet>(&self, context: &Context<Alphabet>) -> Self;
+    fn generate_successor<Alphabet>(&self, context: &TemplateSwitchConfig<Alphabet>) -> Self;
 }
 
 impl<Selector: AlignmentStrategySelector> AlignmentStrategy for AlignmentStrategies<Selector> {
-    fn create_root<Alphabet>(context: &Context<Alphabet>) -> Self {
+    fn create_root<Alphabet>(context: &TemplateSwitchConfig<Alphabet>) -> Self {
         Self {
             node_ord_strategy: Selector::NodeOrd::create_root(context),
         }
     }
 
-    fn generate_successor<Alphabet>(&self, context: &Context<Alphabet>) -> Self {
+    fn generate_successor<Alphabet>(&self, context: &TemplateSwitchConfig<Alphabet>) -> Self {
         Self {
             node_ord_strategy: self.node_ord_strategy.generate_successor(context),
         }

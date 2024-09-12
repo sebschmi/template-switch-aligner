@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter, Result, Write};
 
-use crate::cost::Cost;
+use crate::costs::cost::Cost;
 
 pub struct AlignmentResult<AlignmentType> {
     pub alignment: Vec<(usize, AlignmentType)>,

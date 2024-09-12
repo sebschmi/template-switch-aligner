@@ -1,7 +1,11 @@
 use super::GapAffineAlignmentCostTable;
 use crate::{
-    cost::Cost,
+    costs::cost::Cost,
     error::{Error, Result},
+    io::{
+        is_any_line_break, is_whitespace, parse_any_whitespace, parse_whitespace,
+        skip_any_whitespace, skip_whitespace, translate_nom_error,
+    },
 };
 
 use compact_genome::interface::alphabet::{Alphabet, AlphabetCharacter};
@@ -30,7 +34,7 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         let mut result = HashMap::new();
 
         loop {
-            let (next_input, table) = parse_plain(input).map_err(translate_nom_error)?;
+            let (next_input, table) = Self::parse_plain(input).map_err(translate_nom_error)?;
             input = next_input;
             if let Some(previous_table) = result.insert(table.name().to_string(), table) {
                 return Err(Error::DuplicateCostTableName(previous_table.name));
@@ -49,7 +53,7 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         let mut input = String::new();
         reader.read_to_string(&mut input)?;
 
-        parse_plain(&input)
+        Self::parse_plain(&input)
             .map_err(translate_nom_error)
             .map(|(_, output)| output)
     }
@@ -147,27 +151,28 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
 
         Ok(())
     }
-}
 
-fn parse_plain<AlphabetType: Alphabet>(
-    input: &str,
-) -> IResult<&str, GapAffineAlignmentCostTable<AlphabetType>> {
-    let (input, name) = opt(parse_name)(input)?;
-    let (input, substitution_cost_table) = parse_substitution_cost_table::<AlphabetType>(input)?;
-    let (input, gap_open_cost_vector) = parse_gap_open_cost_vector::<AlphabetType>(input)?;
-    let (input, gap_extend_cost_vector) = parse_gap_extend_cost_vector::<AlphabetType>(input)?;
+    pub(crate) fn parse_plain(
+        input: &str,
+    ) -> IResult<&str, GapAffineAlignmentCostTable<AlphabetType>> {
+        let (input, name) = opt(parse_name)(input)?;
+        let (input, substitution_cost_table) =
+            parse_substitution_cost_table::<AlphabetType>(input)?;
+        let (input, gap_open_cost_vector) = parse_gap_open_cost_vector::<AlphabetType>(input)?;
+        let (input, gap_extend_cost_vector) = parse_gap_extend_cost_vector::<AlphabetType>(input)?;
 
-    let name = name.unwrap_or("").to_string();
+        let name = name.unwrap_or("").to_string();
 
-    let cost_table = GapAffineAlignmentCostTable {
-        name,
-        substitution_cost_table,
-        gap_open_cost_vector,
-        gap_extend_cost_vector,
-        phantom_data: Default::default(),
-    };
+        let cost_table = GapAffineAlignmentCostTable {
+            name,
+            substitution_cost_table,
+            gap_open_cost_vector,
+            gap_extend_cost_vector,
+            phantom_data: Default::default(),
+        };
 
-    Ok((input, cost_table))
+        Ok((input, cost_table))
+    }
 }
 
 fn parse_name(input: &str) -> IResult<&str, &str> {
@@ -334,44 +339,4 @@ fn parse_alphabet_character<CharacterType: AlphabetCharacter>(
         })
     })?;
     Ok((input, character))
-}
-
-fn parse_whitespace(input: &str) -> IResult<&str, ()> {
-    skip_whitespace(input).map(|input| (input, ()))
-}
-
-fn parse_any_whitespace(input: &str) -> IResult<&str, ()> {
-    skip_any_whitespace(input).map(|input| (input, ()))
-}
-
-fn skip_whitespace(input: &str) -> std::result::Result<&str, nom::Err<nom::error::Error<&str>>> {
-    many0(satisfy(is_whitespace))(input).map(|(input, _)| input)
-}
-
-fn skip_any_whitespace(
-    input: &str,
-) -> std::result::Result<&str, nom::Err<nom::error::Error<&str>>> {
-    many0(satisfy(is_any_whitespace))(input).map(|(input, _)| input)
-}
-
-fn is_any_whitespace(c: char) -> bool {
-    is_whitespace(c) || is_any_line_break(c)
-}
-
-fn is_whitespace(c: char) -> bool {
-    c.is_whitespace()
-}
-
-fn is_any_line_break(c: char) -> bool {
-    c == '\n' || c == '\r'
-}
-
-fn translate_nom_error(error: nom::Err<nom::error::Error<&str>>) -> Error {
-    match error {
-        nom::Err::Incomplete(needed) => Error::ParserIncomplete(needed),
-        nom::Err::Error(error) | nom::Err::Failure(error) => Error::Parser {
-            input: error.input.to_string(),
-            kind: error.code,
-        },
-    }
 }

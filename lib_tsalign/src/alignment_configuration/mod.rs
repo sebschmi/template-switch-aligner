@@ -1,4 +1,4 @@
-use crate::{alignment_matrix::BaseAlignmentType, cost::Cost};
+use crate::{alignment_matrix::BaseAlignmentType, costs::cost::Cost};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AlignmentConfiguration {

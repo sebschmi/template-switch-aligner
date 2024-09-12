@@ -1,6 +1,6 @@
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 
-use crate::cost::Cost;
+use crate::costs::cost::Cost;
 
 use super::AlignmentGraphNode;
 

@@ -2,10 +2,11 @@ use strategies::{
     node_ord::NodeOrdStrategy, AlignmentStrategies, AlignmentStrategy, AlignmentStrategySelector,
 };
 
-use crate::{cost::Cost, cost_table::TemplateSwitchCostTable};
+use crate::{config::TemplateSwitchConfig, costs::cost::Cost};
 
 use super::AlignmentGraphNode;
 
+pub mod display;
 pub mod strategies;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +31,13 @@ pub enum Identifier {
         /// Positive for left flank, negative for right flank.
         flank_index: isize,
     },
+    TemplateSwitchEntrance {
+        entrance_reference_index: usize,
+        entrance_query_index: usize,
+        template_switch_origin: TemplateSwitchOrigin,
+        template_switch_target: TemplateSwitchTarget,
+        template_switch_first_offset: isize,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -37,6 +45,20 @@ pub enum GapType {
     Insertion,
     Deletion,
     None,
+}
+
+/// Origin is the sequence that gets replaced.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TemplateSwitchOrigin {
+    Reference,
+    Query,
+}
+
+/// Target is the sequence where the replacement comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TemplateSwitchTarget {
+    Reference,
+    Query,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,15 +71,14 @@ pub enum AlignmentType {
     Substitution,
     /// The query contains the same base as the reference.
     Match,
+    /// A template switch entrance.
+    TemplateSwitchEntrance {
+        origin: TemplateSwitchOrigin,
+        target: TemplateSwitchTarget,
+        first_offset: isize,
+    },
     /// This node is the root node, hence it was not generated via alignment.
     Root,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Context<Alphabet> {
-    pub costs: TemplateSwitchCostTable<Alphabet>,
-    pub left_flank_length: isize,
-    pub right_flank_length: isize,
 }
 
 impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alphabet>
@@ -65,7 +86,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
 {
     type Identifier = Identifier;
 
-    type Context = Context<Strategies::Alphabet>;
+    type Context = TemplateSwitchConfig<Strategies::Alphabet>;
 
     type AlignmentType = AlignmentType;
 
@@ -107,17 +128,13 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     if flank_index == 0 {
                         output.extend([self.generate_primary_diagonal_successor(
                             0,
-                            context
-                                .costs
-                                .primary_edit_costs
-                                .match_or_substitution_cost(r, q),
+                            context.primary_edit_costs.match_or_substitution_cost(r, q),
                             context,
                         )]);
                     } else if flank_index > 0 && flank_index < context.left_flank_length {
                         output.extend([self.generate_primary_diagonal_successor(
                             flank_index + 1,
                             context
-                                .costs
                                 .left_flank_edit_costs
                                 .match_or_substitution_cost(r, q),
                             context,
@@ -126,13 +143,12 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         output.extend([self.generate_primary_diagonal_successor(
                             flank_index + 1,
                             context
-                                .costs
                                 .right_flank_edit_costs
                                 .match_or_substitution_cost(r, q),
                             context,
                         )]);
                     } else if flank_index == context.left_flank_length {
-                        todo!("generate template switch start node");
+                        todo!("generate template switch start nodes");
                     }
                 }
 
@@ -144,7 +160,6 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         output.extend([self.generate_primary_deletion_successor(
                             0,
                             context
-                                .costs
                                 .primary_edit_costs
                                 .gap_costs(r, gap_type != GapType::Deletion),
                             context,
@@ -153,7 +168,6 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         output.extend([self.generate_primary_deletion_successor(
                             flank_index + 1,
                             context
-                                .costs
                                 .left_flank_edit_costs
                                 .gap_costs(r, gap_type != GapType::Deletion),
                             context,
@@ -162,13 +176,12 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         output.extend([self.generate_primary_deletion_successor(
                             flank_index + 1,
                             context
-                                .costs
                                 .right_flank_edit_costs
                                 .gap_costs(r, gap_type != GapType::Deletion),
                             context,
                         )]);
                     } else if flank_index == context.left_flank_length {
-                        todo!("generate template switch start node");
+                        todo!("generate template switch start nodes");
                     }
                 }
 
@@ -180,7 +193,6 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         output.extend([self.generate_primary_insertion_successor(
                             0,
                             context
-                                .costs
                                 .primary_edit_costs
                                 .gap_costs(q, gap_type != GapType::Insertion),
                             context,
@@ -189,7 +201,6 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         output.extend([self.generate_primary_insertion_successor(
                             flank_index + 1,
                             context
-                                .costs
                                 .left_flank_edit_costs
                                 .gap_costs(q, gap_type != GapType::Insertion),
                             context,
@@ -198,15 +209,34 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         output.extend([self.generate_primary_insertion_successor(
                             flank_index + 1,
                             context
-                                .costs
                                 .right_flank_edit_costs
                                 .gap_costs(q, gap_type != GapType::Insertion),
                             context,
                         )]);
                     } else if flank_index == context.left_flank_length {
-                        todo!("generate template switch start node");
+                        todo!("generate template switch start nodes");
                     }
                 }
+            }
+
+            #[expect(unused)]
+            Identifier::TemplateSwitchEntrance {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_origin,
+                template_switch_target,
+                template_switch_first_offset,
+            } => {
+                let (origin_entrance_index, origin_length) = match template_switch_origin {
+                    TemplateSwitchOrigin::Reference => (entrance_reference_index, reference.len()),
+                    TemplateSwitchOrigin::Query => (entrance_query_index, query.len()),
+                };
+                let (target_entrance_index, target_length) = match template_switch_target {
+                    TemplateSwitchTarget::Reference => (entrance_reference_index, reference.len()),
+                    TemplateSwitchTarget::Query => (entrance_query_index, query.len()),
+                };
+
+                todo!()
             }
         }
     }
@@ -252,6 +282,17 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         }
                     }
                 },
+
+                Identifier::TemplateSwitchEntrance {
+                    template_switch_origin,
+                    template_switch_target,
+                    template_switch_first_offset,
+                    ..
+                } => AlignmentType::TemplateSwitchEntrance {
+                    origin: template_switch_origin,
+                    target: template_switch_target,
+                    first_offset: template_switch_first_offset,
+                },
             }
         } else {
             AlignmentType::Root
@@ -275,15 +316,8 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 query_index,
                 ..
             } => reference_index == reference.len() && query_index == query.len(),
+            _ => false,
         }
-    }
-}
-
-impl<Strategies: AlignmentStrategySelector> Ord for Node<Strategies> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.strategies
-            .node_ord_strategy
-            .cmp(&self.node_data, &other.node_data)
     }
 }
 
@@ -294,9 +328,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         cost_increment: Cost,
         context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
     ) -> Self {
-        #[expect(irrefutable_let_patterns)]
-        let predecessor_identifier @ Identifier::Primary { .. } = self.node_data.identifier
-        else {
+        let predecessor_identifier @ Identifier::Primary { .. } = self.node_data.identifier else {
             unreachable!("This method is only called on primary nodes.")
         };
 
@@ -319,9 +351,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         cost_increment: Cost,
         context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
     ) -> Self {
-        #[expect(irrefutable_let_patterns)]
-        let predecessor_identifier @ Identifier::Primary { .. } = self.node_data.identifier
-        else {
+        let predecessor_identifier @ Identifier::Primary { .. } = self.node_data.identifier else {
             unreachable!("This method is only called on primary nodes.")
         };
 
@@ -344,9 +374,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         cost_increment: Cost,
         context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
     ) -> Self {
-        #[expect(irrefutable_let_patterns)]
-        let predecessor_identifier @ Identifier::Primary { .. } = self.node_data.identifier
-        else {
+        let predecessor_identifier @ Identifier::Primary { .. } = self.node_data.identifier else {
             unreachable!("This method is only called on primary nodes.")
         };
 
@@ -379,7 +407,7 @@ impl Identifier {
         }
     }
 
-    const fn generate_primary_deletion_successor(self, flank_index: isize) -> Self {
+    fn generate_primary_deletion_successor(self, flank_index: isize) -> Self {
         match self {
             Self::Primary {
                 reference_index,
@@ -391,10 +419,13 @@ impl Identifier {
                 flank_index,
                 gap_type: GapType::Deletion,
             },
+            other => unreachable!(
+                "Function is only called on primary identifiers, but this is: {other}."
+            ),
         }
     }
 
-    const fn generate_primary_insertion_successor(self, flank_index: isize) -> Self {
+    fn generate_primary_insertion_successor(self, flank_index: isize) -> Self {
         match self {
             Self::Primary {
                 reference_index,
@@ -406,10 +437,13 @@ impl Identifier {
                 flank_index,
                 gap_type: GapType::Insertion,
             },
+            other => unreachable!(
+                "Function is only called on primary identifiers, but this is: {other}."
+            ),
         }
     }
 
-    const fn generate_primary_diagonal_successor(self, flank_index: isize) -> Self {
+    fn generate_primary_diagonal_successor(self, flank_index: isize) -> Self {
         match self {
             Self::Primary {
                 reference_index,
@@ -421,25 +455,13 @@ impl Identifier {
                 flank_index,
                 gap_type: GapType::None,
             },
+            other => unreachable!(
+                "Function is only called on primary identifiers, but this is: {other}."
+            ),
         }
     }
 
-    fn set_flank_index(&mut self, flank_index: isize) {
-        match self {
-            Self::Primary {
-                flank_index: current_flank_index,
-                ..
-            } => *current_flank_index = flank_index,
-        }
-    }
-
-    const fn gap_type(self) -> GapType {
-        match self {
-            Self::Primary { gap_type, .. } => gap_type,
-        }
-    }
-
-    /// Returns the anti-diagonal for variants where it exists, or zero otherwise.
+    /// Returns the anti-diagonal for variants where it exists, or [`usize::MAX`](core::primitive::usize::MAX) otherwise.
     const fn anti_diagonal(self) -> usize {
         match self {
             Self::Primary {
@@ -447,51 +469,21 @@ impl Identifier {
                 query_index,
                 ..
             } => reference_index + query_index,
+            _ => usize::MAX,
         }
+    }
+}
+
+impl<Strategies: AlignmentStrategySelector> Ord for Node<Strategies> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.strategies
+            .node_ord_strategy
+            .cmp(&self.node_data, &other.node_data)
     }
 }
 
 impl<Strategies: AlignmentStrategySelector> PartialOrd for Node<Strategies> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
-    }
-}
-
-impl std::fmt::Display for AlignmentType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AlignmentType::Insertion => write!(f, "I"),
-            AlignmentType::Deletion => write!(f, "D"),
-            AlignmentType::Substitution => write!(f, "S"),
-            AlignmentType::Match => write!(f, "M"),
-            AlignmentType::Root => Ok(()),
-        }
-    }
-}
-
-impl std::fmt::Display for GapType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GapType::Insertion => write!(f, "I"),
-            GapType::Deletion => write!(f, "D"),
-            GapType::None => write!(f, "M/S"),
-        }
-    }
-}
-
-impl std::fmt::Display for Identifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Primary {
-                reference_index,
-                query_index,
-                flank_index,
-                gap_type,
-            } => write!(
-                f,
-                "Primary({}R, {}Q, {}F, {})",
-                reference_index, query_index, flank_index, gap_type
-            ),
-        }
     }
 }

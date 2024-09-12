@@ -8,7 +8,7 @@ use index::{
 };
 use ndarray::Array2;
 
-use crate::{alignment_configuration::AlignmentConfiguration, cost::Cost};
+use crate::{alignment_configuration::AlignmentConfiguration, costs::cost::Cost};
 
 pub mod index;
 

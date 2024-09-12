@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use compact_genome::interface::alphabet::{Alphabet, AlphabetCharacter};
 
-use crate::{cost::Cost, error::Error};
+use crate::costs::cost::Cost;
 
 pub mod io;
 
@@ -70,47 +70,5 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         } else {
             self.gap_extend_cost(c)
         }
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct TemplateSwitchCostTable<AlphabetType> {
-    pub primary_edit_costs: GapAffineAlignmentCostTable<AlphabetType>,
-    pub secondary_edit_costs: GapAffineAlignmentCostTable<AlphabetType>,
-    pub left_flank_edit_costs: GapAffineAlignmentCostTable<AlphabetType>,
-    pub right_flank_edit_costs: GapAffineAlignmentCostTable<AlphabetType>,
-}
-
-impl<AlphabetType: Alphabet> TemplateSwitchCostTable<AlphabetType> {
-    pub fn read_plain(reader: impl std::io::Read) -> crate::error::Result<Self> {
-        let mut cost_tables = GapAffineAlignmentCostTable::read_plain_multi(reader)?;
-
-        let mut keys: Vec<_> = cost_tables.keys().cloned().collect();
-        let mut expected_keys: Vec<_> = [
-            "Primary Edit Costs",
-            "Secondary Edit Costs",
-            "Left Flank Edit Costs",
-            "Right Flank Edit Costs",
-        ]
-        .into_iter()
-        .map(ToString::to_string)
-        .collect();
-
-        keys.sort_unstable();
-        expected_keys.sort_unstable();
-
-        if keys != expected_keys {
-            return Err(Error::WrongCostTableNames {
-                actual: keys,
-                expected: expected_keys,
-            });
-        }
-
-        Ok(Self {
-            primary_edit_costs: cost_tables.remove("Primary Edit Costs").unwrap(),
-            secondary_edit_costs: cost_tables.remove("Secondary Edit Costs").unwrap(),
-            left_flank_edit_costs: cost_tables.remove("Left Flank Edit Costs").unwrap(),
-            right_flank_edit_costs: cost_tables.remove("Right Flank Edit Costs").unwrap(),
-        })
     }
 }

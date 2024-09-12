@@ -5,5 +5,6 @@ resolver = "2"
 package.rust-version = "1.81.0"
 
 [workspace.dependencies]
-compact-genome = "4.0.0"
+compact-genome = "4.0.2"
 traitsequence = "2.0.0"
+serde = { version = "1.0.210", features = ["derive"] }

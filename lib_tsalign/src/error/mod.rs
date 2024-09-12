@@ -24,4 +24,7 @@ pub enum Error {
         actual: Vec<String>,
         expected: Vec<String>,
     },
+
+    #[error("A cost function was attempted to create from a sequence whose index does not strictly increase at {index}.")]
+    CostFunctionIndexNotIncreasing { index: usize },
 }

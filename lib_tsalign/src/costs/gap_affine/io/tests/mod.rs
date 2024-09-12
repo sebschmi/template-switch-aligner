@@ -1,6 +1,6 @@
 use compact_genome::implementation::alphabets::dna_alphabet::DnaAlphabet;
 
-use crate::cost_table::GapAffineAlignmentCostTable;
+use crate::costs::gap_affine::GapAffineAlignmentCostTable;
 
 #[test]
 fn simple_example() {
