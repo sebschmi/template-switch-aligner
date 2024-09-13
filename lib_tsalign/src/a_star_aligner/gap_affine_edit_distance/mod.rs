@@ -271,4 +271,8 @@ impl IAlignmentType for AlignmentType {
     fn is_repeatable(&self) -> bool {
         true
     }
+
+    fn is_repeated(&self, previous: &Self) -> bool {
+        self == previous
+    }
 }

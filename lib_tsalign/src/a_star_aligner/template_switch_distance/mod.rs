@@ -1225,4 +1225,26 @@ impl IAlignmentType for AlignmentType {
             | AlignmentType::TemplateSwitchExit { .. } => false,
         }
     }
+
+    fn is_repeated(&self, previous: &Self) -> bool {
+        match (self, previous) {
+            (
+                AlignmentType::TemplateSwitchEntrance {
+                    primary: primary_a,
+                    secondary: secondary_a,
+                    ..
+                },
+                AlignmentType::TemplateSwitchEntrance {
+                    primary: primary_b,
+                    secondary: secondary_b,
+                    ..
+                },
+            ) => primary_a == primary_b && secondary_a == secondary_b,
+            (
+                AlignmentType::TemplateSwitchExit { .. },
+                AlignmentType::TemplateSwitchExit { .. },
+            ) => true,
+            (a, b) => a == b,
+        }
+    }
 }

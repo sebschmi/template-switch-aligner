@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display, hash::Hash, time::Instant};
 
-use alignment_result::AlignmentResult;
+use alignment_result::{AlignmentResult, IAlignmentType};
 use binary_heap_plus::BinaryHeap;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use template_switch_distance::strategies::AlignmentStrategySelector;
@@ -81,7 +81,7 @@ fn a_star_align<
 ) -> AlignmentResult<Node::AlignmentType>
 where
     Node::Identifier: Hash + Eq + Clone + Display,
-    Node::AlignmentType: Eq,
+    Node::AlignmentType: Eq + IAlignmentType,
 {
     let start_time = Instant::now();
 
@@ -126,7 +126,7 @@ where
         let alignment_type = current_node.predecessor_alignment_type(reference, query, &context);
 
         if let Some((count, previous_alignment_type)) = alignment.last_mut() {
-            if alignment_type == *previous_alignment_type {
+            if alignment_type.is_repeated(previous_alignment_type) {
                 *count += 1;
             } else {
                 alignment.push((1, alignment_type));

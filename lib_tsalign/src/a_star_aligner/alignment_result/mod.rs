@@ -4,6 +4,8 @@ use crate::costs::cost::Cost;
 
 pub trait IAlignmentType {
     fn is_repeatable(&self) -> bool;
+
+    fn is_repeated(&self, previous: &Self) -> bool;
 }
 
 pub struct AlignmentResult<AlignmentType> {
