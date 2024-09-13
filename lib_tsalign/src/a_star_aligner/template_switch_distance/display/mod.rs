@@ -13,7 +13,8 @@ impl Display for AlignmentType {
                 primary: origin,
                 secondary: target,
                 first_offset,
-            } => write!(f, "[TS{origin}{target}{first_offset}]"),
+            } => write!(f, "[TS{origin}{target}{first_offset}:"),
+            Self::TemplateSwitchExit { length_difference } => write!(f, ":{length_difference}]"),
             Self::Root => Ok(()),
             Self::SecondaryRoot => Ok(()),
         }
@@ -85,21 +86,39 @@ impl Display for Identifier {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
-                root,
+                length,
                 primary_index,
                 secondary_index,
                 gap_type,
             } => write!(
                 f,
-                "Secondary{}({}R, {}Q, {}P, {}S, {}, {}, {})",
-                if *root { "Root" } else { "" },
+                "Secondary({}R, {}Q, {}L, {}P, {}S, {}, {}, {})",
                 entrance_reference_index,
                 entrance_query_index,
+                length,
                 primary_index,
                 secondary_index,
                 template_switch_primary,
                 template_switch_secondary,
                 gap_type
+            ),
+
+            Self::TemplateSwitchExit {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                primary_index,
+                length_difference,
+            } => write!(
+                f,
+                "TemplateSwitchExit({}R, {}Q, {}P, {}D, {}, {})",
+                entrance_reference_index,
+                entrance_query_index,
+                primary_index,
+                length_difference,
+                template_switch_primary,
+                template_switch_secondary
             ),
         }
     }

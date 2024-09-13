@@ -44,12 +44,21 @@ pub enum Identifier {
         entrance_query_index: usize,
         template_switch_primary: TemplateSwitchPrimary,
         template_switch_secondary: TemplateSwitchSecondary,
-        root: bool,
+        length: usize,
         /// The index that does not jump.
         primary_index: usize,
         /// The index that jumps.
         secondary_index: usize,
         gap_type: GapType,
+    },
+    TemplateSwitchExit {
+        entrance_reference_index: usize,
+        entrance_query_index: usize,
+        template_switch_primary: TemplateSwitchPrimary,
+        template_switch_secondary: TemplateSwitchSecondary,
+        /// The index that does not jump.
+        primary_index: usize,
+        length_difference: isize,
     },
 }
 
@@ -90,6 +99,8 @@ pub enum AlignmentType {
         secondary: TemplateSwitchSecondary,
         first_offset: isize,
     },
+    /// A template switch exit.
+    TemplateSwitchExit { length_difference: isize },
     /// This node is the root node, hence it was not generated via alignment.
     Root,
     /// The root node of a secondary graph.
@@ -325,17 +336,20 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 output.extend(self.generate_secondary_root_node(context));
             }
 
-            #[expect(unused)]
             Identifier::Secondary {
-                entrance_reference_index,
-                entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
+                length,
                 primary_index,
                 secondary_index,
                 gap_type,
                 ..
             } => {
+                // TODO Some of the nodes generated here are unable to reach the target:
+                // TODO * nodes who get closer than `right_flank_length` to the end of the primary sequence
+                // TODO * nodes who get closer than `right_flank_length` to the end of the not-primary sequence,
+                // TODO   assuming a `length_difference` of zero
+
                 let primary_sequence = match template_switch_primary {
                     TemplateSwitchPrimary::Reference => reference,
                     TemplateSwitchPrimary::Query => query,
@@ -388,8 +402,30 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     );
                 }
 
-                todo!("Generate exit nodes")
+                let length_cost = context.length_costs.evaluate(&length);
+                if length_cost != Cost::MAX {
+                    let length_difference_cost = context.length_difference_costs.evaluate(&0);
+                    assert_ne!(length_difference_cost, Cost::MAX);
+                    let cost_increment = length_cost + length_difference_cost;
+
+                    output.extend(
+                        self.generate_initial_template_switch_exit_successor(
+                            cost_increment,
+                            context,
+                        ),
+                    )
+                }
             }
+
+            #[expect(unused)]
+            Identifier::TemplateSwitchExit {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                primary_index,
+                length_difference,
+            } => todo!(),
         }
     }
 
@@ -449,7 +485,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 Identifier::Secondary {
                     template_switch_primary,
                     template_switch_secondary,
-                    root,
+                    length,
                     primary_index,
                     secondary_index,
                     gap_type,
@@ -458,7 +494,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     GapType::Insertion => AlignmentType::Insertion,
                     GapType::Deletion => AlignmentType::Deletion,
                     GapType::None => {
-                        if root {
+                        if length == 0 {
                             AlignmentType::SecondaryRoot
                         } else {
                             let primary_character = match template_switch_primary {
@@ -478,6 +514,10 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         }
                     }
                 },
+
+                Identifier::TemplateSwitchExit {
+                    length_difference, ..
+                } => AlignmentType::TemplateSwitchExit { length_difference },
             }
         } else {
             AlignmentType::Root
@@ -678,8 +718,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         let predecessor_identifier @ Identifier::TemplateSwitchEntrance {
             entrance_reference_index,
             entrance_query_index,
-            template_switch_primary: template_switch_origin,
-            template_switch_secondary: template_switch_target,
+            template_switch_primary,
+            template_switch_secondary,
             ..
         } = self.node_data.identifier
         else {
@@ -691,8 +731,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 identifier: Identifier::TemplateSwitchEntrance {
                     entrance_reference_index,
                     entrance_query_index,
-                    template_switch_primary: template_switch_origin,
-                    template_switch_secondary: template_switch_target,
+                    template_switch_primary,
+                    template_switch_secondary,
                     template_switch_first_offset: successor_template_switch_first_offset,
                 },
                 predecessor: Some(predecessor_identifier),
@@ -735,7 +775,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                     entrance_query_index,
                     template_switch_primary,
                     template_switch_secondary,
-                    root: true,
+                    length: 0,
                     primary_index,
                     secondary_index,
                     gap_type: GapType::None,
@@ -820,6 +860,44 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             strategies: self.strategies.generate_successor(context),
         })
     }
+
+    fn generate_initial_template_switch_exit_successor(
+        &self,
+        cost_increment: Cost,
+        context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
+    ) -> Option<Self> {
+        if cost_increment == Cost::MAX {
+            return None;
+        }
+
+        let predecessor_identifier @ Identifier::Secondary {
+            entrance_reference_index,
+            entrance_query_index,
+            template_switch_primary,
+            template_switch_secondary,
+            primary_index,
+            ..
+        } = self.node_data.identifier
+        else {
+            unreachable!("This method is only called on secondary nodes.")
+        };
+
+        Some(Self {
+            node_data: NodeData {
+                identifier: Identifier::TemplateSwitchExit {
+                    entrance_reference_index,
+                    entrance_query_index,
+                    template_switch_primary,
+                    template_switch_secondary,
+                    primary_index,
+                    length_difference: 0,
+                },
+                predecessor: Some(predecessor_identifier),
+                cost: self.node_data.cost + cost_increment,
+            },
+            strategies: self.strategies.generate_successor(context),
+        })
+    }
 }
 
 impl Identifier {
@@ -898,6 +976,7 @@ impl Identifier {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
+                length,
                 primary_index,
                 secondary_index,
                 ..
@@ -906,7 +985,7 @@ impl Identifier {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
-                root: false,
+                length: length + 1,
                 primary_index: primary_index + 1,
                 secondary_index: secondary_index - 1,
                 gap_type: GapType::None,
@@ -925,6 +1004,7 @@ impl Identifier {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
+                length,
                 primary_index,
                 secondary_index,
                 ..
@@ -933,7 +1013,7 @@ impl Identifier {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
-                root: false,
+                length: length + 1,
                 primary_index,
                 secondary_index: secondary_index - 1,
                 gap_type: GapType::Deletion,
@@ -952,6 +1032,7 @@ impl Identifier {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
+                length,
                 primary_index,
                 secondary_index,
                 ..
@@ -960,7 +1041,7 @@ impl Identifier {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
-                root: false,
+                length: length + 1,
                 primary_index: primary_index + 1,
                 secondary_index,
                 gap_type: GapType::Insertion,
