@@ -275,4 +275,8 @@ impl IAlignmentType for AlignmentType {
     fn is_repeated(&self, previous: &Self) -> bool {
         self == previous
     }
+
+    fn is_internal(&self) -> bool {
+        self == &Self::Root
+    }
 }

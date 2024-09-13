@@ -1,7 +1,7 @@
 # Limits
 
-left_flank_length = 10
-right_flank_length = 10
+left_flank_length = 5
+right_flank_length = 5
 
 # Jump Costs
 

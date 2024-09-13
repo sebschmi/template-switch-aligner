@@ -6,6 +6,8 @@ pub trait IAlignmentType {
     fn is_repeatable(&self) -> bool;
 
     fn is_repeated(&self, previous: &Self) -> bool;
+
+    fn is_internal(&self) -> bool;
 }
 
 pub struct AlignmentResult<AlignmentType> {

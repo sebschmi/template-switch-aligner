@@ -10,13 +10,14 @@ impl Display for AlignmentType {
             Self::Substitution => write!(f, "S"),
             Self::Match => write!(f, "M"),
             Self::TemplateSwitchEntrance {
-                primary: origin,
-                secondary: target,
+                primary,
+                secondary,
                 first_offset,
-            } => write!(f, "[TS{origin}{target}{first_offset}:"),
+            } => write!(f, "[TS{primary}{secondary}{first_offset}:"),
             Self::TemplateSwitchExit { length_difference } => write!(f, ":{length_difference}]"),
             Self::Root => Ok(()),
             Self::SecondaryRoot => Ok(()),
+            Self::PrimaryReentry => Ok(()),
         }
     }
 }
@@ -63,6 +64,17 @@ impl Display for Identifier {
                 reference_index, query_index, flank_index, gap_type
             ),
 
+            Self::PrimaryReentry {
+                reference_index,
+                query_index,
+                flank_index,
+                gap_type,
+            } => write!(
+                f,
+                "PrimaryReentry({}R, {}Q, {}F, {})",
+                reference_index, query_index, flank_index, gap_type
+            ),
+
             Self::TemplateSwitchEntrance {
                 entrance_reference_index,
                 entrance_query_index,
@@ -72,7 +84,7 @@ impl Display for Identifier {
             } => {
                 write!(
                     f,
-                    "TemplateSwitchEntrance({}R, {}Q, {}P, {}S, {}O1)",
+                    "TemplateSwitchEntrance({}R, {}Q, {}P, {}S, {}O)",
                     entrance_reference_index,
                     entrance_query_index,
                     template_switch_primary,

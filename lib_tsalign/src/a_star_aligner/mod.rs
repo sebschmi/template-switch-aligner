@@ -81,7 +81,7 @@ fn a_star_align<
 ) -> AlignmentResult<Node::AlignmentType>
 where
     Node::Identifier: Hash + Eq + Clone + Display,
-    Node::AlignmentType: Eq + IAlignmentType,
+    Node::AlignmentType: IAlignmentType + std::fmt::Debug,
 {
     let start_time = Instant::now();
 
@@ -125,14 +125,23 @@ where
     loop {
         let alignment_type = current_node.predecessor_alignment_type(reference, query, &context);
 
-        if let Some((count, previous_alignment_type)) = alignment.last_mut() {
-            if alignment_type.is_repeated(previous_alignment_type) {
-                *count += 1;
+        println!(
+            "{}: {}; {:?}",
+            current_node.cost(),
+            current_node.identifier(),
+            alignment_type,
+        );
+
+        if !alignment_type.is_internal() {
+            if let Some((count, previous_alignment_type)) = alignment.last_mut() {
+                if alignment_type.is_repeated(previous_alignment_type) {
+                    *count += 1;
+                } else {
+                    alignment.push((1, alignment_type));
+                }
             } else {
                 alignment.push((1, alignment_type));
             }
-        } else {
-            alignment.push((1, alignment_type));
         }
 
         if let Some(predecessor) = current_node.predecessor() {
@@ -142,8 +151,6 @@ where
         }
     }
 
-    // Pop root element.
-    alignment.pop().unwrap();
     alignment.reverse();
 
     let end_time = Instant::now();

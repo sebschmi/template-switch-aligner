@@ -32,6 +32,13 @@ pub enum Identifier {
         /// Positive for left flank, negative for right flank.
         flank_index: isize,
     },
+    PrimaryReentry {
+        reference_index: usize,
+        query_index: usize,
+        gap_type: GapType,
+        /// Positive for left flank, negative for right flank.
+        flank_index: isize,
+    },
     TemplateSwitchEntrance {
         entrance_reference_index: usize,
         entrance_query_index: usize,
@@ -105,6 +112,8 @@ pub enum AlignmentType {
     Root,
     /// The root node of a secondary graph.
     SecondaryRoot,
+    /// A reentry node into the primary graph, treated like a root.
+    PrimaryReentry,
 }
 
 impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alphabet>
@@ -145,6 +154,12 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 query_index,
                 flank_index,
                 gap_type,
+            }
+            | Identifier::PrimaryReentry {
+                reference_index,
+                query_index,
+                gap_type,
+                flank_index,
             } => {
                 if reference_index < reference.len() && query_index < query.len() {
                     // Diagonal characters
@@ -515,6 +530,8 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     }
                 },
 
+                Identifier::PrimaryReentry { .. } => AlignmentType::PrimaryReentry,
+
                 Identifier::TemplateSwitchEntrance {
                     template_switch_primary,
                     template_switch_secondary,
@@ -601,7 +618,9 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let predecessor_identifier @ Identifier::Primary { .. } = self.node_data.identifier else {
+        let predecessor_identifier @ (Identifier::Primary { .. }
+        | Identifier::PrimaryReentry { .. }) = self.node_data.identifier
+        else {
             unreachable!("This method is only called on primary nodes.")
         };
 
@@ -628,7 +647,9 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let predecessor_identifier @ Identifier::Primary { .. } = self.node_data.identifier else {
+        let predecessor_identifier @ (Identifier::Primary { .. }
+        | Identifier::PrimaryReentry { .. }) = self.node_data.identifier
+        else {
             unreachable!("This method is only called on primary nodes.")
         };
 
@@ -655,7 +676,9 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let predecessor_identifier @ Identifier::Primary { .. } = self.node_data.identifier else {
+        let predecessor_identifier @ (Identifier::Primary { .. }
+        | Identifier::PrimaryReentry { .. }) = self.node_data.identifier
+        else {
             unreachable!("This method is only called on primary nodes.")
         };
 
@@ -677,11 +700,16 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         cost_increment: Cost,
         context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
     ) -> impl IntoIterator<Item = Self> {
-        let predecessor_identifier @ Identifier::Primary {
+        let predecessor_identifier @ (Identifier::Primary {
             reference_index: entrance_reference_index,
             query_index: entrance_query_index,
             ..
-        } = self.node_data.identifier
+        }
+        | Identifier::PrimaryReentry {
+            reference_index: entrance_reference_index,
+            query_index: entrance_query_index,
+            ..
+        }) = self.node_data.identifier
         else {
             unreachable!("This method is only called on primary nodes.")
         };
@@ -1019,7 +1047,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
 
         Some(Self {
             node_data: NodeData {
-                identifier: Identifier::Primary {
+                identifier: Identifier::PrimaryReentry {
                     reference_index,
                     query_index,
                     gap_type: GapType::None,
@@ -1054,6 +1082,11 @@ impl Identifier {
                 reference_index,
                 query_index,
                 ..
+            }
+            | Self::PrimaryReentry {
+                reference_index,
+                query_index,
+                ..
             } => Self::Primary {
                 reference_index: reference_index + 1,
                 query_index: query_index + 1,
@@ -1072,6 +1105,11 @@ impl Identifier {
                 reference_index,
                 query_index,
                 ..
+            }
+            | Self::PrimaryReentry {
+                reference_index,
+                query_index,
+                ..
             } => Self::Primary {
                 reference_index: reference_index + 1,
                 query_index,
@@ -1087,6 +1125,11 @@ impl Identifier {
     fn generate_primary_insertion_successor(self, flank_index: isize) -> Self {
         match self {
             Self::Primary {
+                reference_index,
+                query_index,
+                ..
+            }
+            | Self::PrimaryReentry {
                 reference_index,
                 query_index,
                 ..
@@ -1215,36 +1258,40 @@ impl<Strategies: AlignmentStrategySelector> PartialOrd for Node<Strategies> {
 impl IAlignmentType for AlignmentType {
     fn is_repeatable(&self) -> bool {
         match self {
-            AlignmentType::Insertion
-            | AlignmentType::Deletion
-            | AlignmentType::Substitution
-            | AlignmentType::Match
-            | AlignmentType::Root
-            | AlignmentType::SecondaryRoot => true,
-            AlignmentType::TemplateSwitchEntrance { .. }
-            | AlignmentType::TemplateSwitchExit { .. } => false,
+            Self::Insertion
+            | Self::Deletion
+            | Self::Substitution
+            | Self::Match
+            | Self::Root
+            | Self::SecondaryRoot
+            | Self::PrimaryReentry => true,
+            Self::TemplateSwitchEntrance { .. } | Self::TemplateSwitchExit { .. } => false,
         }
     }
 
     fn is_repeated(&self, previous: &Self) -> bool {
         match (self, previous) {
             (
-                AlignmentType::TemplateSwitchEntrance {
+                Self::TemplateSwitchEntrance {
                     primary: primary_a,
                     secondary: secondary_a,
                     ..
                 },
-                AlignmentType::TemplateSwitchEntrance {
+                Self::TemplateSwitchEntrance {
                     primary: primary_b,
                     secondary: secondary_b,
                     ..
                 },
             ) => primary_a == primary_b && secondary_a == secondary_b,
-            (
-                AlignmentType::TemplateSwitchExit { .. },
-                AlignmentType::TemplateSwitchExit { .. },
-            ) => true,
+            (Self::TemplateSwitchExit { .. }, Self::TemplateSwitchExit { .. }) => true,
             (a, b) => a == b,
         }
+    }
+
+    fn is_internal(&self) -> bool {
+        matches!(
+            self,
+            Self::Root | Self::SecondaryRoot | Self::PrimaryReentry
+        )
     }
 }
