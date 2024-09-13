@@ -16,4 +16,7 @@ pub struct TemplateSwitchConfig<AlphabetType> {
 
     // Jump costs
     pub offset1_costs: CostFunction<isize>,
+    pub length_costs: CostFunction<isize>,
+    pub offset2_costs: CostFunction<isize>,
+    pub length_difference_costs: CostFunction<isize>,
 }

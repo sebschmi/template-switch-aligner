@@ -33,6 +33,10 @@ impl<AlphabetType: Alphabet> TemplateSwitchConfig<AlphabetType> {
 
         let (input, ()) = parse_specific_name("Jump Costs")(input)?;
         let (input, offset1_costs) = parse_named_cost_function("Offset1")(input)?;
+        let (input, length_costs) = parse_named_cost_function("Length")(input)?;
+        let (input, offset2_costs) = parse_named_cost_function("Offset2")(input)?;
+        let (input, length_difference_costs) =
+            parse_named_cost_function("LengthDifferenceCosts")(input)?;
 
         let (input, primary_edit_costs) = parse_named_cost_table("Primary Edit Costs")(input)?;
         let (input, secondary_edit_costs) = parse_named_cost_table("Secondary Edit Costs")(input)?;
@@ -53,6 +57,9 @@ impl<AlphabetType: Alphabet> TemplateSwitchConfig<AlphabetType> {
                 right_flank_edit_costs,
 
                 offset1_costs,
+                length_costs,
+                offset2_costs,
+                length_difference_costs,
             },
         ))
     }
