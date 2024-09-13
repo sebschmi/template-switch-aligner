@@ -17,7 +17,7 @@ Offset2
  -inf -100 -10 11 100
   inf    5   0  5 inf
 
-LengthDifferenceCost
+LengthDifference
  -inf -10 -5 6  10
   inf   5  0 5 inf
 
