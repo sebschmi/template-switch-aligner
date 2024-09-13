@@ -2,6 +2,10 @@ use std::fmt::{Display, Formatter, Result, Write};
 
 use crate::costs::cost::Cost;
 
+pub trait IAlignmentType {
+    fn is_repeatable(&self) -> bool;
+}
+
 pub struct AlignmentResult<AlignmentType> {
     pub alignment: Vec<(usize, AlignmentType)>,
     pub cost: Cost,
@@ -37,7 +41,9 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
                 / (opened_nodes - suboptimal_opened_nodes) as f64,
         }
     }
+}
 
+impl<AlignmentType: IAlignmentType> AlignmentResult<AlignmentType> {
     pub fn cigar(&self) -> String
     where
         AlignmentType: Display,
@@ -52,14 +58,18 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
         AlignmentType: Display,
     {
         for (amount, alignment_type) in &self.alignment {
-            write!(writer, "{amount}{alignment_type}")?;
+            if alignment_type.is_repeatable() {
+                write!(writer, "{amount}{alignment_type}")?;
+            } else {
+                write!(writer, "{alignment_type}")?;
+            }
         }
 
         Ok(())
     }
 }
 
-impl<AlignmentType: Display> Display for AlignmentResult<AlignmentType> {
+impl<AlignmentType: Display + IAlignmentType> Display for AlignmentResult<AlignmentType> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         writeln!(f, "Cost: {}", self.cost)?;
         write!(f, "CIGAR: ")?;

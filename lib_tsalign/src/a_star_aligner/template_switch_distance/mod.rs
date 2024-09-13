@@ -5,7 +5,7 @@ use strategies::{
 
 use crate::{config::TemplateSwitchConfig, costs::cost::Cost};
 
-use super::AlignmentGraphNode;
+use super::{alignment_result::IAlignmentType, AlignmentGraphNode};
 
 pub mod display;
 pub mod strategies;
@@ -1076,5 +1076,20 @@ impl<Strategies: AlignmentStrategySelector> Ord for Node<Strategies> {
 impl<Strategies: AlignmentStrategySelector> PartialOrd for Node<Strategies> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl IAlignmentType for AlignmentType {
+    fn is_repeatable(&self) -> bool {
+        match self {
+            AlignmentType::Insertion
+            | AlignmentType::Deletion
+            | AlignmentType::Substitution
+            | AlignmentType::Match
+            | AlignmentType::Root
+            | AlignmentType::SecondaryRoot => true,
+            AlignmentType::TemplateSwitchEntrance { .. }
+            | AlignmentType::TemplateSwitchExit { .. } => false,
+        }
     }
 }

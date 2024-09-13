@@ -2,7 +2,7 @@ use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 
 use crate::costs::cost::Cost;
 
-use super::AlignmentGraphNode;
+use super::{alignment_result::IAlignmentType, AlignmentGraphNode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct Node {
@@ -264,5 +264,11 @@ impl std::fmt::Display for Identifier {
             "({}, {}, {})",
             self.reference_index, self.query_index, self.gap_type
         )
+    }
+}
+
+impl IAlignmentType for AlignmentType {
+    fn is_repeatable(&self) -> bool {
+        true
     }
 }
