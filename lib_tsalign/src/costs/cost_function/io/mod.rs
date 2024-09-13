@@ -1,7 +1,7 @@
 use std::{fmt::Display, io::Write};
 
 use nom::{AsChar, IResult};
-use num_traits::{NumCast, PrimInt};
+use num_traits::PrimInt;
 
 use super::CostFunction;
 
@@ -78,7 +78,7 @@ impl<SourceType: PrimInt + Display> CostFunction<SourceType> {
     }
 }
 
-impl<SourceType: PrimInt + NumCast> CostFunction<SourceType> {
+impl<SourceType: PrimInt> CostFunction<SourceType> {
     pub(crate) fn parse_plain(input: &str) -> IResult<&str, Self> {
         let mut input = skip_any_whitespace(input)?;
 
@@ -122,7 +122,7 @@ impl<SourceType: PrimInt + NumCast> CostFunction<SourceType> {
     }
 }
 
-fn parse_inf_integer<Output: PrimInt + NumCast>(input: &str) -> IResult<&str, Output> {
+fn parse_inf_integer<Output: PrimInt>(input: &str) -> IResult<&str, Output> {
     let mut length = 0;
 
     let negative = match input
