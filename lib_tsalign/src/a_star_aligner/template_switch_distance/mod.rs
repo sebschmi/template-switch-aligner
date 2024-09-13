@@ -287,7 +287,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 template_switch_first_offset,
                 ..
             } => {
-                let (target_entrance_index, target_length) = match template_switch_secondary {
+                let (secondary_entrance_index, secondary_length) = match template_switch_secondary {
                     TemplateSwitchSecondary::Reference => {
                         (entrance_reference_index, reference.len())
                     }
@@ -295,38 +295,44 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 };
 
                 if template_switch_first_offset >= 0
-                    && target_entrance_index as isize + template_switch_first_offset
-                        < target_length as isize
+                    && secondary_entrance_index as isize + template_switch_first_offset
+                        < secondary_length as isize
                 {
-                    let old_cost = context.offset_costs.evaluate(&template_switch_first_offset);
                     let new_cost = context
                         .offset_costs
                         .evaluate(&(&template_switch_first_offset + 1));
-                    assert!(new_cost >= old_cost);
 
-                    let cost_increment = new_cost - old_cost;
-                    output.extend(self.generate_template_switch_entrance_successor(
-                        cost_increment,
-                        template_switch_first_offset + 1,
-                        context,
-                    ))
+                    if new_cost != Cost::MAX {
+                        let old_cost = context.offset_costs.evaluate(&template_switch_first_offset);
+                        assert!(new_cost >= old_cost);
+                        let cost_increment = new_cost - old_cost;
+
+                        output.extend(self.generate_template_switch_entrance_successor(
+                            cost_increment,
+                            template_switch_first_offset + 1,
+                            context,
+                        ))
+                    }
                 }
 
                 if template_switch_first_offset <= 0
-                    && target_entrance_index as isize + template_switch_first_offset > 0
+                    && secondary_entrance_index as isize + template_switch_first_offset > 0
                 {
-                    let old_cost = context.offset_costs.evaluate(&template_switch_first_offset);
                     let new_cost = context
                         .offset_costs
                         .evaluate(&(&template_switch_first_offset - 1));
-                    assert!(new_cost >= old_cost);
 
-                    let cost_increment = new_cost - old_cost;
-                    output.extend(self.generate_template_switch_entrance_successor(
-                        cost_increment,
-                        template_switch_first_offset - 1,
-                        context,
-                    ))
+                    if new_cost != Cost::MAX {
+                        let old_cost = context.offset_costs.evaluate(&template_switch_first_offset);
+                        assert!(new_cost >= old_cost);
+                        let cost_increment = new_cost - old_cost;
+
+                        output.extend(self.generate_template_switch_entrance_successor(
+                            cost_increment,
+                            template_switch_first_offset - 1,
+                            context,
+                        ))
+                    }
                 }
 
                 output.extend(self.generate_secondary_root_node(context));
@@ -421,7 +427,52 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 template_switch_secondary,
                 primary_index,
                 length_difference,
-            } => todo!(),
+            } => {
+                let anti_primary_length = match template_switch_primary {
+                    TemplateSwitchPrimary::Reference => query.len(),
+                    TemplateSwitchPrimary::Query => reference.len(),
+                };
+
+                if length_difference >= 0
+                    && primary_index as isize + length_difference < anti_primary_length as isize
+                {
+                    let new_cost = context
+                        .length_difference_costs
+                        .evaluate(&(&length_difference + 1));
+
+                    if new_cost != Cost::MAX {
+                        let old_cost = context.length_difference_costs.evaluate(&length_difference);
+                        assert!(new_cost >= old_cost);
+                        let cost_increment = new_cost - old_cost;
+
+                        output.extend(self.generate_template_switch_exit_successor(
+                            cost_increment,
+                            length_difference + 1,
+                            context,
+                        ))
+                    }
+                }
+
+                if length_difference <= 0 && primary_index as isize + length_difference > 0 {
+                    let new_cost = context
+                        .length_difference_costs
+                        .evaluate(&(&length_difference - 1));
+
+                    if new_cost != Cost::MAX {
+                        let old_cost = context.length_difference_costs.evaluate(&length_difference);
+                        assert!(new_cost >= old_cost);
+                        let cost_increment = new_cost - old_cost;
+
+                        output.extend(self.generate_template_switch_exit_successor(
+                            cost_increment,
+                            length_difference - 1,
+                            context,
+                        ))
+                    }
+                }
+
+                todo!("Generate primary node")
+            }
         }
     }
 
@@ -887,6 +938,45 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                     template_switch_secondary,
                     primary_index,
                     length_difference: 0,
+                },
+                predecessor: Some(predecessor_identifier),
+                cost: self.node_data.cost + cost_increment,
+            },
+            strategies: self.strategies.generate_successor(context),
+        })
+    }
+
+    fn generate_template_switch_exit_successor(
+        &self,
+        cost_increment: Cost,
+        successor_length_difference: isize,
+        context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
+    ) -> Option<Self> {
+        if cost_increment == Cost::MAX {
+            return None;
+        }
+
+        let predecessor_identifier @ Identifier::TemplateSwitchExit {
+            entrance_reference_index,
+            entrance_query_index,
+            template_switch_primary,
+            template_switch_secondary,
+            primary_index,
+            ..
+        } = self.node_data.identifier
+        else {
+            unreachable!("This method is only called on template switch exit nodes.")
+        };
+
+        Some(Self {
+            node_data: NodeData {
+                identifier: Identifier::TemplateSwitchExit {
+                    entrance_reference_index,
+                    entrance_query_index,
+                    template_switch_primary,
+                    template_switch_secondary,
+                    primary_index,
+                    length_difference: successor_length_difference,
                 },
                 predecessor: Some(predecessor_identifier),
                 cost: self.node_data.cost + cost_increment,
