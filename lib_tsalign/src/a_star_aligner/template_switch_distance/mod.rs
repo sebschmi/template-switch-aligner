@@ -128,10 +128,14 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     if flank_index == 0 {
                         output.extend([self.generate_primary_diagonal_successor(
                             0,
-                            context.primary_edit_costs.match_or_substitution_cost(r, q),
+                            context
+                                .primary_edit_costs
+                                .match_or_substitution_cost(r.clone(), q.clone()),
                             context,
                         )]);
-                    } else if flank_index > 0 && flank_index < context.left_flank_length {
+                    }
+
+                    if flank_index >= 0 && flank_index < context.left_flank_length {
                         output.extend([self.generate_primary_diagonal_successor(
                             flank_index + 1,
                             context
@@ -161,10 +165,12 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                             0,
                             context
                                 .primary_edit_costs
-                                .gap_costs(r, gap_type != GapType::Deletion),
+                                .gap_costs(r.clone(), gap_type != GapType::Deletion),
                             context,
                         )]);
-                    } else if flank_index > 0 && flank_index < context.left_flank_length {
+                    }
+
+                    if flank_index >= 0 && flank_index < context.left_flank_length {
                         output.extend([self.generate_primary_deletion_successor(
                             flank_index + 1,
                             context
@@ -194,10 +200,12 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                             0,
                             context
                                 .primary_edit_costs
-                                .gap_costs(q, gap_type != GapType::Insertion),
+                                .gap_costs(q.clone(), gap_type != GapType::Insertion),
                             context,
                         )]);
-                    } else if flank_index > 0 && flank_index < context.left_flank_length {
+                    }
+
+                    if flank_index >= 0 && flank_index < context.left_flank_length {
                         output.extend([self.generate_primary_insertion_successor(
                             flank_index + 1,
                             context
