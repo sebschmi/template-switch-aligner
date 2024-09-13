@@ -471,7 +471,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     }
                 }
 
-                todo!("Generate primary node")
+                output.extend(self.generate_primary_reentry_successor(context));
             }
         }
     }
@@ -980,6 +980,53 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 },
                 predecessor: Some(predecessor_identifier),
                 cost: self.node_data.cost + cost_increment,
+            },
+            strategies: self.strategies.generate_successor(context),
+        })
+    }
+
+    fn generate_primary_reentry_successor(
+        &self,
+        context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
+    ) -> Option<Self> {
+        let predecessor_identifier @ Identifier::TemplateSwitchExit {
+            entrance_reference_index,
+            entrance_query_index,
+            template_switch_primary,
+            primary_index,
+            length_difference,
+            ..
+        } = self.node_data.identifier
+        else {
+            unreachable!("This method is only called on template switch exit nodes.")
+        };
+
+        let (reference_index, query_index) = match template_switch_primary {
+            TemplateSwitchPrimary::Reference => {
+                let primary_length = primary_index - entrance_reference_index;
+                let anti_primary_length = (primary_length as isize + length_difference) as usize;
+                (primary_index, entrance_query_index + anti_primary_length)
+            }
+            TemplateSwitchPrimary::Query => {
+                let primary_length = primary_index - entrance_query_index;
+                let anti_primary_length = (primary_length as isize + length_difference) as usize;
+                (
+                    entrance_reference_index + anti_primary_length,
+                    primary_index,
+                )
+            }
+        };
+
+        Some(Self {
+            node_data: NodeData {
+                identifier: Identifier::Primary {
+                    reference_index,
+                    query_index,
+                    gap_type: GapType::None,
+                    flank_index: -context.right_flank_length,
+                },
+                predecessor: Some(predecessor_identifier),
+                cost: self.node_data.cost,
             },
             strategies: self.strategies.generate_successor(context),
         })
