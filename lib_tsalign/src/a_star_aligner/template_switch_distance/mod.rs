@@ -364,7 +364,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 if primary_index < primary_sequence.len() && secondary_index > 0 {
                     // Diagonal characters
                     let p = primary_sequence[primary_index].clone();
-                    let s = secondary_sequence[secondary_index - 1].clone();
+                    let s = secondary_sequence[secondary_index - 1].complement();
 
                     output.extend(
                         self.generate_secondary_diagonal_successor(
@@ -378,7 +378,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
 
                 if secondary_index > 0 {
                     // Deleted character
-                    let s = secondary_sequence[secondary_index - 1].clone();
+                    let s = secondary_sequence[secondary_index - 1].complement();
 
                     output.extend(
                         self.generate_secondary_deletion_successor(
