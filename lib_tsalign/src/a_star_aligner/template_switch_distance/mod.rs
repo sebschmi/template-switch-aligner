@@ -126,31 +126,37 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     let q = query[query_index].clone();
 
                     if flank_index == 0 {
-                        output.extend([self.generate_primary_diagonal_successor(
-                            0,
-                            context
-                                .primary_edit_costs
-                                .match_or_substitution_cost(r.clone(), q.clone()),
-                            context,
-                        )]);
+                        output.extend(
+                            self.generate_primary_diagonal_successor(
+                                0,
+                                context
+                                    .primary_edit_costs
+                                    .match_or_substitution_cost(r.clone(), q.clone()),
+                                context,
+                            ),
+                        );
                     }
 
                     if flank_index >= 0 && flank_index < context.left_flank_length {
-                        output.extend([self.generate_primary_diagonal_successor(
-                            flank_index + 1,
-                            context
-                                .left_flank_edit_costs
-                                .match_or_substitution_cost(r, q),
-                            context,
-                        )]);
+                        output.extend(
+                            self.generate_primary_diagonal_successor(
+                                flank_index + 1,
+                                context
+                                    .left_flank_edit_costs
+                                    .match_or_substitution_cost(r, q),
+                                context,
+                            ),
+                        );
                     } else if flank_index < 0 {
-                        output.extend([self.generate_primary_diagonal_successor(
-                            flank_index + 1,
-                            context
-                                .right_flank_edit_costs
-                                .match_or_substitution_cost(r, q),
-                            context,
-                        )]);
+                        output.extend(
+                            self.generate_primary_diagonal_successor(
+                                flank_index + 1,
+                                context
+                                    .right_flank_edit_costs
+                                    .match_or_substitution_cost(r, q),
+                                context,
+                            ),
+                        );
                     } else if flank_index == context.left_flank_length {
                         output.extend(self.generate_initial_template_switch_entrance_successors(
                             context.offset1_costs.evaluate(&0),
@@ -164,31 +170,37 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     let r = reference[reference_index].clone();
 
                     if flank_index == 0 {
-                        output.extend([self.generate_primary_deletion_successor(
-                            0,
-                            context
-                                .primary_edit_costs
-                                .gap_costs(r.clone(), gap_type != GapType::Deletion),
-                            context,
-                        )]);
+                        output.extend(
+                            self.generate_primary_deletion_successor(
+                                0,
+                                context
+                                    .primary_edit_costs
+                                    .gap_costs(r.clone(), gap_type != GapType::Deletion),
+                                context,
+                            ),
+                        );
                     }
 
                     if flank_index >= 0 && flank_index < context.left_flank_length {
-                        output.extend([self.generate_primary_deletion_successor(
-                            flank_index + 1,
-                            context
-                                .left_flank_edit_costs
-                                .gap_costs(r, gap_type != GapType::Deletion),
-                            context,
-                        )]);
+                        output.extend(
+                            self.generate_primary_deletion_successor(
+                                flank_index + 1,
+                                context
+                                    .left_flank_edit_costs
+                                    .gap_costs(r, gap_type != GapType::Deletion),
+                                context,
+                            ),
+                        );
                     } else if flank_index < 0 {
-                        output.extend([self.generate_primary_deletion_successor(
-                            flank_index + 1,
-                            context
-                                .right_flank_edit_costs
-                                .gap_costs(r, gap_type != GapType::Deletion),
-                            context,
-                        )]);
+                        output.extend(
+                            self.generate_primary_deletion_successor(
+                                flank_index + 1,
+                                context
+                                    .right_flank_edit_costs
+                                    .gap_costs(r, gap_type != GapType::Deletion),
+                                context,
+                            ),
+                        );
                     } else if flank_index == context.left_flank_length {
                         output.extend(self.generate_initial_template_switch_entrance_successors(
                             context.offset1_costs.evaluate(&0),
@@ -202,31 +214,37 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     let q = query[query_index].clone();
 
                     if flank_index == 0 {
-                        output.extend([self.generate_primary_insertion_successor(
-                            0,
-                            context
-                                .primary_edit_costs
-                                .gap_costs(q.clone(), gap_type != GapType::Insertion),
-                            context,
-                        )]);
+                        output.extend(
+                            self.generate_primary_insertion_successor(
+                                0,
+                                context
+                                    .primary_edit_costs
+                                    .gap_costs(q.clone(), gap_type != GapType::Insertion),
+                                context,
+                            ),
+                        );
                     }
 
                     if flank_index >= 0 && flank_index < context.left_flank_length {
-                        output.extend([self.generate_primary_insertion_successor(
-                            flank_index + 1,
-                            context
-                                .left_flank_edit_costs
-                                .gap_costs(q, gap_type != GapType::Insertion),
-                            context,
-                        )]);
+                        output.extend(
+                            self.generate_primary_insertion_successor(
+                                flank_index + 1,
+                                context
+                                    .left_flank_edit_costs
+                                    .gap_costs(q, gap_type != GapType::Insertion),
+                                context,
+                            ),
+                        );
                     } else if flank_index < 0 {
-                        output.extend([self.generate_primary_insertion_successor(
-                            flank_index + 1,
-                            context
-                                .right_flank_edit_costs
-                                .gap_costs(q, gap_type != GapType::Insertion),
-                            context,
-                        )]);
+                        output.extend(
+                            self.generate_primary_insertion_successor(
+                                flank_index + 1,
+                                context
+                                    .right_flank_edit_costs
+                                    .gap_costs(q, gap_type != GapType::Insertion),
+                                context,
+                            ),
+                        );
                     } else if flank_index == context.left_flank_length {
                         output.extend(self.generate_initial_template_switch_entrance_successors(
                             context.offset1_costs.evaluate(&0),
@@ -266,11 +284,11 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     assert!(new_cost >= old_cost);
 
                     let cost_increment = new_cost - old_cost;
-                    output.extend([self.generate_template_switch_entrance_successor(
+                    output.extend(self.generate_template_switch_entrance_successor(
                         cost_increment,
                         template_switch_first_offset + 1,
                         context,
-                    )])
+                    ))
                 }
 
                 if template_switch_first_offset <= 0
@@ -285,11 +303,11 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     assert!(new_cost >= old_cost);
 
                     let cost_increment = new_cost - old_cost;
-                    output.extend([self.generate_template_switch_entrance_successor(
+                    output.extend(self.generate_template_switch_entrance_successor(
                         cost_increment,
                         template_switch_first_offset - 1,
                         context,
-                    )])
+                    ))
                 }
 
                 todo!("Generate secondary node")
@@ -383,7 +401,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         successor_flank_index: isize,
         cost_increment: Cost,
         context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
-    ) -> Self {
+    ) -> Option<Self> {
+        if cost_increment == Cost::MAX {
+            return None;
+        }
+
         let predecessor_identifier @ Identifier::Primary { .. } = self.node_data.identifier else {
             unreachable!("This method is only called on primary nodes.")
         };
@@ -395,10 +417,10 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             predecessor: Some(predecessor_identifier),
             cost,
         };
-        Self {
+        Some(Self {
             node_data,
             strategies: self.strategies.generate_successor(context),
-        }
+        })
     }
 
     fn generate_primary_deletion_successor(
@@ -406,7 +428,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         successor_flank_index: isize,
         cost_increment: Cost,
         context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
-    ) -> Self {
+    ) -> Option<Self> {
+        if cost_increment == Cost::MAX {
+            return None;
+        }
+
         let predecessor_identifier @ Identifier::Primary { .. } = self.node_data.identifier else {
             unreachable!("This method is only called on primary nodes.")
         };
@@ -418,10 +444,10 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             predecessor: Some(predecessor_identifier),
             cost,
         };
-        Self {
+        Some(Self {
             node_data,
             strategies: self.strategies.generate_successor(context),
-        }
+        })
     }
 
     fn generate_primary_insertion_successor(
@@ -429,7 +455,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         successor_flank_index: isize,
         cost_increment: Cost,
         context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
-    ) -> Self {
+    ) -> Option<Self> {
+        if cost_increment == Cost::MAX {
+            return None;
+        }
+
         let predecessor_identifier @ Identifier::Primary { .. } = self.node_data.identifier else {
             unreachable!("This method is only called on primary nodes.")
         };
@@ -441,10 +471,10 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             predecessor: Some(predecessor_identifier),
             cost,
         };
-        Self {
+        Some(Self {
             node_data,
             strategies: self.strategies.generate_successor(context),
-        }
+        })
     }
 
     fn generate_initial_template_switch_entrance_successors(
@@ -529,7 +559,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         cost_increment: Cost,
         successor_template_switch_first_offset: isize,
         context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
-    ) -> Self {
+    ) -> Option<Self> {
+        if cost_increment == Cost::MAX {
+            return None;
+        }
+
         let predecessor_identifier @ Identifier::TemplateSwitchEntrance {
             entrance_reference_index,
             entrance_query_index,
@@ -541,7 +575,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             unreachable!("This method is only called on template switch entrance nodes.")
         };
 
-        Self {
+        Some(Self {
             node_data: NodeData {
                 identifier: Identifier::TemplateSwitchEntrance {
                     entrance_reference_index,
@@ -554,7 +588,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 cost: self.node_data.cost + cost_increment,
             },
             strategies: self.strategies.generate_successor(context),
-        }
+        })
     }
 }
 
