@@ -185,7 +185,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         );
                     } else if flank_index == context.left_flank_length {
                         output.extend(self.generate_initial_template_switch_entrance_successors(
-                            context.offset1_costs.evaluate(&0),
+                            context.offset_costs.evaluate(&0),
                             context,
                         ));
                     }
@@ -229,7 +229,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         );
                     } else if flank_index == context.left_flank_length {
                         output.extend(self.generate_initial_template_switch_entrance_successors(
-                            context.offset1_costs.evaluate(&0),
+                            context.offset_costs.evaluate(&0),
                             context,
                         ));
                     }
@@ -273,7 +273,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         );
                     } else if flank_index == context.left_flank_length {
                         output.extend(self.generate_initial_template_switch_entrance_successors(
-                            context.offset1_costs.evaluate(&0),
+                            context.offset_costs.evaluate(&0),
                             context,
                         ));
                     }
@@ -298,11 +298,9 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     && target_entrance_index as isize + template_switch_first_offset
                         < target_length as isize
                 {
-                    let old_cost = context
-                        .offset1_costs
-                        .evaluate(&template_switch_first_offset);
+                    let old_cost = context.offset_costs.evaluate(&template_switch_first_offset);
                     let new_cost = context
-                        .offset1_costs
+                        .offset_costs
                         .evaluate(&(&template_switch_first_offset + 1));
                     assert!(new_cost >= old_cost);
 
@@ -317,11 +315,9 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 if template_switch_first_offset <= 0
                     && target_entrance_index as isize + template_switch_first_offset > 0
                 {
-                    let old_cost = context
-                        .offset1_costs
-                        .evaluate(&template_switch_first_offset);
+                    let old_cost = context.offset_costs.evaluate(&template_switch_first_offset);
                     let new_cost = context
-                        .offset1_costs
+                        .offset_costs
                         .evaluate(&(&template_switch_first_offset - 1));
                     assert!(new_cost >= old_cost);
 
