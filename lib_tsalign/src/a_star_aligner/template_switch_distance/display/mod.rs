@@ -5,16 +5,17 @@ use super::{AlignmentType, GapType, Identifier, TemplateSwitchPrimary, TemplateS
 impl Display for AlignmentType {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            AlignmentType::Insertion => write!(f, "I"),
-            AlignmentType::Deletion => write!(f, "D"),
-            AlignmentType::Substitution => write!(f, "S"),
-            AlignmentType::Match => write!(f, "M"),
-            AlignmentType::TemplateSwitchEntrance {
-                origin,
-                target,
+            Self::Insertion => write!(f, "I"),
+            Self::Deletion => write!(f, "D"),
+            Self::Substitution => write!(f, "S"),
+            Self::Match => write!(f, "M"),
+            Self::TemplateSwitchEntrance {
+                primary: origin,
+                secondary: target,
                 first_offset,
             } => write!(f, "[TS{origin}{target}{first_offset}]"),
-            AlignmentType::Root => Ok(()),
+            Self::Root => Ok(()),
+            Self::SecondaryRoot => Ok(()),
         }
     }
 }
@@ -22,9 +23,9 @@ impl Display for AlignmentType {
 impl Display for GapType {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            GapType::Insertion => write!(f, "I"),
-            GapType::Deletion => write!(f, "D"),
-            GapType::None => write!(f, "M/S"),
+            Self::Insertion => write!(f, "I"),
+            Self::Deletion => write!(f, "D"),
+            Self::None => write!(f, "M/S"),
         }
     }
 }
@@ -32,8 +33,8 @@ impl Display for GapType {
 impl Display for TemplateSwitchPrimary {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            TemplateSwitchPrimary::Reference => write!(f, "R"),
-            TemplateSwitchPrimary::Query => write!(f, "Q"),
+            Self::Reference => write!(f, "R"),
+            Self::Query => write!(f, "Q"),
         }
     }
 }
@@ -41,8 +42,8 @@ impl Display for TemplateSwitchPrimary {
 impl Display for TemplateSwitchSecondary {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            TemplateSwitchSecondary::Reference => write!(f, "R"),
-            TemplateSwitchSecondary::Query => write!(f, "Q"),
+            Self::Reference => write!(f, "R"),
+            Self::Query => write!(f, "Q"),
         }
     }
 }
@@ -84,12 +85,14 @@ impl Display for Identifier {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
+                root,
                 primary_index,
                 secondary_index,
                 gap_type,
             } => write!(
                 f,
-                "Secondary({}R, {}Q, {}P, {}S, {}, {}, {})",
+                "Secondary{}({}R, {}Q, {}P, {}S, {}, {}, {})",
+                if *root { "Root" } else { "" },
                 entrance_reference_index,
                 entrance_query_index,
                 primary_index,

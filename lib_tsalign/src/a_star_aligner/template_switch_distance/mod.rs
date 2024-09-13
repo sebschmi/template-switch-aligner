@@ -44,6 +44,7 @@ pub enum Identifier {
         entrance_query_index: usize,
         template_switch_primary: TemplateSwitchPrimary,
         template_switch_secondary: TemplateSwitchSecondary,
+        root: bool,
         /// The index that does not jump.
         primary_index: usize,
         /// The index that jumps.
@@ -85,12 +86,14 @@ pub enum AlignmentType {
     Match,
     /// A template switch entrance.
     TemplateSwitchEntrance {
-        origin: TemplateSwitchPrimary,
-        target: TemplateSwitchSecondary,
+        primary: TemplateSwitchPrimary,
+        secondary: TemplateSwitchSecondary,
         first_offset: isize,
     },
     /// This node is the root node, hence it was not generated via alignment.
     Root,
+    /// The root node of a secondary graph.
+    SecondaryRoot,
 }
 
 impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alphabet>
@@ -331,8 +334,61 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 primary_index,
                 secondary_index,
                 gap_type,
+                ..
             } => {
-                todo!()
+                let primary_sequence = match template_switch_primary {
+                    TemplateSwitchPrimary::Reference => reference,
+                    TemplateSwitchPrimary::Query => query,
+                };
+                let secondary_sequence = match template_switch_secondary {
+                    TemplateSwitchSecondary::Reference => reference,
+                    TemplateSwitchSecondary::Query => query,
+                };
+
+                if primary_index < primary_sequence.len() && secondary_index > 0 {
+                    // Diagonal characters
+                    let p = primary_sequence[primary_index].clone();
+                    let s = secondary_sequence[secondary_index - 1].clone();
+
+                    output.extend(
+                        self.generate_secondary_diagonal_successor(
+                            context
+                                .secondary_edit_costs
+                                .match_or_substitution_cost(p, s),
+                            context,
+                        ),
+                    );
+                }
+
+                if secondary_index > 0 {
+                    // Deleted character
+                    let s = secondary_sequence[secondary_index - 1].clone();
+
+                    output.extend(
+                        self.generate_secondary_deletion_successor(
+                            context
+                                .secondary_edit_costs
+                                .gap_costs(s, gap_type != GapType::Deletion),
+                            context,
+                        ),
+                    );
+                }
+
+                if primary_index < primary_sequence.len() {
+                    // Inserted character
+                    let p = primary_sequence[primary_index].clone();
+
+                    output.extend(
+                        self.generate_secondary_insertion_successor(
+                            context
+                                .secondary_edit_costs
+                                .gap_costs(p, gap_type != GapType::Insertion),
+                            context,
+                        ),
+                    );
+                }
+
+                todo!("Generate exit nodes")
             }
         }
     }
@@ -380,19 +436,20 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 },
 
                 Identifier::TemplateSwitchEntrance {
-                    template_switch_primary: template_switch_origin,
-                    template_switch_secondary: template_switch_target,
+                    template_switch_primary,
+                    template_switch_secondary,
                     template_switch_first_offset,
                     ..
                 } => AlignmentType::TemplateSwitchEntrance {
-                    origin: template_switch_origin,
-                    target: template_switch_target,
+                    primary: template_switch_primary,
+                    secondary: template_switch_secondary,
                     first_offset: template_switch_first_offset,
                 },
 
                 Identifier::Secondary {
                     template_switch_primary,
                     template_switch_secondary,
+                    root,
                     primary_index,
                     secondary_index,
                     gap_type,
@@ -401,19 +458,23 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     GapType::Insertion => AlignmentType::Insertion,
                     GapType::Deletion => AlignmentType::Deletion,
                     GapType::None => {
-                        let primary_character = match template_switch_primary {
-                            TemplateSwitchPrimary::Reference => &reference[primary_index - 1],
-                            TemplateSwitchPrimary::Query => &query[primary_index - 1],
-                        };
-                        let secondary_character = match template_switch_secondary {
-                            TemplateSwitchSecondary::Reference => &reference[secondary_index],
-                            TemplateSwitchSecondary::Query => &query[secondary_index],
-                        };
-
-                        if primary_character == &secondary_character.complement() {
-                            AlignmentType::Match
+                        if root {
+                            AlignmentType::SecondaryRoot
                         } else {
-                            AlignmentType::Substitution
+                            let primary_character = match template_switch_primary {
+                                TemplateSwitchPrimary::Reference => &reference[primary_index - 1],
+                                TemplateSwitchPrimary::Query => &query[primary_index - 1],
+                            };
+                            let secondary_character = match template_switch_secondary {
+                                TemplateSwitchSecondary::Reference => &reference[secondary_index],
+                                TemplateSwitchSecondary::Query => &query[secondary_index],
+                            };
+
+                            if primary_character == &secondary_character.complement() {
+                                AlignmentType::Match
+                            } else {
+                                AlignmentType::Substitution
+                            }
                         }
                     }
                 },
@@ -674,12 +735,87 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                     entrance_query_index,
                     template_switch_primary,
                     template_switch_secondary,
+                    root: true,
                     primary_index,
                     secondary_index,
                     gap_type: GapType::None,
                 },
                 predecessor: Some(predecessor_identifier),
                 cost: self.node_data.cost,
+            },
+            strategies: self.strategies.generate_successor(context),
+        })
+    }
+
+    fn generate_secondary_diagonal_successor(
+        &self,
+        cost_increment: Cost,
+        context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
+    ) -> Option<Self> {
+        if cost_increment == Cost::MAX {
+            return None;
+        }
+
+        let predecessor_identifier @ Identifier::Secondary { .. } = self.node_data.identifier
+        else {
+            unreachable!("This method is only called on secondary nodes.")
+        };
+
+        Some(Self {
+            node_data: NodeData {
+                identifier: predecessor_identifier.generate_secondary_diagonal_successor(),
+                predecessor: Some(predecessor_identifier),
+                cost: self.node_data.cost + cost_increment,
+            },
+            strategies: self.strategies.generate_successor(context),
+        })
+    }
+
+    /// The secondary contains a base missing in the primary.
+    fn generate_secondary_deletion_successor(
+        &self,
+        cost_increment: Cost,
+        context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
+    ) -> Option<Self> {
+        if cost_increment == Cost::MAX {
+            return None;
+        }
+
+        let predecessor_identifier @ Identifier::Secondary { .. } = self.node_data.identifier
+        else {
+            unreachable!("This method is only called on secondary nodes.")
+        };
+
+        Some(Self {
+            node_data: NodeData {
+                identifier: predecessor_identifier.generate_secondary_deletion_successor(),
+                predecessor: Some(predecessor_identifier),
+                cost: self.node_data.cost + cost_increment,
+            },
+            strategies: self.strategies.generate_successor(context),
+        })
+    }
+
+    /// The secondary contains a base missing in the primary.
+    fn generate_secondary_insertion_successor(
+        &self,
+        cost_increment: Cost,
+        context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
+    ) -> Option<Self> {
+        if cost_increment == Cost::MAX {
+            return None;
+        }
+
+        let predecessor_identifier @ Identifier::Secondary { .. } = self.node_data.identifier
+        else {
+            unreachable!("This method is only called on secondary nodes.")
+        };
+
+        Some(Self {
+            node_data: NodeData {
+                identifier: predecessor_identifier.generate_secondary_insertion_successor(),
+                predecessor: Some(predecessor_identifier),
+                cost: self.node_data.cost + cost_increment,
             },
             strategies: self.strategies.generate_successor(context),
         })
@@ -698,6 +834,24 @@ impl Identifier {
             query_index,
             flank_index,
             gap_type,
+        }
+    }
+
+    fn generate_primary_diagonal_successor(self, flank_index: isize) -> Self {
+        match self {
+            Self::Primary {
+                reference_index,
+                query_index,
+                ..
+            } => Self::Primary {
+                reference_index: reference_index + 1,
+                query_index: query_index + 1,
+                flank_index,
+                gap_type: GapType::None,
+            },
+            other => unreachable!(
+                "Function is only called on primary identifiers, but this is: {other}."
+            ),
         }
     }
 
@@ -737,17 +891,79 @@ impl Identifier {
         }
     }
 
-    fn generate_primary_diagonal_successor(self, flank_index: isize) -> Self {
+    fn generate_secondary_diagonal_successor(self) -> Self {
         match self {
-            Self::Primary {
-                reference_index,
-                query_index,
+            Self::Secondary {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                primary_index,
+                secondary_index,
                 ..
-            } => Self::Primary {
-                reference_index: reference_index + 1,
-                query_index: query_index + 1,
-                flank_index,
+            } => Self::Secondary {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                root: false,
+                primary_index: primary_index + 1,
+                secondary_index: secondary_index - 1,
                 gap_type: GapType::None,
+            },
+            other => unreachable!(
+                "Function is only called on primary identifiers, but this is: {other}."
+            ),
+        }
+    }
+
+    /// The secondary contains a base missing in the primary.
+    fn generate_secondary_deletion_successor(self) -> Self {
+        match self {
+            Self::Secondary {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                primary_index,
+                secondary_index,
+                ..
+            } => Self::Secondary {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                root: false,
+                primary_index,
+                secondary_index: secondary_index - 1,
+                gap_type: GapType::Deletion,
+            },
+            other => unreachable!(
+                "Function is only called on primary identifiers, but this is: {other}."
+            ),
+        }
+    }
+
+    /// The secondary misses a base present in the primary.
+    fn generate_secondary_insertion_successor(self) -> Self {
+        match self {
+            Self::Secondary {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                primary_index,
+                secondary_index,
+                ..
+            } => Self::Secondary {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                root: false,
+                primary_index: primary_index + 1,
+                secondary_index,
+                gap_type: GapType::Insertion,
             },
             other => unreachable!(
                 "Function is only called on primary identifiers, but this is: {other}."
