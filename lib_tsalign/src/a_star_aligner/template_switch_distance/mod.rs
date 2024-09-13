@@ -1099,7 +1099,7 @@ impl Identifier {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
-                length: length + 1,
+                length,
                 primary_index,
                 secondary_index: secondary_index - 1,
                 gap_type: GapType::Deletion,
