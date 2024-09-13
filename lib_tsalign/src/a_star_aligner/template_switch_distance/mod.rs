@@ -419,14 +419,11 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 }
             }
 
-            #[expect(unused)]
             Identifier::TemplateSwitchExit {
-                entrance_reference_index,
-                entrance_query_index,
                 template_switch_primary,
-                template_switch_secondary,
                 primary_index,
                 length_difference,
+                ..
             } => {
                 let anti_primary_length = match template_switch_primary {
                     TemplateSwitchPrimary::Reference => query.len(),
@@ -1004,14 +1001,17 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         let (reference_index, query_index) = match template_switch_primary {
             TemplateSwitchPrimary::Reference => {
                 let primary_length = primary_index - entrance_reference_index;
-                let anti_primary_length = (primary_length as isize + length_difference) as usize;
-                (primary_index, entrance_query_index + anti_primary_length)
+                let anti_primary_length = primary_length as isize + length_difference;
+                (
+                    primary_index,
+                    (entrance_query_index as isize + anti_primary_length) as usize,
+                )
             }
             TemplateSwitchPrimary::Query => {
                 let primary_length = primary_index - entrance_query_index;
-                let anti_primary_length = (primary_length as isize + length_difference) as usize;
+                let anti_primary_length = primary_length as isize + length_difference;
                 (
-                    entrance_reference_index + anti_primary_length,
+                    (entrance_reference_index as isize + anti_primary_length) as usize,
                     primary_index,
                 )
             }
