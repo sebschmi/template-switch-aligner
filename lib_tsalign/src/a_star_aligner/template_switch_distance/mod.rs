@@ -1,3 +1,4 @@
+use compact_genome::interface::alphabet::AlphabetCharacter;
 use strategies::{
     node_ord::NodeOrdStrategy, AlignmentStrategies, AlignmentStrategy, AlignmentStrategySelector,
 };
@@ -34,9 +35,20 @@ pub enum Identifier {
     TemplateSwitchEntrance {
         entrance_reference_index: usize,
         entrance_query_index: usize,
-        template_switch_origin: TemplateSwitchOrigin,
-        template_switch_target: TemplateSwitchTarget,
+        template_switch_primary: TemplateSwitchPrimary,
+        template_switch_secondary: TemplateSwitchSecondary,
         template_switch_first_offset: isize,
+    },
+    Secondary {
+        entrance_reference_index: usize,
+        entrance_query_index: usize,
+        template_switch_primary: TemplateSwitchPrimary,
+        template_switch_secondary: TemplateSwitchSecondary,
+        /// The index that does not jump.
+        primary_index: usize,
+        /// The index that jumps.
+        secondary_index: usize,
+        gap_type: GapType,
     },
 }
 
@@ -47,16 +59,16 @@ pub enum GapType {
     None,
 }
 
-/// Origin is the sequence that gets replaced.
+/// The primary sequence is the sequence for which the template switch does not jump.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TemplateSwitchOrigin {
+pub enum TemplateSwitchPrimary {
     Reference,
     Query,
 }
 
-/// Target is the sequence where the replacement comes from.
+/// The secondary sequence is the sequence for which the template switch jumps.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TemplateSwitchTarget {
+pub enum TemplateSwitchSecondary {
     Reference,
     Query,
 }
@@ -73,8 +85,8 @@ pub enum AlignmentType {
     Match,
     /// A template switch entrance.
     TemplateSwitchEntrance {
-        origin: TemplateSwitchOrigin,
-        target: TemplateSwitchTarget,
+        origin: TemplateSwitchPrimary,
+        target: TemplateSwitchSecondary,
         first_offset: isize,
     },
     /// This node is the root node, hence it was not generated via alignment.
@@ -254,21 +266,18 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 }
             }
 
-            #[expect(unused)]
             Identifier::TemplateSwitchEntrance {
                 entrance_reference_index,
                 entrance_query_index,
-                template_switch_origin,
-                template_switch_target,
+                template_switch_secondary,
                 template_switch_first_offset,
+                ..
             } => {
-                let (origin_entrance_index, origin_length) = match template_switch_origin {
-                    TemplateSwitchOrigin::Reference => (entrance_reference_index, reference.len()),
-                    TemplateSwitchOrigin::Query => (entrance_query_index, query.len()),
-                };
-                let (target_entrance_index, target_length) = match template_switch_target {
-                    TemplateSwitchTarget::Reference => (entrance_reference_index, reference.len()),
-                    TemplateSwitchTarget::Query => (entrance_query_index, query.len()),
+                let (target_entrance_index, target_length) = match template_switch_secondary {
+                    TemplateSwitchSecondary::Reference => {
+                        (entrance_reference_index, reference.len())
+                    }
+                    TemplateSwitchSecondary::Query => (entrance_query_index, query.len()),
                 };
 
                 if template_switch_first_offset >= 0
@@ -310,7 +319,20 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     ))
                 }
 
-                todo!("Generate secondary node")
+                output.extend(self.generate_secondary_root_node(context));
+            }
+
+            #[expect(unused)]
+            Identifier::Secondary {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                primary_index,
+                secondary_index,
+                gap_type,
+            } => {
+                todo!()
             }
         }
     }
@@ -358,14 +380,42 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 },
 
                 Identifier::TemplateSwitchEntrance {
-                    template_switch_origin,
-                    template_switch_target,
+                    template_switch_primary: template_switch_origin,
+                    template_switch_secondary: template_switch_target,
                     template_switch_first_offset,
                     ..
                 } => AlignmentType::TemplateSwitchEntrance {
                     origin: template_switch_origin,
                     target: template_switch_target,
                     first_offset: template_switch_first_offset,
+                },
+
+                Identifier::Secondary {
+                    template_switch_primary,
+                    template_switch_secondary,
+                    primary_index,
+                    secondary_index,
+                    gap_type,
+                    ..
+                } => match gap_type {
+                    GapType::Insertion => AlignmentType::Insertion,
+                    GapType::Deletion => AlignmentType::Deletion,
+                    GapType::None => {
+                        let primary_character = match template_switch_primary {
+                            TemplateSwitchPrimary::Reference => &reference[primary_index - 1],
+                            TemplateSwitchPrimary::Query => &query[primary_index - 1],
+                        };
+                        let secondary_character = match template_switch_secondary {
+                            TemplateSwitchSecondary::Reference => &reference[secondary_index],
+                            TemplateSwitchSecondary::Query => &query[secondary_index],
+                        };
+
+                        if primary_character == &secondary_character.complement() {
+                            AlignmentType::Match
+                        } else {
+                            AlignmentType::Substitution
+                        }
+                    }
                 },
             }
         } else {
@@ -500,8 +550,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                     identifier: Identifier::TemplateSwitchEntrance {
                         entrance_reference_index,
                         entrance_query_index,
-                        template_switch_origin: TemplateSwitchOrigin::Reference,
-                        template_switch_target: TemplateSwitchTarget::Reference,
+                        template_switch_primary: TemplateSwitchPrimary::Reference,
+                        template_switch_secondary: TemplateSwitchSecondary::Reference,
                         template_switch_first_offset,
                     },
                     predecessor,
@@ -514,8 +564,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                     identifier: Identifier::TemplateSwitchEntrance {
                         entrance_reference_index,
                         entrance_query_index,
-                        template_switch_origin: TemplateSwitchOrigin::Reference,
-                        template_switch_target: TemplateSwitchTarget::Query,
+                        template_switch_primary: TemplateSwitchPrimary::Reference,
+                        template_switch_secondary: TemplateSwitchSecondary::Query,
                         template_switch_first_offset,
                     },
                     predecessor,
@@ -528,8 +578,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                     identifier: Identifier::TemplateSwitchEntrance {
                         entrance_reference_index,
                         entrance_query_index,
-                        template_switch_origin: TemplateSwitchOrigin::Query,
-                        template_switch_target: TemplateSwitchTarget::Reference,
+                        template_switch_primary: TemplateSwitchPrimary::Query,
+                        template_switch_secondary: TemplateSwitchSecondary::Reference,
                         template_switch_first_offset,
                     },
                     predecessor,
@@ -542,8 +592,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                     identifier: Identifier::TemplateSwitchEntrance {
                         entrance_reference_index,
                         entrance_query_index,
-                        template_switch_origin: TemplateSwitchOrigin::Query,
-                        template_switch_target: TemplateSwitchTarget::Query,
+                        template_switch_primary: TemplateSwitchPrimary::Query,
+                        template_switch_secondary: TemplateSwitchSecondary::Query,
                         template_switch_first_offset,
                     },
                     predecessor,
@@ -567,8 +617,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         let predecessor_identifier @ Identifier::TemplateSwitchEntrance {
             entrance_reference_index,
             entrance_query_index,
-            template_switch_origin,
-            template_switch_target,
+            template_switch_primary: template_switch_origin,
+            template_switch_secondary: template_switch_target,
             ..
         } = self.node_data.identifier
         else {
@@ -580,12 +630,56 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 identifier: Identifier::TemplateSwitchEntrance {
                     entrance_reference_index,
                     entrance_query_index,
-                    template_switch_origin,
-                    template_switch_target,
+                    template_switch_primary: template_switch_origin,
+                    template_switch_secondary: template_switch_target,
                     template_switch_first_offset: successor_template_switch_first_offset,
                 },
                 predecessor: Some(predecessor_identifier),
                 cost: self.node_data.cost + cost_increment,
+            },
+            strategies: self.strategies.generate_successor(context),
+        })
+    }
+
+    fn generate_secondary_root_node(
+        &self,
+        context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
+    ) -> Option<Self> {
+        let predecessor_identifier @ Identifier::TemplateSwitchEntrance {
+            entrance_reference_index,
+            entrance_query_index,
+            template_switch_primary,
+            template_switch_secondary,
+            template_switch_first_offset,
+        } = self.node_data.identifier
+        else {
+            unreachable!("This method is only called on template switch entrance nodes.")
+        };
+
+        let primary_index = match template_switch_primary {
+            TemplateSwitchPrimary::Reference => entrance_reference_index,
+            TemplateSwitchPrimary::Query => entrance_query_index,
+        };
+
+        let secondary_index = (match template_switch_secondary {
+            TemplateSwitchSecondary::Reference => entrance_reference_index,
+            TemplateSwitchSecondary::Query => entrance_query_index,
+        } as isize
+            + template_switch_first_offset) as usize;
+
+        Some(Self {
+            node_data: NodeData {
+                identifier: Identifier::Secondary {
+                    entrance_reference_index,
+                    entrance_query_index,
+                    template_switch_primary,
+                    template_switch_secondary,
+                    primary_index,
+                    secondary_index,
+                    gap_type: GapType::None,
+                },
+                predecessor: Some(predecessor_identifier),
+                cost: self.node_data.cost,
             },
             strategies: self.strategies.generate_successor(context),
         })

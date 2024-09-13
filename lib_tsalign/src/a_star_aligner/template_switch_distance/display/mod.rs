@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter, Result};
 
-use super::{AlignmentType, GapType, Identifier, TemplateSwitchOrigin, TemplateSwitchTarget};
+use super::{AlignmentType, GapType, Identifier, TemplateSwitchPrimary, TemplateSwitchSecondary};
 
 impl Display for AlignmentType {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
@@ -29,20 +29,20 @@ impl Display for GapType {
     }
 }
 
-impl Display for TemplateSwitchOrigin {
+impl Display for TemplateSwitchPrimary {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            TemplateSwitchOrigin::Reference => write!(f, "R"),
-            TemplateSwitchOrigin::Query => write!(f, "Q"),
+            TemplateSwitchPrimary::Reference => write!(f, "R"),
+            TemplateSwitchPrimary::Query => write!(f, "Q"),
         }
     }
 }
 
-impl Display for TemplateSwitchTarget {
+impl Display for TemplateSwitchSecondary {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            TemplateSwitchTarget::Reference => write!(f, "R"),
-            TemplateSwitchTarget::Query => write!(f, "Q"),
+            TemplateSwitchSecondary::Reference => write!(f, "R"),
+            TemplateSwitchSecondary::Query => write!(f, "Q"),
         }
     }
 }
@@ -62,22 +62,42 @@ impl Display for Identifier {
             ),
 
             Self::TemplateSwitchEntrance {
-                entrance_reference_index: origin_reference_index,
-                entrance_query_index: origin_query_index,
-                template_switch_origin,
-                template_switch_target,
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
                 template_switch_first_offset,
             } => {
                 write!(
                     f,
-                    "TemplateSwitchEntrance({}R, {}Q, {}O, {}T, {}O1)",
-                    origin_reference_index,
-                    origin_query_index,
-                    template_switch_origin,
-                    template_switch_target,
+                    "TemplateSwitchEntrance({}R, {}Q, {}P, {}S, {}O1)",
+                    entrance_reference_index,
+                    entrance_query_index,
+                    template_switch_primary,
+                    template_switch_secondary,
                     template_switch_first_offset
                 )
             }
+
+            Self::Secondary {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                primary_index,
+                secondary_index,
+                gap_type,
+            } => write!(
+                f,
+                "Secondary({}R, {}Q, {}P, {}S, {}, {}, {})",
+                entrance_reference_index,
+                entrance_query_index,
+                primary_index,
+                secondary_index,
+                template_switch_primary,
+                template_switch_secondary,
+                gap_type
+            ),
         }
     }
 }
