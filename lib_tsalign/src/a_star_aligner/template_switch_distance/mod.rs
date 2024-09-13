@@ -152,7 +152,10 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                             context,
                         )]);
                     } else if flank_index == context.left_flank_length {
-                        todo!("generate template switch start nodes");
+                        output.extend(self.generate_initial_template_switch_entrance_successors(
+                            context.offset1_costs.evaluate(&0),
+                            context,
+                        ));
                     }
                 }
 
@@ -187,7 +190,10 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                             context,
                         )]);
                     } else if flank_index == context.left_flank_length {
-                        todo!("generate template switch start nodes");
+                        output.extend(self.generate_initial_template_switch_entrance_successors(
+                            context.offset1_costs.evaluate(&0),
+                            context,
+                        ));
                     }
                 }
 
@@ -222,7 +228,10 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                             context,
                         )]);
                     } else if flank_index == context.left_flank_length {
-                        todo!("generate template switch start nodes");
+                        output.extend(self.generate_initial_template_switch_entrance_successors(
+                            context.offset1_costs.evaluate(&0),
+                            context,
+                        ));
                     }
                 }
             }
@@ -244,7 +253,46 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     TemplateSwitchTarget::Query => (entrance_query_index, query.len()),
                 };
 
-                todo!()
+                if template_switch_first_offset >= 0
+                    && target_entrance_index as isize + template_switch_first_offset
+                        < target_length as isize
+                {
+                    let old_cost = context
+                        .offset1_costs
+                        .evaluate(&template_switch_first_offset);
+                    let new_cost = context
+                        .offset1_costs
+                        .evaluate(&(&template_switch_first_offset + 1));
+                    assert!(new_cost >= old_cost);
+
+                    let cost_increment = new_cost - old_cost;
+                    output.extend([self.generate_template_switch_entrance_successor(
+                        cost_increment,
+                        template_switch_first_offset + 1,
+                        context,
+                    )])
+                }
+
+                if template_switch_first_offset <= 0
+                    && target_entrance_index as isize + template_switch_first_offset > 0
+                {
+                    let old_cost = context
+                        .offset1_costs
+                        .evaluate(&template_switch_first_offset);
+                    let new_cost = context
+                        .offset1_costs
+                        .evaluate(&(&template_switch_first_offset - 1));
+                    assert!(new_cost >= old_cost);
+
+                    let cost_increment = new_cost - old_cost;
+                    output.extend([self.generate_template_switch_entrance_successor(
+                        cost_increment,
+                        template_switch_first_offset - 1,
+                        context,
+                    )])
+                }
+
+                todo!("Generate secondary node")
             }
         }
     }
@@ -395,6 +443,116 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         };
         Self {
             node_data,
+            strategies: self.strategies.generate_successor(context),
+        }
+    }
+
+    fn generate_initial_template_switch_entrance_successors(
+        &self,
+        cost_increment: Cost,
+        context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
+    ) -> impl IntoIterator<Item = Self> {
+        let predecessor_identifier @ Identifier::Primary {
+            reference_index: entrance_reference_index,
+            query_index: entrance_query_index,
+            ..
+        } = self.node_data.identifier
+        else {
+            unreachable!("This method is only called on primary nodes.")
+        };
+        let template_switch_first_offset = 0;
+        let predecessor = Some(predecessor_identifier);
+        let cost = self.node_data.cost + cost_increment;
+
+        [
+            Self {
+                node_data: NodeData {
+                    identifier: Identifier::TemplateSwitchEntrance {
+                        entrance_reference_index,
+                        entrance_query_index,
+                        template_switch_origin: TemplateSwitchOrigin::Reference,
+                        template_switch_target: TemplateSwitchTarget::Reference,
+                        template_switch_first_offset,
+                    },
+                    predecessor,
+                    cost,
+                },
+                strategies: self.strategies.generate_successor(context),
+            },
+            Self {
+                node_data: NodeData {
+                    identifier: Identifier::TemplateSwitchEntrance {
+                        entrance_reference_index,
+                        entrance_query_index,
+                        template_switch_origin: TemplateSwitchOrigin::Reference,
+                        template_switch_target: TemplateSwitchTarget::Query,
+                        template_switch_first_offset,
+                    },
+                    predecessor,
+                    cost,
+                },
+                strategies: self.strategies.generate_successor(context),
+            },
+            Self {
+                node_data: NodeData {
+                    identifier: Identifier::TemplateSwitchEntrance {
+                        entrance_reference_index,
+                        entrance_query_index,
+                        template_switch_origin: TemplateSwitchOrigin::Query,
+                        template_switch_target: TemplateSwitchTarget::Reference,
+                        template_switch_first_offset,
+                    },
+                    predecessor,
+                    cost,
+                },
+                strategies: self.strategies.generate_successor(context),
+            },
+            Self {
+                node_data: NodeData {
+                    identifier: Identifier::TemplateSwitchEntrance {
+                        entrance_reference_index,
+                        entrance_query_index,
+                        template_switch_origin: TemplateSwitchOrigin::Query,
+                        template_switch_target: TemplateSwitchTarget::Query,
+                        template_switch_first_offset,
+                    },
+                    predecessor,
+                    cost,
+                },
+                strategies: self.strategies.generate_successor(context),
+            },
+        ]
+    }
+
+    fn generate_template_switch_entrance_successor(
+        &self,
+        cost_increment: Cost,
+        successor_template_switch_first_offset: isize,
+        context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
+    ) -> Self {
+        let predecessor_identifier @ Identifier::TemplateSwitchEntrance {
+            entrance_reference_index,
+            entrance_query_index,
+            template_switch_origin,
+            template_switch_target,
+            ..
+        } = self.node_data.identifier
+        else {
+            unreachable!("This method is only called on template switch entrance nodes.")
+        };
+
+        Self {
+            node_data: NodeData {
+                identifier: Identifier::TemplateSwitchEntrance {
+                    entrance_reference_index,
+                    entrance_query_index,
+                    template_switch_origin,
+                    template_switch_target,
+                    template_switch_first_offset: successor_template_switch_first_offset,
+                },
+                predecessor: Some(predecessor_identifier),
+                cost: self.node_data.cost + cost_increment,
+            },
             strategies: self.strategies.generate_successor(context),
         }
     }
