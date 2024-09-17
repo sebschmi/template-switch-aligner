@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use clap::{Parser, ValueEnum};
+use clap::{Args, Parser, ValueEnum};
 use compact_genome::{
     implementation::{alphabets::dna_alphabet::DnaAlphabet, DefaultSequenceStore},
     interface::{alphabet::Alphabet, sequence::GenomeSequence, sequence_store::SequenceStore},
@@ -23,17 +23,8 @@ mod template_switch_distance_type_selectors;
 
 #[derive(Parser)]
 struct Cli {
-    /// The path to the reference fasta file.
-    #[clap(long, short, requires = "query")]
-    reference: Option<PathBuf>,
-
-    /// The path to the query fasta file.
-    #[clap(long, short, requires = "reference")]
-    query: Option<PathBuf>,
-
-    /// The path to a fasta file containing both the reference and the query.
-    #[clap(long, short, conflicts_with_all = ["reference", "query"])]
-    twin_fasta: Option<PathBuf>,
+    #[command(flatten)]
+    input: CliInput,
 
     /// A directory containing the configuration files.
     ///
@@ -48,6 +39,22 @@ struct Cli {
     ts_node_ord_strategy: TemplateSwitchNodeOrdStrategy,
 }
 
+#[derive(Args)]
+#[group(required = true)]
+struct CliInput {
+    /// The path to the reference fasta file.
+    #[clap(long, short, requires = "query", group = "input")]
+    reference: Option<PathBuf>,
+
+    /// The path to the query fasta file.
+    #[clap(long, short, requires = "reference", group = "input")]
+    query: Option<PathBuf>,
+
+    /// The path to a fasta file containing both the reference and the query.
+    #[clap(long, short, conflicts_with_all = ["reference", "query"], group = "input")]
+    twin_fasta: Option<PathBuf>,
+}
+
 #[derive(Clone, ValueEnum)]
 enum AlignmentMethod {
     Matrix,
@@ -60,7 +67,7 @@ fn main() {
 
     let mut sequence_store = DefaultSequenceStore::<DnaAlphabet>::new();
 
-    let (reference, query) = if let Some(twin_fasta) = &cli.twin_fasta {
+    let (reference, query) = if let Some(twin_fasta) = &cli.input.twin_fasta {
         let sequences = read_fasta_file(twin_fasta, &mut sequence_store).unwrap();
 
         assert_eq!(
@@ -72,7 +79,7 @@ fn main() {
             sequence_store.get(&sequences[0].sequence_handle),
             sequence_store.get(&sequences[1].sequence_handle),
         )
-    } else if let (Some(reference), Some(query)) = (&cli.reference, &cli.query) {
+    } else if let (Some(reference), Some(query)) = (&cli.input.reference, &cli.input.query) {
         let reference_sequences = read_fasta_file(reference, &mut sequence_store).unwrap();
         let query_sequences = read_fasta_file(query, &mut sequence_store).unwrap();
 
