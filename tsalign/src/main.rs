@@ -52,7 +52,7 @@ struct CliInput {
 
     /// The path to a fasta file containing both the reference and the query.
     #[clap(long, short, conflicts_with_all = ["reference", "query"], group = "input")]
-    twin_fasta: Option<PathBuf>,
+    pair_fasta: Option<PathBuf>,
 }
 
 #[derive(Clone, ValueEnum)]
@@ -67,13 +67,13 @@ fn main() {
 
     let mut sequence_store = DefaultSequenceStore::<DnaAlphabet>::new();
 
-    let (reference, query) = if let Some(twin_fasta) = &cli.input.twin_fasta {
-        let sequences = read_fasta_file(twin_fasta, &mut sequence_store).unwrap();
+    let (reference, query) = if let Some(pair_fasta) = &cli.input.pair_fasta {
+        let sequences = read_fasta_file(pair_fasta, &mut sequence_store).unwrap();
 
         assert_eq!(
             sequences.len(),
             2,
-            "Twin sequence file contains not exactly two records"
+            "Pair sequence file contains not exactly two records"
         );
         (
             sequence_store.get(&sequences[0].sequence_handle),
