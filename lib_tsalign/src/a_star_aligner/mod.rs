@@ -125,13 +125,6 @@ where
     loop {
         let alignment_type = current_node.predecessor_alignment_type(reference, query, &context);
 
-        println!(
-            "{}: {}; {:?}",
-            current_node.cost(),
-            current_node.identifier(),
-            alignment_type,
-        );
-
         if !alignment_type.is_internal() {
             if let Some((count, previous_alignment_type)) = alignment.last_mut() {
                 if alignment_type.is_repeated(previous_alignment_type) {
