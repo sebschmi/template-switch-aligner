@@ -10,6 +10,7 @@ pub trait IAlignmentType {
     fn is_internal(&self) -> bool;
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AlignmentResult<AlignmentType> {
     pub alignment: Vec<(usize, AlignmentType)>,
     pub cost: Cost,

@@ -78,6 +78,7 @@ pub enum GapType {
 
 /// The primary sequence is the sequence for which the template switch does not jump.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TemplateSwitchPrimary {
     Reference,
     Query,
@@ -85,12 +86,14 @@ pub enum TemplateSwitchPrimary {
 
 /// The secondary sequence is the sequence for which the template switch jumps.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TemplateSwitchSecondary {
     Reference,
     Query,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AlignmentType {
     /// The query contains a base that is missing from the reference.
     Insertion,

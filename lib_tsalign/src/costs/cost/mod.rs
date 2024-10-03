@@ -5,6 +5,7 @@ use std::ops::{Add, AddAssign, Sub, SubAssign};
 /// This cost type is not allowed to be negative.
 /// This is important for example when using Dijkstra or A* to compute an alignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Cost(u64);
 
 impl Cost {

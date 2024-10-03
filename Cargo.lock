@@ -267,6 +267,7 @@ dependencies = [
  "ndarray",
  "nom",
  "num-traits",
+ "serde",
  "thiserror",
  "traitsequence",
 ]
