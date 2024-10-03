@@ -26,6 +26,7 @@ enum GapType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AlignmentType {
     /// The query contains a base that is missing from the reference.
     Insertion,

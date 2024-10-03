@@ -26,6 +26,10 @@ struct Cli {
     #[command(flatten)]
     input: CliInput,
 
+    /// The file to store the alignment statistics in toml format.
+    #[clap(long, short = 'o')]
+    output: Option<PathBuf>,
+
     /// A directory containing the configuration files.
     ///
     /// See the README for its layout.
@@ -43,15 +47,15 @@ struct Cli {
 #[group(required = true)]
 struct CliInput {
     /// The path to the reference fasta file.
-    #[clap(long, short, requires = "query", group = "input")]
+    #[clap(long, short = 'r', requires = "query", group = "input")]
     reference: Option<PathBuf>,
 
     /// The path to the query fasta file.
-    #[clap(long, short, requires = "reference", group = "input")]
+    #[clap(long, short = 'q', requires = "reference", group = "input")]
     query: Option<PathBuf>,
 
     /// The path to a fasta file containing both the reference and the query.
-    #[clap(long, short, conflicts_with_all = ["reference", "query"], group = "input")]
+    #[clap(long, short = 'p', conflicts_with_all = ["reference", "query"], group = "input")]
     pair_fasta: Option<PathBuf>,
 }
 
@@ -119,6 +123,10 @@ fn align_matrix<
     reference: &SubsequenceType,
     query: &SubsequenceType,
 ) {
+    if cli.output.is_some() {
+        panic!("Outputting statistics not supported by matrix alignment");
+    }
+
     #[derive(serde::Deserialize)]
     struct MatrixConfig {
         match_cost: u64,
@@ -178,6 +186,12 @@ fn align_a_star_gap_affine_edit_distance<
             gap_extend_cost: gap_affine_config.gap_extend_cost.into(),
         },
     );
+
+    if let Some(output) = cli.output {
+        use std::io::Write;
+        let mut output = std::io::BufWriter::new(std::fs::File::create(output).unwrap());
+        write!(output, "{}", toml::to_string(&alignment).unwrap()).unwrap();
+    }
 
     println!("{}", alignment);
 }

@@ -73,5 +73,11 @@ fn align_a_star_template_switch_distance_call<
         _,
     >(reference, query, costs);
 
+    if let Some(output) = cli.output {
+        use std::io::Write;
+        let mut output = std::io::BufWriter::new(std::fs::File::create(output).unwrap());
+        write!(output, "{}", toml::to_string(&alignment).unwrap()).unwrap();
+    }
+
     println!("{}", alignment);
 }
