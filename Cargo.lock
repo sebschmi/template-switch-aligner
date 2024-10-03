@@ -138,9 +138,9 @@ checksum = "d3fd119d74b830634cea2a0f58bbd0d54540518a14397557951e79340abc28c0"
 
 [[package]]
 name = "compact-genome"
-version = "4.0.2"
+version = "10.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "291edee128b317f8cb26abed15b96372ceb6f8a355f3886f75fbf01d4a26114d"
+checksum = "44e745f2358dec56293c631cae90a53ae445f55b73d3543cdc50eeb3cd6e5155"
 dependencies = [
  "bitvec",
  "enum-iterator",
@@ -528,9 +528,9 @@ dependencies = [
 
 [[package]]
 name = "traitsequence"
-version = "2.0.0"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4cd2caadbd36e66fb9aea075afd8c4e693773b276e9842928fb2c8a8d29d889"
+checksum = "eccc87c72a0ca5aec58d3f762b496c87c6500884511fcf878942dd8bed63cc69"
 
 [[package]]
 name = "tsalign"

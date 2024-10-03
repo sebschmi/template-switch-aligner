@@ -67,39 +67,38 @@ fn main() {
 
     let mut sequence_store = DefaultSequenceStore::<DnaAlphabet>::new();
 
-    let (reference, query) = if let Some(pair_fasta) = &cli.input.pair_fasta {
-        let sequences = read_fasta_file(pair_fasta, &mut sequence_store).unwrap();
+    let sequences = if let Some(pair_fasta) = &cli.input.pair_fasta {
+        let sequences = read_fasta_file(pair_fasta, &mut sequence_store, false, true).unwrap();
 
         assert_eq!(
             sequences.len(),
             2,
             "Pair sequence file contains not exactly two records"
         );
-        (
-            sequence_store.get(&sequences[0].sequence_handle),
-            sequence_store.get(&sequences[1].sequence_handle),
-        )
-    } else if let (Some(reference), Some(query)) = (&cli.input.reference, &cli.input.query) {
-        let reference_sequences = read_fasta_file(reference, &mut sequence_store).unwrap();
-        let query_sequences = read_fasta_file(query, &mut sequence_store).unwrap();
 
+        sequences
+    } else if let (Some(reference), Some(query)) = (&cli.input.reference, &cli.input.query) {
+        let mut sequences = read_fasta_file(reference, &mut sequence_store, false, true).unwrap();
         assert_eq!(
-            reference_sequences.len(),
+            sequences.len(),
             1,
             "Reference sequence file contains not exactly one record"
         );
+
+        sequences.extend(read_fasta_file(query, &mut sequence_store, false, true).unwrap());
         assert_eq!(
-            query_sequences.len(),
+            sequences.len(),
             1,
             "Query sequence file contains not exactly one record"
         );
-        (
-            sequence_store.get(&reference_sequences[0].sequence_handle),
-            sequence_store.get(&query_sequences[0].sequence_handle),
-        )
+
+        sequences
     } else {
         panic!("No fasta input file given")
     };
+
+    let query = sequence_store.get(&sequences[0].sequence_handle);
+    let reference = sequence_store.get(&sequences[1].sequence_handle);
 
     match cli.alignment_method {
         AlignmentMethod::Matrix => align_matrix(cli, reference, query),
