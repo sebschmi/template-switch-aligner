@@ -15,6 +15,8 @@ use lib_tsalign::{
     alignment_configuration::AlignmentConfiguration,
     alignment_matrix::AlignmentMatrix,
 };
+use log::{info, LevelFilter};
+use simplelog::{ColorChoice, TermLogger, TerminalMode};
 use template_switch_distance_type_selectors::{
     align_a_star_template_switch_distance, TemplateSwitchNodeOrdStrategy,
 };
@@ -67,10 +69,18 @@ enum AlignmentMethod {
 }
 
 fn main() {
+    TermLogger::init(
+        LevelFilter::Info,
+        Default::default(),
+        TerminalMode::Mixed,
+        ColorChoice::Auto,
+    )
+    .unwrap();
+
     let cli = Cli::parse();
 
+    info!("Loading sequences...");
     let mut sequence_store = DefaultSequenceStore::<DnaAlphabet>::new();
-
     let sequences = if let Some(pair_fasta) = &cli.input.pair_fasta {
         let sequences = read_fasta_file(pair_fasta, &mut sequence_store, false, true).unwrap();
 
@@ -104,6 +114,7 @@ fn main() {
     let query = sequence_store.get(&sequences[0].sequence_handle);
     let reference = sequence_store.get(&sequences[1].sequence_handle);
 
+    info!("Choosing alignment method...");
     match cli.alignment_method {
         AlignmentMethod::Matrix => align_matrix(cli, reference, query),
         AlignmentMethod::AStarGapAffine => {

@@ -17,3 +17,5 @@ compact-genome = { workspace = true, features = ["io"] }
 traitsequence.workspace = true
 serde.workspace = true
 toml = "0.8.19"
+log.workspace = true
+simplelog = "0.12.2"
