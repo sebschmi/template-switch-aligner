@@ -17,6 +17,8 @@ pub trait IAlignmentType {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AlignmentResult<AlignmentType> {
     pub alignment: Vec<(usize, AlignmentType)>,
+
+    #[cfg_attr(feature = "serde", serde(flatten))]
     pub statistics: AlignmentStatistics,
 }
 
