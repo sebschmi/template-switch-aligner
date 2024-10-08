@@ -1,5 +1,7 @@
 use std::fmt::{Display, Formatter, Result, Write};
 
+use noisy_float::types::R64;
+
 use crate::costs::cost::Cost;
 
 pub trait IAlignmentType {
@@ -10,17 +12,17 @@ pub trait IAlignmentType {
     fn is_internal(&self) -> bool;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AlignmentResult<AlignmentType> {
     pub alignment: Vec<(usize, AlignmentType)>,
     pub cost: Cost,
-    pub cost_per_base: f64,
-    pub duration_seconds: f64,
+    pub cost_per_base: R64,
+    pub duration_seconds: R64,
     pub opened_nodes: usize,
     pub closed_nodes: usize,
     pub suboptimal_opened_nodes: usize,
-    pub suboptimal_opened_nodes_ratio: f64,
+    pub suboptimal_opened_nodes_ratio: R64,
 }
 
 impl<AlignmentType> AlignmentResult<AlignmentType> {
@@ -38,13 +40,17 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
         Self {
             alignment,
             cost,
-            cost_per_base: (cost.as_u64() * 2) as f64 / (reference_length + query_length) as f64,
-            duration_seconds,
+            cost_per_base: ((cost.as_u64() * 2) as f64 / (reference_length + query_length) as f64)
+                .try_into()
+                .unwrap(),
+            duration_seconds: duration_seconds.try_into().unwrap(),
             opened_nodes,
             closed_nodes,
             suboptimal_opened_nodes,
-            suboptimal_opened_nodes_ratio: suboptimal_opened_nodes as f64
-                / (opened_nodes - suboptimal_opened_nodes) as f64,
+            suboptimal_opened_nodes_ratio: (suboptimal_opened_nodes as f64
+                / (opened_nodes - suboptimal_opened_nodes) as f64)
+                .try_into()
+                .unwrap(),
         }
     }
 }
