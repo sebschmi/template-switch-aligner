@@ -23,12 +23,12 @@ pub struct AlignmentResult<AlignmentType> {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AlignmentStatistics {
-    pub cost: Cost,
+    pub cost: R64,
     pub cost_per_base: R64,
     pub duration_seconds: R64,
-    pub opened_nodes: usize,
-    pub closed_nodes: usize,
-    pub suboptimal_opened_nodes: usize,
+    pub opened_nodes: R64,
+    pub closed_nodes: R64,
+    pub suboptimal_opened_nodes: R64,
     pub suboptimal_opened_nodes_ratio: R64,
 }
 
@@ -47,15 +47,15 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
         Self {
             alignment,
             statistics: AlignmentStatistics {
-                cost,
+                cost: (cost.as_u64() as f64).try_into().unwrap(),
                 cost_per_base: ((cost.as_u64() * 2) as f64
                     / (reference_length + query_length) as f64)
                     .try_into()
                     .unwrap(),
                 duration_seconds: duration_seconds.try_into().unwrap(),
-                opened_nodes,
-                closed_nodes,
-                suboptimal_opened_nodes,
+                opened_nodes: (opened_nodes as f64).try_into().unwrap(),
+                closed_nodes: (closed_nodes as f64).try_into().unwrap(),
+                suboptimal_opened_nodes: (suboptimal_opened_nodes as f64).try_into().unwrap(),
                 suboptimal_opened_nodes_ratio: (suboptimal_opened_nodes as f64
                     / (opened_nodes - suboptimal_opened_nodes) as f64)
                     .try_into()
@@ -94,36 +94,36 @@ impl<AlignmentType: IAlignmentType> AlignmentResult<AlignmentType> {
 impl AlignmentStatistics {
     pub fn min_value() -> Self {
         AlignmentStatistics {
-            cost: Cost::MIN,
+            cost: R64::min_value(),
             cost_per_base: R64::min_value(),
             duration_seconds: R64::min_value(),
-            opened_nodes: usize::MIN,
-            closed_nodes: usize::MIN,
-            suboptimal_opened_nodes: usize::MIN,
+            opened_nodes: R64::min_value(),
+            closed_nodes: R64::min_value(),
+            suboptimal_opened_nodes: R64::min_value(),
             suboptimal_opened_nodes_ratio: R64::min_value(),
         }
     }
 
     pub fn max_value() -> Self {
         AlignmentStatistics {
-            cost: Cost::MAX,
+            cost: R64::max_value(),
             cost_per_base: R64::max_value(),
             duration_seconds: R64::max_value(),
-            opened_nodes: usize::MAX,
-            closed_nodes: usize::MAX,
-            suboptimal_opened_nodes: usize::MAX,
+            opened_nodes: R64::max_value(),
+            closed_nodes: R64::max_value(),
+            suboptimal_opened_nodes: R64::max_value(),
             suboptimal_opened_nodes_ratio: R64::max_value(),
         }
     }
 
     pub fn zero_value() -> Self {
         AlignmentStatistics {
-            cost: Cost::ZERO,
+            cost: R64::zero(),
             cost_per_base: R64::zero(),
             duration_seconds: R64::zero(),
-            opened_nodes: 0,
-            closed_nodes: 0,
-            suboptimal_opened_nodes: 0,
+            opened_nodes: R64::zero(),
+            closed_nodes: R64::zero(),
+            suboptimal_opened_nodes: R64::zero(),
             suboptimal_opened_nodes_ratio: R64::zero(),
         }
     }

@@ -2,6 +2,7 @@ use compact_genome::{
     implementation::{alphabets::dna_alphabet::DnaAlphabet, vec_sequence::VectorGenome},
     interface::sequence::{GenomeSequence, OwnedGenomeSequence},
 };
+use num_traits::real::Real;
 
 use super::{gap_affine_edit_distance::ScoringTable, gap_affine_edit_distance_a_star_align};
 
@@ -23,5 +24,5 @@ fn match_overtakes_gap() {
     );
 
     assert_eq!(alignment_result.cigar(), "1D2M2I");
-    assert_eq!(alignment_result.statistics.cost, 9.into());
+    assert!((alignment_result.statistics.cost - 9.0).abs() < 1e-6);
 }
