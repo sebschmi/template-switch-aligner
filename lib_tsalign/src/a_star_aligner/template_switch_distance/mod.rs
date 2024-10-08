@@ -16,14 +16,14 @@ pub struct Node<Strategies: AlignmentStrategySelector> {
     strategies: AlignmentStrategies<Strategies>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NodeData {
     identifier: Identifier,
     predecessor: Option<Identifier>,
     cost: Cost,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum Identifier {
     Primary {
         reference_index: usize,
@@ -69,7 +69,7 @@ pub enum Identifier {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum GapType {
     Insertion,
     Deletion,
@@ -77,7 +77,7 @@ pub enum GapType {
 }
 
 /// The primary sequence is the sequence for which the template switch does not jump.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TemplateSwitchPrimary {
     Reference,
@@ -85,14 +85,14 @@ pub enum TemplateSwitchPrimary {
 }
 
 /// The secondary sequence is the sequence for which the template switch jumps.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TemplateSwitchSecondary {
     Reference,
     Query,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AlignmentType {
     /// The query contains a base that is missing from the reference.
