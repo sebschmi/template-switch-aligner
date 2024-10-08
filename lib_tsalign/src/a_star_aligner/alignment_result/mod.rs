@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result, Write};
 
 use noisy_float::types::R64;
-use num_traits::{Bounded, Zero};
+use num_traits::{Float, Zero};
 
 use crate::costs::cost::Cost;
 
@@ -20,8 +20,9 @@ pub struct AlignmentResult<AlignmentType> {
     pub statistics: AlignmentStatistics,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[must_use]
 pub struct AlignmentStatistics {
     pub cost: R64,
     pub cost_per_base: R64,
@@ -30,6 +31,18 @@ pub struct AlignmentStatistics {
     pub closed_nodes: R64,
     pub suboptimal_opened_nodes: R64,
     pub suboptimal_opened_nodes_ratio: R64,
+}
+
+macro_rules! each_statistic {
+    ($action:path) => {{
+        $action!(cost);
+        $action!(cost_per_base);
+        $action!(duration_seconds);
+        $action!(opened_nodes);
+        $action!(closed_nodes);
+        $action!(suboptimal_opened_nodes);
+        $action!(suboptimal_opened_nodes_ratio);
+    }};
 }
 
 impl<AlignmentType> AlignmentResult<AlignmentType> {
@@ -93,39 +106,122 @@ impl<AlignmentType: IAlignmentType> AlignmentResult<AlignmentType> {
 
 impl AlignmentStatistics {
     pub fn min_value() -> Self {
-        AlignmentStatistics {
-            cost: R64::min_value(),
-            cost_per_base: R64::min_value(),
-            duration_seconds: R64::min_value(),
-            opened_nodes: R64::min_value(),
-            closed_nodes: R64::min_value(),
-            suboptimal_opened_nodes: R64::min_value(),
-            suboptimal_opened_nodes_ratio: R64::min_value(),
+        let mut result = Self::default();
+
+        macro_rules! create_min_value {
+            ($field:ident) => {
+                result.$field = R64::min_value();
+            };
         }
+        each_statistic!(create_min_value);
+
+        result
     }
 
     pub fn max_value() -> Self {
-        AlignmentStatistics {
-            cost: R64::max_value(),
-            cost_per_base: R64::max_value(),
-            duration_seconds: R64::max_value(),
-            opened_nodes: R64::max_value(),
-            closed_nodes: R64::max_value(),
-            suboptimal_opened_nodes: R64::max_value(),
-            suboptimal_opened_nodes_ratio: R64::max_value(),
+        let mut result = Self::default();
+
+        macro_rules! create_max_value {
+            ($field:ident) => {
+                result.$field = R64::max_value();
+            };
         }
+        each_statistic!(create_max_value);
+
+        result
     }
 
-    pub fn zero_value() -> Self {
-        AlignmentStatistics {
-            cost: R64::zero(),
-            cost_per_base: R64::zero(),
-            duration_seconds: R64::zero(),
-            opened_nodes: R64::zero(),
-            closed_nodes: R64::zero(),
-            suboptimal_opened_nodes: R64::zero(),
-            suboptimal_opened_nodes_ratio: R64::zero(),
+    pub fn zero() -> Self {
+        let mut result = Self::default();
+
+        macro_rules! create_zero {
+            ($field:ident) => {
+                result.$field = R64::zero();
+            };
         }
+        each_statistic!(create_zero);
+
+        result
+    }
+
+    pub fn piecewise_min(&self, other: &Self) -> Self {
+        let mut result = self.clone();
+
+        macro_rules! piecewise_min {
+            ($field:ident) => {
+                result.$field = result.$field.min(other.$field);
+            };
+        }
+        each_statistic!(piecewise_min);
+
+        result
+    }
+
+    pub fn piecewise_max(&self, other: &Self) -> Self {
+        let mut result = self.clone();
+
+        macro_rules! piecewise_max {
+            ($field:ident) => {
+                result.$field = result.$field.max(other.$field);
+            };
+        }
+        each_statistic!(piecewise_max);
+
+        result
+    }
+
+    pub fn piecewise_add(&self, other: &Self) -> Self {
+        let mut result = self.clone();
+
+        macro_rules! add {
+            ($field:ident) => {
+                result.$field += other.$field;
+            };
+        }
+        each_statistic!(add);
+
+        result
+    }
+
+    pub fn piecewise_div(&self, divisor: R64) -> Self {
+        let mut result = self.clone();
+
+        macro_rules! div {
+            ($field:ident) => {
+                result.$field /= divisor;
+            };
+        }
+        each_statistic!(div);
+
+        result
+    }
+
+    pub fn piecewise_percentile(statistics: &[Self], percentile: R64) -> Self {
+        assert!(percentile >= 0.0);
+        assert!(percentile <= 1.0);
+        let mut result = Self::zero();
+        let mut buffer = Vec::new();
+
+        macro_rules! percentile {
+            ($field:ident) => {
+                buffer.clear();
+                buffer.extend(statistics.iter().map(|s| s.$field));
+                buffer.sort();
+
+                // Scale percentile.
+                let index = (percentile * buffer.len() as f64).floor().raw() as usize;
+                let index = if index == buffer.len() {
+                    // Edge case if percentile == 1.0
+                    index - 1
+                } else {
+                    index
+                };
+                result.$field = buffer[index];
+            };
+        }
+        each_statistic!(percentile);
+
+        result
     }
 }
 
