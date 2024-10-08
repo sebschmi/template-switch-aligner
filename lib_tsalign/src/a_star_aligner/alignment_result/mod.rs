@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter, Result, Write};
 
 use noisy_float::types::R64;
+use num_traits::{Bounded, Zero};
 
 use crate::costs::cost::Cost;
 
@@ -16,6 +17,12 @@ pub trait IAlignmentType {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AlignmentResult<AlignmentType> {
     pub alignment: Vec<(usize, AlignmentType)>,
+    pub statistics: AlignmentStatistics,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct AlignmentStatistics {
     pub cost: Cost,
     pub cost_per_base: R64,
     pub duration_seconds: R64,
@@ -39,18 +46,21 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
     ) -> Self {
         Self {
             alignment,
-            cost,
-            cost_per_base: ((cost.as_u64() * 2) as f64 / (reference_length + query_length) as f64)
-                .try_into()
-                .unwrap(),
-            duration_seconds: duration_seconds.try_into().unwrap(),
-            opened_nodes,
-            closed_nodes,
-            suboptimal_opened_nodes,
-            suboptimal_opened_nodes_ratio: (suboptimal_opened_nodes as f64
-                / (opened_nodes - suboptimal_opened_nodes) as f64)
-                .try_into()
-                .unwrap(),
+            statistics: AlignmentStatistics {
+                cost,
+                cost_per_base: ((cost.as_u64() * 2) as f64
+                    / (reference_length + query_length) as f64)
+                    .try_into()
+                    .unwrap(),
+                duration_seconds: duration_seconds.try_into().unwrap(),
+                opened_nodes,
+                closed_nodes,
+                suboptimal_opened_nodes,
+                suboptimal_opened_nodes_ratio: (suboptimal_opened_nodes as f64
+                    / (opened_nodes - suboptimal_opened_nodes) as f64)
+                    .try_into()
+                    .unwrap(),
+            },
         }
     }
 }
@@ -81,12 +91,56 @@ impl<AlignmentType: IAlignmentType> AlignmentResult<AlignmentType> {
     }
 }
 
+impl AlignmentStatistics {
+    pub fn min_value() -> Self {
+        AlignmentStatistics {
+            cost: Cost::MIN,
+            cost_per_base: R64::min_value(),
+            duration_seconds: R64::min_value(),
+            opened_nodes: usize::MIN,
+            closed_nodes: usize::MIN,
+            suboptimal_opened_nodes: usize::MIN,
+            suboptimal_opened_nodes_ratio: R64::min_value(),
+        }
+    }
+
+    pub fn max_value() -> Self {
+        AlignmentStatistics {
+            cost: Cost::MAX,
+            cost_per_base: R64::max_value(),
+            duration_seconds: R64::max_value(),
+            opened_nodes: usize::MAX,
+            closed_nodes: usize::MAX,
+            suboptimal_opened_nodes: usize::MAX,
+            suboptimal_opened_nodes_ratio: R64::max_value(),
+        }
+    }
+
+    pub fn zero_value() -> Self {
+        AlignmentStatistics {
+            cost: Cost::ZERO,
+            cost_per_base: R64::zero(),
+            duration_seconds: R64::zero(),
+            opened_nodes: 0,
+            closed_nodes: 0,
+            suboptimal_opened_nodes: 0,
+            suboptimal_opened_nodes_ratio: R64::zero(),
+        }
+    }
+}
+
 impl<AlignmentType: Display + IAlignmentType> Display for AlignmentResult<AlignmentType> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        writeln!(f, "Cost: {}", self.cost)?;
         write!(f, "CIGAR: ")?;
         self.write_cigar(f)?;
         writeln!(f)?;
+        self.statistics.fmt(f)
+    }
+}
+
+impl Display for AlignmentStatistics {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        writeln!(f, "Cost: {}", self.cost)?;
         writeln!(f, "Cost per base: {:.2}", self.cost_per_base)?;
         writeln!(f, "Opened nodes: {}", self.opened_nodes)?;
         writeln!(f, "Closed nodes: {}", self.closed_nodes)?;

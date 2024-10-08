@@ -23,5 +23,5 @@ fn match_overtakes_gap() {
     );
 
     assert_eq!(alignment_result.cigar(), "1D2M2I");
-    assert_eq!(alignment_result.cost, 9.into());
+    assert_eq!(alignment_result.statistics.cost, 9.into());
 }

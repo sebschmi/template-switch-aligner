@@ -9,6 +9,7 @@ use std::ops::{Add, AddAssign, Sub, SubAssign};
 pub struct Cost(u64);
 
 impl Cost {
+    pub const MIN: Self = Self(u64::MIN);
     pub const MAX: Self = Self(u64::MAX);
     pub const ZERO: Self = Self(0);
 
