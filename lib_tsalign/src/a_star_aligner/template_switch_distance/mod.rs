@@ -164,6 +164,11 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 gap_type,
                 flank_index,
             } => {
+                debug_assert!(reference_index != usize::MAX, "{self:?}");
+                debug_assert!(query_index != usize::MAX, "{self:?}");
+                debug_assert!(reference_index < isize::MAX as usize, "{self:?}");
+                debug_assert!(query_index < isize::MAX as usize, "{self:?}");
+
                 if reference_index < reference.len() && query_index < query.len() {
                     // Diagonal characters
                     let r = reference[reference_index].clone();
@@ -1033,20 +1038,31 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             TemplateSwitchPrimary::Reference => {
                 let primary_length = primary_index - entrance_reference_index;
                 let anti_primary_length = primary_length as isize + length_difference;
-                (
-                    primary_index,
-                    (entrance_query_index as isize + anti_primary_length) as usize,
-                )
+                let query_index = entrance_query_index as isize + anti_primary_length;
+
+                if query_index < 0 {
+                    return None;
+                }
+
+                (primary_index, query_index as usize)
             }
             TemplateSwitchPrimary::Query => {
                 let primary_length = primary_index - entrance_query_index;
                 let anti_primary_length = primary_length as isize + length_difference;
-                (
-                    (entrance_reference_index as isize + anti_primary_length) as usize,
-                    primary_index,
-                )
+                let reference_index = entrance_reference_index as isize + anti_primary_length;
+
+                if reference_index < 0 {
+                    return None;
+                }
+
+                (reference_index as usize, primary_index)
             }
         };
+
+        debug_assert!(reference_index != usize::MAX, "{self:?}");
+        debug_assert!(query_index != usize::MAX, "{self:?}");
+        debug_assert!(reference_index < isize::MAX as usize, "{self:?}");
+        debug_assert!(query_index < isize::MAX as usize, "{self:?}");
 
         Some(Self {
             node_data: NodeData {
@@ -1071,6 +1087,11 @@ impl Identifier {
         flank_index: isize,
         gap_type: GapType,
     ) -> Self {
+        debug_assert!(reference_index != usize::MAX);
+        debug_assert!(query_index != usize::MAX);
+        debug_assert!(reference_index < isize::MAX as usize);
+        debug_assert!(query_index < isize::MAX as usize);
+
         Self::Primary {
             reference_index,
             query_index,
@@ -1090,12 +1111,19 @@ impl Identifier {
                 reference_index,
                 query_index,
                 ..
-            } => Self::Primary {
-                reference_index: reference_index + 1,
-                query_index: query_index + 1,
-                flank_index,
-                gap_type: GapType::None,
-            },
+            } => {
+                debug_assert!(reference_index != usize::MAX);
+                debug_assert!(query_index != usize::MAX);
+                debug_assert!(reference_index < isize::MAX as usize);
+                debug_assert!(query_index < isize::MAX as usize);
+
+                Self::Primary {
+                    reference_index: reference_index + 1,
+                    query_index: query_index + 1,
+                    flank_index,
+                    gap_type: GapType::None,
+                }
+            }
             other => unreachable!(
                 "Function is only called on primary identifiers, but this is: {other}."
             ),
@@ -1113,12 +1141,19 @@ impl Identifier {
                 reference_index,
                 query_index,
                 ..
-            } => Self::Primary {
-                reference_index: reference_index + 1,
-                query_index,
-                flank_index,
-                gap_type: GapType::Deletion,
-            },
+            } => {
+                debug_assert!(reference_index != usize::MAX);
+                debug_assert!(query_index != usize::MAX);
+                debug_assert!(reference_index < isize::MAX as usize);
+                debug_assert!(query_index < isize::MAX as usize);
+
+                Self::Primary {
+                    reference_index: reference_index + 1,
+                    query_index,
+                    flank_index,
+                    gap_type: GapType::Deletion,
+                }
+            }
             other => unreachable!(
                 "Function is only called on primary identifiers, but this is: {other}."
             ),
@@ -1136,12 +1171,19 @@ impl Identifier {
                 reference_index,
                 query_index,
                 ..
-            } => Self::Primary {
-                reference_index,
-                query_index: query_index + 1,
-                flank_index,
-                gap_type: GapType::Insertion,
-            },
+            } => {
+                debug_assert!(reference_index != usize::MAX);
+                debug_assert!(query_index != usize::MAX);
+                debug_assert!(reference_index < isize::MAX as usize);
+                debug_assert!(query_index < isize::MAX as usize);
+
+                Self::Primary {
+                    reference_index,
+                    query_index: query_index + 1,
+                    flank_index,
+                    gap_type: GapType::Insertion,
+                }
+            }
             other => unreachable!(
                 "Function is only called on primary identifiers, but this is: {other}."
             ),
@@ -1238,7 +1280,14 @@ impl Identifier {
                 reference_index,
                 query_index,
                 ..
-            } => reference_index + query_index,
+            } => {
+                debug_assert!(reference_index != usize::MAX);
+                debug_assert!(query_index != usize::MAX);
+                debug_assert!(reference_index < isize::MAX as usize);
+                debug_assert!(query_index < isize::MAX as usize);
+
+                reference_index + query_index
+            }
             _ => usize::MAX,
         }
     }
