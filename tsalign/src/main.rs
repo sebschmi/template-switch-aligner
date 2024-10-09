@@ -111,8 +111,8 @@ fn main() {
         panic!("No fasta input file given")
     };
 
-    let query = sequence_store.get(&sequences[0].sequence_handle);
-    let reference = sequence_store.get(&sequences[1].sequence_handle);
+    let reference = sequence_store.get(&sequences[0].sequence_handle);
+    let query = sequence_store.get(&sequences[1].sequence_handle);
 
     info!("Choosing alignment method...");
     match cli.alignment_method {
