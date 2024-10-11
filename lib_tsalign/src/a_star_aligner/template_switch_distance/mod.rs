@@ -951,6 +951,10 @@ impl NodeData {
             a_star_lower_bound,
         }
     }
+
+    fn lower_bound_cost(&self) -> Cost {
+        self.cost + self.a_star_lower_bound
+    }
 }
 
 impl<Strategies: AlignmentStrategySelector> Ord for Node<Strategies> {

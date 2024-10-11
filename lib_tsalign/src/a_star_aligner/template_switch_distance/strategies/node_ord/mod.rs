@@ -14,13 +14,13 @@ pub struct AntiDiagonalNodeOrdStrategy;
 
 impl NodeOrdStrategy for CostOnlyNodeOrdStrategy {
     fn cmp(&self, n1: &NodeData, n2: &NodeData) -> std::cmp::Ordering {
-        n1.cost.cmp(&n2.cost)
+        n1.lower_bound_cost().cmp(&n2.lower_bound_cost())
     }
 }
 
 impl NodeOrdStrategy for AntiDiagonalNodeOrdStrategy {
     fn cmp(&self, n1: &NodeData, n2: &NodeData) -> std::cmp::Ordering {
-        match n1.cost.cmp(&n2.cost) {
+        match n1.lower_bound_cost().cmp(&n2.lower_bound_cost()) {
             // This secondary ordering may make things actually slower.
             // While it does reduce the number of visited nodes a little bit,
             // it also makes heap operations more expensive.
