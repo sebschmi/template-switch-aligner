@@ -18,7 +18,8 @@ use lib_tsalign::{
 use log::{info, LevelFilter};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 use template_switch_distance_type_selectors::{
-    align_a_star_template_switch_distance, TemplateSwitchNodeOrdStrategy,
+    align_a_star_template_switch_distance, TemplateSwitchMinLengthStrategySelector,
+    TemplateSwitchNodeOrdStrategy,
 };
 
 mod template_switch_distance_type_selectors;
@@ -43,6 +44,9 @@ struct Cli {
 
     #[clap(long, default_value = "anti-diagonal")]
     ts_node_ord_strategy: TemplateSwitchNodeOrdStrategy,
+
+    #[clap(long, default_value = "lookahead")]
+    ts_min_length_strategy: TemplateSwitchMinLengthStrategySelector,
 }
 
 #[derive(Args)]

@@ -6,6 +6,10 @@ use lib_tsalign::{
     a_star_aligner::{
         template_switch_distance::strategies::{
             node_ord::{AntiDiagonalNodeOrdStrategy, CostOnlyNodeOrdStrategy, NodeOrdStrategy},
+            template_switch_min_length::{
+                LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
+                TemplateSwitchMinLengthStrategy,
+            },
             AlignmentStrategySelection,
         },
         template_switch_distance_a_star_align,
@@ -20,6 +24,12 @@ use crate::Cli;
 pub enum TemplateSwitchNodeOrdStrategy {
     CostOnly,
     AntiDiagonal,
+}
+
+#[derive(Clone, ValueEnum)]
+pub enum TemplateSwitchMinLengthStrategySelector {
+    None,
+    Lookahead,
 }
 
 pub fn align_a_star_template_switch_distance<
@@ -43,14 +53,47 @@ fn align_a_star_template_switch_distance_select_node_ord_strategy<
 ) {
     match cli.ts_node_ord_strategy {
         TemplateSwitchNodeOrdStrategy::CostOnly => {
-            align_a_star_template_switch_distance_call::<_, _, CostOnlyNodeOrdStrategy>(
-                cli, reference, query,
-            )
+            align_a_star_template_switch_distance_select_template_switch_min_length_strategy::<
+                _,
+                _,
+                CostOnlyNodeOrdStrategy,
+            >(cli, reference, query)
         }
         TemplateSwitchNodeOrdStrategy::AntiDiagonal => {
-            align_a_star_template_switch_distance_call::<_, _, AntiDiagonalNodeOrdStrategy>(
-                cli, reference, query,
-            )
+            align_a_star_template_switch_distance_select_template_switch_min_length_strategy::<
+                _,
+                _,
+                AntiDiagonalNodeOrdStrategy,
+            >(cli, reference, query)
+        }
+    }
+}
+
+fn align_a_star_template_switch_distance_select_template_switch_min_length_strategy<
+    AlphabetType: Alphabet + Debug + Clone + Eq,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    NodeOrd: NodeOrdStrategy,
+>(
+    cli: Cli,
+    reference: &SubsequenceType,
+    query: &SubsequenceType,
+) {
+    match cli.ts_min_length_strategy {
+        TemplateSwitchMinLengthStrategySelector::None => {
+            align_a_star_template_switch_distance_call::<
+                _,
+                _,
+                NodeOrd,
+                NoTemplateSwitchMinLengthStrategy,
+            >(cli, reference, query)
+        }
+        TemplateSwitchMinLengthStrategySelector::Lookahead => {
+            align_a_star_template_switch_distance_call::<
+                _,
+                _,
+                NodeOrd,
+                LookaheadTemplateSwitchMinLengthStrategy,
+            >(cli, reference, query)
         }
     }
 }
@@ -59,6 +102,7 @@ fn align_a_star_template_switch_distance_call<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
     NodeOrd: NodeOrdStrategy,
+    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
 >(
     cli: Cli,
     reference: &SubsequenceType,
@@ -73,7 +117,7 @@ fn align_a_star_template_switch_distance_call<
 
     info!("Aligning...");
     let alignment = template_switch_distance_a_star_align::<
-        AlignmentStrategySelection<AlphabetType, NodeOrd>,
+        AlignmentStrategySelection<AlphabetType, NodeOrd, TemplateSwitchMinLength>,
         _,
     >(reference, query, costs);
 
