@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Display, hash::Hash, time::Instant};
 
 use alignment_result::{AlignmentResult, IAlignmentType};
-use binary_heap_plus::BinaryHeap;
+use binary_heap_plus::{BinaryHeap, MinComparator};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use template_switch_distance::strategies::AlignmentStrategySelector;
 
@@ -71,6 +71,13 @@ pub trait AlignmentGraphNode<AlphabetType: Alphabet>: Sized + Ord {
     ) -> bool;
 }
 
+#[derive(Debug, Default)]
+struct AStarPerformanceCounters {
+    opened_nodes: usize,
+    /// Opened nodes that do not have optimal costs.
+    suboptimal_opened_nodes: usize,
+}
+
 fn a_star_align<
     AlphabetType: Alphabet,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -88,42 +95,15 @@ where
 
     let mut closed_list: HashMap<Node::Identifier, Node> = Default::default();
     let mut open_list = BinaryHeap::new_min();
-    let mut opened_nodes = 0;
-    // Opened nodes that do not have optimal costs.
-    let mut suboptimal_opened_nodes = 0;
-
     open_list.push(Node::create_root(&context));
 
-    let target_node_identifier = loop {
-        let Some(node) = open_list.pop() else {
-            unreachable!("did not find target node")
-        };
-
-        if let Some(previous_visit) = closed_list.get(node.identifier()) {
-            // If we have already visited the node, we now must be visiting it with a higher cost.
-            debug_assert!(previous_visit.cost() <= node.cost());
-            suboptimal_opened_nodes += 1;
-            continue;
-        }
-
-        if node.is_target(reference, query, &context) {
-            let identifier = node.identifier().clone();
-            closed_list.insert(node.identifier().clone(), node);
-            break identifier;
-        }
-
-        let open_nodes_without_new_successors = open_list.len();
-        node.generate_successors(
-            reference,
-            query,
-            &mut context,
-            &mut open_list,
-            &mut closed_list,
-        );
-        opened_nodes += open_list.len() - open_nodes_without_new_successors;
-
-        closed_list.insert(node.identifier().clone(), node);
-    };
+    let (target_node_identifier, performance_counters) = a_star_align_loop(
+        reference,
+        query,
+        &mut context,
+        &mut closed_list,
+        &mut open_list,
+    );
 
     let mut alignment = Vec::new();
     let mut current_node = closed_list.get(&target_node_identifier).unwrap();
@@ -160,12 +140,64 @@ where
         alignment,
         cost,
         duration,
-        opened_nodes,
+        performance_counters.opened_nodes,
         closed_list.len(),
-        suboptimal_opened_nodes,
+        performance_counters.suboptimal_opened_nodes,
         reference.len(),
         query.len(),
     )
+}
+
+fn a_star_align_loop<
+    AlphabetType: Alphabet,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    Node: AlignmentGraphNode<AlphabetType>,
+>(
+    reference: &SubsequenceType,
+    query: &SubsequenceType,
+    context: &mut Node::Context,
+    closed_list: &mut HashMap<Node::Identifier, Node>,
+    open_list: &mut BinaryHeap<Node, MinComparator>,
+) -> (
+    <Node as AlignmentGraphNode<AlphabetType>>::Identifier,
+    AStarPerformanceCounters,
+)
+where
+    Node::Identifier: Hash + Eq + Clone + Display,
+    Node::AlignmentType: IAlignmentType + std::fmt::Debug,
+{
+    let mut performance_counters = AStarPerformanceCounters::default();
+
+    let target_node_identifier = loop {
+        let Some(node) = open_list.pop() else {
+            unreachable!("did not find target node")
+        };
+
+        if let Some(previous_visit) = closed_list.get(node.identifier()) {
+            // If we have already visited the node, we now must be visiting it with a higher cost.
+            debug_assert!(previous_visit.cost() <= node.cost());
+            performance_counters.suboptimal_opened_nodes += 1;
+            continue;
+        }
+
+        if node.is_target(reference, query, context) {
+            let identifier = node.identifier().clone();
+            closed_list.insert(node.identifier().clone(), node);
+            break identifier;
+        }
+
+        let open_nodes_without_new_successors = open_list.len();
+        let closed_nodes_without_new_successors = closed_list.len();
+        node.generate_successors(reference, query, context, open_list, closed_list);
+        performance_counters.opened_nodes += open_list.len() - open_nodes_without_new_successors;
+        // Also nodes that are directly closed are counted as having been opened before.
+        performance_counters.opened_nodes +=
+            closed_list.len() - closed_nodes_without_new_successors;
+
+        closed_list.insert(node.identifier().clone(), node);
+    };
+
+    (target_node_identifier, performance_counters)
 }
 
 pub fn gap_affine_edit_distance_a_star_align<
