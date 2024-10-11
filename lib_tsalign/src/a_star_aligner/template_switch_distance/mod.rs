@@ -38,7 +38,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
 {
     type Identifier = Identifier;
 
-    type Context = Context<Strategies::Alphabet>;
+    type Context = Context<Strategies>;
 
     type AlignmentType = AlignmentType;
 

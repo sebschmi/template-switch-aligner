@@ -6,6 +6,7 @@ use node_ord::NodeOrdStrategy;
 use super::Context;
 
 pub mod node_ord;
+pub mod template_switch_min_length;
 
 pub trait AlignmentStrategySelector: Eq + Clone + std::fmt::Debug {
     type Alphabet: Alphabet;
@@ -18,19 +19,25 @@ pub struct AlignmentStrategies<Selector: AlignmentStrategySelector> {
 }
 
 pub trait AlignmentStrategy: Eq + Clone + std::fmt::Debug {
-    fn create_root<Alphabet>(context: &Context<Alphabet>) -> Self;
+    fn create_root<Strategies: AlignmentStrategySelector>(context: &Context<Strategies>) -> Self;
 
-    fn generate_successor<Alphabet>(&self, context: &Context<Alphabet>) -> Self;
+    fn generate_successor<Strategies: AlignmentStrategySelector>(
+        &self,
+        context: &Context<Strategies>,
+    ) -> Self;
 }
 
 impl<Selector: AlignmentStrategySelector> AlignmentStrategy for AlignmentStrategies<Selector> {
-    fn create_root<Alphabet>(context: &Context<Alphabet>) -> Self {
+    fn create_root<Strategies: AlignmentStrategySelector>(context: &Context<Strategies>) -> Self {
         Self {
             node_ord_strategy: Selector::NodeOrd::create_root(context),
         }
     }
 
-    fn generate_successor<Alphabet>(&self, context: &Context<Alphabet>) -> Self {
+    fn generate_successor<Strategies: AlignmentStrategySelector>(
+        &self,
+        context: &Context<Strategies>,
+    ) -> Self {
         Self {
             node_ord_strategy: self.node_ord_strategy.generate_successor(context),
         }

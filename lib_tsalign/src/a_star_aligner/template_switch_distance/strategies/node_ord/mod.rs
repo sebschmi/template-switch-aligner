@@ -1,6 +1,6 @@
 use crate::a_star_aligner::template_switch_distance::{Context, NodeData};
 
-use super::AlignmentStrategy;
+use super::{AlignmentStrategy, AlignmentStrategySelector};
 
 pub trait NodeOrdStrategy: AlignmentStrategy {
     fn cmp(&self, n1: &NodeData, n2: &NodeData) -> std::cmp::Ordering;
@@ -35,21 +35,27 @@ impl NodeOrdStrategy for AntiDiagonalNodeOrdStrategy {
 }
 
 impl AlignmentStrategy for CostOnlyNodeOrdStrategy {
-    fn create_root<Alphabet>(_context: &Context<Alphabet>) -> Self {
+    fn create_root<Strategies: AlignmentStrategySelector>(_context: &Context<Strategies>) -> Self {
         Self
     }
 
-    fn generate_successor<Alphabet>(&self, _context: &Context<Alphabet>) -> Self {
+    fn generate_successor<Strategies: AlignmentStrategySelector>(
+        &self,
+        _context: &Context<Strategies>,
+    ) -> Self {
         *self
     }
 }
 
 impl AlignmentStrategy for AntiDiagonalNodeOrdStrategy {
-    fn create_root<Alphabet>(_context: &Context<Alphabet>) -> Self {
+    fn create_root<Strategies: AlignmentStrategySelector>(_context: &Context<Strategies>) -> Self {
         Self
     }
 
-    fn generate_successor<Alphabet>(&self, _context: &Context<Alphabet>) -> Self {
+    fn generate_successor<Strategies: AlignmentStrategySelector>(
+        &self,
+        _context: &Context<Strategies>,
+    ) -> Self {
         *self
     }
 }

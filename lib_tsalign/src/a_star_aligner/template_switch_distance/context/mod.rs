@@ -1,11 +1,13 @@
 use crate::config::TemplateSwitchConfig;
 
-pub struct Context<AlphabetType> {
-    pub config: TemplateSwitchConfig<AlphabetType>,
+use super::strategies::AlignmentStrategySelector;
+
+pub struct Context<Strategies: AlignmentStrategySelector> {
+    pub config: TemplateSwitchConfig<Strategies::Alphabet>,
 }
 
-impl<AlphabetType> Context<AlphabetType> {
-    pub fn new(config: TemplateSwitchConfig<AlphabetType>) -> Self {
+impl<Strategies: AlignmentStrategySelector> Context<Strategies> {
+    pub fn new(config: TemplateSwitchConfig<Strategies::Alphabet>) -> Self {
         Self { config }
     }
 }
