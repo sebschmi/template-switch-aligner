@@ -4,12 +4,14 @@ use strategies::{
     node_ord::NodeOrdStrategy, AlignmentStrategies, AlignmentStrategy, AlignmentStrategySelector,
 };
 
-use crate::{config::TemplateSwitchConfig, costs::cost::Cost};
+use crate::costs::cost::Cost;
 
 use super::{alignment_result::IAlignmentType, AlignmentGraphNode};
 
+mod context;
 pub mod display;
 pub mod strategies;
+pub use context::Context;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node<Strategies: AlignmentStrategySelector> {
@@ -126,7 +128,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
 {
     type Identifier = Identifier;
 
-    type Context = TemplateSwitchConfig<Strategies::Alphabet>;
+    type Context = Context<Strategies::Alphabet>;
 
     type AlignmentType = AlignmentType;
 
@@ -154,6 +156,8 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
         context: &Self::Context,
         output: &mut impl Extend<Self>,
     ) {
+        let config = &context.config;
+
         match self.node_data.identifier {
             Identifier::Primary {
                 reference_index,
@@ -181,7 +185,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         output.extend(
                             self.generate_primary_diagonal_successor(
                                 0,
-                                context
+                                config
                                     .primary_edit_costs
                                     .match_or_substitution_cost(r.clone(), q.clone()),
                                 context,
@@ -189,11 +193,11 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         );
                     }
 
-                    if flank_index >= 0 && flank_index < context.left_flank_length {
+                    if flank_index >= 0 && flank_index < config.left_flank_length {
                         output.extend(
                             self.generate_primary_diagonal_successor(
                                 flank_index + 1,
-                                context
+                                config
                                     .left_flank_edit_costs
                                     .match_or_substitution_cost(r, q),
                                 context,
@@ -203,15 +207,15 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         output.extend(
                             self.generate_primary_diagonal_successor(
                                 flank_index + 1,
-                                context
+                                config
                                     .right_flank_edit_costs
                                     .match_or_substitution_cost(r, q),
                                 context,
                             ),
                         );
-                    } else if flank_index == context.left_flank_length {
+                    } else if flank_index == config.left_flank_length {
                         output.extend(self.generate_initial_template_switch_entrance_successors(
-                            context.offset_costs.evaluate(&0),
+                            config.offset_costs.evaluate(&0),
                             context,
                         ));
                     }
@@ -225,7 +229,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         output.extend(
                             self.generate_primary_deletion_successor(
                                 0,
-                                context
+                                config
                                     .primary_edit_costs
                                     .gap_costs(r.clone(), gap_type != GapType::Deletion),
                                 context,
@@ -233,11 +237,11 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         );
                     }
 
-                    if flank_index >= 0 && flank_index < context.left_flank_length {
+                    if flank_index >= 0 && flank_index < config.left_flank_length {
                         output.extend(
                             self.generate_primary_deletion_successor(
                                 flank_index + 1,
-                                context
+                                config
                                     .left_flank_edit_costs
                                     .gap_costs(r, gap_type != GapType::Deletion),
                                 context,
@@ -247,15 +251,15 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         output.extend(
                             self.generate_primary_deletion_successor(
                                 flank_index + 1,
-                                context
+                                config
                                     .right_flank_edit_costs
                                     .gap_costs(r, gap_type != GapType::Deletion),
                                 context,
                             ),
                         );
-                    } else if flank_index == context.left_flank_length {
+                    } else if flank_index == config.left_flank_length {
                         output.extend(self.generate_initial_template_switch_entrance_successors(
-                            context.offset_costs.evaluate(&0),
+                            config.offset_costs.evaluate(&0),
                             context,
                         ));
                     }
@@ -269,7 +273,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         output.extend(
                             self.generate_primary_insertion_successor(
                                 0,
-                                context
+                                config
                                     .primary_edit_costs
                                     .gap_costs(q.clone(), gap_type != GapType::Insertion),
                                 context,
@@ -277,11 +281,11 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         );
                     }
 
-                    if flank_index >= 0 && flank_index < context.left_flank_length {
+                    if flank_index >= 0 && flank_index < config.left_flank_length {
                         output.extend(
                             self.generate_primary_insertion_successor(
                                 flank_index + 1,
-                                context
+                                config
                                     .left_flank_edit_costs
                                     .gap_costs(q, gap_type != GapType::Insertion),
                                 context,
@@ -291,15 +295,15 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                         output.extend(
                             self.generate_primary_insertion_successor(
                                 flank_index + 1,
-                                context
+                                config
                                     .right_flank_edit_costs
                                     .gap_costs(q, gap_type != GapType::Insertion),
                                 context,
                             ),
                         );
-                    } else if flank_index == context.left_flank_length {
+                    } else if flank_index == config.left_flank_length {
                         output.extend(self.generate_initial_template_switch_entrance_successors(
-                            context.offset_costs.evaluate(&0),
+                            config.offset_costs.evaluate(&0),
                             context,
                         ));
                     }
@@ -324,12 +328,12 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     && secondary_entrance_index as isize + template_switch_first_offset
                         < secondary_length as isize
                 {
-                    let new_cost = context
+                    let new_cost = config
                         .offset_costs
                         .evaluate(&(&template_switch_first_offset + 1));
 
                     if new_cost != Cost::MAX {
-                        let old_cost = context.offset_costs.evaluate(&template_switch_first_offset);
+                        let old_cost = config.offset_costs.evaluate(&template_switch_first_offset);
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
 
@@ -344,12 +348,12 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 if template_switch_first_offset <= 0
                     && secondary_entrance_index as isize + template_switch_first_offset > 0
                 {
-                    let new_cost = context
+                    let new_cost = config
                         .offset_costs
                         .evaluate(&(&template_switch_first_offset - 1));
 
                     if new_cost != Cost::MAX {
-                        let old_cost = context.offset_costs.evaluate(&template_switch_first_offset);
+                        let old_cost = config.offset_costs.evaluate(&template_switch_first_offset);
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
 
@@ -392,14 +396,10 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     let p = primary_sequence[primary_index].clone();
                     let s = secondary_sequence[secondary_index - 1].complement();
 
-                    output.extend(
-                        self.generate_secondary_diagonal_successor(
-                            context
-                                .secondary_edit_costs
-                                .match_or_substitution_cost(p, s),
-                            context,
-                        ),
-                    );
+                    output.extend(self.generate_secondary_diagonal_successor(
+                        config.secondary_edit_costs.match_or_substitution_cost(p, s),
+                        context,
+                    ));
                 }
 
                 if secondary_index > 0 {
@@ -408,7 +408,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
 
                     output.extend(
                         self.generate_secondary_deletion_successor(
-                            context
+                            config
                                 .secondary_edit_costs
                                 .gap_costs(s, gap_type != GapType::Deletion),
                             context,
@@ -422,7 +422,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
 
                     output.extend(
                         self.generate_secondary_insertion_successor(
-                            context
+                            config
                                 .secondary_edit_costs
                                 .gap_costs(p, gap_type != GapType::Insertion),
                             context,
@@ -430,9 +430,9 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     );
                 }
 
-                let length_cost = context.length_costs.evaluate(&length);
+                let length_cost = config.length_costs.evaluate(&length);
                 if length_cost != Cost::MAX {
-                    let length_difference_cost = context.length_difference_costs.evaluate(&0);
+                    let length_difference_cost = config.length_difference_costs.evaluate(&0);
                     assert_ne!(length_difference_cost, Cost::MAX);
                     let cost_increment = length_cost + length_difference_cost;
 
@@ -459,12 +459,12 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 if length_difference >= 0
                     && primary_index as isize + length_difference < anti_primary_length as isize
                 {
-                    let new_cost = context
+                    let new_cost = config
                         .length_difference_costs
                         .evaluate(&(&length_difference + 1));
 
                     if new_cost != Cost::MAX {
-                        let old_cost = context.length_difference_costs.evaluate(&length_difference);
+                        let old_cost = config.length_difference_costs.evaluate(&length_difference);
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
 
@@ -477,12 +477,12 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 }
 
                 if length_difference <= 0 && primary_index as isize + length_difference > 0 {
-                    let new_cost = context
+                    let new_cost = config
                         .length_difference_costs
                         .evaluate(&(&length_difference - 1));
 
                     if new_cost != Cost::MAX {
-                        let old_cost = context.length_difference_costs.evaluate(&length_difference);
+                        let old_cost = config.length_difference_costs.evaluate(&length_difference);
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
 
@@ -969,7 +969,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 reference_index,
                 query_index,
                 gap_type: GapType::None,
-                flank_index: -context.right_flank_length,
+                flank_index: -context.config.right_flank_length,
             },
             0.into(),
             context,

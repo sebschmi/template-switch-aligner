@@ -180,5 +180,9 @@ pub fn template_switch_distance_a_star_align<
     query: &SubsequenceType,
     context: config::TemplateSwitchConfig<Strategies::Alphabet>,
 ) -> AlignmentResult<template_switch_distance::AlignmentType> {
-    a_star_align::<_, _, template_switch_distance::Node<Strategies>>(reference, query, context)
+    a_star_align::<_, _, template_switch_distance::Node<Strategies>>(
+        reference,
+        query,
+        template_switch_distance::Context::new(context),
+    )
 }
