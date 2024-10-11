@@ -33,6 +33,19 @@ impl<SourceType: Clone + Ord> CostFunction<SourceType> {
             Err(index) => self.function[index - 1].1,
         }
     }
+
+    pub fn minimum_finite_input(&self) -> Option<SourceType> {
+        self.function
+            .iter()
+            .filter_map(|(input, cost)| {
+                if *cost < Cost::MAX {
+                    Some(input.clone())
+                } else {
+                    None
+                }
+            })
+            .next()
+    }
 }
 
 impl<SourceType: Ord> TryFrom<Vec<(SourceType, Cost)>> for CostFunction<SourceType> {

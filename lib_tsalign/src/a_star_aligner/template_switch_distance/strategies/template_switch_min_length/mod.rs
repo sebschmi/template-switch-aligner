@@ -1,7 +1,10 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, mem};
+
+use binary_heap_plus::BinaryHeap;
 
 use crate::{
     a_star_aligner::{
+        a_star_align_loop,
         template_switch_distance::{
             identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary},
             Context, Identifier, Node,
@@ -119,10 +122,50 @@ impl TemplateSwitchMinLengthStrategy for LookaheadTemplateSwitchMinLengthStrateg
         if let Some(a_star_lower_bound) = context.template_switch_min_length_memory.get(&memory_key)
         {
             secondary_root_node.node_data.a_star_lower_bound = *a_star_lower_bound;
-            Some(secondary_root_node)
+            context.open_list.clear();
+            context.open_list.push(secondary_root_node);
         } else {
-            todo!()
+            context.open_list.clear();
+            context.closed_list.clear();
+
+            let mut open_list = mem::replace(&mut context.open_list, BinaryHeap::new_min());
+            let mut closed_list = mem::take(&mut context.closed_list);
+            let initial_cost = secondary_root_node.cost();
+            open_list.push(secondary_root_node);
+
+            let (target_node_identifier, _) = a_star_align_loop(
+                reference,
+                query,
+                context,
+                &mut closed_list,
+                &mut open_list,
+                |node, _, _, context| {
+                    let Identifier::Secondary { length, .. } = node.node_data.identifier else {
+                        unreachable!("A non-secondary node was closed before a target was closed.")
+                    };
+                    debug_assert!(length <= context.config.min_length);
+
+                    length == context.config.min_length
+                },
+            );
+
+            let target_cost = closed_list.get(&target_node_identifier).unwrap().cost();
+            let lower_bound = target_cost - initial_cost;
+
+            closed_nodes_output.extend(closed_list.drain().map(|(identifier, mut node)| {
+                node.node_data.a_star_lower_bound = target_cost - node.node_data.cost;
+                (identifier, node)
+            }));
+
+            context
+                .template_switch_min_length_memory
+                .insert(memory_key, lower_bound);
+
+            context.open_list = open_list;
+            context.closed_list = closed_list;
         }
+
+        context.open_list.drain()
     }
 }
 

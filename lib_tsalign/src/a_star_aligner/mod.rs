@@ -103,6 +103,7 @@ where
         &mut context,
         &mut closed_list,
         &mut open_list,
+        Node::is_target,
     );
 
     let mut alignment = Vec::new();
@@ -158,6 +159,7 @@ fn a_star_align_loop<
     context: &mut Node::Context,
     closed_list: &mut HashMap<Node::Identifier, Node>,
     open_list: &mut BinaryHeap<Node, MinComparator>,
+    is_target_fn: impl Fn(&Node, &SubsequenceType, &SubsequenceType, &Node::Context) -> bool,
 ) -> (
     <Node as AlignmentGraphNode<AlphabetType>>::Identifier,
     AStarPerformanceCounters,
@@ -180,7 +182,7 @@ where
             continue;
         }
 
-        if node.is_target(reference, query, context) {
+        if is_target_fn(&node, reference, query, context) {
             let identifier = node.identifier().clone();
             closed_list.insert(node.identifier().clone(), node);
             break identifier;

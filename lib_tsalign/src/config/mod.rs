@@ -7,6 +7,7 @@ pub struct TemplateSwitchConfig<AlphabetType> {
     // Limits
     pub left_flank_length: isize,
     pub right_flank_length: isize,
+    pub min_length: usize,
 
     // Edit costs
     pub primary_edit_costs: GapAffineAlignmentCostTable<AlphabetType>,

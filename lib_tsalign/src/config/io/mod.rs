@@ -49,6 +49,7 @@ impl<AlphabetType: Alphabet> TemplateSwitchConfig<AlphabetType> {
             Self {
                 left_flank_length,
                 right_flank_length,
+                min_length: length_costs.minimum_finite_input().unwrap_or(usize::MAX),
 
                 primary_edit_costs,
                 secondary_edit_costs,
