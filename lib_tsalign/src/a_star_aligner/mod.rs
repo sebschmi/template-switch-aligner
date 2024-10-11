@@ -182,12 +182,6 @@ where
             continue;
         }
 
-        if is_target_fn(&node, reference, query, context) {
-            let identifier = node.identifier().clone();
-            closed_list.insert(node.identifier().clone(), node);
-            break identifier;
-        }
-
         let open_nodes_without_new_successors = open_list.len();
         let closed_nodes_without_new_successors = closed_list.len();
         node.generate_successors(reference, query, context, open_list, closed_list);
@@ -196,7 +190,14 @@ where
         performance_counters.opened_nodes +=
             closed_list.len() - closed_nodes_without_new_successors;
 
-        closed_list.insert(node.identifier().clone(), node);
+        if is_target_fn(&node, reference, query, context) {
+            let identifier = node.identifier().clone();
+            closed_list.insert(node.identifier().clone(), node);
+            break identifier;
+        }
+
+        let previous_visit = closed_list.insert(node.identifier().clone(), node);
+        debug_assert!(previous_visit.is_none());
     };
 
     (target_node_identifier, performance_counters)

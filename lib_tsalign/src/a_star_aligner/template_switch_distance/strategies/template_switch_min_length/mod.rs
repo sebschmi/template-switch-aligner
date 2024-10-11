@@ -121,7 +121,7 @@ impl TemplateSwitchMinLengthStrategy for LookaheadTemplateSwitchMinLengthStrateg
 
         if let Some(a_star_lower_bound) = context.template_switch_min_length_memory.get(&memory_key)
         {
-            secondary_root_node.node_data.a_star_lower_bound = *a_star_lower_bound;
+            secondary_root_node.node_data.a_star_lower_bound += *a_star_lower_bound;
             context.open_list.clear();
             context.open_list.push(secondary_root_node);
         } else {
@@ -153,7 +153,7 @@ impl TemplateSwitchMinLengthStrategy for LookaheadTemplateSwitchMinLengthStrateg
             let lower_bound = target_cost - initial_cost;
 
             closed_nodes_output.extend(closed_list.drain().map(|(identifier, mut node)| {
-                node.node_data.a_star_lower_bound = target_cost - node.node_data.cost;
+                node.node_data.a_star_lower_bound += target_cost - node.node_data.cost;
                 (identifier, node)
             }));
 
