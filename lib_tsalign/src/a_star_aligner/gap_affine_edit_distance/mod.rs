@@ -70,12 +70,13 @@ impl<AlphabetType: Alphabet> AlignmentGraphNode<AlphabetType> for Node {
         reference: &SubsequenceType,
         query: &SubsequenceType,
         context: &mut Self::Context,
-        output: &mut impl Extend<Self>,
+        opened_nodes_output: &mut impl Extend<Self>,
+        _closed_nodes_output: &mut impl Extend<(Self::Identifier, Self)>,
     ) {
         if self.identifier.reference_index < reference.len()
             && self.identifier.query_index < query.len()
         {
-            output.extend([Self {
+            opened_nodes_output.extend([Self {
                 identifier: self.identifier.increment_both(),
                 predecessor: Some(self.identifier),
                 cost: self.cost
@@ -90,7 +91,7 @@ impl<AlphabetType: Alphabet> AlignmentGraphNode<AlphabetType> for Node {
         }
 
         if self.identifier.reference_index < reference.len() {
-            output.extend([Self {
+            opened_nodes_output.extend([Self {
                 identifier: self.identifier.increment_reference(),
                 predecessor: Some(self.identifier),
                 cost: self.cost
@@ -107,7 +108,7 @@ impl<AlphabetType: Alphabet> AlignmentGraphNode<AlphabetType> for Node {
         }
 
         if self.identifier.query_index < query.len() {
-            output.extend([Self {
+            opened_nodes_output.extend([Self {
                 identifier: self.identifier.increment_query(),
                 predecessor: Some(self.identifier),
                 cost: self.cost

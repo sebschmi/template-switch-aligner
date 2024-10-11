@@ -39,7 +39,8 @@ pub trait AlignmentGraphNode<AlphabetType: Alphabet>: Sized + Ord {
         reference: &SubsequenceType,
         query: &SubsequenceType,
         context: &mut Self::Context,
-        output: &mut impl Extend<Self>,
+        opened_nodes_output: &mut impl Extend<Self>,
+        closed_nodes_output: &mut impl Extend<(Self::Identifier, Self)>,
     );
 
     /// Returns the identifier of this node.
@@ -112,7 +113,13 @@ where
         }
 
         let open_nodes_without_new_successors = open_list.len();
-        node.generate_successors(reference, query, &mut context, &mut open_list);
+        node.generate_successors(
+            reference,
+            query,
+            &mut context,
+            &mut open_list,
+            &mut closed_list,
+        );
         opened_nodes += open_list.len() - open_nodes_without_new_successors;
 
         closed_list.insert(node.identifier().clone(), node);
