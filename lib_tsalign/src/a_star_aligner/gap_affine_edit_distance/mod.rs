@@ -133,6 +133,10 @@ impl<AlphabetType: Alphabet> AlignmentGraphNode<AlphabetType> for Node {
         self.cost
     }
 
+    fn a_star_lower_bound(&self) -> Cost {
+        0.into()
+    }
+
     fn predecessor(&self) -> Option<&Self::Identifier> {
         self.predecessor.as_ref()
     }
@@ -196,6 +200,21 @@ impl Ord for Node {
                 .cmp(&self.identifier.anti_diagonal()),
             ordering => ordering,
         }
+    }
+}
+
+impl std::fmt::Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            identifier,
+            predecessor,
+            cost,
+        } = self;
+        write!(f, "{identifier}; ")?;
+        if let Some(predecessor) = predecessor {
+            write!(f, "predecessor: {predecessor}; ")?;
+        }
+        write!(f, "cost: {cost}")
     }
 }
 

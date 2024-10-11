@@ -1,6 +1,6 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
-use num_traits::SaturatingSub;
+use num_traits::{CheckedSub, SaturatingSub};
 
 /// The cost of an alignment.
 ///
@@ -17,12 +17,6 @@ impl Cost {
 
     pub fn as_u64(&self) -> u64 {
         self.0
-    }
-}
-
-impl SaturatingSub for Cost {
-    fn saturating_sub(&self, rhs: &Self) -> Self {
-        Self(self.0.saturating_sub(rhs.0))
     }
 }
 
@@ -45,6 +39,18 @@ impl Sub for Cost {
 
     fn sub(self, rhs: Self) -> Self::Output {
         Self(self.0 - rhs.0)
+    }
+}
+
+impl SaturatingSub for Cost {
+    fn saturating_sub(&self, rhs: &Self) -> Self {
+        Self(self.0.saturating_sub(rhs.0))
+    }
+}
+
+impl CheckedSub for Cost {
+    fn checked_sub(&self, rhs: &Self) -> Option<Self> {
+        self.0.checked_sub(rhs.0).map(Cost)
     }
 }
 

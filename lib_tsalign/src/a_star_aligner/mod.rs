@@ -49,6 +49,9 @@ pub trait AlignmentGraphNode<AlphabetType: Alphabet>: Sized + Ord {
     /// Returns the cost of this node.
     fn cost(&self) -> Cost;
 
+    /// Returns the A* lower bound of this node.
+    fn a_star_lower_bound(&self) -> Cost;
+
     /// Returns the identifier of the predecessor of this node.
     fn predecessor(&self) -> Option<&Self::Identifier>;
 
@@ -78,10 +81,16 @@ struct AStarPerformanceCounters {
     suboptimal_opened_nodes: usize,
 }
 
+#[derive(Debug, Clone)]
+enum ResultNode<Identifier> {
+    TargetNode(Identifier),
+    LastNode(Identifier),
+}
+
 fn a_star_align<
     AlphabetType: Alphabet,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    Node: AlignmentGraphNode<AlphabetType>,
+    Node: AlignmentGraphNode<AlphabetType> + std::fmt::Debug + Display,
 >(
     reference: &SubsequenceType,
     query: &SubsequenceType,
@@ -97,14 +106,16 @@ where
     let mut open_list = BinaryHeap::new_min();
     open_list.push(Node::create_root(&context));
 
-    let (target_node_identifier, performance_counters) = a_star_align_loop(
+    let (ResultNode::TargetNode(target_node_identifier), performance_counters) = a_star_align_loop(
         reference,
         query,
         &mut context,
         &mut closed_list,
         &mut open_list,
         Node::is_target,
-    );
+    ) else {
+        unreachable!("The search can always reach a target.")
+    };
 
     let mut alignment = Vec::new();
     let mut current_node = closed_list.get(&target_node_identifier).unwrap();
@@ -152,7 +163,7 @@ where
 fn a_star_align_loop<
     AlphabetType: Alphabet,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    Node: AlignmentGraphNode<AlphabetType>,
+    Node: AlignmentGraphNode<AlphabetType> + std::fmt::Debug + Display,
 >(
     reference: &SubsequenceType,
     query: &SubsequenceType,
@@ -161,7 +172,7 @@ fn a_star_align_loop<
     open_list: &mut BinaryHeap<Node, MinComparator>,
     is_target_fn: impl Fn(&Node, &SubsequenceType, &SubsequenceType, &Node::Context) -> bool,
 ) -> (
-    <Node as AlignmentGraphNode<AlphabetType>>::Identifier,
+    ResultNode<<Node as AlignmentGraphNode<AlphabetType>>::Identifier>,
     AStarPerformanceCounters,
 )
 where
@@ -169,15 +180,44 @@ where
     Node::AlignmentType: IAlignmentType + std::fmt::Debug,
 {
     let mut performance_counters = AStarPerformanceCounters::default();
+    let mut last_node = None;
 
     let target_node_identifier = loop {
         let Some(node) = open_list.pop() else {
-            unreachable!("did not find target node")
+            let Some(last_node) = last_node else {
+                unreachable!("Open list was empty.");
+            };
+            return (ResultNode::LastNode(last_node), performance_counters);
         };
+        last_node = Some(node.identifier().clone());
 
         if let Some(previous_visit) = closed_list.get(node.identifier()) {
             // If we have already visited the node, we now must be visiting it with a higher cost.
-            debug_assert!(previous_visit.cost() <= node.cost());
+            debug_assert!(
+                previous_visit.cost() + previous_visit.a_star_lower_bound()
+                    <= node.cost() + node.a_star_lower_bound(),
+                "{}",
+                {
+                    use std::fmt::Write;
+                    let mut previous_visit = previous_visit;
+                    let mut node = &node;
+                    let mut out = String::new();
+
+                    writeln!(out, "previous_visit:").unwrap();
+                    while let Some(predecessor) = previous_visit.predecessor() {
+                        writeln!(out, "{previous_visit}").unwrap();
+                        previous_visit = closed_list.get(predecessor).unwrap();
+                    }
+
+                    writeln!(out, "\nnode:").unwrap();
+                    while let Some(predecessor) = node.predecessor() {
+                        writeln!(out, "{node}").unwrap();
+                        node = closed_list.get(predecessor).unwrap();
+                    }
+
+                    out
+                }
+            );
             performance_counters.suboptimal_opened_nodes += 1;
             continue;
         }
@@ -192,7 +232,9 @@ where
 
         if is_target_fn(&node, reference, query, context) {
             let identifier = node.identifier().clone();
-            closed_list.insert(node.identifier().clone(), node);
+            debug_assert!(closed_list
+                .insert(node.identifier().clone(), node)
+                .is_none());
             break identifier;
         }
 
@@ -200,7 +242,10 @@ where
         debug_assert!(previous_visit.is_none());
     };
 
-    (target_node_identifier, performance_counters)
+    (
+        ResultNode::TargetNode(target_node_identifier),
+        performance_counters,
+    )
 }
 
 pub fn gap_affine_edit_distance_a_star_align<

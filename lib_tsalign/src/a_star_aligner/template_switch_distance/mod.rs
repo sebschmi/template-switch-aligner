@@ -434,6 +434,10 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
         self.node_data.cost
     }
 
+    fn a_star_lower_bound(&self) -> Cost {
+        self.node_data.a_star_lower_bound
+    }
+
     fn predecessor(&self) -> Option<&Self::Identifier> {
         self.node_data.predecessor.as_ref()
     }
@@ -968,5 +972,25 @@ impl<Strategies: AlignmentStrategySelector> Ord for Node<Strategies> {
 impl<Strategies: AlignmentStrategySelector> PartialOrd for Node<Strategies> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl<Strategies: AlignmentStrategySelector> std::fmt::Display for Node<Strategies> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            node_data:
+                NodeData {
+                    identifier,
+                    predecessor,
+                    cost,
+                    a_star_lower_bound,
+                },
+            ..
+        } = self;
+        write!(f, "{identifier}; ")?;
+        if let Some(predecessor) = predecessor {
+            write!(f, "predecessor: {predecessor}; ")?;
+        }
+        write!(f, "cost: {cost} + {a_star_lower_bound}")
     }
 }

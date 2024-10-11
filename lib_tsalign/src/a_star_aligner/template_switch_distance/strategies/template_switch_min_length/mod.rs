@@ -9,7 +9,7 @@ use crate::{
             identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary},
             Context, Identifier, Node,
         },
-        AlignmentGraphNode,
+        AlignmentGraphNode, ResultNode,
     },
     costs::cost::Cost,
 };
@@ -94,7 +94,7 @@ impl TemplateSwitchMinLengthStrategy for LookaheadTemplateSwitchMinLengthStrateg
         query: &SubsequenceType,
         mut secondary_root_node: Node<Strategies>,
         context: &mut Context<Strategies>,
-        closed_nodes_output: &mut impl Extend<(
+        _closed_nodes_output: &mut impl Extend<(
             <Node<Strategies> as AlignmentGraphNode<Strategies::Alphabet>>::Identifier,
             Node<Strategies>,
         )>,
@@ -149,17 +149,24 @@ impl TemplateSwitchMinLengthStrategy for LookaheadTemplateSwitchMinLengthStrateg
                 },
             );
 
-            let target_cost = closed_list.get(&target_node_identifier).unwrap().cost();
-            let lower_bound = target_cost - initial_cost;
+            if let ResultNode::TargetNode(target_node_identifier) = target_node_identifier {
+                let target_cost = closed_list.get(&target_node_identifier).unwrap().cost();
+                let lower_bound = target_cost - initial_cost;
 
-            closed_nodes_output.extend(closed_list.drain().map(|(identifier, mut node)| {
-                node.node_data.a_star_lower_bound += target_cost - node.node_data.cost;
-                (identifier, node)
-            }));
+                open_list.extend(closed_list.drain().map(|(_, mut node)| {
+                    if node.node_data.cost != Cost::MAX {
+                        node.node_data.a_star_lower_bound += target_cost - node.node_data.cost;
+                    }
 
-            context
-                .template_switch_min_length_memory
-                .insert(memory_key, lower_bound);
+                    node
+                }));
+
+                context
+                    .template_switch_min_length_memory
+                    .insert(memory_key, lower_bound);
+            } else {
+                open_list.extend(closed_list.drain().map(|(_, node)| node));
+            }
 
             context.open_list = open_list;
             context.closed_list = closed_list;
