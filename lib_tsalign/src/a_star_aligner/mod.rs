@@ -232,9 +232,8 @@ where
 
         if is_target_fn(&node, reference, query, context) {
             let identifier = node.identifier().clone();
-            debug_assert!(closed_list
-                .insert(node.identifier().clone(), node)
-                .is_none());
+            let previous_visit = closed_list.insert(node.identifier().clone(), node);
+            debug_assert!(previous_visit.is_none());
             break identifier;
         }
 
