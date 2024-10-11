@@ -1,4 +1,5 @@
 use compact_genome::interface::alphabet::AlphabetCharacter;
+use num_traits::SaturatingSub;
 use strategies::{
     node_ord::NodeOrdStrategy, AlignmentStrategies, AlignmentStrategy, AlignmentStrategySelector,
 };
@@ -21,6 +22,7 @@ pub struct NodeData {
     identifier: Identifier,
     predecessor: Option<Identifier>,
     cost: Cost,
+    a_star_lower_bound: Cost,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
@@ -134,6 +136,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                 identifier: Identifier::new_primary(0, 0, 0, GapType::None),
                 predecessor: None,
                 cost: Cost::ZERO,
+                a_star_lower_bound: Cost::ZERO,
             },
             strategies: AlignmentStrategy::create_root(context),
         }
@@ -632,17 +635,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             unreachable!("This method is only called on primary nodes.")
         };
 
-        let cost = self.node_data.cost + cost_increment;
-        let node_data = NodeData {
-            identifier: predecessor_identifier
-                .generate_primary_diagonal_successor(successor_flank_index),
-            predecessor: Some(predecessor_identifier),
-            cost,
-        };
-        Some(Self {
-            node_data,
-            strategies: self.strategies.generate_successor(context),
-        })
+        Some(self.generate_successor(
+            predecessor_identifier.generate_primary_diagonal_successor(successor_flank_index),
+            cost_increment,
+            context,
+        ))
     }
 
     fn generate_primary_deletion_successor(
@@ -661,17 +658,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             unreachable!("This method is only called on primary nodes.")
         };
 
-        let cost = self.node_data.cost + cost_increment;
-        let node_data = NodeData {
-            identifier: predecessor_identifier
-                .generate_primary_deletion_successor(successor_flank_index),
-            predecessor: Some(predecessor_identifier),
-            cost,
-        };
-        Some(Self {
-            node_data,
-            strategies: self.strategies.generate_successor(context),
-        })
+        Some(self.generate_successor(
+            predecessor_identifier.generate_primary_deletion_successor(successor_flank_index),
+            cost_increment,
+            context,
+        ))
     }
 
     fn generate_primary_insertion_successor(
@@ -690,99 +681,29 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             unreachable!("This method is only called on primary nodes.")
         };
 
-        let cost = self.node_data.cost + cost_increment;
-        let node_data = NodeData {
-            identifier: predecessor_identifier
-                .generate_primary_insertion_successor(successor_flank_index),
-            predecessor: Some(predecessor_identifier),
-            cost,
-        };
-        Some(Self {
-            node_data,
-            strategies: self.strategies.generate_successor(context),
-        })
+        Some(self.generate_successor(
+            predecessor_identifier.generate_primary_insertion_successor(successor_flank_index),
+            cost_increment,
+            context,
+        ))
     }
 
-    fn generate_initial_template_switch_entrance_successors(
-        &self,
+    fn generate_initial_template_switch_entrance_successors<'result>(
+        &'result self,
         cost_increment: Cost,
-        context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
-    ) -> impl IntoIterator<Item = Self> {
-        let predecessor_identifier @ (Identifier::Primary {
-            reference_index: entrance_reference_index,
-            query_index: entrance_query_index,
-            ..
-        }
-        | Identifier::PrimaryReentry {
-            reference_index: entrance_reference_index,
-            query_index: entrance_query_index,
-            ..
-        }) = self.node_data.identifier
-        else {
+        context: &'result <Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
+    ) -> impl 'result + Iterator<Item = Self> {
+        if !matches!(
+            self.node_data.identifier,
+            Identifier::Primary { .. } | Identifier::PrimaryReentry { .. }
+        ) {
             unreachable!("This method is only called on primary nodes.")
-        };
-        let template_switch_first_offset = 0;
-        let predecessor = Some(predecessor_identifier);
-        let cost = self.node_data.cost + cost_increment;
+        }
 
-        [
-            Self {
-                node_data: NodeData {
-                    identifier: Identifier::TemplateSwitchEntrance {
-                        entrance_reference_index,
-                        entrance_query_index,
-                        template_switch_primary: TemplateSwitchPrimary::Reference,
-                        template_switch_secondary: TemplateSwitchSecondary::Reference,
-                        template_switch_first_offset,
-                    },
-                    predecessor,
-                    cost,
-                },
-                strategies: self.strategies.generate_successor(context),
-            },
-            Self {
-                node_data: NodeData {
-                    identifier: Identifier::TemplateSwitchEntrance {
-                        entrance_reference_index,
-                        entrance_query_index,
-                        template_switch_primary: TemplateSwitchPrimary::Reference,
-                        template_switch_secondary: TemplateSwitchSecondary::Query,
-                        template_switch_first_offset,
-                    },
-                    predecessor,
-                    cost,
-                },
-                strategies: self.strategies.generate_successor(context),
-            },
-            Self {
-                node_data: NodeData {
-                    identifier: Identifier::TemplateSwitchEntrance {
-                        entrance_reference_index,
-                        entrance_query_index,
-                        template_switch_primary: TemplateSwitchPrimary::Query,
-                        template_switch_secondary: TemplateSwitchSecondary::Reference,
-                        template_switch_first_offset,
-                    },
-                    predecessor,
-                    cost,
-                },
-                strategies: self.strategies.generate_successor(context),
-            },
-            Self {
-                node_data: NodeData {
-                    identifier: Identifier::TemplateSwitchEntrance {
-                        entrance_reference_index,
-                        entrance_query_index,
-                        template_switch_primary: TemplateSwitchPrimary::Query,
-                        template_switch_secondary: TemplateSwitchSecondary::Query,
-                        template_switch_first_offset,
-                    },
-                    predecessor,
-                    cost,
-                },
-                strategies: self.strategies.generate_successor(context),
-            },
-        ]
+        self.node_data
+            .identifier
+            .generate_initial_template_switch_entrance_successors()
+            .map(move |identifier| self.generate_successor(identifier, cost_increment, context))
     }
 
     fn generate_template_switch_entrance_successor(
@@ -795,7 +716,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let predecessor_identifier @ Identifier::TemplateSwitchEntrance {
+        let Identifier::TemplateSwitchEntrance {
             entrance_reference_index,
             entrance_query_index,
             template_switch_primary,
@@ -806,27 +727,24 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             unreachable!("This method is only called on template switch entrance nodes.")
         };
 
-        Some(Self {
-            node_data: NodeData {
-                identifier: Identifier::TemplateSwitchEntrance {
-                    entrance_reference_index,
-                    entrance_query_index,
-                    template_switch_primary,
-                    template_switch_secondary,
-                    template_switch_first_offset: successor_template_switch_first_offset,
-                },
-                predecessor: Some(predecessor_identifier),
-                cost: self.node_data.cost + cost_increment,
+        Some(self.generate_successor(
+            Identifier::TemplateSwitchEntrance {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                template_switch_first_offset: successor_template_switch_first_offset,
             },
-            strategies: self.strategies.generate_successor(context),
-        })
+            cost_increment,
+            context,
+        ))
     }
 
     fn generate_secondary_root_node(
         &self,
         context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
     ) -> Option<Self> {
-        let predecessor_identifier @ Identifier::TemplateSwitchEntrance {
+        let Identifier::TemplateSwitchEntrance {
             entrance_reference_index,
             entrance_query_index,
             template_switch_primary,
@@ -848,23 +766,20 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         } as isize
             + template_switch_first_offset) as usize;
 
-        Some(Self {
-            node_data: NodeData {
-                identifier: Identifier::Secondary {
-                    entrance_reference_index,
-                    entrance_query_index,
-                    template_switch_primary,
-                    template_switch_secondary,
-                    length: 0,
-                    primary_index,
-                    secondary_index,
-                    gap_type: GapType::None,
-                },
-                predecessor: Some(predecessor_identifier),
-                cost: self.node_data.cost,
+        Some(self.generate_successor(
+            Identifier::Secondary {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                length: 0,
+                primary_index,
+                secondary_index,
+                gap_type: GapType::None,
             },
-            strategies: self.strategies.generate_successor(context),
-        })
+            0.into(),
+            context,
+        ))
     }
 
     fn generate_secondary_diagonal_successor(
@@ -881,14 +796,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             unreachable!("This method is only called on secondary nodes.")
         };
 
-        Some(Self {
-            node_data: NodeData {
-                identifier: predecessor_identifier.generate_secondary_diagonal_successor(),
-                predecessor: Some(predecessor_identifier),
-                cost: self.node_data.cost + cost_increment,
-            },
-            strategies: self.strategies.generate_successor(context),
-        })
+        Some(self.generate_successor(
+            predecessor_identifier.generate_secondary_diagonal_successor(),
+            cost_increment,
+            context,
+        ))
     }
 
     /// The secondary contains a base missing in the primary.
@@ -906,14 +818,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             unreachable!("This method is only called on secondary nodes.")
         };
 
-        Some(Self {
-            node_data: NodeData {
-                identifier: predecessor_identifier.generate_secondary_deletion_successor(),
-                predecessor: Some(predecessor_identifier),
-                cost: self.node_data.cost + cost_increment,
-            },
-            strategies: self.strategies.generate_successor(context),
-        })
+        Some(self.generate_successor(
+            predecessor_identifier.generate_secondary_deletion_successor(),
+            cost_increment,
+            context,
+        ))
     }
 
     /// The secondary contains a base missing in the primary.
@@ -931,14 +840,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             unreachable!("This method is only called on secondary nodes.")
         };
 
-        Some(Self {
-            node_data: NodeData {
-                identifier: predecessor_identifier.generate_secondary_insertion_successor(),
-                predecessor: Some(predecessor_identifier),
-                cost: self.node_data.cost + cost_increment,
-            },
-            strategies: self.strategies.generate_successor(context),
-        })
+        Some(self.generate_successor(
+            predecessor_identifier.generate_secondary_insertion_successor(),
+            cost_increment,
+            context,
+        ))
     }
 
     fn generate_initial_template_switch_exit_successor(
@@ -950,7 +856,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let predecessor_identifier @ Identifier::Secondary {
+        let Identifier::Secondary {
             entrance_reference_index,
             entrance_query_index,
             template_switch_primary,
@@ -962,21 +868,18 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             unreachable!("This method is only called on secondary nodes.")
         };
 
-        Some(Self {
-            node_data: NodeData {
-                identifier: Identifier::TemplateSwitchExit {
-                    entrance_reference_index,
-                    entrance_query_index,
-                    template_switch_primary,
-                    template_switch_secondary,
-                    primary_index,
-                    length_difference: 0,
-                },
-                predecessor: Some(predecessor_identifier),
-                cost: self.node_data.cost + cost_increment,
+        Some(self.generate_successor(
+            Identifier::TemplateSwitchExit {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                primary_index,
+                length_difference: 0,
             },
-            strategies: self.strategies.generate_successor(context),
-        })
+            cost_increment,
+            context,
+        ))
     }
 
     fn generate_template_switch_exit_successor(
@@ -989,7 +892,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let predecessor_identifier @ Identifier::TemplateSwitchExit {
+        let Identifier::TemplateSwitchExit {
             entrance_reference_index,
             entrance_query_index,
             template_switch_primary,
@@ -1001,28 +904,25 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             unreachable!("This method is only called on template switch exit nodes.")
         };
 
-        Some(Self {
-            node_data: NodeData {
-                identifier: Identifier::TemplateSwitchExit {
-                    entrance_reference_index,
-                    entrance_query_index,
-                    template_switch_primary,
-                    template_switch_secondary,
-                    primary_index,
-                    length_difference: successor_length_difference,
-                },
-                predecessor: Some(predecessor_identifier),
-                cost: self.node_data.cost + cost_increment,
+        Some(self.generate_successor(
+            Identifier::TemplateSwitchExit {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                primary_index,
+                length_difference: successor_length_difference,
             },
-            strategies: self.strategies.generate_successor(context),
-        })
+            cost_increment,
+            context,
+        ))
     }
 
     fn generate_primary_reentry_successor(
         &self,
         context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
     ) -> Option<Self> {
-        let predecessor_identifier @ Identifier::TemplateSwitchExit {
+        let Identifier::TemplateSwitchExit {
             entrance_reference_index,
             entrance_query_index,
             template_switch_primary,
@@ -1064,19 +964,43 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         debug_assert!(reference_index < isize::MAX as usize, "{self:?}");
         debug_assert!(query_index < isize::MAX as usize, "{self:?}");
 
-        Some(Self {
-            node_data: NodeData {
-                identifier: Identifier::PrimaryReentry {
-                    reference_index,
-                    query_index,
-                    gap_type: GapType::None,
-                    flank_index: -context.right_flank_length,
-                },
-                predecessor: Some(predecessor_identifier),
-                cost: self.node_data.cost,
+        Some(self.generate_successor(
+            Identifier::PrimaryReentry {
+                reference_index,
+                query_index,
+                gap_type: GapType::None,
+                flank_index: -context.right_flank_length,
             },
+            0.into(),
+            context,
+        ))
+    }
+
+    fn generate_successor(
+        &self,
+        identifier: Identifier,
+        cost_increment: Cost,
+        context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
+    ) -> Self {
+        Self {
+            node_data: self
+                .node_data
+                .generate_successor(identifier, cost_increment),
             strategies: self.strategies.generate_successor(context),
-        })
+        }
+    }
+}
+
+impl NodeData {
+    fn generate_successor(&self, identifier: Identifier, cost_increment: Cost) -> Self {
+        let cost = self.cost + cost_increment;
+        let a_star_lower_bound = self.a_star_lower_bound.saturating_sub(&cost_increment);
+        Self {
+            identifier,
+            predecessor: Some(self.identifier),
+            cost,
+            a_star_lower_bound,
+        }
     }
 }
 
@@ -1184,6 +1108,52 @@ impl Identifier {
                     gap_type: GapType::Insertion,
                 }
             }
+            other => unreachable!(
+                "Function is only called on primary identifiers, but this is: {other}."
+            ),
+        }
+    }
+
+    fn generate_initial_template_switch_entrance_successors(self) -> impl Iterator<Item = Self> {
+        match self {
+            Identifier::Primary {
+                reference_index: entrance_reference_index,
+                query_index: entrance_query_index,
+                ..
+            }
+            | Identifier::PrimaryReentry {
+                reference_index: entrance_reference_index,
+                query_index: entrance_query_index,
+                ..
+            } => {
+                let template_switch_first_offset = 0;
+
+                [
+                    TemplateSwitchPrimary::Reference,
+                    TemplateSwitchPrimary::Reference,
+                    TemplateSwitchPrimary::Query,
+                    TemplateSwitchPrimary::Query,
+                ]
+                .into_iter()
+                .zip([
+                    TemplateSwitchSecondary::Reference,
+                    TemplateSwitchSecondary::Query,
+                    TemplateSwitchSecondary::Reference,
+                    TemplateSwitchSecondary::Query,
+                ])
+                .map(
+                    move |(template_switch_primary, template_switch_secondary)| {
+                        Identifier::TemplateSwitchEntrance {
+                            entrance_reference_index,
+                            entrance_query_index,
+                            template_switch_primary,
+                            template_switch_secondary,
+                            template_switch_first_offset,
+                        }
+                    },
+                )
+            }
+
             other => unreachable!(
                 "Function is only called on primary identifiers, but this is: {other}."
             ),

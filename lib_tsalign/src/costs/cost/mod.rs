@@ -1,5 +1,7 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
+use num_traits::SaturatingSub;
+
 /// The cost of an alignment.
 ///
 /// This cost type is not allowed to be negative.
@@ -15,6 +17,12 @@ impl Cost {
 
     pub fn as_u64(&self) -> u64 {
         self.0
+    }
+}
+
+impl SaturatingSub for Cost {
+    fn saturating_sub(&self, rhs: &Self) -> Self {
+        Self(self.0.saturating_sub(rhs.0))
     }
 }
 
