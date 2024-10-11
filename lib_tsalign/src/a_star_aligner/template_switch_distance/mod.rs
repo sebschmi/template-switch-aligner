@@ -63,7 +63,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
         &self,
         reference: &SubsequenceType,
         query: &SubsequenceType,
-        context: &Self::Context,
+        context: &mut Self::Context,
         output: &mut impl Extend<Self>,
     ) {
         let config = &context.config;

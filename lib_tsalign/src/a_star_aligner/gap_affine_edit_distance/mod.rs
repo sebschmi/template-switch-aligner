@@ -69,7 +69,7 @@ impl<AlphabetType: Alphabet> AlignmentGraphNode<AlphabetType> for Node {
         &self,
         reference: &SubsequenceType,
         query: &SubsequenceType,
-        context: &Self::Context,
+        context: &mut Self::Context,
         output: &mut impl Extend<Self>,
     ) {
         if self.identifier.reference_index < reference.len()

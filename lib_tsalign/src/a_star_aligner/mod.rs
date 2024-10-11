@@ -38,7 +38,7 @@ pub trait AlignmentGraphNode<AlphabetType: Alphabet>: Sized + Ord {
         &self,
         reference: &SubsequenceType,
         query: &SubsequenceType,
-        context: &Self::Context,
+        context: &mut Self::Context,
         output: &mut impl Extend<Self>,
     );
 
@@ -77,7 +77,7 @@ fn a_star_align<
 >(
     reference: &SubsequenceType,
     query: &SubsequenceType,
-    context: Node::Context,
+    mut context: Node::Context,
 ) -> AlignmentResult<Node::AlignmentType>
 where
     Node::Identifier: Hash + Eq + Clone + Display,
@@ -112,7 +112,7 @@ where
         }
 
         let open_nodes_without_new_successors = open_list.len();
-        node.generate_successors(reference, query, &context, &mut open_list);
+        node.generate_successors(reference, query, &mut context, &mut open_list);
         opened_nodes += open_list.len() - open_nodes_without_new_successors;
 
         closed_list.insert(node.identifier().clone(), node);
