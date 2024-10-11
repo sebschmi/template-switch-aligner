@@ -15,8 +15,8 @@ pub trait TemplateSwitchMinLengthStrategy: AlignmentStrategy {
         &self,
         reference: &SubsequenceType,
         query: &SubsequenceType,
-        secondary_entrance_node: Node<Strategies>,
-        context: Context<Strategies>,
+        secondary_root_node: Node<Strategies>,
+        context: &mut Context<Strategies>,
     ) -> impl IntoIterator<Item = Node<Strategies>>;
 }
 
@@ -37,10 +37,10 @@ impl TemplateSwitchMinLengthStrategy for NoTemplateSwitchMinLengthStrategy {
         &self,
         _reference: &SubsequenceType,
         _query: &SubsequenceType,
-        secondary_entrance_node: Node<Strategies>,
-        _context: Context<Strategies>,
+        secondary_root_node: Node<Strategies>,
+        _context: &mut Context<Strategies>,
     ) -> impl IntoIterator<Item = Node<Strategies>> {
-        Some(secondary_entrance_node)
+        Some(secondary_root_node)
     }
 }
 
@@ -55,8 +55,8 @@ impl TemplateSwitchMinLengthStrategy for LookaheadTemplateSwitchMinLengthStrateg
         &self,
         reference: &SubsequenceType,
         query: &SubsequenceType,
-        secondary_entrance_node: Node<Strategies>,
-        context: Context<Strategies>,
+        secondary_root_node: Node<Strategies>,
+        context: &mut Context<Strategies>,
     ) -> impl IntoIterator<Item = Node<Strategies>> {
         todo!();
         []

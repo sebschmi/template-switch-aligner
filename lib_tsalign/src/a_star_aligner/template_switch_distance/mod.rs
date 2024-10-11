@@ -2,7 +2,8 @@ use compact_genome::interface::alphabet::AlphabetCharacter;
 use identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
 use num_traits::SaturatingSub;
 use strategies::{
-    node_ord::NodeOrdStrategy, AlignmentStrategies, AlignmentStrategy, AlignmentStrategySelector,
+    node_ord::NodeOrdStrategy, template_switch_min_length::TemplateSwitchMinLengthStrategy,
+    AlignmentStrategies, AlignmentStrategy, AlignmentStrategySelector,
 };
 
 use crate::costs::cost::Cost;
@@ -275,7 +276,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     }
                 }
 
-                output.extend(self.generate_secondary_root_node(context));
+                output.extend(self.generate_secondary_root_node(reference, query, context));
             }
 
             Identifier::Secondary {
@@ -650,10 +651,18 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ))
     }
 
-    fn generate_secondary_root_node(
-        &self,
-        context: &<Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
-    ) -> Option<Self> {
+    fn generate_secondary_root_node<
+        'result,
+        SubsequenceType: compact_genome::interface::sequence::GenomeSequence<
+                Strategies::Alphabet,
+                SubsequenceType,
+            > + ?Sized,
+    >(
+        &'result self,
+        reference: &'result SubsequenceType,
+        query: &'result SubsequenceType,
+        context: &'result mut <Self as AlignmentGraphNode<Strategies::Alphabet>>::Context,
+    ) -> impl 'result + IntoIterator<Item = Self> {
         let Identifier::TemplateSwitchEntrance {
             entrance_reference_index,
             entrance_query_index,
@@ -676,7 +685,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         } as isize
             + template_switch_first_offset) as usize;
 
-        Some(self.generate_successor(
+        let secondary_root_node = self.generate_successor(
             Identifier::Secondary {
                 entrance_reference_index,
                 entrance_query_index,
@@ -689,7 +698,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             },
             0.into(),
             context,
-        ))
+        );
+
+        self.strategies
+            .template_switch_min_length_strategy
+            .template_switch_min_length_lookahead(reference, query, secondary_root_node, context)
     }
 
     fn generate_secondary_diagonal_successor(
