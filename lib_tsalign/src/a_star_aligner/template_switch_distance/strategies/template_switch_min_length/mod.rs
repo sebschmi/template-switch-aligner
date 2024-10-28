@@ -12,6 +12,7 @@ use crate::{
         AlignmentGraphNode, ResultNode,
     },
     costs::cost::Cost,
+    deterministic_default_hasher::DeterministicDefaultHasher,
 };
 
 use super::{AlignmentStrategy, AlignmentStrategySelector};
@@ -80,7 +81,7 @@ pub struct LookaheadMemoryKey {
 }
 
 impl TemplateSwitchMinLengthStrategy for LookaheadTemplateSwitchMinLengthStrategy {
-    type Memory = HashMap<LookaheadMemoryKey, Cost>;
+    type Memory = HashMap<LookaheadMemoryKey, Cost, DeterministicDefaultHasher>;
 
     fn template_switch_min_length_lookahead<
         Strategies: AlignmentStrategySelector<TemplateSwitchMinLength = Self>,

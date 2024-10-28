@@ -5,6 +5,7 @@ use binary_heap_plus::{BinaryHeap, MinComparator};
 use crate::a_star_aligner::template_switch_distance::Node;
 use crate::a_star_aligner::AlignmentGraphNode;
 use crate::config::TemplateSwitchConfig;
+use crate::deterministic_default_hasher::DeterministicDefaultHasher;
 
 use super::strategies::template_switch_min_length::TemplateSwitchMinLengthStrategy;
 use super::strategies::AlignmentStrategySelector;
@@ -20,6 +21,7 @@ pub struct Context<Strategies: AlignmentStrategySelector> {
     pub closed_list: HashMap<
         <Node<Strategies> as AlignmentGraphNode<Strategies::Alphabet>>::Identifier,
         Node<Strategies>,
+        DeterministicDefaultHasher,
     >,
 }
 

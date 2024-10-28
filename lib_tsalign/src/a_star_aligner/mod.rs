@@ -5,7 +5,7 @@ use binary_heap_plus::{BinaryHeap, MinComparator};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use template_switch_distance::strategies::AlignmentStrategySelector;
 
-use crate::{config, costs::cost::Cost};
+use crate::{config, costs::cost::Cost, deterministic_default_hasher::DeterministicDefaultHasher};
 
 pub mod alignment_result;
 pub mod gap_affine_edit_distance;
@@ -102,7 +102,8 @@ where
 {
     let start_time = Instant::now();
 
-    let mut closed_list: HashMap<Node::Identifier, Node> = Default::default();
+    let mut closed_list: HashMap<Node::Identifier, Node, DeterministicDefaultHasher> =
+        Default::default();
     let mut open_list = BinaryHeap::new_min();
     open_list.push(Node::create_root(&context));
 
@@ -168,7 +169,7 @@ fn a_star_align_loop<
     reference: &SubsequenceType,
     query: &SubsequenceType,
     context: &mut Node::Context,
-    closed_list: &mut HashMap<Node::Identifier, Node>,
+    closed_list: &mut HashMap<Node::Identifier, Node, DeterministicDefaultHasher>,
     open_list: &mut BinaryHeap<Node, MinComparator>,
     is_target_fn: impl Fn(&Node, &SubsequenceType, &SubsequenceType, &Node::Context) -> bool,
 ) -> (
