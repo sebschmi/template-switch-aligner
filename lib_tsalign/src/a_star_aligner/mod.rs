@@ -138,7 +138,12 @@ where
         }
 
         if let Some(predecessor) = current_node.predecessor() {
-            current_node = closed_list.get(predecessor).unwrap();
+            current_node = closed_list.get(predecessor).unwrap_or_else(|| {
+                panic!(
+                    "current: {}, predecessor: {predecessor}",
+                    current_node.identifier(),
+                )
+            });
         } else {
             break;
         }
