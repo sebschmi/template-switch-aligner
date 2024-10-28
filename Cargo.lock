@@ -275,7 +275,7 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "lib_tsalign"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "binary-heap-plus",
  "compact-genome",
@@ -646,7 +646,7 @@ checksum = "eccc87c72a0ca5aec58d3f762b496c87c6500884511fcf878942dd8bed63cc69"
 
 [[package]]
 name = "tsalign"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "clap",
  "compact-genome",
