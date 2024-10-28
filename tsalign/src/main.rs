@@ -83,9 +83,9 @@ fn main() {
 
     let cli = Cli::parse();
 
-    info!("Loading sequences...");
     let mut sequence_store = DefaultSequenceStore::<DnaAlphabet>::new();
     let sequences = if let Some(pair_fasta) = &cli.input.pair_fasta {
+        info!("Loading pair file {pair_fasta:?}");
         let sequences = read_fasta_file(pair_fasta, &mut sequence_store, false, true).unwrap();
 
         assert_eq!(
@@ -96,6 +96,7 @@ fn main() {
 
         sequences
     } else if let (Some(reference), Some(query)) = (&cli.input.reference, &cli.input.query) {
+        info!("Loading reference file {reference:?}");
         let mut sequences = read_fasta_file(reference, &mut sequence_store, false, true).unwrap();
         assert_eq!(
             sequences.len(),
@@ -103,6 +104,7 @@ fn main() {
             "Reference sequence file contains not exactly one record"
         );
 
+        info!("Loading query file {query:?}");
         sequences.extend(read_fasta_file(query, &mut sequence_store, false, true).unwrap());
         assert_eq!(
             sequences.len(),
