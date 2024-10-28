@@ -120,11 +120,11 @@ impl TemplateSwitchMinLengthStrategy for LookaheadTemplateSwitchMinLengthStrateg
             secondary_index,
         };
 
-        if let Some(a_star_lower_bound) = context.template_switch_min_length_memory.get(&memory_key)
+        let secondary_root_node = if let Some(a_star_lower_bound) =
+            context.template_switch_min_length_memory.get(&memory_key)
         {
             secondary_root_node.node_data.a_star_lower_bound += *a_star_lower_bound;
-            context.open_list.clear();
-            context.open_list.push(secondary_root_node);
+            secondary_root_node
         } else {
             context.open_list.clear();
             context.closed_list.clear();
@@ -132,7 +132,7 @@ impl TemplateSwitchMinLengthStrategy for LookaheadTemplateSwitchMinLengthStrateg
             let mut open_list = mem::replace(&mut context.open_list, BinaryHeap::new_min());
             let mut closed_list = mem::take(&mut context.closed_list);
             let initial_cost = secondary_root_node.cost();
-            open_list.push(secondary_root_node);
+            open_list.push(secondary_root_node.clone());
 
             let (target_node_identifier, _) = a_star_align_loop(
                 reference,
@@ -150,30 +150,29 @@ impl TemplateSwitchMinLengthStrategy for LookaheadTemplateSwitchMinLengthStrateg
                 },
             );
 
+            context.open_list = open_list;
+            context.closed_list = closed_list;
+
             if let ResultNode::TargetNode(target_node_identifier) = target_node_identifier {
-                let target_cost = closed_list.get(&target_node_identifier).unwrap().cost();
+                let target_cost = context
+                    .closed_list
+                    .get(&target_node_identifier)
+                    .unwrap()
+                    .cost();
                 let lower_bound = target_cost - initial_cost;
-
-                open_list.extend(closed_list.drain().map(|(_, mut node)| {
-                    if node.node_data.cost != Cost::MAX {
-                        node.node_data.a_star_lower_bound += target_cost - node.node_data.cost;
-                    }
-
-                    node
-                }));
 
                 context
                     .template_switch_min_length_memory
                     .insert(memory_key, lower_bound);
+                secondary_root_node.node_data.a_star_lower_bound += lower_bound;
+
+                secondary_root_node
             } else {
-                open_list.extend(closed_list.drain().map(|(_, node)| node));
+                secondary_root_node
             }
+        };
 
-            context.open_list = open_list;
-            context.closed_list = closed_list;
-        }
-
-        context.open_list.drain()
+        Some(secondary_root_node)
     }
 }
 
