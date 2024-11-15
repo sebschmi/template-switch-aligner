@@ -1,6 +1,6 @@
 [workspace]
 
-members = ["tsalign", "lib_tsalign"]
+members = ["tsalign", "lib_tsalign", "generic_a_star", "deterministic_default_hasher"]
 resolver = "2"
 package.rust-version = "1.82.0"
 
@@ -9,3 +9,4 @@ serde = "1.0.215"
 compact-genome = "10.0.3"
 traitsequence = "3.0.0"
 log = "0.4.22"
+num-traits = "0.2.19"

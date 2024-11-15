@@ -7,10 +7,9 @@ use num_traits::{CheckedSub, SaturatingSub};
 
 type CostType = u64;
 
-/// The cost of an alignment.
+/// The cost of an A* node.
 ///
 /// This cost type is not allowed to be negative.
-/// This is important for example when using Dijkstra or A* to compute an alignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Cost(CostType);

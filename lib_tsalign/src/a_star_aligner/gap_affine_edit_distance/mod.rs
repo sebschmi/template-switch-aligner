@@ -1,18 +1,22 @@
+use std::marker::PhantomData;
+
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
+use generic_a_star::{reset::Reset, AStarContext, AStarNode};
 
 use crate::costs::cost::Cost;
 
-use super::{alignment_result::IAlignmentType, AlignmentGraphNode};
+use super::{alignment_result::IAlignmentType, AlignmentContext};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct Node {
+pub struct Node {
     identifier: Identifier,
     predecessor: Option<Identifier>,
+    predecessor_edge_type: AlignmentType,
     cost: Cost,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(super) struct Identifier {
+pub struct Identifier {
     reference_index: usize,
     query_index: usize,
     gap_type: GapType,
@@ -48,82 +52,24 @@ pub struct ScoringTable {
     pub gap_extend_cost: Cost,
 }
 
-impl<AlphabetType: Alphabet> AlignmentGraphNode<AlphabetType> for Node {
+#[derive(Debug, Clone)]
+pub struct Context<
+    'reference,
+    'query,
+    AlphabetType: Alphabet,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+> {
+    reference: &'reference SubsequenceType,
+    query: &'query SubsequenceType,
+
+    scoring_table: ScoringTable,
+    phantom_data: PhantomData<AlphabetType>,
+}
+
+impl AStarNode for Node {
     type Identifier = Identifier;
 
-    type Context = ScoringTable;
-
-    type AlignmentType = AlignmentType;
-
-    fn create_root(_context: &Self::Context) -> Self {
-        Self {
-            identifier: Identifier::new(0, 0, GapType::None),
-            predecessor: None,
-            cost: Cost::ZERO,
-        }
-    }
-
-    fn generate_successors<
-        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    >(
-        &self,
-        reference: &SubsequenceType,
-        query: &SubsequenceType,
-        context: &mut Self::Context,
-        opened_nodes_output: &mut impl Extend<Self>,
-        _closed_nodes_output: &mut impl Extend<(Self::Identifier, Self)>,
-    ) {
-        if self.identifier.reference_index < reference.len()
-            && self.identifier.query_index < query.len()
-        {
-            opened_nodes_output.extend([Self {
-                identifier: self.identifier.increment_both(),
-                predecessor: Some(self.identifier),
-                cost: self.cost
-                    + if reference[self.identifier.reference_index]
-                        == query[self.identifier.query_index]
-                    {
-                        context.match_cost
-                    } else {
-                        context.substitution_cost
-                    },
-            }]);
-        }
-
-        if self.identifier.reference_index < reference.len() {
-            opened_nodes_output.extend([Self {
-                identifier: self.identifier.increment_reference(),
-                predecessor: Some(self.identifier),
-                cost: self.cost
-                    + if let Some(predecessor) = self.predecessor {
-                        if predecessor.increment_reference() == self.identifier {
-                            context.gap_extend_cost
-                        } else {
-                            context.gap_open_cost
-                        }
-                    } else {
-                        context.gap_open_cost
-                    },
-            }]);
-        }
-
-        if self.identifier.query_index < query.len() {
-            opened_nodes_output.extend([Self {
-                identifier: self.identifier.increment_query(),
-                predecessor: Some(self.identifier),
-                cost: self.cost
-                    + if let Some(predecessor) = self.predecessor {
-                        if predecessor.increment_query() == self.identifier {
-                            context.gap_extend_cost
-                        } else {
-                            context.gap_open_cost
-                        }
-                    } else {
-                        context.gap_open_cost
-                    },
-            }]);
-        }
-    }
+    type EdgeType = AlignmentType;
 
     fn identifier(&self) -> &Self::Identifier {
         &self.identifier
@@ -141,43 +87,145 @@ impl<AlphabetType: Alphabet> AlignmentGraphNode<AlphabetType> for Node {
         self.predecessor.as_ref()
     }
 
-    fn predecessor_alignment_type<
+    fn predecessor_edge_type(&self) -> Option<Self::EdgeType> {
+        Some(self.predecessor_edge_type)
+    }
+}
+
+impl<
+        'reference,
+        'query,
+        AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    >(
-        &self,
-        reference: &SubsequenceType,
-        query: &SubsequenceType,
-        _context: &Self::Context,
-    ) -> Self::AlignmentType {
-        if let Some(predecessor) = self.predecessor {
-            if predecessor.increment_both() == self.identifier {
-                if reference[self.identifier.reference_index - 1]
-                    == query[self.identifier.query_index - 1]
-                {
-                    AlignmentType::Match
-                } else {
-                    AlignmentType::Substitution
-                }
-            } else if predecessor.increment_reference() == self.identifier {
-                AlignmentType::Deletion
-            } else if predecessor.increment_query() == self.identifier {
-                AlignmentType::Insertion
-            } else {
-                unreachable!("this node was generated from the predecessor in one of the three ways handled above")
-            }
-        } else {
-            AlignmentType::Root
+    > AStarContext for Context<'reference, 'query, AlphabetType, SubsequenceType>
+{
+    type Node = Node;
+
+    fn create_root(&self) -> Self::Node {
+        Self::Node {
+            identifier: Identifier::new(0, 0, GapType::None),
+            predecessor: None,
+            predecessor_edge_type: AlignmentType::Root,
+            cost: Cost::ZERO,
         }
     }
 
-    fn is_target<SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized>(
-        &self,
-        reference: &SubsequenceType,
-        query: &SubsequenceType,
-        _context: &Self::Context,
-    ) -> bool {
-        self.identifier.reference_index == reference.len()
-            && self.identifier.query_index == query.len()
+    fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {
+        if node.identifier.reference_index < self.reference.len()
+            && node.identifier.query_index < self.query.len()
+        {
+            let is_match = self.reference[node.identifier.reference_index]
+                == self.query[node.identifier.query_index];
+            output.extend([Self::Node {
+                identifier: node.identifier.increment_both(),
+                predecessor: Some(node.identifier),
+                predecessor_edge_type: if is_match {
+                    AlignmentType::Match
+                } else {
+                    AlignmentType::Substitution
+                },
+                cost: node.cost
+                    + if is_match {
+                        self.scoring_table.match_cost
+                    } else {
+                        self.scoring_table.substitution_cost
+                    },
+            }]);
+        }
+
+        if node.identifier.reference_index < self.reference.len() {
+            output.extend([Self::Node {
+                identifier: node.identifier.increment_reference(),
+                predecessor: Some(node.identifier),
+                predecessor_edge_type: AlignmentType::Deletion,
+                cost: node.cost
+                    + if let Some(predecessor) = node.predecessor {
+                        if predecessor.increment_reference() == node.identifier {
+                            self.scoring_table.gap_extend_cost
+                        } else {
+                            self.scoring_table.gap_open_cost
+                        }
+                    } else {
+                        self.scoring_table.gap_open_cost
+                    },
+            }]);
+        }
+
+        if node.identifier.query_index < self.query.len() {
+            output.extend([Self::Node {
+                identifier: node.identifier.increment_query(),
+                predecessor: Some(node.identifier),
+                predecessor_edge_type: AlignmentType::Insertion,
+                cost: node.cost
+                    + if let Some(predecessor) = node.predecessor {
+                        if predecessor.increment_query() == node.identifier {
+                            self.scoring_table.gap_extend_cost
+                        } else {
+                            self.scoring_table.gap_open_cost
+                        }
+                    } else {
+                        self.scoring_table.gap_open_cost
+                    },
+            }]);
+        }
+    }
+
+    fn is_target(&self, node: &Self::Node) -> bool {
+        node.identifier.reference_index == self.reference.len()
+            && node.identifier.query_index == self.query.len()
+    }
+}
+
+impl<
+        'reference,
+        'query,
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    > Reset for Context<'reference, 'query, AlphabetType, SubsequenceType>
+{
+    fn reset(&mut self) {}
+}
+
+impl<
+        'reference,
+        'query,
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    > AlignmentContext for Context<'reference, 'query, AlphabetType, SubsequenceType>
+{
+    type AlphabetType = AlphabetType;
+
+    type AlignmentType = AlignmentType;
+
+    type SubsequenceType = SubsequenceType;
+
+    fn reference(&self) -> &Self::SubsequenceType {
+        self.reference
+    }
+
+    fn query(&self) -> &Self::SubsequenceType {
+        self.query
+    }
+}
+
+impl<
+        'reference,
+        'query,
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    > Context<'reference, 'query, AlphabetType, SubsequenceType>
+{
+    pub fn new(
+        reference: &'reference SubsequenceType,
+        query: &'query SubsequenceType,
+        scoring_table: ScoringTable,
+    ) -> Self {
+        Self {
+            reference,
+            query,
+            scoring_table,
+            phantom_data: PhantomData,
+        }
     }
 }
 
@@ -208,12 +256,14 @@ impl std::fmt::Display for Node {
         let Self {
             identifier,
             predecessor,
+            predecessor_edge_type,
             cost,
         } = self;
         write!(f, "{identifier}; ")?;
         if let Some(predecessor) = predecessor {
             write!(f, "predecessor: {predecessor}; ")?;
         }
+        write!(f, "alignment_type: {predecessor_edge_type}")?;
         write!(f, "cost: {cost}")
     }
 }

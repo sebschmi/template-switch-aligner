@@ -1,3 +1,5 @@
+use compact_genome::interface::sequence::GenomeSequence;
+
 use crate::a_star_aligner::template_switch_distance::{Context, NodeData};
 
 use super::{AlignmentStrategy, AlignmentStrategySelector};
@@ -35,26 +37,42 @@ impl NodeOrdStrategy for AntiDiagonalNodeOrdStrategy {
 }
 
 impl AlignmentStrategy for CostOnlyNodeOrdStrategy {
-    fn create_root<Strategies: AlignmentStrategySelector>(_context: &Context<Strategies>) -> Self {
+    fn create_root<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector,
+    >(
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
         Self
     }
 
-    fn generate_successor<Strategies: AlignmentStrategySelector>(
+    fn generate_successor<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector,
+    >(
         &self,
-        _context: &Context<Strategies>,
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         *self
     }
 }
 
 impl AlignmentStrategy for AntiDiagonalNodeOrdStrategy {
-    fn create_root<Strategies: AlignmentStrategySelector>(_context: &Context<Strategies>) -> Self {
+    fn create_root<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector,
+    >(
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
         Self
     }
 
-    fn generate_successor<Strategies: AlignmentStrategySelector>(
+    fn generate_successor<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector,
+    >(
         &self,
-        _context: &Context<Strategies>,
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         *self
     }

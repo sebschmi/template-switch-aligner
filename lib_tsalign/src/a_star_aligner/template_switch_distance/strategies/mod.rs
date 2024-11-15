@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use compact_genome::interface::alphabet::Alphabet;
+use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use node_ord::NodeOrdStrategy;
 use template_switch_min_length::TemplateSwitchMinLengthStrategy;
 
@@ -22,16 +22,29 @@ pub struct AlignmentStrategies<Selector: AlignmentStrategySelector> {
 }
 
 pub trait AlignmentStrategy: Eq + Clone + std::fmt::Debug {
-    fn create_root<Strategies: AlignmentStrategySelector>(context: &Context<Strategies>) -> Self;
+    fn create_root<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector,
+    >(
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self;
 
-    fn generate_successor<Strategies: AlignmentStrategySelector>(
+    fn generate_successor<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector,
+    >(
         &self,
-        context: &Context<Strategies>,
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self;
 }
 
 impl<Selector: AlignmentStrategySelector> AlignmentStrategy for AlignmentStrategies<Selector> {
-    fn create_root<Strategies: AlignmentStrategySelector>(context: &Context<Strategies>) -> Self {
+    fn create_root<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector,
+    >(
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
         Self {
             node_ord_strategy: Selector::NodeOrd::create_root(context),
             template_switch_min_length_strategy: Selector::TemplateSwitchMinLength::create_root(
@@ -40,9 +53,12 @@ impl<Selector: AlignmentStrategySelector> AlignmentStrategy for AlignmentStrateg
         }
     }
 
-    fn generate_successor<Strategies: AlignmentStrategySelector>(
+    fn generate_successor<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector,
+    >(
         &self,
-        context: &Context<Strategies>,
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         Self {
             node_ord_strategy: self.node_ord_strategy.generate_successor(context),
