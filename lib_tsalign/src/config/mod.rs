@@ -1,4 +1,6 @@
-use crate::costs::{cost::Cost, cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable};
+use crate::costs::{
+    cost::Cost, cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable,
+};
 
 pub mod io;
 
