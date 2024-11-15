@@ -283,7 +283,7 @@ impl<Context: AStarContext> AStar<Context> {
     }
 }
 
-impl<'a_star, Context: AStarContext> Iterator for BacktrackingIterator<'a_star, Context> {
+impl<Context: AStarContext> Iterator for BacktrackingIterator<'_, Context> {
     type Item = <Context::Node as AStarNode>::EdgeType;
 
     fn next(&mut self) -> Option<Self::Item> {

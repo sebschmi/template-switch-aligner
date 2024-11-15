@@ -212,13 +212,9 @@ impl<
 }
 
 impl<
-        'reference,
-        'query,
-        'context,
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
-    > AStarContext
-    for TemplateSwitchMinLengthContext<'reference, 'query, 'context, SubsequenceType, Strategies>
+    > AStarContext for TemplateSwitchMinLengthContext<'_, '_, '_, SubsequenceType, Strategies>
 {
     type Node = Node<Strategies>;
 
@@ -241,13 +237,9 @@ impl<
 }
 
 impl<
-        'reference,
-        'query,
-        'context,
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
-    > Reset
-    for TemplateSwitchMinLengthContext<'reference, 'query, 'context, SubsequenceType, Strategies>
+    > Reset for TemplateSwitchMinLengthContext<'_, '_, '_, SubsequenceType, Strategies>
 {
     fn reset(&mut self) {
         unimplemented!("Designed to be used only once.")

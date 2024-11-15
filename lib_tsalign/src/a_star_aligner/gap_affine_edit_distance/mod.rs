@@ -93,11 +93,9 @@ impl AStarNode for Node {
 }
 
 impl<
-        'reference,
-        'query,
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    > AStarContext for Context<'reference, 'query, AlphabetType, SubsequenceType>
+    > AStarContext for Context<'_, '_, AlphabetType, SubsequenceType>
 {
     type Node = Node;
 
@@ -177,21 +175,17 @@ impl<
 }
 
 impl<
-        'reference,
-        'query,
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    > Reset for Context<'reference, 'query, AlphabetType, SubsequenceType>
+    > Reset for Context<'_, '_, AlphabetType, SubsequenceType>
 {
     fn reset(&mut self) {}
 }
 
 impl<
-        'reference,
-        'query,
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    > AlignmentContext for Context<'reference, 'query, AlphabetType, SubsequenceType>
+    > AlignmentContext for Context<'_, '_, AlphabetType, SubsequenceType>
 {
     type AlphabetType = AlphabetType;
 

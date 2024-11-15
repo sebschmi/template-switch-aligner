@@ -46,11 +46,9 @@ impl<
 }
 
 impl<
-        'reference,
-        'query,
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
-    > AStarContext for Context<'reference, 'query, SubsequenceType, Strategies>
+    > AStarContext for Context<'_, '_, SubsequenceType, Strategies>
 {
     type Node = Node<Strategies>;
 
@@ -443,11 +441,9 @@ impl<
 }
 
 impl<
-        'reference,
-        'query,
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
-    > Reset for Context<'reference, 'query, SubsequenceType, Strategies>
+    > Reset for Context<'_, '_, SubsequenceType, Strategies>
 {
     fn reset(&mut self) {
         self.template_switch_min_length_memory.reset();
@@ -455,11 +451,9 @@ impl<
 }
 
 impl<
-        'reference,
-        'query,
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
-    > AlignmentContext for Context<'reference, 'query, SubsequenceType, Strategies>
+    > AlignmentContext for Context<'_, '_, SubsequenceType, Strategies>
 {
     type AlphabetType = Strategies::Alphabet;
 
