@@ -31,6 +31,9 @@ impl<AlphabetType: Alphabet> TemplateSwitchConfig<AlphabetType> {
         let (input, left_flank_length) = parse_specific_equals_value("left_flank_length")(input)?;
         let (input, right_flank_length) = parse_specific_equals_value("right_flank_length")(input)?;
 
+        let (input, ()) = parse_specific_name("Base Cost")(input)?;
+        let (input, base_cost) = parse_specific_equals_value("base_cost")(input)?;
+
         let (input, ()) = parse_specific_name("Jump Costs")(input)?;
         let (input, offset_costs) = parse_named_cost_function("Offset")(input)?;
         let (input, length_costs) = parse_named_cost_function("Length")(input)?;
@@ -50,6 +53,8 @@ impl<AlphabetType: Alphabet> TemplateSwitchConfig<AlphabetType> {
                 left_flank_length,
                 right_flank_length,
                 min_length: length_costs.minimum_finite_input().unwrap_or(usize::MAX),
+
+                base_cost,
 
                 primary_edit_costs,
                 secondary_edit_costs,

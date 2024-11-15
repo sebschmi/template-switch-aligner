@@ -3,6 +3,10 @@
 left_flank_length = 5
 right_flank_length = 5
 
+# Base Cost
+
+base_cost = 2
+
 # Jump Costs
 
 Offset

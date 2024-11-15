@@ -1,4 +1,4 @@
-use crate::costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable};
+use crate::costs::{cost::Cost, cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable};
 
 pub mod io;
 
@@ -8,6 +8,9 @@ pub struct TemplateSwitchConfig<AlphabetType> {
     pub left_flank_length: isize,
     pub right_flank_length: isize,
     pub min_length: usize,
+
+    // Base cost
+    pub base_cost: Cost,
 
     // Edit costs
     pub primary_edit_costs: GapAffineAlignmentCostTable<AlphabetType>,

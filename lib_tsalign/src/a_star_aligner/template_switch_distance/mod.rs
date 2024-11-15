@@ -128,7 +128,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     } else if flank_index == config.left_flank_length {
                         opened_nodes_output.extend(
                             self.generate_initial_template_switch_entrance_successors(
-                                config.offset_costs.evaluate(&0),
+                                config.offset_costs.evaluate(&0) + config.base_cost,
                                 context,
                             ),
                         );
@@ -174,7 +174,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     } else if flank_index == config.left_flank_length {
                         opened_nodes_output.extend(
                             self.generate_initial_template_switch_entrance_successors(
-                                config.offset_costs.evaluate(&0),
+                                config.offset_costs.evaluate(&0) + config.base_cost,
                                 context,
                             ),
                         );
@@ -220,7 +220,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentGraphNode<Strategies::Alpha
                     } else if flank_index == config.left_flank_length {
                         opened_nodes_output.extend(
                             self.generate_initial_template_switch_entrance_successors(
-                                config.offset_costs.evaluate(&0),
+                                config.offset_costs.evaluate(&0) + config.base_cost,
                                 context,
                             ),
                         );
