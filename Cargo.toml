@@ -2,10 +2,10 @@
 
 members = ["tsalign", "lib_tsalign"]
 resolver = "2"
-package.rust-version = "1.81.0"
+package.rust-version = "1.82.0"
 
 [workspace.dependencies]
-serde = "1.0.210"
+serde = "1.0.215"
 compact-genome = "10.0.3"
 traitsequence = "3.0.0"
 log = "0.4.22"
