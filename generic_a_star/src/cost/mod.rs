@@ -3,7 +3,7 @@ use std::{
     str::FromStr,
 };
 
-use num_traits::{CheckedSub, SaturatingSub};
+use num_traits::{CheckedSub, SaturatingSub, Zero};
 
 type CostType = u64;
 
@@ -81,5 +81,15 @@ impl FromStr for Cost {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         CostType::from_str(s).map(Self)
+    }
+}
+
+impl Zero for Cost {
+    fn zero() -> Self {
+        Self::ZERO
+    }
+
+    fn is_zero(&self) -> bool {
+        *self == Self::ZERO
     }
 }

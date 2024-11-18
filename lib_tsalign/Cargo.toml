@@ -9,7 +9,7 @@ edition = "2021"
 rust-version.workspace = true
 
 [features]
-serde = ["dep:serde", "noisy_float/serde"]
+serde = ["dep:serde", "noisy_float/serde", "ndarray/serde"]
 
 [dependencies]
 compact-genome.workspace = true

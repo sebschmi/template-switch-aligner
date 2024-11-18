@@ -1,3 +1,5 @@
+use std::ops::Sub;
+
 use crate::error::Error;
 
 use super::cost::Cost;
@@ -45,6 +47,24 @@ impl<SourceType: Clone + Ord> CostFunction<SourceType> {
                 }
             })
             .next()
+    }
+}
+
+impl<SourceType: Clone + Ord + From<u8> + Sub<Output = SourceType>> CostFunction<SourceType> {
+    pub fn maximum_finite_input(&self) -> Option<SourceType> {
+        let last_finite_index = self
+            .function
+            .iter()
+            .enumerate()
+            .rev()
+            .find_map(|(index, (_, cost))| if *cost < Cost::MAX { Some(index) } else { None })?;
+        let infinite_index = last_finite_index + 1;
+
+        if infinite_index == self.function.len() {
+            return None;
+        }
+
+        Some(self.function[infinite_index].0.clone() - 1.into())
     }
 }
 
