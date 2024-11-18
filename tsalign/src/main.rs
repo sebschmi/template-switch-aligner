@@ -33,6 +33,12 @@ struct Cli {
     #[clap(long, short = 'o')]
     output: Option<PathBuf>,
 
+    /// A string of (ASCII) characters that should be skipped in the input fasta.
+    ///
+    /// For example, `-` characters caused by alignment hints can be skipped this way.
+    #[clap(long, default_value = "")]
+    skip_characters: String,
+
     /// A directory containing the configuration files.
     ///
     /// See the README for its layout.
@@ -83,10 +89,26 @@ fn main() {
 
     let cli = Cli::parse();
 
+    let mut skip_characters = Vec::new();
+    for character in cli.skip_characters.bytes().map(usize::from) {
+        if skip_characters.len() <= character {
+            skip_characters.resize(character + 1, false);
+        }
+        skip_characters[character] = true;
+    }
+    let skip_characters = skip_characters;
+
     let mut sequence_store = DefaultSequenceStore::<DnaAlphabet>::new();
     let sequences = if let Some(pair_fasta) = &cli.input.pair_fasta {
         info!("Loading pair file {pair_fasta:?}");
-        let sequences = read_fasta_file(pair_fasta, &mut sequence_store, false, true).unwrap();
+        let sequences = read_fasta_file(
+            pair_fasta,
+            &mut sequence_store,
+            false,
+            true,
+            &skip_characters,
+        )
+        .unwrap();
 
         assert_eq!(
             sequences.len(),
@@ -97,7 +119,14 @@ fn main() {
         sequences
     } else if let (Some(reference), Some(query)) = (&cli.input.reference, &cli.input.query) {
         info!("Loading reference file {reference:?}");
-        let mut sequences = read_fasta_file(reference, &mut sequence_store, false, true).unwrap();
+        let mut sequences = read_fasta_file(
+            reference,
+            &mut sequence_store,
+            false,
+            true,
+            &skip_characters,
+        )
+        .unwrap();
         assert_eq!(
             sequences.len(),
             1,
@@ -105,7 +134,9 @@ fn main() {
         );
 
         info!("Loading query file {query:?}");
-        sequences.extend(read_fasta_file(query, &mut sequence_store, false, true).unwrap());
+        sequences.extend(
+            read_fasta_file(query, &mut sequence_store, false, true, &skip_characters).unwrap(),
+        );
         assert_eq!(
             sequences.len(),
             1,

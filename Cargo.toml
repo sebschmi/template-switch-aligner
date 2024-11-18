@@ -1,12 +1,17 @@
 [workspace]
 
-members = ["tsalign", "lib_tsalign", "generic_a_star", "deterministic_default_hasher"]
+members = [
+    "tsalign",
+    "lib_tsalign",
+    "generic_a_star",
+    "deterministic_default_hasher",
+]
 resolver = "2"
 package.rust-version = "1.82.0"
 
 [workspace.dependencies]
 serde = "1.0.215"
-compact-genome = "10.0.3"
+compact-genome = "11.0.0"
 traitsequence = "3.0.0"
 log = "0.4.22"
 num-traits = "0.2.19"
