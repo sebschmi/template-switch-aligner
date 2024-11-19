@@ -33,6 +33,12 @@ struct Cli {
     #[clap(long, short = 'o')]
     output: Option<PathBuf>,
 
+    /// The alphabet present in the input files.
+    ///
+    /// This must also match the alphabet used in the config.
+    #[clap(long, short = 'a', default_value = "dna-n")]
+    alphabet: InputAlphabet,
+
     /// A string of (ASCII) characters that should be skipped in the input fasta.
     ///
     /// For example, `-` characters caused by alignment hints can be skipped this way.
@@ -42,7 +48,7 @@ struct Cli {
     /// A directory containing the configuration files.
     ///
     /// See the README for its layout.
-    #[clap(long, short, default_value = "sample_tsa_config")]
+    #[clap(long, short = 'c', default_value = "sample_tsa_config")]
     configuration_directory: PathBuf,
 
     #[clap(long, default_value = "a-star-template-switch")]
@@ -78,6 +84,12 @@ enum AlignmentMethod {
     AStarTemplateSwitch,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, ValueEnum)]
+enum InputAlphabet {
+    Dna,
+    DnaN,
+}
+
 fn main() {
     TermLogger::init(
         LevelFilter::Info,
@@ -88,6 +100,10 @@ fn main() {
     .unwrap();
 
     let cli = Cli::parse();
+
+    if cli.alphabet != InputAlphabet::Dna {
+        panic!("Unsupported alphabet type: {:?}", cli.alphabet);
+    }
 
     let mut skip_characters = Vec::new();
     for character in cli.skip_characters.bytes().map(usize::from) {
