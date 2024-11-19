@@ -7,7 +7,7 @@ use compact_genome::{
     implementation::vec_sequence::VectorGenome,
     interface::{alphabet::Alphabet, sequence::GenomeSequence},
 };
-use generic_a_star::{cost::Cost, AStar};
+use generic_a_star::{cost::Cost, AStar, AStarNode, AStarResult};
 use ndarray::Array2;
 
 use crate::{
@@ -49,6 +49,55 @@ impl TemplateSwitchLowerBoundMatrix {
             while let Some(coordinates) = open_lower_bounds.iter().next() {
                 let (x, y) = open_lower_bounds.take(coordinates).unwrap();
                 debug_assert!(!closed_lower_bounds.contains_key(&(x, y)));
+
+                match a_star.search_until(|context, node| match *node.identifier() {
+                    Identifier::Primary {
+                        reference_index,
+                        query_index,
+                        ..
+                    }
+                    | Identifier::PrimaryReentry {
+                        reference_index,
+                        query_index,
+                        ..
+                    } => {
+                        reference_index == 0
+                            || query_index == 0
+                            || reference_index == string_length - 1
+                            || query_index == string_length - 1
+                    }
+                    Identifier::TemplateSwitchEntrance {
+                        entrance_reference_index,
+                        entrance_query_index,
+                        ..
+                    } => {
+                        entrance_reference_index == 0
+                            || entrance_query_index == 0
+                            || entrance_reference_index == string_length - 1
+                            || entrance_query_index == string_length - 1
+                    }
+                    Identifier::Secondary {
+                        entrance_reference_index,
+                        entrance_query_index,
+                        template_switch_primary,
+                        template_switch_secondary,
+                        length,
+                        primary_index,
+                        secondary_index,
+                        gap_type,
+                    } => todo!(),
+                    Identifier::TemplateSwitchExit {
+                        entrance_reference_index,
+                        entrance_query_index,
+                        template_switch_primary,
+                        template_switch_secondary,
+                        primary_index,
+                        length_difference,
+                    } => todo!(),
+                }) {
+                    AStarResult::FoundTarget { identifier, cost } => todo!(),
+                    AStarResult::NoTarget => todo!(),
+                };
 
                 todo!("search shortest path to (x, y), while aborting in case the string is too short");
 
