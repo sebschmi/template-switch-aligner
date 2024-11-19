@@ -61,6 +61,24 @@ impl<Strategies: AlignmentStrategySelector> AStarNode for Node<Strategies> {
 }
 
 impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
+    pub fn new_root_at<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    >(
+        reference_index: usize,
+        query_index: usize,
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
+        Self {
+            node_data: NodeData::create_root(Identifier::Primary {
+                reference_index,
+                query_index,
+                gap_type: GapType::None,
+                flank_index: 0,
+            }),
+            strategies: AlignmentStrategies::create_root(context),
+        }
+    }
+
     fn generate_primary_diagonal_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
@@ -526,6 +544,16 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
 }
 
 impl NodeData {
+    fn create_root(identifier: Identifier) -> Self {
+        Self {
+            identifier,
+            predecessor: None,
+            predecessor_edge_type: AlignmentType::Root,
+            cost: Cost::ZERO,
+            a_star_lower_bound: Cost::ZERO,
+        }
+    }
+
     fn generate_successor(
         &self,
         identifier: Identifier,

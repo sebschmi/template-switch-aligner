@@ -180,13 +180,24 @@ impl<Context: AStarContext> AStar<Context> {
     }
 
     pub fn initialise(&mut self) {
+        self.initialise_with(|context| context.create_root());
+    }
+
+    pub fn initialise_with(&mut self, node: impl FnOnce(&Context) -> Context::Node) {
         assert_eq!(self.state, AStarState::Empty);
 
         self.state = AStarState::Init;
-        self.open_list.push(self.context.create_root());
+        self.open_list.push(node(&self.context));
     }
 
     pub fn search(&mut self) -> AStarResult<<Context::Node as AStarNode>::Identifier> {
+        self.search_until(|context, node| context.is_target(node))
+    }
+
+    pub fn search_until(
+        &mut self,
+        is_target: impl Fn(&Context, &Context::Node) -> bool,
+    ) -> AStarResult<<Context::Node as AStarNode>::Identifier> {
         assert_eq!(self.state, AStarState::Init);
         self.state = AStarState::Searching;
 
@@ -240,7 +251,7 @@ impl<Context: AStarContext> AStar<Context> {
             self.performance_counters.opened_nodes +=
                 self.open_list.len() - open_nodes_without_new_successors;
 
-            if self.context.is_target(&node) {
+            if is_target(&self.context, &node) {
                 let identifier = node.identifier().clone();
                 let previous_visit = self.closed_list.insert(node.identifier().clone(), node);
                 self.performance_counters.closed_nodes += 1;
