@@ -11,7 +11,9 @@ use generic_a_star::{cost::Cost, AStar, AStarNode, AStarResult};
 use ndarray::Array2;
 
 use crate::{
-    a_star_aligner::template_switch_distance::{Context, Identifier, Node},
+    a_star_aligner::template_switch_distance::{
+        strategies::SimpleAlignmentStrategies, Context, Identifier, Node,
+    },
     config::TemplateSwitchConfig,
     costs::gap_affine::GapAffineAlignmentCostTable,
 };
@@ -21,109 +23,157 @@ use crate::{
 pub struct TemplateSwitchLowerBoundMatrix {
     matrix: Array2<Cost>,
     min_distance_between_two_template_switches: usize,
-    template_switch_min_length: isize,
-    template_switch_max_length: isize,
 }
 
 impl TemplateSwitchLowerBoundMatrix {
-    pub fn new<AlphabetType: Alphabet>(config: &TemplateSwitchConfig<AlphabetType>) -> Self {
+    pub fn new<AlphabetType: Alphabet + std::fmt::Debug + Clone + Eq>(
+        config: &TemplateSwitchConfig<AlphabetType>,
+    ) -> Self {
         let lower_bound_config = generate_template_switch_lower_bound_config(config);
         let mut open_lower_bounds = HashSet::new();
-        open_lower_bounds.insert((0, 0));
+        open_lower_bounds.insert((0isize, 0isize, false));
         let mut closed_lower_bounds = HashMap::new();
-        let mut string_length = 10_000;
+        let mut genome_length = 10_000;
 
-        loop {
-            assert!(string_length < usize::try_from(isize::MAX).unwrap() / 2);
-            let string = VectorGenome::from_iter(
-                iter::repeat(AlphabetType::iter().next().unwrap()).take(string_length),
+        'outer: loop {
+            assert!(genome_length < usize::try_from(isize::MAX).unwrap() / 2);
+            let genome = VectorGenome::<AlphabetType>::from_iter(
+                iter::repeat(AlphabetType::iter().next().unwrap()).take(genome_length),
             );
-            let mut a_star = AStar::new(Context::new(
-                string.as_genome_subsequence(),
-                string.as_genome_subsequence(),
-                lower_bound_config,
-            ));
-            let root_xy = string_length / 2;
+            let mut a_star =
+                AStar::new(Context::<_, SimpleAlignmentStrategies<AlphabetType>>::new(
+                    genome.as_genome_subsequence(),
+                    genome.as_genome_subsequence(),
+                    lower_bound_config.clone(),
+                ));
+            let root_xy = genome_length / 2;
             a_star.initialise_with(|context| Node::new_root_at(root_xy, root_xy, context));
 
             let root_xy_isize = isize::try_from(root_xy).unwrap();
-            let string_length_isize = isize::try_from(string_length).unwrap();
+            let string_length_isize = isize::try_from(genome_length).unwrap();
 
-            while let Some(coordinates) = open_lower_bounds.iter().next() {
-                let (x, y) = open_lower_bounds.take(coordinates).unwrap();
+            while let Some(coordinates) = open_lower_bounds.iter().next().copied() {
+                let (x, y, from_target) = open_lower_bounds.take(&coordinates).unwrap();
                 debug_assert!(!closed_lower_bounds.contains_key(&(x, y)));
+                let reference_target = usize::try_from(x + root_xy_isize).unwrap();
+                let query_target = usize::try_from(y + root_xy_isize).unwrap();
 
-                match a_star.search_until(|context, node| match *node.identifier() {
-                    Identifier::Primary {
-                        reference_index,
-                        query_index,
-                        ..
-                    } => {
-                        reference_index == 0
-                            || query_index == 0
-                            || reference_index == string_length - 1
-                            || query_index == string_length - 1
-                    }
-                    Identifier::PrimaryReentry { .. } => true,
-                    Identifier::TemplateSwitchEntrance {
-                        entrance_reference_index,
-                        entrance_query_index,
-                        template_switch_first_offset,
-                        ..
-                    } => {
-                        entrance_reference_index == 0
-                            || entrance_query_index == 0
-                            || entrance_reference_index == string_length - 1
-                            || entrance_query_index == string_length - 1
-                            || template_switch_first_offset + root_xy_isize == 0
-                            || template_switch_first_offset + root_xy_isize
-                                == string_length_isize - 1
-                    }
-                    Identifier::Secondary {
-                        primary_index,
-                        secondary_index,
-                        ..
-                    } => {
-                        primary_index == 0
-                            || primary_index == string_length - 1
-                            || secondary_index == 0
-                            || secondary_index == string_length - 1
-                    }
-                    Identifier::TemplateSwitchExit { .. } => {
-                        node.generate_primary_reentry_successor(context).is_none()
-                    }
-                }) {
-                    AStarResult::FoundTarget { identifier, cost } => todo!(),
-                    AStarResult::NoTarget => todo!(),
-                };
+                let has_target =
+                    match a_star.search_until(|context, node| match *node.identifier() {
+                        Identifier::Primary {
+                            reference_index,
+                            query_index,
+                            ..
+                        } => {
+                            reference_index == 0
+                                || query_index == 0
+                                || reference_index == genome_length - 1
+                                || query_index == genome_length - 1
+                        }
+                        Identifier::PrimaryReentry {
+                            reference_index,
+                            query_index,
+                            ..
+                        } => reference_index == reference_target && query_index == query_target,
+                        Identifier::TemplateSwitchEntrance {
+                            entrance_reference_index,
+                            entrance_query_index,
+                            template_switch_first_offset,
+                            ..
+                        } => {
+                            entrance_reference_index == 0
+                                || entrance_query_index == 0
+                                || entrance_reference_index == genome_length - 1
+                                || entrance_query_index == genome_length - 1
+                                || template_switch_first_offset + root_xy_isize == 0
+                                || template_switch_first_offset + root_xy_isize
+                                    == string_length_isize - 1
+                        }
+                        Identifier::Secondary {
+                            primary_index,
+                            secondary_index,
+                            ..
+                        } => {
+                            primary_index == 0
+                                || primary_index == genome_length - 1
+                                || secondary_index == 0
+                                || secondary_index == genome_length - 1
+                        }
+                        Identifier::TemplateSwitchExit { .. } => {
+                            node.generate_primary_reentry_successor(context).is_none()
+                        }
+                    }) {
+                        AStarResult::FoundTarget { identifier, cost } => {
+                            if let Identifier::PrimaryReentry { .. } = identifier {
+                                let previous = closed_lower_bounds.insert((x, y), cost);
+                                debug_assert!(previous.is_none());
+                                true
+                            } else {
+                                open_lower_bounds.insert((x, y, from_target));
+                                genome_length *= 2;
+                                continue 'outer;
+                            }
+                        }
+                        AStarResult::NoTarget => {
+                            let previous = closed_lower_bounds.insert((x, y), Cost::MAX);
+                            debug_assert!(previous.is_none());
+                            false
+                        }
+                    };
 
-                todo!("search shortest path to (x, y), while aborting in case the string is too short");
+                if has_target || !from_target {
+                    let from_target = has_target;
 
-                todo!("insert neighbours into open lower bounds, if they are not yet closed");
+                    for (x, y) in [
+                        (x + 1, y + 1),
+                        (x + 1, y),
+                        (x + 1, y - 1),
+                        (x, y + 1),
+                        (x, y - 1),
+                        (x - 1, y + 1),
+                        (x - 1, y),
+                        (x - 1, y - 1),
+                    ] {
+                        if !closed_lower_bounds.contains_key(&(x, y)) {
+                            open_lower_bounds.insert((x, y, from_target));
+                        }
+                    }
+                }
             }
+
+            break;
         }
 
         let min_distance_between_two_template_switches =
             usize::try_from(config.left_flank_length + config.right_flank_length).unwrap();
 
+        let (min_x, max_x, min_y, max_y) = closed_lower_bounds.keys().fold(
+            (isize::MAX, isize::MIN, isize::MAX, isize::MIN),
+            |(min_x, max_x, min_y, max_y), &(x, y)| {
+                (min_x.min(x), max_x.max(x), min_y.min(y), max_y.max(y))
+            },
+        );
+
+        let shift_x = -min_x;
+        let shift_y = -max_y;
+        let len_x = usize::try_from(max_x - min_x + 1).unwrap();
+        let len_y = usize::try_from(max_y - min_y + 1).unwrap();
+
+        let mut matrix = Array2::from_elem([len_x, len_y], Cost::MAX);
+        for ((x, y), cost) in closed_lower_bounds {
+            let x = usize::try_from(x + shift_x).unwrap();
+            let y = usize::try_from(y + shift_y).unwrap();
+            matrix[(x, y)] = cost;
+        }
+
         Self {
             matrix,
             min_distance_between_two_template_switches,
-            template_switch_min_length,
-            template_switch_max_length,
         }
     }
 
     pub fn min_distance_between_two_template_switches(&self) -> usize {
         self.min_distance_between_two_template_switches
-    }
-
-    pub fn template_switch_min_length(&self) -> isize {
-        self.template_switch_min_length
-    }
-
-    pub fn template_switch_max_length(&self) -> isize {
-        self.template_switch_max_length
     }
 }
 
