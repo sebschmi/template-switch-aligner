@@ -11,7 +11,7 @@ use generic_a_star::{cost::Cost, AStar, AStarNode, AStarResult};
 use ndarray::Array2;
 
 use crate::{
-    a_star_aligner::template_switch_distance::{Context, GapType, Identifier, Node},
+    a_star_aligner::template_switch_distance::{Context, Identifier, Node},
     config::TemplateSwitchConfig,
     costs::gap_affine::GapAffineAlignmentCostTable,
 };
@@ -34,6 +34,7 @@ impl TemplateSwitchLowerBoundMatrix {
         let mut string_length = 10_000;
 
         loop {
+            assert!(string_length < usize::try_from(isize::MAX).unwrap() / 2);
             let string = VectorGenome::from_iter(
                 iter::repeat(AlphabetType::iter().next().unwrap()).take(string_length),
             );
@@ -42,9 +43,11 @@ impl TemplateSwitchLowerBoundMatrix {
                 string.as_genome_subsequence(),
                 lower_bound_config,
             ));
-            let root_x = string_length / 2;
-            let root_y = string_length / 2;
-            a_star.initialise_with(|context| Node::new_root_at(root_x, root_y, context));
+            let root_xy = string_length / 2;
+            a_star.initialise_with(|context| Node::new_root_at(root_xy, root_xy, context));
+
+            let root_xy_isize = isize::try_from(root_xy).unwrap();
+            let string_length_isize = isize::try_from(string_length).unwrap();
 
             while let Some(coordinates) = open_lower_bounds.iter().next() {
                 let (x, y) = open_lower_bounds.take(coordinates).unwrap();
@@ -55,45 +58,40 @@ impl TemplateSwitchLowerBoundMatrix {
                         reference_index,
                         query_index,
                         ..
-                    }
-                    | Identifier::PrimaryReentry {
-                        reference_index,
-                        query_index,
-                        ..
                     } => {
                         reference_index == 0
                             || query_index == 0
                             || reference_index == string_length - 1
                             || query_index == string_length - 1
                     }
+                    Identifier::PrimaryReentry { .. } => true,
                     Identifier::TemplateSwitchEntrance {
                         entrance_reference_index,
                         entrance_query_index,
+                        template_switch_first_offset,
                         ..
                     } => {
                         entrance_reference_index == 0
                             || entrance_query_index == 0
                             || entrance_reference_index == string_length - 1
                             || entrance_query_index == string_length - 1
+                            || template_switch_first_offset + root_xy_isize == 0
+                            || template_switch_first_offset + root_xy_isize
+                                == string_length_isize - 1
                     }
                     Identifier::Secondary {
-                        entrance_reference_index,
-                        entrance_query_index,
-                        template_switch_primary,
-                        template_switch_secondary,
-                        length,
                         primary_index,
                         secondary_index,
-                        gap_type,
-                    } => todo!(),
-                    Identifier::TemplateSwitchExit {
-                        entrance_reference_index,
-                        entrance_query_index,
-                        template_switch_primary,
-                        template_switch_secondary,
-                        primary_index,
-                        length_difference,
-                    } => todo!(),
+                        ..
+                    } => {
+                        primary_index == 0
+                            || primary_index == string_length - 1
+                            || secondary_index == 0
+                            || secondary_index == string_length - 1
+                    }
+                    Identifier::TemplateSwitchExit { .. } => {
+                        node.generate_primary_reentry_successor(context).is_none()
+                    }
                 }) {
                     AStarResult::FoundTarget { identifier, cost } => todo!(),
                     AStarResult::NoTarget => todo!(),

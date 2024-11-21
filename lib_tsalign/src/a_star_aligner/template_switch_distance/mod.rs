@@ -462,7 +462,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ))
     }
 
-    fn generate_primary_reentry_successor<
+    pub fn generate_primary_reentry_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
