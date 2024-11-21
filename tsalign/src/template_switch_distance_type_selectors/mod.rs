@@ -5,6 +5,7 @@ use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use lib_tsalign::{
     a_star_aligner::{
         template_switch_distance::strategies::{
+            chaining::{ChainingStrategy, NoChainingStrategy, PrecomputeOnlyChainingStrategy},
             node_ord::{AntiDiagonalNodeOrdStrategy, CostOnlyNodeOrdStrategy, NodeOrdStrategy},
             template_switch_min_length::{
                 LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
@@ -21,7 +22,7 @@ use log::info;
 use crate::Cli;
 
 #[derive(Clone, ValueEnum)]
-pub enum TemplateSwitchNodeOrdStrategy {
+pub enum TemplateSwitchNodeOrdStrategySelector {
     CostOnly,
     AntiDiagonal,
 }
@@ -30,6 +31,12 @@ pub enum TemplateSwitchNodeOrdStrategy {
 pub enum TemplateSwitchMinLengthStrategySelector {
     None,
     Lookahead,
+}
+
+#[derive(Clone, ValueEnum)]
+pub enum TemplateSwitchChainingStrategySelector {
+    None,
+    PrecomputeOnly,
 }
 
 pub fn align_a_star_template_switch_distance<
@@ -52,14 +59,14 @@ fn align_a_star_template_switch_distance_select_node_ord_strategy<
     query: &SubsequenceType,
 ) {
     match cli.ts_node_ord_strategy {
-        TemplateSwitchNodeOrdStrategy::CostOnly => {
+        TemplateSwitchNodeOrdStrategySelector::CostOnly => {
             align_a_star_template_switch_distance_select_template_switch_min_length_strategy::<
                 _,
                 _,
                 CostOnlyNodeOrdStrategy,
             >(cli, reference, query)
         }
-        TemplateSwitchNodeOrdStrategy::AntiDiagonal => {
+        TemplateSwitchNodeOrdStrategySelector::AntiDiagonal => {
             align_a_star_template_switch_distance_select_template_switch_min_length_strategy::<
                 _,
                 _,
@@ -80,7 +87,7 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
 ) {
     match cli.ts_min_length_strategy {
         TemplateSwitchMinLengthStrategySelector::None => {
-            align_a_star_template_switch_distance_call::<
+            align_a_star_template_switch_select_chaining_strategy::<
                 _,
                 _,
                 NodeOrd,
@@ -88,11 +95,43 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
             >(cli, reference, query)
         }
         TemplateSwitchMinLengthStrategySelector::Lookahead => {
-            align_a_star_template_switch_distance_call::<
+            align_a_star_template_switch_select_chaining_strategy::<
                 _,
                 _,
                 NodeOrd,
                 LookaheadTemplateSwitchMinLengthStrategy,
+            >(cli, reference, query)
+        }
+    }
+}
+
+fn align_a_star_template_switch_select_chaining_strategy<
+    AlphabetType: Alphabet + Debug + Clone + Eq,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    NodeOrd: NodeOrdStrategy,
+    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
+>(
+    cli: Cli,
+    reference: &SubsequenceType,
+    query: &SubsequenceType,
+) {
+    match cli.ts_chaining_strategy {
+        TemplateSwitchChainingStrategySelector::None => {
+            align_a_star_template_switch_distance_call::<
+                _,
+                _,
+                NodeOrd,
+                TemplateSwitchMinLength,
+                NoChainingStrategy,
+            >(cli, reference, query)
+        }
+        TemplateSwitchChainingStrategySelector::PrecomputeOnly => {
+            align_a_star_template_switch_distance_call::<
+                _,
+                _,
+                NodeOrd,
+                TemplateSwitchMinLength,
+                PrecomputeOnlyChainingStrategy,
             >(cli, reference, query)
         }
     }
@@ -103,6 +142,7 @@ fn align_a_star_template_switch_distance_call<
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
     NodeOrd: NodeOrdStrategy,
     TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
+    Chaining: ChainingStrategy,
 >(
     cli: Cli,
     reference: &SubsequenceType,
@@ -117,7 +157,7 @@ fn align_a_star_template_switch_distance_call<
 
     info!("Aligning...");
     let alignment = template_switch_distance_a_star_align::<
-        AlignmentStrategySelection<AlphabetType, NodeOrd, TemplateSwitchMinLength>,
+        AlignmentStrategySelection<AlphabetType, NodeOrd, TemplateSwitchMinLength, Chaining>,
         _,
     >(reference, query, costs);
 

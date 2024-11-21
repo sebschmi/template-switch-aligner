@@ -18,8 +18,8 @@ use lib_tsalign::{
 use log::{info, LevelFilter};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 use template_switch_distance_type_selectors::{
-    align_a_star_template_switch_distance, TemplateSwitchMinLengthStrategySelector,
-    TemplateSwitchNodeOrdStrategy,
+    align_a_star_template_switch_distance, TemplateSwitchChainingStrategySelector,
+    TemplateSwitchMinLengthStrategySelector, TemplateSwitchNodeOrdStrategySelector,
 };
 
 mod template_switch_distance_type_selectors;
@@ -55,10 +55,13 @@ struct Cli {
     alignment_method: AlignmentMethod,
 
     #[clap(long, default_value = "anti-diagonal")]
-    ts_node_ord_strategy: TemplateSwitchNodeOrdStrategy,
+    ts_node_ord_strategy: TemplateSwitchNodeOrdStrategySelector,
 
     #[clap(long, default_value = "lookahead")]
     ts_min_length_strategy: TemplateSwitchMinLengthStrategySelector,
+
+    #[clap(long, default_value = "none")]
+    ts_chaining_strategy: TemplateSwitchChainingStrategySelector,
 }
 
 #[derive(Args)]
