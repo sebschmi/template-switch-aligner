@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    fmt::Display,
+    fmt::{Display, Write},
     iter,
 };
 
@@ -35,6 +35,8 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TemplateSwitchLowerBoundMatrix {
     matrix: Array2<Cost>,
+    shift_x: isize,
+    shift_y: isize,
     min_distance_between_two_template_switches: usize,
 }
 
@@ -228,10 +230,14 @@ impl TemplateSwitchLowerBoundMatrix {
         let min_distance_between_two_template_switches =
             usize::try_from(config.left_flank_length + config.right_flank_length).unwrap();
 
-        let (min_x, max_x, min_y, max_y) = closed_lower_bounds.keys().fold(
+        let (min_x, max_x, min_y, max_y) = closed_lower_bounds.iter().fold(
             (isize::MAX, isize::MIN, isize::MAX, isize::MIN),
-            |(min_x, max_x, min_y, max_y), &(x, y)| {
-                (min_x.min(x), max_x.max(x), min_y.min(y), max_y.max(y))
+            |(min_x, max_x, min_y, max_y), (&(x, y), &cost)| {
+                if cost != Cost::MAX {
+                    (min_x.min(x), max_x.max(x), min_y.min(y), max_y.max(y))
+                } else {
+                    (min_x, max_x, min_y, max_y)
+                }
             },
         );
 
@@ -242,13 +248,17 @@ impl TemplateSwitchLowerBoundMatrix {
 
         let mut matrix = Array2::from_elem([len_x, len_y], Cost::MAX);
         for ((x, y), cost) in closed_lower_bounds {
-            let x = usize::try_from(x + shift_x).unwrap();
-            let y = usize::try_from(y + shift_y).unwrap();
-            matrix[(x, y)] = cost;
+            if cost != Cost::MAX {
+                let x = usize::try_from(x + shift_x).unwrap();
+                let y = usize::try_from(y + shift_y).unwrap();
+                matrix[(x, y)] = cost;
+            }
         }
 
         Self {
             matrix,
+            shift_x,
+            shift_y,
             min_distance_between_two_template_switches,
         }
     }
@@ -287,20 +297,6 @@ fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet>(
     }
 }
 
-impl Display for TemplateSwitchLowerBoundMatrix {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "TemplateSwitchLowerBoundMatrix:")?;
-        writeln!(
-            f,
-            "min distance: {}",
-            self.min_distance_between_two_template_switches
-        )?;
-        writeln!(f, "{}", self.matrix)?;
-
-        Ok(())
-    }
-}
-
 fn enqueue_neighbours(
     x: isize,
     y: isize,
@@ -320,5 +316,61 @@ fn enqueue_neighbours(
         if !closed_lower_bounds.contains_key(&(x, y)) {
             open_lower_bounds.insert((x, y));
         }
+    }
+}
+
+impl Display for TemplateSwitchLowerBoundMatrix {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "TemplateSwitchLowerBoundMatrix:")?;
+        writeln!(
+            f,
+            "min distance: {}",
+            self.min_distance_between_two_template_switches
+        )?;
+        writeln!(
+            f,
+            "x range: [{}, {}]; y range: [{}, {}]",
+            -self.shift_x,
+            isize::try_from(self.matrix.dim().0).unwrap() - self.shift_x,
+            -self.shift_y,
+            isize::try_from(self.matrix.dim().1).unwrap() - self.shift_y
+        )?;
+
+        let mut buffer = String::new();
+        let column_widths: Vec<_> = (0..self.matrix.dim().0)
+            .map(|x| {
+                (0..self.matrix.dim().1)
+                    .map(|y| {
+                        if self.matrix[(x, y)] == Cost::MAX {
+                            1
+                        } else {
+                            buffer.clear();
+                            write!(buffer, "{}", self.matrix[(x, y)]).unwrap();
+                            buffer.len()
+                        }
+                    })
+                    .max()
+                    .unwrap()
+            })
+            .collect();
+
+        for y in 0..self.matrix.dim().1 {
+            for (x, column_width) in column_widths.iter().enumerate().take(self.matrix.dim().0) {
+                buffer.clear();
+                if self.matrix[(x, y)] == Cost::MAX {
+                    write!(buffer, "∞").unwrap();
+                } else {
+                    write!(buffer, "{}", self.matrix[(x, y)]).unwrap();
+                }
+                for _ in 0..=column_width - buffer.chars().count() {
+                    write!(f, " ")?;
+                }
+                write!(f, "{buffer}")?;
+            }
+
+            writeln!(f)?;
+        }
+
+        Ok(())
     }
 }
