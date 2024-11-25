@@ -158,3 +158,114 @@ impl<SourceType> From<CostFunction<SourceType>> for Vec<(SourceType, Cost)> {
         value.function
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use generic_a_star::cost::Cost;
+
+    use super::CostFunction;
+
+    #[test]
+    #[expect(clippy::reversed_empty_ranges)]
+    fn min() {
+        let cost_function = CostFunction::try_from(vec![
+            (2, Cost::from(100)),
+            (3, Cost::from(1)),
+            (4, Cost::from(2)),
+            (6, Cost::from(1)),
+            (8, Cost::from(3)),
+            (70, Cost::from(2)),
+            (100, Cost::from(100)),
+        ])
+        .unwrap();
+
+        assert_eq!(cost_function.min(0..2), None);
+        assert_eq!(cost_function.min(1..2), None);
+        assert_eq!(cost_function.min(2..2), None);
+        assert_eq!(cost_function.min(4..2), None);
+        assert_eq!(cost_function.min(4..=2), None);
+        assert_eq!(cost_function.min(3..=2), None);
+        assert_eq!(cost_function.min(2..=2), Some(100.into()));
+        assert_eq!(cost_function.min(3..=3), Some(1.into()));
+        assert_eq!(cost_function.min(4..=4), Some(2.into()));
+        assert_eq!(cost_function.min(5..=5), Some(2.into()));
+        assert_eq!(cost_function.min(6..=6), Some(1.into()));
+        assert_eq!(cost_function.min(2..3), Some(100.into()));
+        assert_eq!(cost_function.min(3..4), Some(1.into()));
+        assert_eq!(cost_function.min(4..5), Some(2.into()));
+        assert_eq!(cost_function.min(5..6), Some(2.into()));
+        assert_eq!(cost_function.min(6..7), Some(1.into()));
+        assert_eq!(cost_function.min(22..=33), Some(3.into()));
+        assert_eq!(cost_function.min(22..33), Some(3.into()));
+
+        assert_eq!(cost_function.min(..), Some(1.into()));
+        assert!([
+            (0.., Some(1)),
+            (1.., Some(1)),
+            (2.., Some(1)),
+            (3.., Some(1)),
+            (4.., Some(1)),
+            (5.., Some(1)),
+            (6.., Some(1)),
+            (7.., Some(1)),
+            (8.., Some(2)),
+            (9.., Some(2)),
+            (69.., Some(2)),
+            (70.., Some(2)),
+            (71.., Some(2)),
+            (72.., Some(2)),
+            (99.., Some(2)),
+            (100.., Some(100)),
+            (101.., Some(100)),
+        ]
+        .into_iter()
+        .map(|(range, cost)| (range, cost.map(Cost::from)))
+        .all(|(range, min)| cost_function.min(range) == min));
+
+        assert!([
+            (..0, None),
+            (..1, None),
+            (..2, None),
+            (..3, Some(100)),
+            (..4, Some(1)),
+            (..5, Some(1)),
+            (..6, Some(1)),
+            (..7, Some(1)),
+            (..8, Some(1)),
+            (..9, Some(1)),
+            (..69, Some(1)),
+            (..70, Some(1)),
+            (..71, Some(1)),
+            (..72, Some(1)),
+            (..99, Some(1)),
+            (..100, Some(1)),
+            (..101, Some(1)),
+        ]
+        .into_iter()
+        .map(|(range, cost)| (range, cost.map(Cost::from)))
+        .all(|(range, min)| cost_function.min(range) == min));
+
+        assert!([
+            (..=0, None),
+            (..=1, None),
+            (..=2, Some(100)),
+            (..=3, Some(1)),
+            (..=4, Some(1)),
+            (..=5, Some(1)),
+            (..=6, Some(1)),
+            (..=7, Some(1)),
+            (..=8, Some(1)),
+            (..=9, Some(1)),
+            (..=69, Some(1)),
+            (..=70, Some(1)),
+            (..=71, Some(1)),
+            (..=72, Some(1)),
+            (..=99, Some(1)),
+            (..=100, Some(1)),
+            (..=101, Some(1)),
+        ]
+        .into_iter()
+        .map(|(range, cost)| (range, cost.map(Cost::from)))
+        .all(|(range, min)| cost_function.min(range) == min));
+    }
+}
