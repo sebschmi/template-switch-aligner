@@ -5,7 +5,7 @@ use std::{
 };
 
 use compact_genome::{
-    implementation::vec_sequence::VectorGenome,
+    implementation::vec_sequence::{SliceSubGenome, VectorGenome},
     interface::{alphabet::Alphabet, sequence::GenomeSequence},
 };
 use generic_a_star::{cost::Cost, AStar, AStarNode, AStarResult};
@@ -13,8 +13,19 @@ use log::{debug, trace};
 use ndarray::Array2;
 
 use crate::{
-    a_star_aligner::template_switch_distance::{
-        strategies::SimpleAlignmentStrategies, Context, Identifier, Node,
+    a_star_aligner::{
+        alignment_result::IAlignmentType,
+        template_switch_distance::{
+            strategies::{
+                chaining::NoChainingStrategy, node_ord::CostOnlyNodeOrdStrategy,
+                secondary_deletion_strategy::ForbidSecondaryDeletionStrategy,
+                template_switch_count::MaxTemplateSwitchCountStrategy,
+                template_switch_min_length::NoTemplateSwitchMinLengthStrategy,
+                AlignmentStrategySelection,
+            },
+            Context, Identifier, Node,
+        },
+        AlignmentContext,
     },
     config::TemplateSwitchConfig,
     costs::gap_affine::GapAffineAlignmentCostTable,
@@ -27,13 +38,31 @@ pub struct TemplateSwitchLowerBoundMatrix {
     min_distance_between_two_template_switches: usize,
 }
 
+type TSLBAlignmentStrategies<AlphabetType> = AlignmentStrategySelection<
+    AlphabetType,
+    CostOnlyNodeOrdStrategy,
+    NoTemplateSwitchMinLengthStrategy,
+    NoChainingStrategy,
+    MaxTemplateSwitchCountStrategy,
+    ForbidSecondaryDeletionStrategy,
+>;
+
 impl TemplateSwitchLowerBoundMatrix {
     pub fn new<AlphabetType: Alphabet>(config: &TemplateSwitchConfig<AlphabetType>) -> Self {
         let lower_bound_config = generate_template_switch_lower_bound_config(config);
+        assert!(
+            lower_bound_config
+                .secondary_edit_costs
+                .min_gap_extend_cost()
+                > Cost::ZERO,
+            "Secondary gap extend costs must be greater than zero for all alphabet characters."
+        );
+
         let mut open_lower_bounds = HashSet::new();
-        open_lower_bounds.insert((0isize, 0isize, false));
+        open_lower_bounds.insert((0isize, 0isize));
         let mut closed_lower_bounds = HashMap::new();
-        let mut genome_length = 10_000;
+        let mut previous_closed_lower_bounds = HashMap::new();
+        let mut genome_length = 100;
 
         'outer: loop {
             debug!("Using genome length {genome_length}");
@@ -41,27 +70,29 @@ impl TemplateSwitchLowerBoundMatrix {
             let genome = VectorGenome::<AlphabetType>::from_iter(
                 iter::repeat(AlphabetType::iter().next().unwrap()).take(genome_length),
             );
-            let mut a_star =
-                AStar::new(Context::<_, SimpleAlignmentStrategies<AlphabetType>>::new(
-                    genome.as_genome_subsequence(),
-                    genome.as_genome_subsequence(),
-                    lower_bound_config.clone(),
-                ));
+            let mut a_star = AStar::new(Context::<_, TSLBAlignmentStrategies<AlphabetType>>::new(
+                genome.as_genome_subsequence(),
+                genome.as_genome_subsequence(),
+                lower_bound_config.clone(),
+                1,
+            ));
             let root_xy = genome_length / 2;
             a_star.initialise_with(|context| Node::new_root_at(root_xy, root_xy, context));
+            previous_closed_lower_bounds.extend(closed_lower_bounds.drain());
 
             let root_xy_isize = isize::try_from(root_xy).unwrap();
             let string_length_isize = isize::try_from(genome_length).unwrap();
 
-            while let Some(coordinates) = open_lower_bounds.iter().next().copied() {
-                let (x, y, from_target) = open_lower_bounds.take(&coordinates).unwrap();
-                trace!("Precomputing coordinates ({x}, {y}, {from_target})");
-                debug_assert!(!closed_lower_bounds.contains_key(&(x, y)));
-                let reference_target = usize::try_from(x + root_xy_isize).unwrap();
-                let query_target = usize::try_from(y + root_xy_isize).unwrap();
+            'inner: while let Some(coordinates) = open_lower_bounds.iter().next().copied() {
+                let (x, y) = open_lower_bounds.take(&coordinates).unwrap();
+                if closed_lower_bounds.contains_key(&(x, y)) {
+                    continue 'inner;
+                }
 
-                let has_target =
-                    match a_star.search_until(|context, node| match *node.identifier() {
+                trace!("Searching for target ({x}, {y})");
+
+                let has_target = match a_star.search_until(|context, node| {
+                    match *node.identifier() {
                         Identifier::Primary {
                             reference_index,
                             query_index,
@@ -76,7 +107,40 @@ impl TemplateSwitchLowerBoundMatrix {
                             reference_index,
                             query_index,
                             ..
-                        } => reference_index == reference_target && query_index == query_target,
+                        } => {
+                            let reentry_x =
+                                isize::try_from(reference_index).unwrap() - root_xy_isize;
+                            let reentry_y = isize::try_from(query_index).unwrap() - root_xy_isize;
+
+                            trace!("Found target {} at cost {}", node.identifier(), node.cost());
+
+                            let previous =
+                                closed_lower_bounds.insert((reentry_x, reentry_y), node.cost());
+
+                            // If previous exists, then it was inserted when searching with a shorter string.
+                            debug_assert!(previous.is_none());
+                            let previous_previous = previous_closed_lower_bounds
+                                .get(&(reentry_x, reentry_y))
+                                .copied();
+                            debug_assert!(
+                                previous_previous.is_none()
+                                    || previous_previous == Some(node.cost())
+                            );
+
+                            enqueue_neighbours(
+                                reentry_x,
+                                reentry_y,
+                                &mut closed_lower_bounds,
+                                &mut open_lower_bounds,
+                            );
+
+                            /*trace!(
+                                "Found primary reentry node {} at cost {}",
+                                node.identifier(),
+                                node.cost()
+                            );*/
+                            reentry_x == x && reentry_y == y
+                        }
                         Identifier::TemplateSwitchEntrance {
                             entrance_reference_index,
                             entrance_query_index,
@@ -104,43 +168,57 @@ impl TemplateSwitchLowerBoundMatrix {
                         Identifier::TemplateSwitchExit { .. } => {
                             node.generate_primary_reentry_successor(context).is_none()
                         }
-                    }) {
-                        AStarResult::FoundTarget { identifier, cost } => {
-                            trace!("Found target {identifier} at cost {cost}");
-                            if let Identifier::PrimaryReentry { .. } = identifier {
-                                let previous = closed_lower_bounds.insert((x, y), cost);
-                                debug_assert!(previous.is_none());
-                                true
-                            } else {
-                                open_lower_bounds.insert((x, y, from_target));
-                                genome_length *= 2;
-                                continue 'outer;
-                            }
-                        }
-                        AStarResult::NoTarget => {
-                            let previous = closed_lower_bounds.insert((x, y), Cost::MAX);
-                            debug_assert!(previous.is_none());
-                            false
-                        }
-                    };
+                    }
+                }) {
+                    AStarResult::FoundTarget { identifier, cost } => {
+                        trace!("Search termianted with target {identifier} at cost {cost}");
 
-                if has_target || !from_target {
-                    let from_target = has_target;
+                        if let Identifier::PrimaryReentry { .. } = identifier {
+                            debug_assert_eq!(closed_lower_bounds.get(&(x, y)), Some(cost).as_ref());
+                            true
+                        } else {
+                            trace!("{:?}", {
+                                let mut alignment = Vec::new();
 
-                    for (x, y) in [
-                        (x + 1, y + 1),
-                        (x + 1, y),
-                        (x + 1, y - 1),
-                        (x, y + 1),
-                        (x, y - 1),
-                        (x - 1, y + 1),
-                        (x - 1, y),
-                        (x - 1, y - 1),
-                    ] {
-                        if !closed_lower_bounds.contains_key(&(x, y)) {
-                            open_lower_bounds.insert((x, y, from_target));
+                                // Backtrack.
+                                for alignment_type in a_star.backtrack().into_iter().map(
+                                    <Context<
+                                        SliceSubGenome<_>,
+                                        TSLBAlignmentStrategies<AlphabetType>,
+                                    > as AlignmentContext>::AlignmentType::from,
+                                ) {
+                                    if let Some((count, previous_alignment_type)) =
+                                        alignment.last_mut()
+                                    {
+                                        if alignment_type.is_repeated(previous_alignment_type) {
+                                            *count += 1;
+                                        } else {
+                                            alignment.push((1, alignment_type));
+                                        }
+                                    } else {
+                                        alignment.push((1, alignment_type));
+                                    }
+                                }
+
+                                alignment.reverse();
+                                alignment
+                            });
+                            open_lower_bounds.insert((x, y));
+                            genome_length *= 2;
+                            continue 'outer;
                         }
                     }
+                    AStarResult::NoTarget => {
+                        trace!("Search terminated without target");
+                        let previous = closed_lower_bounds.insert((x, y), Cost::MAX);
+                        debug_assert!(previous.is_none());
+                        false
+                    }
+                };
+
+                if has_target {
+                    trace!("Inserting neighbours after search");
+                    enqueue_neighbours(x, y, &mut closed_lower_bounds, &mut open_lower_bounds);
                 }
             }
 
@@ -158,7 +236,7 @@ impl TemplateSwitchLowerBoundMatrix {
         );
 
         let shift_x = -min_x;
-        let shift_y = -max_y;
+        let shift_y = -min_y;
         let len_x = usize::try_from(max_x - min_x + 1).unwrap();
         let len_y = usize::try_from(max_y - min_y + 1).unwrap();
 
@@ -195,7 +273,15 @@ fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet>(
         left_flank_edit_costs: GapAffineAlignmentCostTable::new_max(),
         right_flank_edit_costs: GapAffineAlignmentCostTable::new_max(),
 
-        offset_costs: config.offset_costs.clone(),
+        // The offset only affects which part of the secondary string is being compared against, but otherwise does not change anything.
+        // Hence we can ignore it for the lower bound, and simply choose its minimum.
+        offset_costs: vec![
+            (isize::MIN, Cost::MAX),
+            (0, config.offset_costs.min(..).unwrap()),
+            (1, Cost::MAX),
+        ]
+        .try_into()
+        .unwrap(),
         length_costs: config.length_costs.clone(),
         length_difference_costs: config.length_difference_costs.clone(),
     }
@@ -212,5 +298,27 @@ impl Display for TemplateSwitchLowerBoundMatrix {
         writeln!(f, "{}", self.matrix)?;
 
         Ok(())
+    }
+}
+
+fn enqueue_neighbours(
+    x: isize,
+    y: isize,
+    closed_lower_bounds: &mut HashMap<(isize, isize), Cost>,
+    open_lower_bounds: &mut HashSet<(isize, isize)>,
+) {
+    for (x, y) in [
+        (x + 1, y + 1),
+        (x + 1, y),
+        (x + 1, y - 1),
+        (x, y + 1),
+        (x, y - 1),
+        (x - 1, y + 1),
+        (x - 1, y),
+        (x - 1, y - 1),
+    ] {
+        if !closed_lower_bounds.contains_key(&(x, y)) {
+            open_lower_bounds.insert((x, y));
+        }
     }
 }

@@ -196,9 +196,17 @@ impl<Context: AStarContext> AStar<Context> {
 
     pub fn search_until(
         &mut self,
-        is_target: impl Fn(&Context, &Context::Node) -> bool,
+        mut is_target: impl FnMut(&Context, &Context::Node) -> bool,
     ) -> AStarResult<<Context::Node as AStarNode>::Identifier> {
-        assert_eq!(self.state, AStarState::Init);
+        assert!(matches!(
+            self.state,
+            AStarState::Init | AStarState::Searching | AStarState::Terminated { .. }
+        ));
+
+        if self.open_list.is_empty() {
+            return AStarResult::NoTarget;
+        }
+
         self.state = AStarState::Searching;
 
         let mut last_node = None;

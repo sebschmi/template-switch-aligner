@@ -3,7 +3,9 @@ use std::{fmt::Debug, time::Instant};
 use alignment_result::{AlignmentResult, IAlignmentType};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
-use template_switch_distance::strategies::AlignmentStrategySelector;
+use template_switch_distance::strategies::{
+    template_switch_count::NoTemplateSwitchCountStrategy, AlignmentStrategySelector,
+};
 use traitsequence::interface::Sequence;
 
 use crate::config;
@@ -97,7 +99,7 @@ pub fn gap_affine_edit_distance_a_star_align<
 }
 
 pub fn template_switch_distance_a_star_align<
-    Strategies: AlignmentStrategySelector,
+    Strategies: AlignmentStrategySelector<TemplateSwitchCount = NoTemplateSwitchCountStrategy>,
     SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
 >(
     reference: &SubsequenceType,
@@ -107,5 +109,5 @@ pub fn template_switch_distance_a_star_align<
     a_star_align(template_switch_distance::Context::<
         SubsequenceType,
         Strategies,
-    >::new(reference, query, config))
+    >::new(reference, query, config, ()))
 }

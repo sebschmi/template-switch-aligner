@@ -11,6 +11,8 @@ use crate::config::TemplateSwitchConfig;
 
 use super::identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
 use super::strategies::chaining::ChainingStrategy;
+use super::strategies::secondary_deletion_strategy::SecondaryDeletionStrategy;
+use super::strategies::template_switch_count::TemplateSwitchCountStrategy;
 use super::strategies::template_switch_min_length::TemplateSwitchMinLengthStrategy;
 use super::strategies::{AlignmentStrategy, AlignmentStrategySelector};
 use super::{AlignmentType, Identifier, NodeData};
@@ -24,6 +26,7 @@ pub struct Context<'reference, 'query, SubsequenceType: GenomeSequence<Strategie
     pub template_switch_min_length_memory: <<Strategies as AlignmentStrategySelector>::TemplateSwitchMinLength as TemplateSwitchMinLengthStrategy>::Memory,
     pub a_star_buffers: AStarBuffers<Identifier, Node<Strategies>>,
     pub chaining_memory: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::Memory,
+    pub template_switch_count_memory:  <<Strategies as AlignmentStrategySelector>::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
 }
 
 impl<
@@ -37,6 +40,7 @@ impl<
         reference: &'reference SubsequenceType,
         query: &'query SubsequenceType,
         config: TemplateSwitchConfig<Strategies::Alphabet>,
+        template_switch_count_memory:<<Strategies as AlignmentStrategySelector>::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
     ) -> Self {
         debug!("Creating/loading context...");
         let chaining_memory = <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::initialise_memory(&config);
@@ -48,6 +52,7 @@ impl<
             template_switch_min_length_memory: Default::default(),
             a_star_buffers: Default::default(),
             chaining_memory,
+            template_switch_count_memory,
         }
     }
 }
@@ -97,6 +102,11 @@ impl<
                 debug_assert!(reference_index < isize::MAX as usize, "{node:?}");
                 debug_assert!(query_index < isize::MAX as usize, "{node:?}");
 
+                let can_start_another_template_switch = node
+                    .strategies
+                    .template_switch_count
+                    .can_start_another_template_switch(self);
+
                 if reference_index < self.reference.len() && query_index < self.query.len() {
                     // Diagonal characters
                     let r = self.reference[reference_index].clone();
@@ -115,7 +125,10 @@ impl<
                         );
                     }
 
-                    if flank_index >= 0 && flank_index < config.left_flank_length {
+                    if flank_index >= 0
+                        && flank_index < config.left_flank_length
+                        && can_start_another_template_switch
+                    {
                         opened_nodes_output.extend(
                             node.generate_primary_diagonal_successor(
                                 flank_index + 1,
@@ -137,7 +150,9 @@ impl<
                                 self,
                             ),
                         );
-                    } else if flank_index == config.left_flank_length {
+                    } else if flank_index == config.left_flank_length
+                        && can_start_another_template_switch
+                    {
                         opened_nodes_output.extend(
                             node.generate_initial_template_switch_entrance_successors(
                                 config.offset_costs.evaluate(&0) + config.base_cost,
@@ -163,7 +178,10 @@ impl<
                         );
                     }
 
-                    if flank_index >= 0 && flank_index < config.left_flank_length {
+                    if flank_index >= 0
+                        && flank_index < config.left_flank_length
+                        && can_start_another_template_switch
+                    {
                         opened_nodes_output.extend(
                             node.generate_primary_deletion_successor(
                                 flank_index + 1,
@@ -183,7 +201,9 @@ impl<
                                 self,
                             ),
                         );
-                    } else if flank_index == config.left_flank_length {
+                    } else if flank_index == config.left_flank_length
+                        && can_start_another_template_switch
+                    {
                         opened_nodes_output.extend(
                             node.generate_initial_template_switch_entrance_successors(
                                 config.offset_costs.evaluate(&0) + config.base_cost,
@@ -209,7 +229,10 @@ impl<
                         );
                     }
 
-                    if flank_index >= 0 && flank_index < config.left_flank_length {
+                    if flank_index >= 0
+                        && flank_index < config.left_flank_length
+                        && can_start_another_template_switch
+                    {
                         opened_nodes_output.extend(
                             node.generate_primary_insertion_successor(
                                 flank_index + 1,
@@ -229,7 +252,9 @@ impl<
                                 self,
                             ),
                         );
-                    } else if flank_index == config.left_flank_length {
+                    } else if flank_index == config.left_flank_length
+                        && can_start_another_template_switch
+                    {
                         opened_nodes_output.extend(
                             node.generate_initial_template_switch_entrance_successors(
                                 config.offset_costs.evaluate(&0) + config.base_cost,
@@ -247,6 +272,11 @@ impl<
                 template_switch_first_offset,
                 ..
             } => {
+                debug_assert!(node
+                    .strategies
+                    .template_switch_count
+                    .can_start_another_template_switch(self));
+
                 let (secondary_entrance_index, secondary_length) = match template_switch_secondary {
                     TemplateSwitchSecondary::Reference => {
                         (entrance_reference_index, self.reference.len())
@@ -325,48 +355,54 @@ impl<
                     TemplateSwitchSecondary::Query => self.query,
                 };
 
-                if primary_index < primary_sequence.len() && secondary_index > 0 {
-                    // Diagonal characters
-                    let p = primary_sequence[primary_index].clone();
-                    let s = secondary_sequence[secondary_index - 1].complement();
+                // Only generate secondary successors if they can ever exit the template switch based on their length.
+                let min_length_cost = config.length_costs.min(length..).unwrap();
+                if min_length_cost != Cost::MAX {
+                    if primary_index < primary_sequence.len() && secondary_index > 0 {
+                        // Diagonal characters
+                        let p = primary_sequence[primary_index].clone();
+                        let s = secondary_sequence[secondary_index - 1].complement();
 
-                    opened_nodes_output.extend(
-                        node.generate_secondary_diagonal_successor(
-                            config
-                                .secondary_edit_costs
-                                .match_or_substitution_cost(p.clone(), s.clone()),
-                            p == s,
-                            self,
-                        ),
-                    );
-                }
+                        opened_nodes_output.extend(
+                            node.generate_secondary_diagonal_successor(
+                                config
+                                    .secondary_edit_costs
+                                    .match_or_substitution_cost(p.clone(), s.clone()),
+                                p == s,
+                                self,
+                            ),
+                        );
+                    }
 
-                if secondary_index > 0 {
-                    // Deleted character
-                    let s = secondary_sequence[secondary_index - 1].complement();
+                    if secondary_index > 0
+                        && Strategies::SecondaryDeletion::allow_secondary_deletions()
+                    {
+                        // Deleted character
+                        let s = secondary_sequence[secondary_index - 1].complement();
 
-                    opened_nodes_output.extend(
-                        node.generate_secondary_deletion_successor(
-                            config
-                                .secondary_edit_costs
-                                .gap_costs(s, gap_type != GapType::Deletion),
-                            self,
-                        ),
-                    );
-                }
+                        opened_nodes_output.extend(
+                            node.generate_secondary_deletion_successor(
+                                config
+                                    .secondary_edit_costs
+                                    .gap_costs(s, gap_type != GapType::Deletion),
+                                self,
+                            ),
+                        );
+                    }
 
-                if primary_index < primary_sequence.len() {
-                    // Inserted character
-                    let p = primary_sequence[primary_index].clone();
+                    if primary_index < primary_sequence.len() {
+                        // Inserted character
+                        let p = primary_sequence[primary_index].clone();
 
-                    opened_nodes_output.extend(
-                        node.generate_secondary_insertion_successor(
-                            config
-                                .secondary_edit_costs
-                                .gap_costs(p, gap_type != GapType::Insertion),
-                            self,
-                        ),
-                    );
+                        opened_nodes_output.extend(
+                            node.generate_secondary_insertion_successor(
+                                config
+                                    .secondary_edit_costs
+                                    .gap_costs(p, gap_type != GapType::Insertion),
+                                self,
+                            ),
+                        );
+                    }
                 }
 
                 let length_cost = config.length_costs.evaluate(&length);
@@ -430,7 +466,12 @@ impl<
                     }
                 }
 
-                opened_nodes_output.extend(node.generate_primary_reentry_successor(self));
+                opened_nodes_output.extend(node.generate_primary_reentry_successor(self).map(
+                    |mut node| {
+                        node.strategies.template_switch_count.increment_count();
+                        node
+                    },
+                ));
             }
         }
     }
