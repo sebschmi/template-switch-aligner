@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    fmt::Display,
     iter,
 };
 
@@ -26,9 +27,7 @@ pub struct TemplateSwitchLowerBoundMatrix {
 }
 
 impl TemplateSwitchLowerBoundMatrix {
-    pub fn new<AlphabetType: Alphabet + std::fmt::Debug + Clone + Eq>(
-        config: &TemplateSwitchConfig<AlphabetType>,
-    ) -> Self {
+    pub fn new<AlphabetType: Alphabet>(config: &TemplateSwitchConfig<AlphabetType>) -> Self {
         let lower_bound_config = generate_template_switch_lower_bound_config(config);
         let mut open_lower_bounds = HashSet::new();
         open_lower_bounds.insert((0isize, 0isize, false));
@@ -195,5 +194,19 @@ fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet>(
         offset_costs: config.offset_costs.clone(),
         length_costs: config.length_costs.clone(),
         length_difference_costs: config.length_difference_costs.clone(),
+    }
+}
+
+impl Display for TemplateSwitchLowerBoundMatrix {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "TemplateSwitchLowerBoundMatrix:")?;
+        writeln!(
+            f,
+            "min distance: {}",
+            self.min_distance_between_two_template_switches
+        )?;
+        writeln!(f, "{}", self.matrix)?;
+
+        Ok(())
     }
 }

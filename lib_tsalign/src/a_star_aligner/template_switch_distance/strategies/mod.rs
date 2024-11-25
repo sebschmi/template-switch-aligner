@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{fmt::Debug, marker::PhantomData};
 
 use chaining::{ChainingStrategy, NoChainingStrategy};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
@@ -74,7 +74,6 @@ impl<Selector: AlignmentStrategySelector> AlignmentStrategy for AlignmentStrateg
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct AlignmentStrategySelection<
     AlphabetType: Alphabet,
     NodeOrd: NodeOrdStrategy,
@@ -85,7 +84,7 @@ pub struct AlignmentStrategySelection<
 }
 
 impl<
-        AlphabetType: Alphabet + std::fmt::Debug + Clone + Eq,
+        AlphabetType: Alphabet,
         NodeOrd: NodeOrdStrategy,
         TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
         Chaining: ChainingStrategy,
@@ -104,3 +103,53 @@ pub type SimpleAlignmentStrategies<AlphabetType> = AlignmentStrategySelection<
     NoTemplateSwitchMinLengthStrategy,
     NoChainingStrategy,
 >;
+
+impl<
+        AlphabetType: Alphabet,
+        NodeOrd: NodeOrdStrategy,
+        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
+        Chaining: ChainingStrategy,
+    > Debug
+    for AlignmentStrategySelection<AlphabetType, NodeOrd, TemplateSwitchMinLength, Chaining>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AlignmentStrategySelection").finish()
+    }
+}
+
+impl<
+        AlphabetType: Alphabet,
+        NodeOrd: NodeOrdStrategy,
+        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
+        Chaining: ChainingStrategy,
+    > Clone
+    for AlignmentStrategySelection<AlphabetType, NodeOrd, TemplateSwitchMinLength, Chaining>
+{
+    fn clone(&self) -> Self {
+        Self {
+            phantom_data: self.phantom_data,
+        }
+    }
+}
+
+impl<
+        AlphabetType: Alphabet,
+        NodeOrd: NodeOrdStrategy,
+        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
+        Chaining: ChainingStrategy,
+    > PartialEq
+    for AlignmentStrategySelection<AlphabetType, NodeOrd, TemplateSwitchMinLength, Chaining>
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.phantom_data == other.phantom_data
+    }
+}
+
+impl<
+        AlphabetType: Alphabet,
+        NodeOrd: NodeOrdStrategy,
+        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
+        Chaining: ChainingStrategy,
+    > Eq for AlignmentStrategySelection<AlphabetType, NodeOrd, TemplateSwitchMinLength, Chaining>
+{
+}

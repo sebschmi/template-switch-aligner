@@ -3,12 +3,14 @@ use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::cost::Cost;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStarBuffers, AStarContext};
+use log::info;
 
 use crate::a_star_aligner::template_switch_distance::Node;
 use crate::a_star_aligner::AlignmentContext;
 use crate::config::TemplateSwitchConfig;
 
 use super::identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
+use super::strategies::chaining::ChainingStrategy;
 use super::strategies::template_switch_min_length::TemplateSwitchMinLengthStrategy;
 use super::strategies::{AlignmentStrategy, AlignmentStrategySelector};
 use super::{AlignmentType, Identifier, NodeData};
@@ -21,6 +23,7 @@ pub struct Context<'reference, 'query, SubsequenceType: GenomeSequence<Strategie
 
     pub template_switch_min_length_memory: <<Strategies as AlignmentStrategySelector>::TemplateSwitchMinLength as TemplateSwitchMinLengthStrategy>::Memory,
     pub a_star_buffers: AStarBuffers<Identifier, Node<Strategies>>,
+    pub chaining_memory: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::Memory,
 }
 
 impl<
@@ -35,12 +38,16 @@ impl<
         query: &'query SubsequenceType,
         config: TemplateSwitchConfig<Strategies::Alphabet>,
     ) -> Self {
+        info!("Creating/loading context...");
+        let chaining_memory = <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::initialise_memory(&config);
+
         Self {
             reference,
             query,
             config,
             template_switch_min_length_memory: Default::default(),
             a_star_buffers: Default::default(),
+            chaining_memory,
         }
     }
 }

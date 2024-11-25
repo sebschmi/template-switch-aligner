@@ -294,6 +294,7 @@ dependencies = [
  "binary-heap-plus",
  "compact-genome",
  "generic_a_star",
+ "log",
  "ndarray",
  "noisy_float",
  "nom",

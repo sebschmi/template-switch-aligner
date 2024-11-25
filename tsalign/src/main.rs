@@ -80,7 +80,7 @@ struct CliInput {
     pair_fasta: Option<PathBuf>,
 }
 
-#[derive(Clone, ValueEnum)]
+#[derive(Clone, PartialEq, Eq, ValueEnum)]
 enum AlignmentMethod {
     Matrix,
     AStarGapAffine,
@@ -104,7 +104,9 @@ fn main() {
 
     let cli = Cli::parse();
 
-    if cli.alphabet != InputAlphabet::Dna {
+    if cli.alignment_method != AlignmentMethod::AStarTemplateSwitch
+        && cli.alphabet != InputAlphabet::Dna
+    {
         panic!("Unsupported alphabet type: {:?}", cli.alphabet);
     }
 

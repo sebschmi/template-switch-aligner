@@ -155,7 +155,7 @@ fn align_a_star_template_switch_distance_call<
     let config_file = std::io::BufReader::new(std::fs::File::open(config_path).unwrap());
     let costs = TemplateSwitchConfig::read_plain(config_file).unwrap();
 
-    info!("Aligning...");
+    info!("Calling aligner...");
     let alignment = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<AlphabetType, NodeOrd, TemplateSwitchMinLength, Chaining>,
         _,
