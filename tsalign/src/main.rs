@@ -26,6 +26,9 @@ mod template_switch_distance_type_selectors;
 
 #[derive(Parser)]
 struct Cli {
+    #[clap(long, short = 'l', default_value = "info")]
+    log_level: LevelFilter,
+
     #[command(flatten)]
     input: CliInput,
 
@@ -94,15 +97,15 @@ enum InputAlphabet {
 }
 
 fn main() {
+    let cli = Cli::parse();
+
     TermLogger::init(
-        LevelFilter::Info,
+        cli.log_level,
         Default::default(),
         TerminalMode::Mixed,
         ColorChoice::Auto,
     )
     .unwrap();
-
-    let cli = Cli::parse();
 
     if cli.alignment_method != AlignmentMethod::AStarTemplateSwitch
         && cli.alphabet != InputAlphabet::Dna

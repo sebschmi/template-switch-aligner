@@ -9,6 +9,7 @@ use compact_genome::{
     interface::{alphabet::Alphabet, sequence::GenomeSequence},
 };
 use generic_a_star::{cost::Cost, AStar, AStarNode, AStarResult};
+use log::{debug, trace};
 use ndarray::Array2;
 
 use crate::{
@@ -35,6 +36,7 @@ impl TemplateSwitchLowerBoundMatrix {
         let mut genome_length = 10_000;
 
         'outer: loop {
+            debug!("Using genome length {genome_length}");
             assert!(genome_length < usize::try_from(isize::MAX).unwrap() / 2);
             let genome = VectorGenome::<AlphabetType>::from_iter(
                 iter::repeat(AlphabetType::iter().next().unwrap()).take(genome_length),
@@ -53,6 +55,7 @@ impl TemplateSwitchLowerBoundMatrix {
 
             while let Some(coordinates) = open_lower_bounds.iter().next().copied() {
                 let (x, y, from_target) = open_lower_bounds.take(&coordinates).unwrap();
+                trace!("Precomputing coordinates ({x}, {y}, {from_target})");
                 debug_assert!(!closed_lower_bounds.contains_key(&(x, y)));
                 let reference_target = usize::try_from(x + root_xy_isize).unwrap();
                 let query_target = usize::try_from(y + root_xy_isize).unwrap();
@@ -103,6 +106,7 @@ impl TemplateSwitchLowerBoundMatrix {
                         }
                     }) {
                         AStarResult::FoundTarget { identifier, cost } => {
+                            trace!("Found target {identifier} at cost {cost}");
                             if let Identifier::PrimaryReentry { .. } = identifier {
                                 let previous = closed_lower_bounds.insert((x, y), cost);
                                 debug_assert!(previous.is_none());

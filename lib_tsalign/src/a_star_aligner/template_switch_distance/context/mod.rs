@@ -3,7 +3,7 @@ use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::cost::Cost;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStarBuffers, AStarContext};
-use log::info;
+use log::debug;
 
 use crate::a_star_aligner::template_switch_distance::Node;
 use crate::a_star_aligner::AlignmentContext;
@@ -38,7 +38,7 @@ impl<
         query: &'query SubsequenceType,
         config: TemplateSwitchConfig<Strategies::Alphabet>,
     ) -> Self {
-        info!("Creating/loading context...");
+        debug!("Creating/loading context...");
         let chaining_memory = <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::initialise_memory(&config);
 
         Self {
