@@ -1,4 +1,6 @@
-use std::ops::Sub;
+use std::ops::{Add, Bound, RangeBounds, Sub};
+
+use num_traits::{Bounded, One};
 
 use crate::error::Error;
 
@@ -47,6 +49,76 @@ impl<SourceType: Clone + Ord> CostFunction<SourceType> {
                 }
             })
             .next()
+    }
+}
+
+impl<
+        SourceType: Clone + Ord + Bounded + One + Add<Output = SourceType> + Sub<Output = SourceType>,
+    > CostFunction<SourceType>
+{
+    pub fn min(&self, range: impl RangeBounds<SourceType>) -> Option<Cost> {
+        let is_not_empty = match (range.start_bound(), range.end_bound()) {
+            (Bound::Included(start), Bound::Included(end)) => start <= end,
+            (Bound::Included(start), Bound::Excluded(end)) => start < end,
+            (Bound::Excluded(start), Bound::Included(end)) => start < end,
+            (Bound::Excluded(start), Bound::Excluded(end)) => {
+                start.clone() + SourceType::one() < end.clone()
+            }
+            (Bound::Excluded(start), Bound::Unbounded) => start != &SourceType::max_value(),
+            (Bound::Unbounded, Bound::Excluded(end)) => end != &SourceType::min_value(),
+            (Bound::Included(_), Bound::Unbounded) => true,
+            (Bound::Unbounded, Bound::Included(_)) => true,
+            (Bound::Unbounded, Bound::Unbounded) => true,
+        };
+
+        if !is_not_empty {
+            return None;
+        }
+
+        self.function
+            .windows(2)
+            .filter_map(|window| {
+                let (first_input, first_cost) = &window[0];
+                let (next_input, _) = &window[1];
+                let last_input = next_input.clone() - SourceType::one();
+
+                let first_left_of_end = match range.end_bound() {
+                    Bound::Included(end) => first_input <= end,
+                    Bound::Excluded(end) => first_input < end,
+                    Bound::Unbounded => true,
+                };
+                let last_right_of_start = match range.start_bound() {
+                    Bound::Included(start) => start <= &last_input,
+                    Bound::Excluded(start) => start < &last_input,
+                    Bound::Unbounded => true,
+                };
+
+                if first_left_of_end && last_right_of_start {
+                    Some(first_cost)
+                } else {
+                    None
+                }
+            })
+            .chain(
+                self.function
+                    .last()
+                    .iter()
+                    .filter_map(|(first_input, cost)| {
+                        let first_left_of_end = match range.end_bound() {
+                            Bound::Included(end) => first_input <= end,
+                            Bound::Excluded(end) => first_input < end,
+                            Bound::Unbounded => true,
+                        };
+
+                        if first_left_of_end {
+                            Some(cost)
+                        } else {
+                            None
+                        }
+                    }),
+            )
+            .min()
+            .copied()
     }
 }
 
