@@ -64,7 +64,7 @@ impl TemplateSwitchLowerBoundMatrix {
         open_lower_bounds.insert((0isize, 0isize));
         let mut closed_lower_bounds = HashMap::new();
         let mut previous_closed_lower_bounds = HashMap::new();
-        let mut genome_length = 100;
+        let mut genome_length = 1_000;
 
         'outer: loop {
             debug!("Using genome length {genome_length}");
