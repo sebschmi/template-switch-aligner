@@ -41,6 +41,7 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         }
     }
 
+    /// Creates a new table with all costs set to `Cost::MAX`.
     pub fn new_max() -> Self {
         Self {
             name: "new_max".to_string(),

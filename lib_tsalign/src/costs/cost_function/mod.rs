@@ -24,6 +24,15 @@ pub struct CostFunction<SourceType> {
     function: Vec<(SourceType, Cost)>,
 }
 
+impl<SourceType: Bounded> CostFunction<SourceType> {
+    /// Constructs a cost function that returns `Cost::MAX` for all input values.
+    pub fn new_max() -> Self {
+        Self {
+            function: vec![(SourceType::min_value(), Cost::MAX)],
+        }
+    }
+}
+
 impl<SourceType: Clone + Ord> CostFunction<SourceType> {
     /// Evaluate the cost function at position `input`.
     ///
