@@ -2,8 +2,10 @@ use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use log::{debug, info};
 
 use crate::{
-    a_star_aligner::template_switch_distance::Context, config::TemplateSwitchConfig,
-    template_switch_lower_bound::TemplateSwitchLowerBoundMatrix,
+    a_star_aligner::template_switch_distance::{
+        lower_bounds::template_switch::TemplateSwitchLowerBoundMatrix, Context,
+    },
+    config::TemplateSwitchConfig,
 };
 
 use super::{AlignmentStrategy, AlignmentStrategySelector};

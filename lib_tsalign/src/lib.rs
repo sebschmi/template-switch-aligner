@@ -6,4 +6,3 @@ pub mod costs;
 pub mod deterministic_default_hasher;
 pub mod error;
 mod io;
-pub mod template_switch_lower_bound;
