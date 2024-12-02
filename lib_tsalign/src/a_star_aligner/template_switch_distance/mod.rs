@@ -524,6 +524,61 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ))
     }
 
+    fn generate_primary_shortcut_successor<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    >(
+        &self,
+        delta_reference: isize,
+        delta_query: isize,
+        cost_increment: Cost,
+        context: &Context<SubsequenceType, Strategies>,
+    ) -> Option<Self> {
+        if cost_increment == Cost::MAX {
+            return None;
+        }
+
+        let (Identifier::Primary {
+            reference_index,
+            query_index,
+            flank_index,
+            ..
+        }
+        | Identifier::PrimaryReentry {
+            reference_index,
+            query_index,
+            flank_index,
+            ..
+        }) = self.node_data.identifier
+        else {
+            unreachable!("This method is only called on primary nodes.")
+        };
+        assert_eq!(flank_index, context.config.left_flank_length);
+
+        let reference_index =
+            usize::try_from(isize::try_from(reference_index).unwrap() + delta_reference).ok()?;
+        let query_index =
+            usize::try_from(isize::try_from(query_index).unwrap() + delta_query).ok()?;
+
+        if reference_index >= context.reference.len() || query_index >= context.query.len() {
+            return None;
+        }
+
+        Some(self.generate_successor(
+            Identifier::PrimaryReentry {
+                reference_index,
+                query_index,
+                gap_type: GapType::None,
+                flank_index: -context.config.right_flank_length,
+            },
+            cost_increment,
+            AlignmentType::PrimaryShortcut {
+                delta_reference,
+                delta_query,
+            },
+            context,
+        ))
+    }
+
     fn generate_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(

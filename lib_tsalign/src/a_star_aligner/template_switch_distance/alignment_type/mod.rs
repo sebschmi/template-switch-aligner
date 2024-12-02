@@ -27,6 +27,13 @@ pub enum AlignmentType {
     SecondaryRoot,
     /// A reentry node into the primary graph, treated like a root.
     PrimaryReentry,
+    /// A shortcut in the primary matrix.
+    ///
+    /// Used only for computing lower bounds.
+    PrimaryShortcut {
+        delta_reference: isize,
+        delta_query: isize,
+    },
 }
 
 impl IAlignmentType for AlignmentType {
@@ -39,7 +46,9 @@ impl IAlignmentType for AlignmentType {
             | Self::Root
             | Self::SecondaryRoot
             | Self::PrimaryReentry => true,
-            Self::TemplateSwitchEntrance { .. } | Self::TemplateSwitchExit { .. } => false,
+            Self::TemplateSwitchEntrance { .. }
+            | Self::TemplateSwitchExit { .. }
+            | Self::PrimaryShortcut { .. } => false,
         }
     }
 
@@ -58,6 +67,7 @@ impl IAlignmentType for AlignmentType {
                 },
             ) => primary_a == primary_b && secondary_a == secondary_b,
             (Self::TemplateSwitchExit { .. }, Self::TemplateSwitchExit { .. }) => true,
+            (Self::PrimaryShortcut { .. }, Self::PrimaryShortcut { .. }) => false,
             (a, b) => a == b,
         }
     }

@@ -1,5 +1,5 @@
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
-use log::{debug, info};
+use log::debug;
 
 use crate::{
     a_star_aligner::template_switch_distance::{
@@ -44,7 +44,6 @@ impl ChainingStrategy for PrecomputeOnlyChainingStrategy {
     fn initialise_memory<AlphabetType: Alphabet>(
         config: &TemplateSwitchConfig<AlphabetType>,
     ) -> Self::Memory {
-        info!("Computing TS lower bound matrix...");
         let ts_lower_bounds = TemplateSwitchLowerBoundMatrix::new(config);
         debug!("{ts_lower_bounds}");
         ChainingMemory { ts_lower_bounds }

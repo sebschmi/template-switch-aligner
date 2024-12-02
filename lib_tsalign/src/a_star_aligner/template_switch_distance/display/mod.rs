@@ -18,6 +18,10 @@ impl Display for AlignmentType {
             Self::Root => Ok(()),
             Self::SecondaryRoot => Ok(()),
             Self::PrimaryReentry => Ok(()),
+            Self::PrimaryShortcut {
+                delta_reference,
+                delta_query,
+            } => write!(f, "[PS:R{delta_reference}Q{delta_query}]"),
         }
     }
 }

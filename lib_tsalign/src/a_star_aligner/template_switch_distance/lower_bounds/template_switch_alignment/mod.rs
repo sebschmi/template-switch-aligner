@@ -1,12 +1,13 @@
 use compact_genome::interface::alphabet::Alphabet;
 use generic_a_star::cost::Cost;
+use log::info;
 use ndarray::Array2;
 
 use crate::{
     a_star_aligner::template_switch_distance::strategies::{
         chaining::NoChainingStrategy, node_ord::CostOnlyNodeOrdStrategy,
         secondary_deletion_strategy::AllowSecondaryDeletionStrategy,
-        shortcut::TemplateSwitchShortcutStrategy,
+        shortcut::TemplateSwitchLowerBoundShortcutStrategy,
         template_switch_count::NoTemplateSwitchCountStrategy,
         template_switch_min_length::NoTemplateSwitchMinLengthStrategy, AlignmentStrategySelection,
     },
@@ -31,14 +32,17 @@ type TSALBAlignmentStrategies<AlphabetType> = AlignmentStrategySelection<
     NoChainingStrategy,
     NoTemplateSwitchCountStrategy,
     AllowSecondaryDeletionStrategy,
-    TemplateSwitchShortcutStrategy,
+    TemplateSwitchLowerBoundShortcutStrategy,
 >;
 
 impl TemplateSwitchAlignmentLowerBoundMatrix {
     pub fn new<AlphabetType: Alphabet>(
         config: &TemplateSwitchConfig<AlphabetType>,
         tslb_matrix: &TemplateSwitchLowerBoundMatrix,
+        reference_limit: usize,
+        query_limit: usize,
     ) -> Self {
+        info!("Computing TS alignment lower bound matrix...");
         let lower_bound_config = generate_template_switch_alignment_lower_bound_config(config);
         todo!()
     }

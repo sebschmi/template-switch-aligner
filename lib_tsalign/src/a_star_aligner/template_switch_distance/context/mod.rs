@@ -28,6 +28,7 @@ pub struct Context<'reference, 'query, SubsequenceType: GenomeSequence<Strategie
     pub a_star_buffers: AStarBuffers<Identifier, Node<Strategies>>,
     pub chaining_memory: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::Memory,
     pub template_switch_count_memory:  <<Strategies as AlignmentStrategySelector>::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
+    pub shortcut_memory: <<Strategies as AlignmentStrategySelector>::Shortcut as ShortcutStrategy>::Memory,
 }
 
 impl<
@@ -41,9 +42,10 @@ impl<
         reference: &'reference SubsequenceType,
         query: &'query SubsequenceType,
         config: TemplateSwitchConfig<Strategies::Alphabet>,
-        template_switch_count_memory:<<Strategies as AlignmentStrategySelector>::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
+        template_switch_count_memory: <<Strategies as AlignmentStrategySelector>::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
     ) -> Self {
         debug!("Creating/loading context...");
+        let shortcut_memory=<<Strategies as AlignmentStrategySelector>::Shortcut as ShortcutStrategy>::initialise_memory(&config);
         let chaining_memory = <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::initialise_memory(&config);
 
         Self {
@@ -54,6 +56,7 @@ impl<
             a_star_buffers: Default::default(),
             chaining_memory,
             template_switch_count_memory,
+            shortcut_memory,
         }
     }
 }

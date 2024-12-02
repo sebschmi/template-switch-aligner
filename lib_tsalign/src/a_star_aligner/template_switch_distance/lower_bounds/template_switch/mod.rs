@@ -9,8 +9,7 @@ use compact_genome::{
     interface::{alphabet::Alphabet, sequence::GenomeSequence},
 };
 use generic_a_star::{cost::Cost, AStar, AStarNode, AStarResult};
-use log::{debug, trace};
-use ndarray::Array2;
+use log::{debug, info, trace};
 
 use crate::{
     a_star_aligner::{
@@ -35,10 +34,16 @@ use crate::{
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TemplateSwitchLowerBoundMatrix {
-    matrix: Array2<Cost>,
-    shift_x: isize,
-    shift_y: isize,
+    entries: Vec<TSLBMatrixEntry>,
     min_distance_between_two_template_switches: usize,
+}
+
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TSLBMatrixEntry {
+    x: isize,
+    y: isize,
+    cost: Cost,
 }
 
 type TSLBAlignmentStrategies<AlphabetType> = AlignmentStrategySelection<
@@ -53,6 +58,7 @@ type TSLBAlignmentStrategies<AlphabetType> = AlignmentStrategySelection<
 
 impl TemplateSwitchLowerBoundMatrix {
     pub fn new<AlphabetType: Alphabet>(config: &TemplateSwitchConfig<AlphabetType>) -> Self {
+        info!("Computing TS lower bound matrix...");
         let lower_bound_config = generate_template_switch_lower_bound_config(config);
         assert!(
             lower_bound_config
@@ -229,44 +235,45 @@ impl TemplateSwitchLowerBoundMatrix {
             break;
         }
 
+        let entries = closed_lower_bounds
+            .into_iter()
+            .filter_map(|((x, y), cost)| {
+                if cost != Cost::MAX {
+                    Some(TSLBMatrixEntry { x, y, cost })
+                } else {
+                    None
+                }
+            })
+            .collect();
         let min_distance_between_two_template_switches =
             usize::try_from(config.left_flank_length + config.right_flank_length).unwrap();
 
-        let (min_x, max_x, min_y, max_y) = closed_lower_bounds.iter().fold(
-            (isize::MAX, isize::MIN, isize::MAX, isize::MIN),
-            |(min_x, max_x, min_y, max_y), (&(x, y), &cost)| {
-                if cost != Cost::MAX {
-                    (min_x.min(x), max_x.max(x), min_y.min(y), max_y.max(y))
-                } else {
-                    (min_x, max_x, min_y, max_y)
-                }
-            },
-        );
-
-        let shift_x = -min_x;
-        let shift_y = -min_y;
-        let len_x = usize::try_from(max_x - min_x + 1).unwrap();
-        let len_y = usize::try_from(max_y - min_y + 1).unwrap();
-
-        let mut matrix = Array2::from_elem([len_x, len_y], Cost::MAX);
-        for ((x, y), cost) in closed_lower_bounds {
-            if cost != Cost::MAX {
-                let x = usize::try_from(x + shift_x).unwrap();
-                let y = usize::try_from(y + shift_y).unwrap();
-                matrix[(x, y)] = cost;
-            }
-        }
-
         Self {
-            matrix,
-            shift_x,
-            shift_y,
+            entries,
             min_distance_between_two_template_switches,
         }
     }
 
     pub fn min_distance_between_two_template_switches(&self) -> usize {
         self.min_distance_between_two_template_switches
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &TSLBMatrixEntry> {
+        self.entries.iter()
+    }
+}
+
+impl TSLBMatrixEntry {
+    pub fn x(&self) -> isize {
+        self.x
+    }
+
+    pub fn y(&self) -> isize {
+        self.y
+    }
+
+    pub fn cost(&self) -> Cost {
+        self.cost
     }
 }
 
@@ -323,6 +330,31 @@ fn enqueue_neighbours(
 
 impl Display for TemplateSwitchLowerBoundMatrix {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (min_x, max_x, min_y, max_y) = self.entries.iter().fold(
+            (isize::MAX, isize::MIN, isize::MAX, isize::MIN),
+            |(min_x, max_x, min_y, max_y), &TSLBMatrixEntry { x, y, cost }| {
+                if cost != Cost::MAX {
+                    (min_x.min(x), max_x.max(x), min_y.min(y), max_y.max(y))
+                } else {
+                    (min_x, max_x, min_y, max_y)
+                }
+            },
+        );
+
+        /*let shift_x = -min_x;
+        let shift_y = -min_y;
+        let len_x = usize::try_from(max_x - min_x + 1).unwrap();
+        let len_y = usize::try_from(max_y - min_y + 1).unwrap();
+
+        let mut matrix = Array2::from_elem([len_x, len_y], Cost::MAX);
+        for ((x, y), cost) in closed_lower_bounds {
+            if cost != Cost::MAX {
+                let x = usize::try_from(x + shift_x).unwrap();
+                let y = usize::try_from(y + shift_y).unwrap();
+                matrix[(x, y)] = cost;
+            }
+        }*/
+
         writeln!(f, "TemplateSwitchLowerBoundMatrix:")?;
         writeln!(
             f,
@@ -331,38 +363,32 @@ impl Display for TemplateSwitchLowerBoundMatrix {
         )?;
         writeln!(
             f,
-            "x range: [{}, {}]; y range: [{}, {}]",
-            -self.shift_x,
-            isize::try_from(self.matrix.dim().0).unwrap() - self.shift_x,
-            -self.shift_y,
-            isize::try_from(self.matrix.dim().1).unwrap() - self.shift_y
+            "x range: [{min_x}, {max_x}]; y range: [{min_y}, {max_y}]",
         )?;
 
         let mut buffer = String::new();
-        let column_widths: Vec<_> = (0..self.matrix.dim().0)
-            .map(|x| {
-                (0..self.matrix.dim().1)
-                    .map(|y| {
-                        if self.matrix[(x, y)] == Cost::MAX {
-                            1
-                        } else {
-                            buffer.clear();
-                            write!(buffer, "{}", self.matrix[(x, y)]).unwrap();
-                            buffer.len()
-                        }
-                    })
-                    .max()
-                    .unwrap()
-            })
+        let matrix: HashMap<_, _> = (min_x..=max_x)
+            .flat_map(|x| (min_y..=max_y).map(move |y| ((x, y), Cost::MAX)))
             .collect();
+        let mut column_widths: HashMap<_, _> = (min_x..=max_x).map(|x| (x, 1)).collect();
+        for TSLBMatrixEntry { x, cost, .. } in &self.entries {
+            debug_assert_ne!(*cost, Cost::MAX);
+            buffer.clear();
+            write!(buffer, "{cost}").unwrap();
 
-        for y in 0..self.matrix.dim().1 {
-            for (x, column_width) in column_widths.iter().enumerate().take(self.matrix.dim().0) {
+            let column_width = column_widths.get_mut(x).unwrap();
+            *column_width = buffer.len().max(*column_width);
+        }
+
+        for y in min_y..=max_y {
+            for x in min_x..=max_x {
+                let column_width = *column_widths.get(&x).unwrap();
                 buffer.clear();
-                if self.matrix[(x, y)] == Cost::MAX {
+                let cost = *matrix.get(&(x, y)).unwrap();
+                if cost == Cost::MAX {
                     write!(buffer, "∞").unwrap();
                 } else {
-                    write!(buffer, "{}", self.matrix[(x, y)]).unwrap();
+                    write!(buffer, "{cost}").unwrap();
                 }
                 for _ in 0..=column_width - buffer.chars().count() {
                     write!(f, " ")?;
