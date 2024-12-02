@@ -7,7 +7,7 @@ members = [
     "deterministic_default_hasher",
 ]
 resolver = "2"
-package.rust-version = "1.82.0"
+package.rust-version = "1.83.0"
 
 [workspace.dependencies]
 serde = "1.0.215"
