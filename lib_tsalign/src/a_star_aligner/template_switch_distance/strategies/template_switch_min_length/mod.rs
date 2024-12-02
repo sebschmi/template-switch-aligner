@@ -113,7 +113,7 @@ impl TemplateSwitchMinLengthStrategy for LookaheadTemplateSwitchMinLengthStrateg
         };
 
         let secondary_root_node = if let Some(a_star_lower_bound) =
-            context.template_switch_min_length_memory.get(&memory_key)
+            context.memory.template_switch_min_length.get(&memory_key)
         {
             secondary_root_node.node_data.a_star_lower_bound += *a_star_lower_bound;
             secondary_root_node
@@ -134,7 +134,8 @@ impl TemplateSwitchMinLengthStrategy for LookaheadTemplateSwitchMinLengthStrateg
                 let lower_bound = target_cost - initial_cost;
 
                 context
-                    .template_switch_min_length_memory
+                    .memory
+                    .template_switch_min_length
                     .insert(memory_key, lower_bound);
                 secondary_root_node.node_data.a_star_lower_bound += lower_bound;
 

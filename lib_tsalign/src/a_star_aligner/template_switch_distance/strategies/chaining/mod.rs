@@ -3,7 +3,11 @@ use log::debug;
 
 use crate::{
     a_star_aligner::template_switch_distance::{
-        lower_bounds::template_switch::TemplateSwitchLowerBoundMatrix, Context,
+        lower_bounds::{
+            template_switch::TemplateSwitchLowerBoundMatrix,
+            template_switch_alignment::TemplateSwitchAlignmentLowerBoundMatrix,
+        },
+        Context,
     },
     config::TemplateSwitchConfig,
 };
@@ -21,6 +25,7 @@ pub trait ChainingStrategy: AlignmentStrategy {
 #[expect(dead_code)]
 pub struct ChainingMemory {
     ts_lower_bounds: TemplateSwitchLowerBoundMatrix,
+    tsa_lower_bounds: TemplateSwitchAlignmentLowerBoundMatrix,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -35,6 +40,7 @@ impl ChainingStrategy for NoChainingStrategy {
     fn initialise_memory<AlphabetType: Alphabet>(
         _config: &TemplateSwitchConfig<AlphabetType>,
     ) -> Self::Memory {
+        // Do nothing.
     }
 }
 
@@ -46,7 +52,13 @@ impl ChainingStrategy for PrecomputeOnlyChainingStrategy {
     ) -> Self::Memory {
         let ts_lower_bounds = TemplateSwitchLowerBoundMatrix::new(config);
         debug!("{ts_lower_bounds}");
-        ChainingMemory { ts_lower_bounds }
+        let tsa_lower_bounds =
+            TemplateSwitchAlignmentLowerBoundMatrix::new(config, &ts_lower_bounds, 100, 100);
+
+        ChainingMemory {
+            ts_lower_bounds,
+            tsa_lower_bounds,
+        }
     }
 }
 

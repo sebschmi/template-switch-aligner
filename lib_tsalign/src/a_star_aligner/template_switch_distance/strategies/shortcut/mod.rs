@@ -81,7 +81,7 @@ impl ShortcutStrategy for TemplateSwitchLowerBoundShortcutStrategy {
             Identifier::Primary { flank_index, .. }
             | Identifier::PrimaryReentry { flank_index, .. } => {
                 if flank_index == context.config.left_flank_length {
-                    opened_nodes_output.extend(context.shortcut_memory.iter().flat_map(|entry| {
+                    opened_nodes_output.extend(context.memory.shortcut.iter().flat_map(|entry| {
                         node.generate_primary_shortcut_successor(
                             entry.x(),
                             entry.y(),

@@ -15,6 +15,7 @@ use crate::{
     a_star_aligner::{
         alignment_result::IAlignmentType,
         template_switch_distance::{
+            context::Memory,
             strategies::{
                 chaining::NoChainingStrategy, node_ord::CostOnlyNodeOrdStrategy,
                 secondary_deletion_strategy::ForbidSecondaryDeletionStrategy,
@@ -31,14 +32,14 @@ use crate::{
     costs::gap_affine::GapAffineAlignmentCostTable,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TemplateSwitchLowerBoundMatrix {
     entries: Vec<TSLBMatrixEntry>,
     min_distance_between_two_template_switches: usize,
 }
 
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TSLBMatrixEntry {
     x: isize,
@@ -84,7 +85,12 @@ impl TemplateSwitchLowerBoundMatrix {
                 genome.as_genome_subsequence(),
                 genome.as_genome_subsequence(),
                 lower_bound_config.clone(),
-                1,
+                Memory {
+                    template_switch_min_length: (),
+                    chaining: (),
+                    template_switch_count: 1,
+                    shortcut: (),
+                },
             ));
             let root_xy = genome_length / 2;
             a_star.initialise_with(|context| Node::new_root_at(root_xy, root_xy, context));

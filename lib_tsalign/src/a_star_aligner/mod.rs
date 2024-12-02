@@ -3,8 +3,12 @@ use std::{fmt::Debug, time::Instant};
 use alignment_result::{AlignmentResult, IAlignmentType};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
-use template_switch_distance::strategies::{
-    template_switch_count::NoTemplateSwitchCountStrategy, AlignmentStrategySelector,
+use template_switch_distance::{
+    context::Memory,
+    strategies::{
+        chaining::ChainingStrategy, shortcut::NoShortcutStrategy,
+        template_switch_count::NoTemplateSwitchCountStrategy, AlignmentStrategySelector,
+    },
 };
 use traitsequence::interface::Sequence;
 
@@ -99,15 +103,25 @@ pub fn gap_affine_edit_distance_a_star_align<
 }
 
 pub fn template_switch_distance_a_star_align<
-    Strategies: AlignmentStrategySelector<TemplateSwitchCount = NoTemplateSwitchCountStrategy>,
+    Strategies: AlignmentStrategySelector<
+        TemplateSwitchCount = NoTemplateSwitchCountStrategy,
+        Shortcut = NoShortcutStrategy,
+    >,
     SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
 >(
     reference: &SubsequenceType,
     query: &SubsequenceType,
     config: config::TemplateSwitchConfig<Strategies::Alphabet>,
 ) -> AlignmentResult<template_switch_distance::AlignmentType> {
+    let memory = Memory {
+        template_switch_min_length: Default::default(),
+        chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::initialise_memory(&config),
+        template_switch_count: (),
+        shortcut: (),
+    };
+
     a_star_align(template_switch_distance::Context::<
         SubsequenceType,
         Strategies,
-    >::new(reference, query, config, ()))
+    >::new(reference, query, config, memory))
 }

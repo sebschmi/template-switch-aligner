@@ -10,7 +10,7 @@ use strategies::{
 use crate::costs::cost::Cost;
 
 mod alignment_type;
-mod context;
+pub mod context;
 pub mod display;
 mod identifier;
 pub mod lower_bounds;

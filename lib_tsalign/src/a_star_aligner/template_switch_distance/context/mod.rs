@@ -3,7 +3,6 @@ use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::cost::Cost;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStarBuffers, AStarContext};
-use log::debug;
 
 use crate::a_star_aligner::template_switch_distance::Node;
 use crate::a_star_aligner::AlignmentContext;
@@ -18,17 +17,26 @@ use super::strategies::template_switch_min_length::TemplateSwitchMinLengthStrate
 use super::strategies::{AlignmentStrategy, AlignmentStrategySelector};
 use super::{AlignmentType, Identifier, NodeData};
 
-pub struct Context<'reference, 'query, SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized, Strategies: AlignmentStrategySelector> {
+pub struct Context<
+    'reference,
+    'query,
+    SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    Strategies: AlignmentStrategySelector,
+> {
     pub reference: &'reference SubsequenceType,
     pub query: &'query SubsequenceType,
 
     pub config: TemplateSwitchConfig<Strategies::Alphabet>,
 
-    pub template_switch_min_length_memory: <<Strategies as AlignmentStrategySelector>::TemplateSwitchMinLength as TemplateSwitchMinLengthStrategy>::Memory,
     pub a_star_buffers: AStarBuffers<Identifier, Node<Strategies>>,
-    pub chaining_memory: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::Memory,
-    pub template_switch_count_memory:  <<Strategies as AlignmentStrategySelector>::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
-    pub shortcut_memory: <<Strategies as AlignmentStrategySelector>::Shortcut as ShortcutStrategy>::Memory,
+    pub memory: Memory<Strategies>,
+}
+
+pub struct Memory<Strategies: AlignmentStrategySelector> {
+    pub template_switch_min_length: <<Strategies as AlignmentStrategySelector>::TemplateSwitchMinLength as TemplateSwitchMinLengthStrategy>::Memory,
+    pub chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::Memory,
+    pub template_switch_count:  <<Strategies as AlignmentStrategySelector>::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
+    pub shortcut: <<Strategies as AlignmentStrategySelector>::Shortcut as ShortcutStrategy>::Memory,
 }
 
 impl<
@@ -42,21 +50,14 @@ impl<
         reference: &'reference SubsequenceType,
         query: &'query SubsequenceType,
         config: TemplateSwitchConfig<Strategies::Alphabet>,
-        template_switch_count_memory: <<Strategies as AlignmentStrategySelector>::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
+        memory: Memory<Strategies>,
     ) -> Self {
-        debug!("Creating/loading context...");
-        let shortcut_memory=<<Strategies as AlignmentStrategySelector>::Shortcut as ShortcutStrategy>::initialise_memory(&config);
-        let chaining_memory = <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::initialise_memory(&config);
-
         Self {
             reference,
             query,
             config,
-            template_switch_min_length_memory: Default::default(),
             a_star_buffers: Default::default(),
-            chaining_memory,
-            template_switch_count_memory,
-            shortcut_memory,
+            memory,
         }
     }
 }
@@ -501,7 +502,13 @@ impl<
     > Reset for Context<'_, '_, SubsequenceType, Strategies>
 {
     fn reset(&mut self) {
-        self.template_switch_min_length_memory.reset();
+        self.memory.reset();
+    }
+}
+
+impl<Strategies: AlignmentStrategySelector> Reset for Memory<Strategies> {
+    fn reset(&mut self) {
+        self.template_switch_min_length.reset();
     }
 }
 

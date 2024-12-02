@@ -58,7 +58,7 @@ impl TemplateSwitchCountStrategy for MaxTemplateSwitchCountStrategy {
         &self,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> bool {
-        self.template_switch_count < context.template_switch_count_memory
+        self.template_switch_count < context.memory.template_switch_count
     }
 }
 
