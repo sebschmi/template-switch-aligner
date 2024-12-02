@@ -3,6 +3,13 @@ use generic_a_star::cost::Cost;
 use ndarray::Array2;
 
 use crate::{
+    a_star_aligner::template_switch_distance::strategies::{
+        chaining::NoChainingStrategy, node_ord::CostOnlyNodeOrdStrategy,
+        secondary_deletion_strategy::AllowSecondaryDeletionStrategy,
+        shortcut::TemplateSwitchShortcutStrategy,
+        template_switch_count::NoTemplateSwitchCountStrategy,
+        template_switch_min_length::NoTemplateSwitchMinLengthStrategy, AlignmentStrategySelection,
+    },
     config::TemplateSwitchConfig,
     costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable},
 };
@@ -16,6 +23,16 @@ pub struct TemplateSwitchAlignmentLowerBoundMatrix {
     shift_x: isize,
     shift_y: isize,
 }
+
+type TSALBAlignmentStrategies<AlphabetType> = AlignmentStrategySelection<
+    AlphabetType,
+    CostOnlyNodeOrdStrategy,
+    NoTemplateSwitchMinLengthStrategy,
+    NoChainingStrategy,
+    NoTemplateSwitchCountStrategy,
+    AllowSecondaryDeletionStrategy,
+    TemplateSwitchShortcutStrategy,
+>;
 
 impl TemplateSwitchAlignmentLowerBoundMatrix {
     pub fn new<AlphabetType: Alphabet>(

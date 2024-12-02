@@ -19,6 +19,7 @@ use crate::{
             strategies::{
                 chaining::NoChainingStrategy, node_ord::CostOnlyNodeOrdStrategy,
                 secondary_deletion_strategy::ForbidSecondaryDeletionStrategy,
+                shortcut::NoShortcutStrategy,
                 template_switch_count::MaxTemplateSwitchCountStrategy,
                 template_switch_min_length::NoTemplateSwitchMinLengthStrategy,
                 AlignmentStrategySelection,
@@ -47,6 +48,7 @@ type TSLBAlignmentStrategies<AlphabetType> = AlignmentStrategySelection<
     NoChainingStrategy,
     MaxTemplateSwitchCountStrategy,
     ForbidSecondaryDeletionStrategy,
+    NoShortcutStrategy,
 >;
 
 impl TemplateSwitchLowerBoundMatrix {

@@ -8,6 +8,7 @@ use lib_tsalign::{
             chaining::{ChainingStrategy, NoChainingStrategy, PrecomputeOnlyChainingStrategy},
             node_ord::{AntiDiagonalNodeOrdStrategy, CostOnlyNodeOrdStrategy, NodeOrdStrategy},
             secondary_deletion_strategy::AllowSecondaryDeletionStrategy,
+            shortcut::NoShortcutStrategy,
             template_switch_count::NoTemplateSwitchCountStrategy,
             template_switch_min_length::{
                 LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
@@ -166,6 +167,7 @@ fn align_a_star_template_switch_distance_call<
             Chaining,
             NoTemplateSwitchCountStrategy,
             AllowSecondaryDeletionStrategy,
+            NoShortcutStrategy,
         >,
         _,
     >(reference, query, costs);

@@ -12,6 +12,7 @@ use crate::config::TemplateSwitchConfig;
 use super::identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
 use super::strategies::chaining::ChainingStrategy;
 use super::strategies::secondary_deletion_strategy::SecondaryDeletionStrategy;
+use super::strategies::shortcut::ShortcutStrategy;
 use super::strategies::template_switch_count::TemplateSwitchCountStrategy;
 use super::strategies::template_switch_min_length::TemplateSwitchMinLengthStrategy;
 use super::strategies::{AlignmentStrategy, AlignmentStrategySelector};
@@ -474,6 +475,9 @@ impl<
                 ));
             }
         }
+
+        // Add additional successors through strategies.
+        <<Strategies as AlignmentStrategySelector>::Shortcut as ShortcutStrategy>::generate_successors(node, self, opened_nodes_output);
     }
 
     fn is_target(&self, node: &Self::Node) -> bool {
