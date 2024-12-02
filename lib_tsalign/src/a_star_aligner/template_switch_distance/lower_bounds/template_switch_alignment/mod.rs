@@ -1,4 +1,8 @@
-use std::{collections::HashMap, iter};
+use std::{
+    collections::HashMap,
+    fmt::{Display, Write},
+    iter,
+};
 
 use compact_genome::{
     implementation::vec_sequence::{SliceSubGenome, VectorGenome},
@@ -195,5 +199,54 @@ fn generate_template_switch_alignment_lower_bound_config<AlphabetType: Alphabet>
         offset_costs: CostFunction::new_max(),
         length_costs: CostFunction::new_max(),
         length_difference_costs: CostFunction::new_max(),
+    }
+}
+
+impl Display for TemplateSwitchAlignmentLowerBoundMatrix {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let min_x = 0;
+        let min_y = 0;
+        let &[max_x, max_y] = self.matrix.shape() else {
+            unreachable!()
+        };
+
+        writeln!(f, "TemplateSwitchAlignmentLowerBoundMatrix:")?;
+        writeln!(f, "x range: [0, {max_x}]; y range: [0, {max_y}]",)?;
+
+        let mut buffer = String::new();
+        let mut column_widths: HashMap<_, _> = (min_x..=max_x).map(|x| (x, 1)).collect();
+        for ((x, _), cost) in self.matrix.indexed_iter() {
+            let current_column_width = if *cost == Cost::MAX {
+                1
+            } else {
+                buffer.clear();
+                write!(buffer, "{cost}").unwrap();
+                buffer.len()
+            };
+
+            let column_width = column_widths.get_mut(&x).unwrap();
+            *column_width = current_column_width.max(*column_width);
+        }
+
+        for y in min_y..=max_y {
+            for x in min_x..=max_x {
+                let column_width = *column_widths.get(&x).unwrap();
+                buffer.clear();
+                let cost = self.matrix[(x, y)];
+                if cost == Cost::MAX {
+                    write!(buffer, "∞").unwrap();
+                } else {
+                    write!(buffer, "{cost}").unwrap();
+                }
+                for _ in 0..=column_width - buffer.chars().count() {
+                    write!(f, " ")?;
+                }
+                write!(f, "{buffer}")?;
+            }
+
+            writeln!(f)?;
+        }
+
+        Ok(())
     }
 }

@@ -347,20 +347,6 @@ impl Display for TemplateSwitchLowerBoundMatrix {
             },
         );
 
-        /*let shift_x = -min_x;
-        let shift_y = -min_y;
-        let len_x = usize::try_from(max_x - min_x + 1).unwrap();
-        let len_y = usize::try_from(max_y - min_y + 1).unwrap();
-
-        let mut matrix = Array2::from_elem([len_x, len_y], Cost::MAX);
-        for ((x, y), cost) in closed_lower_bounds {
-            if cost != Cost::MAX {
-                let x = usize::try_from(x + shift_x).unwrap();
-                let y = usize::try_from(y + shift_y).unwrap();
-                matrix[(x, y)] = cost;
-            }
-        }*/
-
         writeln!(f, "TemplateSwitchLowerBoundMatrix:")?;
         writeln!(
             f,

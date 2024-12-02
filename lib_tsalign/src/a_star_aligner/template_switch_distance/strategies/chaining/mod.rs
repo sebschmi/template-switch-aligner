@@ -54,6 +54,7 @@ impl ChainingStrategy for PrecomputeOnlyChainingStrategy {
         debug!("{ts_lower_bounds}");
         let tsa_lower_bounds =
             TemplateSwitchAlignmentLowerBoundMatrix::new(config, &ts_lower_bounds, 100, 100);
+        debug!("{tsa_lower_bounds}");
 
         ChainingMemory {
             ts_lower_bounds,
