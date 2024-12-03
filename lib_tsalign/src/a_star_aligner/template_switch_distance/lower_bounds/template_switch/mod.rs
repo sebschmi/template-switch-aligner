@@ -16,10 +16,11 @@ use crate::{
         alignment_result::IAlignmentType,
         template_switch_distance::{
             context::Memory,
+            identifier::GapType,
             strategies::{
                 chaining::NoChainingStrategy, node_ord::CostOnlyNodeOrdStrategy,
-                secondary_deletion_strategy::ForbidSecondaryDeletionStrategy,
-                shortcut::NoShortcutStrategy,
+                primary_match::AllowPrimaryMatchStrategy,
+                secondary_deletion::ForbidSecondaryDeletionStrategy, shortcut::NoShortcutStrategy,
                 template_switch_count::MaxTemplateSwitchCountStrategy,
                 template_switch_min_length::NoTemplateSwitchMinLengthStrategy,
                 AlignmentStrategySelection,
@@ -55,6 +56,7 @@ type TSLBAlignmentStrategies<AlphabetType> = AlignmentStrategySelection<
     MaxTemplateSwitchCountStrategy,
     ForbidSecondaryDeletionStrategy,
     NoShortcutStrategy,
+    AllowPrimaryMatchStrategy,
 >;
 
 impl TemplateSwitchLowerBoundMatrix {
@@ -90,6 +92,7 @@ impl TemplateSwitchLowerBoundMatrix {
                     chaining: (),
                     template_switch_count: 1,
                     shortcut: (),
+                    primary_match: (),
                 },
             ));
             let root_xy = genome_length / 2;
@@ -122,8 +125,12 @@ impl TemplateSwitchLowerBoundMatrix {
                         Identifier::PrimaryReentry {
                             reference_index,
                             query_index,
-                            ..
+                            gap_type,
+                            flank_index,
                         } => {
+                            debug_assert_eq!(gap_type, GapType::None);
+                            debug_assert_eq!(flank_index, 0);
+
                             let reentry_x =
                                 isize::try_from(reference_index).unwrap() - root_xy_isize;
                             let reentry_y = isize::try_from(query_index).unwrap() - root_xy_isize;
@@ -294,7 +301,10 @@ fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet>(
         base_cost: config.base_cost,
 
         primary_edit_costs: GapAffineAlignmentCostTable::new_max(),
-        secondary_edit_costs: config.secondary_edit_costs.clone().into_lower_bound(),
+        secondary_edit_costs: config
+            .secondary_edit_costs
+            .clone()
+            .into_match_agnostic_lower_bound(),
         left_flank_edit_costs: GapAffineAlignmentCostTable::new_max(),
         right_flank_edit_costs: GapAffineAlignmentCostTable::new_max(),
 
@@ -359,17 +369,18 @@ impl Display for TemplateSwitchLowerBoundMatrix {
         )?;
 
         let mut buffer = String::new();
-        let matrix: HashMap<_, _> = (min_x..=max_x)
+        let mut matrix: HashMap<_, _> = (min_x..=max_x)
             .flat_map(|x| (min_y..=max_y).map(move |y| ((x, y), Cost::MAX)))
             .collect();
         let mut column_widths: HashMap<_, _> = (min_x..=max_x).map(|x| (x, 1)).collect();
-        for TSLBMatrixEntry { x, cost, .. } in &self.entries {
+        for TSLBMatrixEntry { x, y, cost } in &self.entries {
             debug_assert_ne!(*cost, Cost::MAX);
             buffer.clear();
             write!(buffer, "{cost}").unwrap();
 
             let column_width = column_widths.get_mut(x).unwrap();
             *column_width = buffer.len().max(*column_width);
+            *matrix.get_mut(&(*x, *y)).unwrap() = *cost;
         }
 
         for y in min_y..=max_y {

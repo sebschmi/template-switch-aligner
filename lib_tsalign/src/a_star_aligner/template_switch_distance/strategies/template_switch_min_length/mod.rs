@@ -4,6 +4,7 @@ use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
 
+use crate::a_star_aligner::template_switch_distance::AlignmentType;
 use crate::{
     a_star_aligner::template_switch_distance::{
         identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary},
@@ -165,6 +166,8 @@ impl AlignmentStrategy for NoTemplateSwitchMinLengthStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
+        _identifier: Identifier,
+        _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         *self
@@ -186,6 +189,8 @@ impl AlignmentStrategy for LookaheadTemplateSwitchMinLengthStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
+        _identifier: Identifier,
+        _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         *self

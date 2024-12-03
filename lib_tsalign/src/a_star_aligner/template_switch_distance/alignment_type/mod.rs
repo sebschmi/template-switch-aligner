@@ -6,13 +6,37 @@ use super::identifier::{TemplateSwitchPrimary, TemplateSwitchSecondary};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AlignmentType {
     /// The query contains a base that is missing from the reference.
-    Insertion,
+    PrimaryInsertion,
     /// The query is missing a base present in the reference.
-    Deletion,
+    PrimaryDeletion,
     /// The query contains a different base than the reference.
-    Substitution,
+    PrimarySubstitution,
     /// The query contains the same base as the reference.
-    Match,
+    PrimaryMatch,
+    /// The query contains a base that is missing from the reference.
+    ///
+    /// This happens inside a TS flank.
+    PrimaryFlankInsertion,
+    /// The query is missing a base present in the reference.
+    ///
+    /// This happens inside a TS flank.
+    PrimaryFlankDeletion,
+    /// The query contains a different base than the reference.
+    ///
+    /// This happens inside a TS flank.
+    PrimaryFlankSubstitution,
+    /// The query contains the same base as the reference.
+    ///
+    /// This happens inside a TS flank.
+    PrimaryFlankMatch,
+    /// The TS secondary contains a base that is missing from the TS primary.
+    SecondaryInsertion,
+    /// The TS secondary is missing a base present in the TS primary.
+    SecondaryDeletion,
+    /// The TS secondary contains a different base than the TS primary.
+    SecondarySubstitution,
+    /// The TS secondary contains the same base as the TS primary.
+    SecondaryMatch,
     /// A template switch entrance.
     TemplateSwitchEntrance {
         primary: TemplateSwitchPrimary,
@@ -39,10 +63,18 @@ pub enum AlignmentType {
 impl IAlignmentType for AlignmentType {
     fn is_repeatable(&self) -> bool {
         match self {
-            Self::Insertion
-            | Self::Deletion
-            | Self::Substitution
-            | Self::Match
+            Self::PrimaryInsertion
+            | Self::PrimaryFlankInsertion
+            | Self::SecondaryInsertion
+            | Self::PrimaryDeletion
+            | Self::PrimaryFlankDeletion
+            | Self::SecondaryDeletion
+            | Self::PrimarySubstitution
+            | Self::PrimaryFlankSubstitution
+            | Self::SecondarySubstitution
+            | Self::PrimaryMatch
+            | Self::PrimaryFlankMatch
+            | Self::SecondaryMatch
             | Self::Root
             | Self::SecondaryRoot
             | Self::PrimaryReentry => true,
@@ -53,6 +85,26 @@ impl IAlignmentType for AlignmentType {
     }
 
     fn is_repeated(&self, previous: &Self) -> bool {
+        if (matches!(self, Self::PrimaryInsertion | Self::PrimaryFlankInsertion)
+            && matches!(
+                previous,
+                Self::PrimaryInsertion | Self::PrimaryFlankInsertion
+            ))
+            || (matches!(self, Self::PrimaryDeletion | Self::PrimaryFlankDeletion)
+                && matches!(previous, Self::PrimaryDeletion | Self::PrimaryFlankDeletion))
+            || (matches!(
+                self,
+                Self::PrimarySubstitution | Self::PrimaryFlankSubstitution
+            ) && matches!(
+                previous,
+                Self::PrimarySubstitution | Self::PrimaryFlankSubstitution
+            ))
+            || (matches!(self, Self::PrimaryMatch | Self::PrimaryFlankMatch)
+                && matches!(previous, Self::PrimaryMatch | Self::PrimaryFlankMatch))
+        {
+            return true;
+        }
+
         match (self, previous) {
             (
                 Self::TemplateSwitchEntrance {

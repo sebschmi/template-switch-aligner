@@ -7,7 +7,7 @@ use crate::{
             template_switch::TemplateSwitchLowerBoundMatrix,
             template_switch_alignment::TemplateSwitchAlignmentLowerBoundMatrix,
         },
-        Context,
+        AlignmentType, Context, Identifier,
     },
     config::TemplateSwitchConfig,
 };
@@ -53,7 +53,7 @@ impl ChainingStrategy for PrecomputeOnlyChainingStrategy {
         let ts_lower_bounds = TemplateSwitchLowerBoundMatrix::new(config);
         debug!("{ts_lower_bounds}");
         let tsa_lower_bounds =
-            TemplateSwitchAlignmentLowerBoundMatrix::new(config, &ts_lower_bounds, 100, 100);
+            TemplateSwitchAlignmentLowerBoundMatrix::new(config, &ts_lower_bounds, 100, 100, 10);
         debug!("{tsa_lower_bounds}");
 
         ChainingMemory {
@@ -78,6 +78,8 @@ impl AlignmentStrategy for NoChainingStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
+        _identifier: Identifier,
+        _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         *self
@@ -99,6 +101,8 @@ impl AlignmentStrategy for PrecomputeOnlyChainingStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
+        _identifier: Identifier,
+        _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         *self

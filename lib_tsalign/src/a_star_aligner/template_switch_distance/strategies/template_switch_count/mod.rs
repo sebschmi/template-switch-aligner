@@ -1,6 +1,6 @@
 use compact_genome::interface::sequence::GenomeSequence;
 
-use crate::a_star_aligner::template_switch_distance::Context;
+use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Identifier};
 
 use super::{AlignmentStrategy, AlignmentStrategySelector};
 
@@ -77,6 +77,8 @@ impl AlignmentStrategy for NoTemplateSwitchCountStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
+        _identifier: Identifier,
+        _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         *self
@@ -100,6 +102,8 @@ impl AlignmentStrategy for MaxTemplateSwitchCountStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
+        _identifier: Identifier,
+        _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         *self

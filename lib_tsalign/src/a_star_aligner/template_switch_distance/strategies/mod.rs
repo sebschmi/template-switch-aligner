@@ -3,16 +3,18 @@ use std::{fmt::Debug, marker::PhantomData};
 use chaining::ChainingStrategy;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use node_ord::NodeOrdStrategy;
-use secondary_deletion_strategy::SecondaryDeletionStrategy;
+use primary_match::PrimaryMatchStrategy;
+use secondary_deletion::SecondaryDeletionStrategy;
 use shortcut::ShortcutStrategy;
 use template_switch_count::TemplateSwitchCountStrategy;
 use template_switch_min_length::TemplateSwitchMinLengthStrategy;
 
-use super::Context;
+use super::{AlignmentType, Context, Identifier};
 
 pub mod chaining;
 pub mod node_ord;
-pub mod secondary_deletion_strategy;
+pub mod primary_match;
+pub mod secondary_deletion;
 pub mod shortcut;
 pub mod template_switch_count;
 pub mod template_switch_min_length;
@@ -25,6 +27,7 @@ pub trait AlignmentStrategySelector: Eq + Clone + std::fmt::Debug {
     type TemplateSwitchCount: TemplateSwitchCountStrategy;
     type SecondaryDeletion: SecondaryDeletionStrategy;
     type Shortcut: ShortcutStrategy;
+    type PrimaryMatch: PrimaryMatchStrategy;
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -32,6 +35,7 @@ pub struct AlignmentStrategies<Selector: AlignmentStrategySelector> {
     pub node_ord_strategy: Selector::NodeOrd,
     pub template_switch_min_length_strategy: Selector::TemplateSwitchMinLength,
     pub template_switch_count: Selector::TemplateSwitchCount,
+    pub primary_match: Selector::PrimaryMatch,
 }
 
 pub trait AlignmentStrategy: Eq + Clone + std::fmt::Debug {
@@ -47,6 +51,8 @@ pub trait AlignmentStrategy: Eq + Clone + std::fmt::Debug {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
+        identifier: Identifier,
+        alignment_type: AlignmentType,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self;
 }
@@ -64,6 +70,7 @@ impl<Selector: AlignmentStrategySelector> AlignmentStrategy for AlignmentStrateg
                 context,
             ),
             template_switch_count: Selector::TemplateSwitchCount::create_root(context),
+            primary_match: Selector::PrimaryMatch::create_root(context),
         }
     }
 
@@ -72,14 +79,29 @@ impl<Selector: AlignmentStrategySelector> AlignmentStrategy for AlignmentStrateg
         Strategies: AlignmentStrategySelector,
     >(
         &self,
+        identifier: Identifier,
+        alignment_type: AlignmentType,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         Self {
-            node_ord_strategy: self.node_ord_strategy.generate_successor(context),
+            node_ord_strategy: self.node_ord_strategy.generate_successor(
+                identifier,
+                alignment_type,
+                context,
+            ),
             template_switch_min_length_strategy: self
                 .template_switch_min_length_strategy
-                .generate_successor(context),
-            template_switch_count: self.template_switch_count.generate_successor(context),
+                .generate_successor(identifier, alignment_type, context),
+            template_switch_count: self.template_switch_count.generate_successor(
+                identifier,
+                alignment_type,
+                context,
+            ),
+            primary_match: self.primary_match.generate_successor(
+                identifier,
+                alignment_type,
+                context,
+            ),
         }
     }
 }
@@ -92,7 +114,9 @@ pub struct AlignmentStrategySelection<
     TemplateSwitchCount: TemplateSwitchCountStrategy,
     SecondaryDeletion: SecondaryDeletionStrategy,
     Shortcut: ShortcutStrategy,
+    PrimaryMatch: PrimaryMatchStrategy,
 > {
+    #[allow(clippy::type_complexity)]
     phantom_data: PhantomData<(
         AlphabetType,
         NodeOrd,
@@ -101,6 +125,7 @@ pub struct AlignmentStrategySelection<
         TemplateSwitchCount,
         SecondaryDeletion,
         Shortcut,
+        PrimaryMatch,
     )>,
 }
 
@@ -112,6 +137,7 @@ impl<
         TemplateSwitchCount: TemplateSwitchCountStrategy,
         SecondaryDeletion: SecondaryDeletionStrategy,
         Shortcut: ShortcutStrategy,
+        PrimaryMatch: PrimaryMatchStrategy,
     > AlignmentStrategySelector
     for AlignmentStrategySelection<
         AlphabetType,
@@ -121,6 +147,7 @@ impl<
         TemplateSwitchCount,
         SecondaryDeletion,
         Shortcut,
+        PrimaryMatch,
     >
 {
     type Alphabet = AlphabetType;
@@ -130,6 +157,7 @@ impl<
     type TemplateSwitchCount = TemplateSwitchCount;
     type SecondaryDeletion = SecondaryDeletion;
     type Shortcut = Shortcut;
+    type PrimaryMatch = PrimaryMatch;
 }
 
 impl<
@@ -140,6 +168,7 @@ impl<
         TemplateSwitchCount: TemplateSwitchCountStrategy,
         SecondaryDeletion: SecondaryDeletionStrategy,
         Shortcut: ShortcutStrategy,
+        PrimaryMatch: PrimaryMatchStrategy,
     > Debug
     for AlignmentStrategySelection<
         AlphabetType,
@@ -149,6 +178,7 @@ impl<
         TemplateSwitchCount,
         SecondaryDeletion,
         Shortcut,
+        PrimaryMatch,
     >
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -164,6 +194,7 @@ impl<
         TemplateSwitchCount: TemplateSwitchCountStrategy,
         SecondaryDeletion: SecondaryDeletionStrategy,
         Shortcut: ShortcutStrategy,
+        PrimaryMatch: PrimaryMatchStrategy,
     > Clone
     for AlignmentStrategySelection<
         AlphabetType,
@@ -173,6 +204,7 @@ impl<
         TemplateSwitchCount,
         SecondaryDeletion,
         Shortcut,
+        PrimaryMatch,
     >
 {
     fn clone(&self) -> Self {
@@ -190,6 +222,7 @@ impl<
         TemplateSwitchCount: TemplateSwitchCountStrategy,
         SecondaryDeletion: SecondaryDeletionStrategy,
         Shortcut: ShortcutStrategy,
+        PrimaryMatch: PrimaryMatchStrategy,
     > PartialEq
     for AlignmentStrategySelection<
         AlphabetType,
@@ -199,6 +232,7 @@ impl<
         TemplateSwitchCount,
         SecondaryDeletion,
         Shortcut,
+        PrimaryMatch,
     >
 {
     fn eq(&self, other: &Self) -> bool {
@@ -214,6 +248,7 @@ impl<
         TemplateSwitchCount: TemplateSwitchCountStrategy,
         SecondaryDeletion: SecondaryDeletionStrategy,
         Shortcut: ShortcutStrategy,
+        PrimaryMatch: PrimaryMatchStrategy,
     > Eq
     for AlignmentStrategySelection<
         AlphabetType,
@@ -223,6 +258,7 @@ impl<
         TemplateSwitchCount,
         SecondaryDeletion,
         Shortcut,
+        PrimaryMatch,
     >
 {
 }

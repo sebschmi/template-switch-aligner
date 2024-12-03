@@ -1,6 +1,8 @@
 use compact_genome::interface::sequence::GenomeSequence;
 
-use crate::a_star_aligner::template_switch_distance::{Context, NodeData};
+use crate::a_star_aligner::template_switch_distance::{
+    AlignmentType, Context, Identifier, NodeData,
+};
 
 use super::{AlignmentStrategy, AlignmentStrategySelector};
 
@@ -51,6 +53,8 @@ impl AlignmentStrategy for CostOnlyNodeOrdStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
+        _identifier: Identifier,
+        _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         *self
@@ -72,6 +76,8 @@ impl AlignmentStrategy for AntiDiagonalNodeOrdStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
+        _identifier: Identifier,
+        _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         *self

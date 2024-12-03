@@ -3,7 +3,8 @@ use generic_a_star::{AStarContext, AStarNode};
 
 use crate::{
     a_star_aligner::template_switch_distance::{
-        lower_bounds::template_switch::TemplateSwitchLowerBoundMatrix, Context, Identifier,
+        lower_bounds::template_switch::TemplateSwitchLowerBoundMatrix, AlignmentType, Context,
+        Identifier,
     },
     config::TemplateSwitchConfig,
 };
@@ -112,6 +113,8 @@ impl AlignmentStrategy for NoShortcutStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
+        _identifier: Identifier,
+        _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         *self
@@ -133,6 +136,8 @@ impl AlignmentStrategy for TemplateSwitchLowerBoundShortcutStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
+        _identifier: Identifier,
+        _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         *self

@@ -93,8 +93,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let predecessor_identifier @ (Identifier::Primary { .. }
-        | Identifier::PrimaryReentry { .. }) = self.node_data.identifier
+        let predecessor_identifier @ (Identifier::Primary { flank_index, .. }
+        | Identifier::PrimaryReentry { flank_index, .. }) = self.node_data.identifier
         else {
             unreachable!("This method is only called on primary nodes.")
         };
@@ -102,10 +102,14 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         Some(self.generate_successor(
             predecessor_identifier.generate_primary_diagonal_successor(successor_flank_index),
             cost_increment,
-            if is_match {
-                AlignmentType::Match
-            } else {
-                AlignmentType::Substitution
+            match (
+                is_match,
+                flank_index == successor_flank_index && successor_flank_index == 0,
+            ) {
+                (true, true) => AlignmentType::PrimaryMatch,
+                (true, false) => AlignmentType::PrimaryFlankMatch,
+                (false, true) => AlignmentType::PrimarySubstitution,
+                (false, false) => AlignmentType::PrimaryFlankSubstitution,
             },
             context,
         ))
@@ -123,8 +127,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let predecessor_identifier @ (Identifier::Primary { .. }
-        | Identifier::PrimaryReentry { .. }) = self.node_data.identifier
+        let predecessor_identifier @ (Identifier::Primary { flank_index, .. }
+        | Identifier::PrimaryReentry { flank_index, .. }) = self.node_data.identifier
         else {
             unreachable!("This method is only called on primary nodes.")
         };
@@ -132,7 +136,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         Some(self.generate_successor(
             predecessor_identifier.generate_primary_deletion_successor(successor_flank_index),
             cost_increment,
-            AlignmentType::Deletion,
+            if flank_index == successor_flank_index && successor_flank_index == 0 {
+                AlignmentType::PrimaryDeletion
+            } else {
+                AlignmentType::PrimaryFlankDeletion
+            },
             context,
         ))
     }
@@ -149,8 +157,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let predecessor_identifier @ (Identifier::Primary { .. }
-        | Identifier::PrimaryReentry { .. }) = self.node_data.identifier
+        let predecessor_identifier @ (Identifier::Primary { flank_index, .. }
+        | Identifier::PrimaryReentry { flank_index, .. }) = self.node_data.identifier
         else {
             unreachable!("This method is only called on primary nodes.")
         };
@@ -158,7 +166,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         Some(self.generate_successor(
             predecessor_identifier.generate_primary_insertion_successor(successor_flank_index),
             cost_increment,
-            AlignmentType::Insertion,
+            if flank_index == successor_flank_index && successor_flank_index == 0 {
+                AlignmentType::PrimaryInsertion
+            } else {
+                AlignmentType::PrimaryFlankInsertion
+            },
             context,
         ))
     }
@@ -324,9 +336,9 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             predecessor_identifier.generate_secondary_diagonal_successor(),
             cost_increment,
             if is_match {
-                AlignmentType::Match
+                AlignmentType::SecondaryMatch
             } else {
-                AlignmentType::Substitution
+                AlignmentType::SecondarySubstitution
             },
             context,
         ))
@@ -352,7 +364,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         Some(self.generate_successor(
             predecessor_identifier.generate_secondary_deletion_successor(),
             cost_increment,
-            AlignmentType::Deletion,
+            AlignmentType::SecondaryDeletion,
             context,
         ))
     }
@@ -377,7 +389,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         Some(self.generate_successor(
             predecessor_identifier.generate_secondary_insertion_successor(),
             cost_increment,
-            AlignmentType::Insertion,
+            AlignmentType::SecondaryInsertion,
             context,
         ))
     }
@@ -594,7 +606,9 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 cost_increment,
                 alignment_type,
             ),
-            strategies: self.strategies.generate_successor(context),
+            strategies: self
+                .strategies
+                .generate_successor(identifier, alignment_type, context),
         }
     }
 }

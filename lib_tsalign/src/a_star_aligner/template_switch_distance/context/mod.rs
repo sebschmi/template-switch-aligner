@@ -10,7 +10,8 @@ use crate::config::TemplateSwitchConfig;
 
 use super::identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
 use super::strategies::chaining::ChainingStrategy;
-use super::strategies::secondary_deletion_strategy::SecondaryDeletionStrategy;
+use super::strategies::primary_match::PrimaryMatchStrategy;
+use super::strategies::secondary_deletion::SecondaryDeletionStrategy;
 use super::strategies::shortcut::ShortcutStrategy;
 use super::strategies::template_switch_count::TemplateSwitchCountStrategy;
 use super::strategies::template_switch_min_length::TemplateSwitchMinLengthStrategy;
@@ -37,6 +38,7 @@ pub struct Memory<Strategies: AlignmentStrategySelector> {
     pub chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::Memory,
     pub template_switch_count:  <<Strategies as AlignmentStrategySelector>::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
     pub shortcut: <<Strategies as AlignmentStrategySelector>::Shortcut as ShortcutStrategy>::Memory,
+    pub primary_match: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::Memory,
 }
 
 impl<
@@ -116,54 +118,79 @@ impl<
                     // Diagonal characters
                     let r = self.reference[reference_index].clone();
                     let q = self.query[query_index].clone();
+                    let is_match = r == q;
 
                     if flank_index == 0 {
-                        opened_nodes_output.extend(
-                            node.generate_primary_diagonal_successor(
+                        let can_do_primary_non_flank_match = node
+                            .strategies
+                            .primary_match
+                            .can_do_primary_non_flank_match(self);
+
+                        let (is_match, cost_increment) =
+                            if is_match && can_do_primary_non_flank_match {
+                                (
+                                    true,
+                                    config.primary_edit_costs.match_cost(r.clone(), q.clone()),
+                                )
+                            } else if is_match && !can_do_primary_non_flank_match {
+                                (
+                                    false,
+                                    node.strategies.primary_match.fake_substitution_cost(self),
+                                )
+                            } else {
+                                debug_assert!(!is_match);
+                                (
+                                    false,
+                                    config
+                                        .primary_edit_costs
+                                        .substitution_cost(r.clone(), q.clone()),
+                                )
+                            };
+
+                        if cost_increment != Cost::MAX {
+                            opened_nodes_output.extend(node.generate_primary_diagonal_successor(
                                 0,
-                                config
-                                    .primary_edit_costs
-                                    .match_or_substitution_cost(r.clone(), q.clone()),
-                                r == q,
+                                cost_increment,
+                                is_match,
                                 self,
-                            ),
-                        );
+                            ));
+                        }
                     }
 
-                    if flank_index >= 0
-                        && flank_index < config.left_flank_length
-                        && can_start_another_template_switch
+                    if (flank_index < config.left_flank_length && can_start_another_template_switch)
+                        || flank_index < 0
                     {
-                        opened_nodes_output.extend(
-                            node.generate_primary_diagonal_successor(
+                        let can_do_primary_flank_match = node
+                            .strategies
+                            .primary_match
+                            .can_do_primary_flank_match(self);
+
+                        let edit_costs = if flank_index < 0 {
+                            &config.right_flank_edit_costs
+                        } else {
+                            &config.left_flank_edit_costs
+                        };
+
+                        let (is_match, cost_increment) = if is_match && can_do_primary_flank_match {
+                            (true, edit_costs.match_cost(r.clone(), q.clone()))
+                        } else if is_match && !can_do_primary_flank_match {
+                            (
+                                false,
+                                node.strategies.primary_match.fake_substitution_cost(self),
+                            )
+                        } else {
+                            debug_assert!(!is_match);
+                            (false, edit_costs.substitution_cost(r.clone(), q.clone()))
+                        };
+
+                        if cost_increment != Cost::MAX {
+                            opened_nodes_output.extend(node.generate_primary_diagonal_successor(
                                 flank_index + 1,
-                                config
-                                    .left_flank_edit_costs
-                                    .match_or_substitution_cost(r.clone(), q.clone()),
-                                r == q,
+                                cost_increment,
+                                is_match,
                                 self,
-                            ),
-                        );
-                    } else if flank_index < 0 {
-                        opened_nodes_output.extend(
-                            node.generate_primary_diagonal_successor(
-                                flank_index + 1,
-                                config
-                                    .right_flank_edit_costs
-                                    .match_or_substitution_cost(r.clone(), q.clone()),
-                                r == q,
-                                self,
-                            ),
-                        );
-                    } else if flank_index == config.left_flank_length
-                        && can_start_another_template_switch
-                    {
-                        opened_nodes_output.extend(
-                            node.generate_initial_template_switch_entrance_successors(
-                                config.offset_costs.evaluate(&0) + config.base_cost,
-                                self,
-                            ),
-                        );
+                            ));
+                        }
                     }
                 }
 
@@ -203,15 +230,6 @@ impl<
                                 config
                                     .right_flank_edit_costs
                                     .gap_costs(r, gap_type != GapType::Deletion),
-                                self,
-                            ),
-                        );
-                    } else if flank_index == config.left_flank_length
-                        && can_start_another_template_switch
-                    {
-                        opened_nodes_output.extend(
-                            node.generate_initial_template_switch_entrance_successors(
-                                config.offset_costs.evaluate(&0) + config.base_cost,
                                 self,
                             ),
                         );
@@ -257,9 +275,14 @@ impl<
                                 self,
                             ),
                         );
-                    } else if flank_index == config.left_flank_length
-                        && can_start_another_template_switch
-                    {
+                    }
+                }
+
+                // Template switches are always allowed, as long as we have a left flank.
+                if flank_index == config.left_flank_length && can_start_another_template_switch {
+                    let offset_costs = config.offset_costs.evaluate(&0);
+
+                    if offset_costs != Cost::MAX && config.base_cost != Cost::MAX {
                         opened_nodes_output.extend(
                             node.generate_initial_template_switch_entrance_successors(
                                 config.offset_costs.evaluate(&0) + config.base_cost,

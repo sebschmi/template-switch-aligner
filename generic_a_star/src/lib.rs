@@ -295,9 +295,21 @@ impl<Context: AStarContext> AStar<Context> {
             panic!("Cannot backtrack if no target was found.")
         };
 
-        BacktrackingIterator {
-            a_star: self,
-            current: identifier.clone(),
+        self.backtrack_from(identifier).unwrap()
+    }
+
+    pub fn backtrack_from(
+        &self,
+        identifier: &<Context::Node as AStarNode>::Identifier,
+    ) -> Option<impl use<'_, Context> + IntoIterator<Item = <Context::Node as AStarNode>::EdgeType>>
+    {
+        if self.closed_list.contains_key(identifier) {
+            Some(BacktrackingIterator {
+                a_star: self,
+                current: identifier.clone(),
+            })
+        } else {
+            None
         }
     }
 }

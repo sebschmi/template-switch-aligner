@@ -6,8 +6,9 @@ use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
 use template_switch_distance::{
     context::Memory,
     strategies::{
-        chaining::ChainingStrategy, shortcut::NoShortcutStrategy,
-        template_switch_count::NoTemplateSwitchCountStrategy, AlignmentStrategySelector,
+        chaining::ChainingStrategy, primary_match::AllowPrimaryMatchStrategy,
+        shortcut::NoShortcutStrategy, template_switch_count::NoTemplateSwitchCountStrategy,
+        AlignmentStrategySelector,
     },
 };
 use traitsequence::interface::Sequence;
@@ -106,6 +107,7 @@ pub fn template_switch_distance_a_star_align<
     Strategies: AlignmentStrategySelector<
         TemplateSwitchCount = NoTemplateSwitchCountStrategy,
         Shortcut = NoShortcutStrategy,
+        PrimaryMatch = AllowPrimaryMatchStrategy,
     >,
     SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
 >(
@@ -118,6 +120,7 @@ pub fn template_switch_distance_a_star_align<
         chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::initialise_memory(&config),
         template_switch_count: (),
         shortcut: (),
+        primary_match:(),
     };
 
     a_star_align(template_switch_distance::Context::<

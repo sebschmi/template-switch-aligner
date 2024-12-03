@@ -5,10 +5,16 @@ use super::{AlignmentType, GapType, Identifier, TemplateSwitchPrimary, TemplateS
 impl Display for AlignmentType {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            Self::Insertion => write!(f, "I"),
-            Self::Deletion => write!(f, "D"),
-            Self::Substitution => write!(f, "S"),
-            Self::Match => write!(f, "M"),
+            Self::PrimaryInsertion | Self::PrimaryFlankInsertion | Self::SecondaryInsertion => {
+                write!(f, "I")
+            }
+            Self::PrimaryDeletion | Self::PrimaryFlankDeletion | Self::SecondaryDeletion => {
+                write!(f, "D")
+            }
+            Self::PrimarySubstitution
+            | Self::PrimaryFlankSubstitution
+            | Self::SecondarySubstitution => write!(f, "S"),
+            Self::PrimaryMatch | Self::PrimaryFlankMatch | Self::SecondaryMatch => write!(f, "M"),
             Self::TemplateSwitchEntrance {
                 primary,
                 secondary,

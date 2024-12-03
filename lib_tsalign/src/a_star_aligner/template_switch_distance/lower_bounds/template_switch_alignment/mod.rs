@@ -18,8 +18,12 @@ use crate::{
         template_switch_distance::{
             context::Memory,
             strategies::{
-                chaining::NoChainingStrategy, node_ord::CostOnlyNodeOrdStrategy,
-                secondary_deletion_strategy::AllowSecondaryDeletionStrategy,
+                chaining::NoChainingStrategy,
+                node_ord::CostOnlyNodeOrdStrategy,
+                primary_match::{
+                    MaxConsecutivePrimaryMatchMemory, MaxConsecutivePrimaryMatchStrategy,
+                },
+                secondary_deletion::AllowSecondaryDeletionStrategy,
                 shortcut::TemplateSwitchLowerBoundShortcutStrategy,
                 template_switch_count::NoTemplateSwitchCountStrategy,
                 template_switch_min_length::NoTemplateSwitchMinLengthStrategy,
@@ -49,6 +53,7 @@ type TSALBAlignmentStrategies<AlphabetType> = AlignmentStrategySelection<
     NoTemplateSwitchCountStrategy,
     AllowSecondaryDeletionStrategy,
     TemplateSwitchLowerBoundShortcutStrategy,
+    MaxConsecutivePrimaryMatchStrategy,
 >;
 
 impl TemplateSwitchAlignmentLowerBoundMatrix {
@@ -57,6 +62,7 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
         tslb_matrix: &TemplateSwitchLowerBoundMatrix,
         reference_limit: usize,
         query_limit: usize,
+        max_consecutive_primary_matches: usize,
     ) -> Self {
         info!("Computing TS alignment lower bound matrix...");
         let lower_bound_config = generate_template_switch_alignment_lower_bound_config(config);
@@ -78,6 +84,12 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
                 chaining: (),
                 template_switch_count: (),
                 shortcut: tslb_matrix.clone(),
+                primary_match: MaxConsecutivePrimaryMatchMemory {
+                    max_consecutive_primary_matches,
+                    fake_substitution_cost: lower_bound_config
+                        .primary_edit_costs
+                        .min_substitution_cost(),
+                },
             },
         ));
         a_star.initialise();
@@ -97,20 +109,29 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
                 Identifier::Primary {
                     reference_index,
                     query_index,
+                    flank_index,
                     ..
                 }
                 | Identifier::PrimaryReentry {
                     reference_index,
                     query_index,
+                    flank_index,
                     ..
                 } => {
-                    trace!("Found target {} at cost {}", node.identifier(), node.cost());
+                    if flank_index == 0 && reference_index < reference_limit && query_index < query_limit {
+                        if let Some(previous) = closed_lower_bounds.get(&(reference_index, query_index)) {
+                            debug_assert!(*previous <= node.cost(), "Search may find the same node thrice due to gap types, but never with a lower cost.");
+                        } else {
+                            closed_lower_bounds.insert((reference_index, query_index), node.cost());
 
-                    let previous =
-                        closed_lower_bounds.insert((reference_index, query_index), node.cost());
-                    debug_assert!(previous.is_none(), "Search finds each target at most once.");
+                            // Found target for the first time.
+                            trace!("Found target {} at cost {}", node.identifier(), node.cost());
+                        }
 
-                    reference_index == target_reference_index && query_index == target_query_index
+                        reference_index == target_reference_index && query_index == target_query_index
+                    } else {
+                        false
+                    }
                 }
                 Identifier::TemplateSwitchEntrance { .. }
                 | Identifier::Secondary { .. }
@@ -172,7 +193,9 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
 
         let mut matrix = Array2::from_elem((max_x + 1, max_y + 1), Cost::MAX);
         for ((x, y), cost) in matrix.indexed_iter_mut() {
-            *cost = *closed_lower_bounds.get(&(x, y)).unwrap();
+            *cost = *closed_lower_bounds
+                .get(&(x, y))
+                .unwrap_or_else(|| unreachable!("Missing matrix entry for ({x}, {y})"));
             assert_ne!(*cost, Cost::MAX);
         }
 
@@ -206,9 +229,8 @@ impl Display for TemplateSwitchAlignmentLowerBoundMatrix {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let min_x = 0;
         let min_y = 0;
-        let &[max_x, max_y] = self.matrix.shape() else {
-            unreachable!()
-        };
+        let max_x = self.matrix.shape()[0] - 1;
+        let max_y = self.matrix.shape()[1] - 1;
 
         writeln!(f, "TemplateSwitchAlignmentLowerBoundMatrix:")?;
         writeln!(f, "x range: [0, {max_x}]; y range: [0, {max_y}]",)?;
