@@ -1,11 +1,15 @@
-use context::{ChainingCostsProvider, Context};
+use context::Context;
 use generic_a_star::{cost::Cost, AStar};
 use log::info;
-use node::{EdgeType, Identifier};
+use node::EdgeType;
 
 use crate::seed::ChainingAnchors;
 
+pub use context::ChainingCostsProvider;
+pub use node::Identifier;
+
 mod context;
+mod display;
 mod node;
 
 pub struct Chain {

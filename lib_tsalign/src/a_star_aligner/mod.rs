@@ -116,7 +116,7 @@ pub fn template_switch_distance_a_star_align<
 ) -> AlignmentResult<template_switch_distance::AlignmentType> {
     let memory = Memory {
         template_switch_min_length: Default::default(),
-        chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::initialise_memory(&config),
+        chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::initialise_memory(reference, query, &config, 20),
         template_switch_count: (),
         shortcut: (),
         primary_match:(),

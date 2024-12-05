@@ -28,7 +28,7 @@ impl ChainingAnchors {
         query: &SubsequenceType,
         block_size: usize,
     ) -> Self {
-        info!("Computing non-overlapping chaining anchors...");
+        info!("Computing non-overlapping chaining anchors with block size {block_size}...");
         assert!(
             reference.len() >= block_size,
             "Reference (length: {}) is shorter than the block size {}",
@@ -76,6 +76,13 @@ impl ChainingAnchors {
 }
 
 impl ChainingAnchor {
+    pub fn new(reference_block: Range<usize>, query_block: Range<usize>) -> Self {
+        Self {
+            reference_block,
+            query_block,
+        }
+    }
+
     pub fn reference_block(&self) -> &Range<usize> {
         &self.reference_block
     }

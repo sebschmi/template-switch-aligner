@@ -27,4 +27,5 @@ num-traits.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
 noisy_float = { version = "0.2.0" }
 generic_a_star = { version = "0.5.0", path = "../generic_a_star" }
-log = "0.4.22"
+log.workspace = true
+seed_chain = { version = "0.0.0", path = "../seed_chain" }

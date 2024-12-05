@@ -299,6 +299,7 @@ dependencies = [
  "noisy_float",
  "nom",
  "num-traits",
+ "seed_chain",
  "serde",
  "thiserror 2.0.3",
  "traitsequence",

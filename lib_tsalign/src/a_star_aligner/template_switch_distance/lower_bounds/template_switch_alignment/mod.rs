@@ -201,6 +201,10 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
 
         Self { matrix }
     }
+
+    pub fn cost(&self, delta_reference: usize, delta_query: usize) -> Cost {
+        self.matrix[(delta_reference, delta_query)]
+    }
 }
 
 fn generate_template_switch_alignment_lower_bound_config<AlphabetType: Alphabet>(
