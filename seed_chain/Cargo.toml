@@ -1,0 +1,13 @@
+[package]
+name = "seed_chain"
+description = "A seeding and generic chaining mechanism for sequence-to-sequence alignment"
+license = "BSD-2-Clause"
+repository = "https://github.com/sebschmi/seed-chain"
+authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
+version = "0.0.0"
+edition = "2021"
+rust-version.workspace = true
+
+
+[dependencies]
+compact-genome.workspace = true

@@ -4,7 +4,7 @@ members = [
     "tsalign",
     "lib_tsalign",
     "generic_a_star",
-    "deterministic_default_hasher",
+    "deterministic_default_hasher", "seed_chain",
 ]
 resolver = "2"
 package.rust-version = "1.83.0"
