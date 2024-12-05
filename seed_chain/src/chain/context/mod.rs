@@ -59,13 +59,15 @@ impl<ChainingCosts: ChainingCostsProvider> AStarContext for Context<ChainingCost
                         .chaining_costs(node.predecessor().unwrap(), &successor_identifier);
                     node.generate_successor(successor_identifier, cost_increment)
                 })
-                .chain(
+                .chain(if !matches!(node.identifier(), Identifier::Target) {
                     node.generate_successor(
                         Identifier::Target,
                         self.chaining_costs
                             .chaining_costs(node.identifier(), &Identifier::Target),
-                    ),
-                ),
+                    )
+                } else {
+                    None
+                }),
         );
     }
 

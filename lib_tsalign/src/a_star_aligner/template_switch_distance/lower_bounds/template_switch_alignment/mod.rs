@@ -60,15 +60,15 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
     pub fn new<AlphabetType: Alphabet>(
         config: &TemplateSwitchConfig<AlphabetType>,
         tslb_matrix: &TemplateSwitchLowerBoundMatrix,
-        reference_limit: usize,
-        query_limit: usize,
+        reference_length: usize,
+        query_length: usize,
         max_consecutive_primary_matches: usize,
     ) -> Self {
         info!("Computing TS alignment lower bound matrix...");
         let lower_bound_config = generate_template_switch_alignment_lower_bound_config(config);
 
         let mut closed_lower_bounds = HashMap::new();
-        let genome_length = reference_limit.max(query_limit);
+        let genome_length = reference_length.max(query_length);
 
         debug!("Using genome length {genome_length}");
         assert!(genome_length < usize::try_from(isize::MAX).unwrap() / 2);
@@ -95,8 +95,8 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
         a_star.initialise();
 
         for (target_reference_index, target_query_index) in
-            (0..reference_limit).flat_map(|reference_index| {
-                (0..query_limit).map(move |query_index| (reference_index, query_index))
+            (0..=reference_length).flat_map(|reference_index| {
+                (0..=query_length).map(move |query_index| (reference_index, query_index))
             })
         {
             if closed_lower_bounds.contains_key(&(target_reference_index, target_query_index)) {
@@ -118,7 +118,7 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
                     flank_index,
                     ..
                 } => {
-                    if flank_index == 0 && reference_index < reference_limit && query_index < query_limit {
+                    if flank_index == 0 && reference_index <= reference_length && query_index <= query_length {
                         if let Some(previous) = closed_lower_bounds.get(&(reference_index, query_index)) {
                             debug_assert!(*previous <= node.cost(), "Search may find the same node thrice due to gap types, but never with a lower cost.");
                         } else {
@@ -140,7 +140,7 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
                 }
             }) {
                 AStarResult::FoundTarget { identifier, cost } => {
-                    trace!("Search termianted with target {identifier} at cost {cost}");
+                    trace!("Search terminated with target {identifier} at cost {cost}");
 
                     if let Identifier::Primary { .. } | Identifier::PrimaryReentry { .. } =
                         identifier
@@ -180,7 +180,7 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
                     }
                 }
                 AStarResult::NoTarget => {
-                    unreachable!("Search terminated without target");
+                    unreachable!("Search terminated without target for target reference index {target_reference_index} and target query index {target_query_index}");
                 }
             }
         }
