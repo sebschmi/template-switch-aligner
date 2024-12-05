@@ -55,7 +55,6 @@ where
     // Backtrack.
     for alignment_type in a_star
         .backtrack()
-        .into_iter()
         .map(<Context as AlignmentContext>::AlignmentType::from)
     {
         if !alignment_type.is_internal() {

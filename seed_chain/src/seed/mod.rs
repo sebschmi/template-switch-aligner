@@ -4,20 +4,20 @@ use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use log::info;
 
 #[derive(Debug, Clone)]
-pub struct ChainingSeeds {
-    seeds: Vec<ChainingSeed>,
+pub struct ChainingAnchors {
+    anchors: Vec<ChainingAnchor>,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ChainingSeed {
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct ChainingAnchor {
     reference_block: Range<usize>,
     query_block: Range<usize>,
 }
 
-impl ChainingSeeds {
-    /// Compute a set of seeds for the given reference and query sequences.
+impl ChainingAnchors {
+    /// Compute a set of anchors for the given reference and query sequences.
     ///
-    /// The seeds are computed by subdividing the reference sequence into non-overlapping blocks of size `block_size`,
+    /// The anchors are computed by subdividing the reference sequence into non-overlapping blocks of size `block_size`,
     /// and collecting all their matches in the query sequence.
     /// The last block is merged with the second-to-last block if it is smaller than `block_size`.
     pub fn seed_nonoverlapping<
@@ -28,7 +28,7 @@ impl ChainingSeeds {
         query: &SubsequenceType,
         block_size: usize,
     ) -> Self {
-        info!("Computing non-overlapping chaining seeds...");
+        info!("Computing non-overlapping chaining anchors...");
         assert!(
             reference.len() >= block_size,
             "Reference (length: {}) is shorter than the block size {}",
@@ -48,7 +48,7 @@ impl ChainingSeeds {
             .cloned()
             .map(|block_range| &reference[block_range])
             .collect();
-        let mut seeds: Vec<_> = find_all_substrings(&query, &reference_blocks)
+        let mut anchors: Vec<_> = find_all_substrings(&query, &reference_blocks)
             .map(
                 |SubstringMatch {
                      haystack_offset,
@@ -58,20 +58,30 @@ impl ChainingSeeds {
                     let block_size = reference_block.len();
                     let query_block = haystack_offset..haystack_offset + block_size;
 
-                    ChainingSeed {
+                    ChainingAnchor {
                         reference_block,
                         query_block,
                     }
                 },
             )
             .collect();
-        seeds.sort_unstable();
+        anchors.sort_unstable();
 
-        ChainingSeeds { seeds }
+        ChainingAnchors { anchors }
     }
 
-    pub fn seeds(&self) -> &[ChainingSeed] {
-        &self.seeds
+    pub fn anchors(&self) -> &[ChainingAnchor] {
+        &self.anchors
+    }
+}
+
+impl ChainingAnchor {
+    pub fn reference_block(&self) -> &Range<usize> {
+        &self.reference_block
+    }
+
+    pub fn query_block(&self) -> &Range<usize> {
+        &self.query_block
     }
 }
 
@@ -141,7 +151,7 @@ fn find_all_substrings<'haystack, 'needles>(
         })
 }
 
-impl Ord for ChainingSeed {
+impl Ord for ChainingAnchor {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.reference_block
             .start
@@ -152,7 +162,7 @@ impl Ord for ChainingSeed {
     }
 }
 
-impl PartialOrd for ChainingSeed {
+impl PartialOrd for ChainingAnchor {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
@@ -166,7 +176,7 @@ mod tests {
     };
 
     use super::{
-        find_all_substrings, nonoverlapping_block_ranges, ChainingSeed, ChainingSeeds,
+        find_all_substrings, nonoverlapping_block_ranges, ChainingAnchor, ChainingAnchors,
         SubstringMatch,
     };
 
@@ -214,17 +224,17 @@ mod tests {
             (6..10, 6..10),
             (6..10, 7..11),
         ]
-        .map(|(reference_block, query_block)| ChainingSeed {
+        .map(|(reference_block, query_block)| ChainingAnchor {
             reference_block,
             query_block,
         });
         expected.sort();
-        let actual = ChainingSeeds::seed_nonoverlapping(
+        let actual = ChainingAnchors::seed_nonoverlapping(
             reference.as_genome_subsequence(),
             query.as_genome_subsequence(),
             3,
         )
-        .seeds;
+        .anchors;
 
         assert_eq!(&expected, actual.as_slice());
     }

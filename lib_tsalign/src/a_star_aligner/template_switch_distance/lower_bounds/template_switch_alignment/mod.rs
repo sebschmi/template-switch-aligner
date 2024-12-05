@@ -155,7 +155,7 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
 
                             // Backtrack.
                             for alignment_type in
-                                a_star.backtrack().into_iter().map(
+                                a_star.backtrack().map(
                                     <Context<
                                         SliceSubGenome<_>,
                                         TSALBAlignmentStrategies<AlphabetType>,

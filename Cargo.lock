@@ -501,6 +501,7 @@ name = "seed_chain"
 version = "0.0.0"
 dependencies = [
  "compact-genome",
+ "generic_a_star",
  "log",
 ]
 

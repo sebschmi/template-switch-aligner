@@ -204,7 +204,7 @@ impl TemplateSwitchLowerBoundMatrix {
                                 let mut alignment = Vec::new();
 
                                 // Backtrack.
-                                for alignment_type in a_star.backtrack().into_iter().map(
+                                for alignment_type in a_star.backtrack().map(
                                     <Context<
                                         SliceSubGenome<_>,
                                         TSLBAlignmentStrategies<AlphabetType>,

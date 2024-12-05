@@ -1,0 +1,90 @@
+use generic_a_star::{cost::Cost, reset::Reset, AStarContext, AStarNode};
+
+use crate::seed::ChainingAnchors;
+
+use super::node::{Identifier, Node};
+
+pub trait ChainingCostsProvider {
+    /// Returns the cost of chaining `to` after `from`.
+    ///
+    /// If the chaining is impossible, then `Cost::MAX` is returned.
+    fn chaining_costs(&self, from: &Identifier, to: &Identifier) -> Cost;
+}
+
+pub struct Context<ChainingCosts: ChainingCostsProvider> {
+    chaining_costs: ChainingCosts,
+    chaining_anchors: ChainingAnchors,
+}
+
+impl<ChainingCosts: ChainingCostsProvider> AStarContext for Context<ChainingCosts> {
+    type Node = Node;
+
+    fn create_root(&self) -> Self::Node {
+        Self::Node::new_root()
+    }
+
+    fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {
+        // We skip all anchors whose reference block is not right of the current node.
+        let first_chainable_block_index = match node.identifier() {
+            Identifier::Root => 0,
+            Identifier::Anchor { anchor } => {
+                self.chaining_anchors
+                    .anchors()
+                    .partition_point(|chaining_anchor| {
+                        // We do not allow to chain overlapping blocks.
+                        chaining_anchor.reference_block().start < anchor.reference_block().end
+                    })
+            }
+            Identifier::Target => self.chaining_anchors.anchors().len(),
+        };
+
+        output.extend(
+            self.chaining_anchors
+                .anchors()
+                .iter()
+                .skip(first_chainable_block_index)
+                .filter_map(|chaining_anchor| {
+                    // We skip all anchors whose query block is not right of the current node.
+                    if let Identifier::Anchor { anchor } = node.identifier() {
+                        if chaining_anchor.query_block().start < anchor.query_block().end {
+                            return None;
+                        }
+                    }
+
+                    let successor_identifier = Identifier::Anchor {
+                        anchor: chaining_anchor.clone(),
+                    };
+                    let cost_increment = self
+                        .chaining_costs
+                        .chaining_costs(node.predecessor().unwrap(), &successor_identifier);
+                    node.generate_successor(successor_identifier, cost_increment)
+                })
+                .chain(
+                    node.generate_successor(
+                        Identifier::Target,
+                        self.chaining_costs
+                            .chaining_costs(node.identifier(), &Identifier::Target),
+                    ),
+                ),
+        );
+    }
+
+    fn is_target(&self, node: &Self::Node) -> bool {
+        matches!(node.identifier(), Identifier::Target)
+    }
+}
+
+impl<ChainingCosts: ChainingCostsProvider> Context<ChainingCosts> {
+    pub fn new(chaining_costs: ChainingCosts, chaining_anchors: ChainingAnchors) -> Self {
+        Self {
+            chaining_costs,
+            chaining_anchors,
+        }
+    }
+}
+
+impl<ChainingCosts: ChainingCostsProvider> Reset for Context<ChainingCosts> {
+    fn reset(&mut self) {
+        todo!()
+    }
+}

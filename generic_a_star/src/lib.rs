@@ -113,6 +113,11 @@ struct BacktrackingIterator<'a_star, Context: AStarContext> {
     current: <Context::Node as AStarNode>::Identifier,
 }
 
+struct BacktrackingIteratorWithCost<'a_star, Context: AStarContext> {
+    a_star: &'a_star AStar<Context>,
+    current: <Context::Node as AStarNode>::Identifier,
+}
+
 impl<Context: AStarContext> AStar<Context> {
     pub fn new(context: Context) -> Self {
         Self {
@@ -287,24 +292,62 @@ impl<Context: AStarContext> AStar<Context> {
 
     pub fn backtrack(
         &self,
-    ) -> impl use<'_, Context> + IntoIterator<Item = <Context::Node as AStarNode>::EdgeType> {
+    ) -> impl use<'_, Context> + Iterator<Item = <Context::Node as AStarNode>::EdgeType> {
         let AStarState::Terminated {
             result: AStarResult::FoundTarget { identifier, .. },
         } = &self.state
         else {
-            panic!("Cannot backtrack if no target was found.")
+            panic!("Cannot backtrack since no target was found.")
         };
 
         self.backtrack_from(identifier).unwrap()
     }
 
+    /// Backtrack from the target node to a root node.
+    ///
+    /// The elements of the iterator are a pair of an edge and the cost of the node that is reached by the edge.
+    /// The cost of the first node is never returned.
+    pub fn backtrack_with_costs(
+        &self,
+    ) -> impl use<'_, Context> + Iterator<Item = (<Context::Node as AStarNode>::EdgeType, Cost)>
+    {
+        let AStarState::Terminated {
+            result: AStarResult::FoundTarget { identifier, .. },
+        } = &self.state
+        else {
+            panic!("Cannot backtrack since no target was found.")
+        };
+
+        self.backtrack_with_costs_from(identifier).unwrap()
+    }
+
     pub fn backtrack_from(
         &self,
         identifier: &<Context::Node as AStarNode>::Identifier,
-    ) -> Option<impl use<'_, Context> + IntoIterator<Item = <Context::Node as AStarNode>::EdgeType>>
+    ) -> Option<impl use<'_, Context> + Iterator<Item = <Context::Node as AStarNode>::EdgeType>>
     {
         if self.closed_list.contains_key(identifier) {
             Some(BacktrackingIterator {
+                a_star: self,
+                current: identifier.clone(),
+            })
+        } else {
+            None
+        }
+    }
+
+    /// Backtrack from a node to a root node.
+    ///
+    /// The elements of the iterator are a pair of an edge and the cost of the node that is reached by the edge.
+    /// The cost of the first node is never returned.
+    pub fn backtrack_with_costs_from(
+        &self,
+        identifier: &<Context::Node as AStarNode>::Identifier,
+    ) -> Option<
+        impl use<'_, Context> + Iterator<Item = (<Context::Node as AStarNode>::EdgeType, Cost)>,
+    > {
+        if self.closed_list.contains_key(identifier) {
+            Some(BacktrackingIteratorWithCost {
                 a_star: self,
                 current: identifier.clone(),
             })
@@ -324,6 +367,23 @@ impl<Context: AStarContext> Iterator for BacktrackingIterator<'_, Context> {
             let predecessor_edge_type = current.predecessor_edge_type().unwrap();
             self.current = predecessor;
             Some(predecessor_edge_type)
+        } else {
+            None
+        }
+    }
+}
+
+impl<Context: AStarContext> Iterator for BacktrackingIteratorWithCost<'_, Context> {
+    type Item = (<Context::Node as AStarNode>::EdgeType, Cost);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current = self.a_star.closed_list.get(&self.current).unwrap();
+        let cost = current.cost();
+
+        if let Some(predecessor) = current.predecessor().cloned() {
+            let predecessor_edge_type = current.predecessor_edge_type().unwrap();
+            self.current = predecessor;
+            Some((predecessor_edge_type, cost))
         } else {
             None
         }
