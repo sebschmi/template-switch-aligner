@@ -22,6 +22,7 @@ use crate::{
                 node_ord::CostOnlyNodeOrdStrategy,
                 primary_match::{
                     MaxConsecutivePrimaryMatchMemory, MaxConsecutivePrimaryMatchStrategy,
+                    PrimaryMatchStrategy,
                 },
                 secondary_deletion::AllowSecondaryDeletionStrategy,
                 shortcut::TemplateSwitchLowerBoundShortcutStrategy,
@@ -63,12 +64,15 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
         reference_length: usize,
         query_length: usize,
         max_consecutive_primary_matches: usize,
+        max_consecutive_primary_matches_at_start_and_end: usize,
     ) -> Self {
         info!("Computing TS alignment lower bound matrix...");
         let lower_bound_config = generate_template_switch_alignment_lower_bound_config(config);
 
         let mut closed_lower_bounds = HashMap::new();
         let genome_length = reference_length.max(query_length);
+        let target_min_available_primary_matches =
+            max_consecutive_primary_matches - max_consecutive_primary_matches_at_start_and_end;
 
         debug!("Using genome length {genome_length}");
         assert!(genome_length < usize::try_from(isize::MAX).unwrap() / 2);
@@ -86,6 +90,8 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
                 shortcut: tslb_matrix.clone(),
                 primary_match: MaxConsecutivePrimaryMatchMemory {
                     max_consecutive_primary_matches,
+                    root_available_primary_matches:
+                        max_consecutive_primary_matches_at_start_and_end,
                     fake_substitution_cost: lower_bound_config
                         .primary_edit_costs
                         .min_substitution_cost(),
@@ -118,7 +124,7 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
                     flank_index,
                     ..
                 } => {
-                    if flank_index == 0 && reference_index <= reference_length && query_index <= query_length {
+                    if flank_index == 0 && reference_index <= reference_length && query_index <= query_length && node.strategies.primary_match.available_primary_matches() >= target_min_available_primary_matches {
                         if let Some(previous) = closed_lower_bounds.get(&(reference_index, query_index)) {
                             debug_assert!(*previous <= node.cost(), "Search may find the same node thrice due to gap types, but never with a lower cost.");
                         } else {

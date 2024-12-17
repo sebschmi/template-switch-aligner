@@ -3,10 +3,27 @@ use generic_a_star::cost::Cost;
 
 use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Identifier};
 
-use super::{AlignmentStrategy, AlignmentStrategySelector};
+use super::AlignmentStrategySelector;
 
-pub trait PrimaryMatchStrategy: AlignmentStrategy {
+pub trait PrimaryMatchStrategy: Eq + Clone + std::fmt::Debug {
     type Memory;
+
+    fn create_root<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
+    >(
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self;
+
+    fn generate_successor<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
+    >(
+        &self,
+        _identifier: Identifier,
+        _alignment_type: AlignmentType,
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self;
 
     /// If false, then this node cannot have a primary match outgoing edge outside of a flank.
     fn can_do_primary_non_flank_match<
@@ -33,6 +50,8 @@ pub trait PrimaryMatchStrategy: AlignmentStrategy {
         &self,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Cost;
+
+    fn available_primary_matches(&self) -> usize;
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -40,16 +59,38 @@ pub struct AllowPrimaryMatchStrategy;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct MaxConsecutivePrimaryMatchStrategy {
-    consecutive_primary_matches: usize,
+    available_primary_matches: usize,
 }
 
 pub struct MaxConsecutivePrimaryMatchMemory {
     pub max_consecutive_primary_matches: usize,
+    pub root_available_primary_matches: usize,
     pub fake_substitution_cost: Cost,
 }
 
 impl PrimaryMatchStrategy for AllowPrimaryMatchStrategy {
     type Memory = ();
+
+    fn create_root<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
+    >(
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
+        Self
+    }
+
+    fn generate_successor<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
+    >(
+        &self,
+        _identifier: Identifier,
+        _alignment_type: AlignmentType,
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
+        *self
+    }
 
     fn can_do_primary_non_flank_match<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
@@ -82,24 +123,54 @@ impl PrimaryMatchStrategy for AllowPrimaryMatchStrategy {
     ) -> Cost {
         Cost::MAX
     }
+
+    fn available_primary_matches(&self) -> usize {
+        usize::MAX
+    }
 }
 
 impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
     type Memory = MaxConsecutivePrimaryMatchMemory;
+
+    fn create_root<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
+    >(
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
+        Self {
+            available_primary_matches: context.memory.primary_match.root_available_primary_matches,
+        }
+    }
+
+    fn generate_successor<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
+    >(
+        &self,
+        _identifier: Identifier,
+        alignment_type: AlignmentType,
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
+        debug_assert!(self.available_primary_matches > 0);
+        Self {
+            available_primary_matches: if alignment_type == AlignmentType::PrimaryMatch {
+                self.available_primary_matches - 1
+            } else {
+                context.memory.primary_match.max_consecutive_primary_matches
+            },
+        }
+    }
 
     fn can_do_primary_non_flank_match<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
         &self,
-        context: &Context<'_, '_, SubsequenceType, Strategies>,
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> bool {
-        debug_assert!(
-            self.consecutive_primary_matches
-                <= context.memory.primary_match.max_consecutive_primary_matches
-        );
-        self.consecutive_primary_matches
-            < context.memory.primary_match.max_consecutive_primary_matches
+        debug_assert!(self.available_primary_matches < isize::MAX as usize);
+        self.available_primary_matches > 0
     }
 
     fn can_do_primary_flank_match<
@@ -122,58 +193,8 @@ impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
     ) -> Cost {
         context.memory.primary_match.fake_substitution_cost
     }
-}
 
-impl AlignmentStrategy for AllowPrimaryMatchStrategy {
-    fn create_root<
-        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector,
-    >(
-        _context: &Context<'_, '_, SubsequenceType, Strategies>,
-    ) -> Self {
-        Self
-    }
-
-    fn generate_successor<
-        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector,
-    >(
-        &self,
-        _identifier: Identifier,
-        _alignment_type: AlignmentType,
-        _context: &Context<'_, '_, SubsequenceType, Strategies>,
-    ) -> Self {
-        *self
-    }
-}
-
-impl AlignmentStrategy for MaxConsecutivePrimaryMatchStrategy {
-    fn create_root<
-        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector,
-    >(
-        _context: &Context<'_, '_, SubsequenceType, Strategies>,
-    ) -> Self {
-        Self {
-            consecutive_primary_matches: 0,
-        }
-    }
-
-    fn generate_successor<
-        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector,
-    >(
-        &self,
-        _identifier: Identifier,
-        alignment_type: AlignmentType,
-        _context: &Context<'_, '_, SubsequenceType, Strategies>,
-    ) -> Self {
-        Self {
-            consecutive_primary_matches: if alignment_type == AlignmentType::PrimaryMatch {
-                self.consecutive_primary_matches + 1
-            } else {
-                0
-            },
-        }
+    fn available_primary_matches(&self) -> usize {
+        self.available_primary_matches
     }
 }

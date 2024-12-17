@@ -83,7 +83,7 @@ fn align_a_star_template_switch_distance_select_node_ord_strategy<
 fn align_a_star_template_switch_distance_select_template_switch_min_length_strategy<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    NodeOrd: NodeOrdStrategy,
+    NodeOrd: NodeOrdStrategy<AllowPrimaryMatchStrategy>,
 >(
     cli: Cli,
     reference: &SubsequenceType,
@@ -112,7 +112,7 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
 fn align_a_star_template_switch_select_chaining_strategy<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    NodeOrd: NodeOrdStrategy,
+    NodeOrd: NodeOrdStrategy<AllowPrimaryMatchStrategy>,
     TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
 >(
     cli: Cli,
@@ -144,7 +144,7 @@ fn align_a_star_template_switch_select_chaining_strategy<
 fn align_a_star_template_switch_distance_call<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    NodeOrd: NodeOrdStrategy,
+    NodeOrd: NodeOrdStrategy<AllowPrimaryMatchStrategy>,
     TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
     Chaining: ChainingStrategy,
 >(

@@ -88,6 +88,7 @@ impl ChainingStrategy for PrecomputeOnlyChainingStrategy {
             reference.len(),
             query.len(),
             block_size * 2 - 1,
+            block_size - 1,
         );
         debug!("{tsa_lower_bounds}");
         let chaining_anchors = ChainingAnchors::seed_nonoverlapping(reference, query, block_size);

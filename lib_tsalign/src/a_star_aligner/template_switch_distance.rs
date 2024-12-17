@@ -4,7 +4,7 @@ use identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
 use num_traits::SaturatingSub;
 use strategies::{
     node_ord::NodeOrdStrategy, template_switch_min_length::TemplateSwitchMinLengthStrategy,
-    AlignmentStrategies, AlignmentStrategy, AlignmentStrategySelector,
+    AlignmentStrategiesNodeMemory, AlignmentStrategySelector,
 };
 
 use crate::costs::cost::Cost;
@@ -23,7 +23,7 @@ pub use identifier::Identifier;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node<Strategies: AlignmentStrategySelector> {
     node_data: NodeData,
-    strategies: AlignmentStrategies<Strategies>,
+    strategies: AlignmentStrategiesNodeMemory<Strategies>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -76,7 +76,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 gap_type: GapType::None,
                 flank_index: 0,
             }),
-            strategies: AlignmentStrategies::create_root(context),
+            strategies: AlignmentStrategiesNodeMemory::create_root(context),
         }
     }
 
@@ -648,9 +648,7 @@ impl NodeData {
 
 impl<Strategies: AlignmentStrategySelector> Ord for Node<Strategies> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.strategies
-            .node_ord_strategy
-            .cmp(&self.node_data, &other.node_data)
+        self.strategies.node_ord_strategy.cmp(self, other)
     }
 }
 

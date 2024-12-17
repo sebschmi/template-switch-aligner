@@ -15,7 +15,7 @@ use super::strategies::secondary_deletion::SecondaryDeletionStrategy;
 use super::strategies::shortcut::ShortcutStrategy;
 use super::strategies::template_switch_count::TemplateSwitchCountStrategy;
 use super::strategies::template_switch_min_length::TemplateSwitchMinLengthStrategy;
-use super::strategies::{AlignmentStrategy, AlignmentStrategySelector};
+use super::strategies::{AlignmentStrategiesNodeMemory, AlignmentStrategySelector};
 use super::{AlignmentType, Identifier, NodeData};
 
 pub struct Context<
@@ -80,7 +80,7 @@ impl<
                 cost: Cost::ZERO,
                 a_star_lower_bound: Cost::ZERO,
             },
-            strategies: AlignmentStrategy::create_root(self),
+            strategies: AlignmentStrategiesNodeMemory::create_root(self),
         }
     }
 

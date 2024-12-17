@@ -21,7 +21,7 @@ pub mod template_switch_min_length;
 
 pub trait AlignmentStrategySelector: Eq + Clone + std::fmt::Debug {
     type Alphabet: Alphabet;
-    type NodeOrd: NodeOrdStrategy;
+    type NodeOrd: NodeOrdStrategy<Self::PrimaryMatch>;
     type TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy;
     type Chaining: ChainingStrategy;
     type TemplateSwitchCount: TemplateSwitchCountStrategy;
@@ -31,7 +31,7 @@ pub trait AlignmentStrategySelector: Eq + Clone + std::fmt::Debug {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct AlignmentStrategies<Selector: AlignmentStrategySelector> {
+pub struct AlignmentStrategiesNodeMemory<Selector: AlignmentStrategySelector> {
     pub node_ord_strategy: Selector::NodeOrd,
     pub template_switch_min_length_strategy: Selector::TemplateSwitchMinLength,
     pub template_switch_count: Selector::TemplateSwitchCount,
@@ -57,26 +57,24 @@ pub trait AlignmentStrategy: Eq + Clone + std::fmt::Debug {
     ) -> Self;
 }
 
-impl<Selector: AlignmentStrategySelector> AlignmentStrategy for AlignmentStrategies<Selector> {
-    fn create_root<
+impl<Strategies: AlignmentStrategySelector> AlignmentStrategiesNodeMemory<Strategies> {
+    pub fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector,
     >(
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         Self {
-            node_ord_strategy: Selector::NodeOrd::create_root(context),
-            template_switch_min_length_strategy: Selector::TemplateSwitchMinLength::create_root(
+            node_ord_strategy: Strategies::NodeOrd::create_root(context),
+            template_switch_min_length_strategy: Strategies::TemplateSwitchMinLength::create_root(
                 context,
             ),
-            template_switch_count: Selector::TemplateSwitchCount::create_root(context),
-            primary_match: Selector::PrimaryMatch::create_root(context),
+            template_switch_count: Strategies::TemplateSwitchCount::create_root(context),
+            primary_match: Strategies::PrimaryMatch::create_root(context),
         }
     }
 
-    fn generate_successor<
+    pub fn generate_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector,
     >(
         &self,
         identifier: Identifier,
@@ -108,7 +106,7 @@ impl<Selector: AlignmentStrategySelector> AlignmentStrategy for AlignmentStrateg
 
 pub struct AlignmentStrategySelection<
     AlphabetType: Alphabet,
-    NodeOrd: NodeOrdStrategy,
+    NodeOrd: NodeOrdStrategy<PrimaryMatch>,
     TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
     Chaining: ChainingStrategy,
     TemplateSwitchCount: TemplateSwitchCountStrategy,
@@ -131,7 +129,7 @@ pub struct AlignmentStrategySelection<
 
 impl<
         AlphabetType: Alphabet,
-        NodeOrd: NodeOrdStrategy,
+        NodeOrd: NodeOrdStrategy<PrimaryMatch>,
         TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
         Chaining: ChainingStrategy,
         TemplateSwitchCount: TemplateSwitchCountStrategy,
@@ -162,7 +160,7 @@ impl<
 
 impl<
         AlphabetType: Alphabet,
-        NodeOrd: NodeOrdStrategy,
+        NodeOrd: NodeOrdStrategy<PrimaryMatch>,
         TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
         Chaining: ChainingStrategy,
         TemplateSwitchCount: TemplateSwitchCountStrategy,
@@ -188,7 +186,7 @@ impl<
 
 impl<
         AlphabetType: Alphabet,
-        NodeOrd: NodeOrdStrategy,
+        NodeOrd: NodeOrdStrategy<PrimaryMatch>,
         TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
         Chaining: ChainingStrategy,
         TemplateSwitchCount: TemplateSwitchCountStrategy,
@@ -216,7 +214,7 @@ impl<
 
 impl<
         AlphabetType: Alphabet,
-        NodeOrd: NodeOrdStrategy,
+        NodeOrd: NodeOrdStrategy<PrimaryMatch>,
         TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
         Chaining: ChainingStrategy,
         TemplateSwitchCount: TemplateSwitchCountStrategy,
@@ -242,7 +240,7 @@ impl<
 
 impl<
         AlphabetType: Alphabet,
-        NodeOrd: NodeOrdStrategy,
+        NodeOrd: NodeOrdStrategy<PrimaryMatch>,
         TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
         Chaining: ChainingStrategy,
         TemplateSwitchCount: TemplateSwitchCountStrategy,
