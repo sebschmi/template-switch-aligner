@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Display};
+
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::cost::Cost;
 
@@ -5,7 +7,7 @@ use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Id
 
 use super::AlignmentStrategySelector;
 
-pub trait PrimaryMatchStrategy: Eq + Clone + std::fmt::Debug {
+pub trait PrimaryMatchStrategy: Eq + Clone + Debug + Display {
     type Memory;
 
     fn create_root<
@@ -152,9 +154,9 @@ impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
         alignment_type: AlignmentType,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
-        debug_assert!(self.available_primary_matches > 0);
         Self {
             available_primary_matches: if alignment_type == AlignmentType::PrimaryMatch {
+                debug_assert!(self.available_primary_matches > 0);
                 self.available_primary_matches - 1
             } else {
                 context.memory.primary_match.max_consecutive_primary_matches
@@ -196,5 +198,21 @@ impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
 
     fn available_primary_matches(&self) -> usize {
         self.available_primary_matches
+    }
+}
+
+impl Display for AllowPrimaryMatchStrategy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PrimaryMatch allowed")
+    }
+}
+
+impl Display for MaxConsecutivePrimaryMatchStrategy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "PrimaryMatch available: {}",
+            self.available_primary_matches
+        )
     }
 }

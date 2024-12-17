@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::AStarNode;
 use identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
@@ -658,7 +660,10 @@ impl<Strategies: AlignmentStrategySelector> PartialOrd for Node<Strategies> {
     }
 }
 
-impl<Strategies: AlignmentStrategySelector> std::fmt::Display for Node<Strategies> {
+impl<Strategies: AlignmentStrategySelector> Display for Node<Strategies>
+where
+    AlignmentStrategiesNodeMemory<Strategies>: Display,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Self {
             node_data:
@@ -669,13 +674,14 @@ impl<Strategies: AlignmentStrategySelector> std::fmt::Display for Node<Strategie
                     cost,
                     a_star_lower_bound,
                 },
-            ..
+            strategies,
         } = self;
         write!(f, "{identifier}; ")?;
         if let Some(predecessor) = predecessor {
             write!(f, "predecessor: {predecessor}; ")?;
         }
-        write!(f, "alignment_type: {predecessor_edge_type}")?;
-        write!(f, "cost: {cost} + {a_star_lower_bound}")
+        write!(f, "alignment_type: {predecessor_edge_type}; ")?;
+        write!(f, "cost: {cost} + {a_star_lower_bound}; ")?;
+        write!(f, "strategies: {strategies}")
     }
 }

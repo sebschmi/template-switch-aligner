@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use compact_genome::interface::alphabet::AlphabetCharacter;
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::cost::Cost;
@@ -552,5 +554,11 @@ impl<
 
     fn query(&self) -> &Self::SubsequenceType {
         self.query
+    }
+}
+
+impl<Strategies: AlignmentStrategySelector> Display for AlignmentStrategiesNodeMemory<Strategies> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.primary_match)
     }
 }
