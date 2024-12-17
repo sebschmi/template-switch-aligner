@@ -1,3 +1,5 @@
+#![forbid(clippy::mod_module_files)]
+
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},

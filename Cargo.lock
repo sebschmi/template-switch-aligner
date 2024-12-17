@@ -181,6 +181,12 @@ name = "deterministic_default_hasher"
 version = "0.5.0"
 
 [[package]]
+name = "deterministic_default_hasher"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ce88b67f7815887ff72865aa3967be122e6d9d20a912b42c3c058fce3372f81"
+
+[[package]]
 name = "either"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -233,7 +239,7 @@ name = "generic_a_star"
 version = "0.5.0"
 dependencies = [
  "binary-heap-plus",
- "deterministic_default_hasher",
+ "deterministic_default_hasher 0.5.0",
  "num-traits",
  "serde",
 ]
@@ -293,6 +299,7 @@ version = "0.5.0"
 dependencies = [
  "binary-heap-plus",
  "compact-genome",
+ "deterministic_default_hasher 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "generic_a_star",
  "log",
  "ndarray",

@@ -1,6 +1,7 @@
 use std::{collections::HashMap, marker::PhantomData, mem};
 
 use compact_genome::interface::sequence::GenomeSequence;
+use deterministic_default_hasher::DeterministicDefaultHasher;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
 
@@ -11,7 +12,6 @@ use crate::{
         Context, Identifier, Node,
     },
     costs::cost::Cost,
-    deterministic_default_hasher::DeterministicDefaultHasher,
 };
 
 use super::{AlignmentStrategy, AlignmentStrategySelector};

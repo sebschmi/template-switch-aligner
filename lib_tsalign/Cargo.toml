@@ -29,3 +29,4 @@ noisy_float = { version = "0.2.0" }
 generic_a_star = { version = "0.5.0", path = "../generic_a_star" }
 log.workspace = true
 seed_chain = { version = "0.0.0", path = "../seed_chain" }
+deterministic_default_hasher = "0.5.0"

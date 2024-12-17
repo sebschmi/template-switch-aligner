@@ -1,3 +1,5 @@
+#![deny(clippy::mod_module_files)]
+
 use std::{
     fs::File,
     io::{BufReader, Read},
