@@ -22,7 +22,7 @@ pub trait PrimaryMatchStrategy: Eq + Clone + Debug + Display {
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
         &self,
-        _identifier: Identifier,
+        _identifier: Identifier<()>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self;
@@ -87,7 +87,7 @@ impl PrimaryMatchStrategy for AllowPrimaryMatchStrategy {
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
         &self,
-        _identifier: Identifier,
+        _identifier: Identifier<()>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -150,7 +150,7 @@ impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
         &self,
-        _identifier: Identifier,
+        _identifier: Identifier<()>,
         alignment_type: AlignmentType,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {

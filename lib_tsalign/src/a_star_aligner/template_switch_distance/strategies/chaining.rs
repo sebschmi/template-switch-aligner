@@ -165,7 +165,7 @@ impl AlignmentStrategy for NoChainingStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier,
+        _identifier: Identifier<()>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -188,7 +188,7 @@ impl AlignmentStrategy for PrecomputeOnlyChainingStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier,
+        _identifier: Identifier<()>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {

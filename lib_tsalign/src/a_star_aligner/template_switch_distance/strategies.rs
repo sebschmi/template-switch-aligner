@@ -51,7 +51,7 @@ pub trait AlignmentStrategy: Eq + Clone + std::fmt::Debug {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        identifier: Identifier,
+        identifier: Identifier<()>,
         alignment_type: AlignmentType,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self;
@@ -77,7 +77,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentStrategiesNodeMemory<Strate
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        identifier: Identifier,
+        identifier: Identifier<()>,
         alignment_type: AlignmentType,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {

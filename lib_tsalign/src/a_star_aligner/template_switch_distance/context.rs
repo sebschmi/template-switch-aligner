@@ -31,7 +31,7 @@ pub struct Context<
 
     pub config: TemplateSwitchConfig<Strategies::Alphabet>,
 
-    pub a_star_buffers: AStarBuffers<Identifier, Node<Strategies>>,
+    pub a_star_buffers: AStarBuffers<Identifier<()>, Node<Strategies>>,
     pub memory: Memory<Strategies>,
 }
 
@@ -76,7 +76,7 @@ impl<
     fn create_root(&self) -> Self::Node {
         Self::Node {
             node_data: NodeData {
-                identifier: Identifier::new_primary(0, 0, 0, GapType::None),
+                identifier: Identifier::new_primary(0, 0, 0, GapType::None, ()),
                 predecessor: None,
                 predecessor_edge_type: AlignmentType::Root,
                 cost: Cost::ZERO,
@@ -99,12 +99,14 @@ impl<
                 query_index,
                 flank_index,
                 gap_type,
+                ..
             }
             | Identifier::PrimaryReentry {
                 reference_index,
                 query_index,
                 gap_type,
                 flank_index,
+                ..
             } => {
                 debug_assert!(reference_index != usize::MAX, "{node:?}");
                 debug_assert!(query_index != usize::MAX, "{node:?}");

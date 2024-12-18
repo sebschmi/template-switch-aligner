@@ -30,15 +30,15 @@ pub struct Node<Strategies: AlignmentStrategySelector> {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NodeData {
-    identifier: Identifier,
-    predecessor: Option<Identifier>,
+    identifier: Identifier<()>,
+    predecessor: Option<Identifier<()>>,
     predecessor_edge_type: AlignmentType,
     cost: Cost,
     a_star_lower_bound: Cost,
 }
 
 impl<Strategies: AlignmentStrategySelector> AStarNode for Node<Strategies> {
-    type Identifier = Identifier;
+    type Identifier = Identifier<()>;
 
     type EdgeType = AlignmentType;
 
@@ -77,6 +77,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 query_index,
                 gap_type: GapType::None,
                 flank_index: 0,
+                data: (),
             }),
             strategies: AlignmentStrategiesNodeMemory::create_root(context),
         }
@@ -531,6 +532,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 query_index,
                 gap_type: GapType::None,
                 flank_index: -context.config.right_flank_length,
+                data: (),
             },
             0.into(),
             AlignmentType::PrimaryReentry,
@@ -583,6 +585,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 query_index,
                 gap_type: GapType::None,
                 flank_index: -context.config.right_flank_length,
+                data: (),
             },
             cost_increment,
             AlignmentType::PrimaryShortcut {
@@ -597,7 +600,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        identifier: Identifier,
+        identifier: Identifier<()>,
         cost_increment: Cost,
         alignment_type: AlignmentType,
         context: &Context<SubsequenceType, Strategies>,
@@ -616,7 +619,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
 }
 
 impl NodeData {
-    fn create_root(identifier: Identifier) -> Self {
+    fn create_root(identifier: Identifier<()>) -> Self {
         Self {
             identifier,
             predecessor: None,
@@ -628,7 +631,7 @@ impl NodeData {
 
     fn generate_successor(
         &self,
-        identifier: Identifier,
+        identifier: Identifier<()>,
         cost_increment: Cost,
         alignment_type: AlignmentType,
     ) -> Self {

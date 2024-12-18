@@ -1,11 +1,12 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
-pub enum Identifier {
+pub enum Identifier<PrimaryExtraData> {
     Primary {
         reference_index: usize,
         query_index: usize,
         gap_type: GapType,
         /// Positive for left flank, negative for right flank.
         flank_index: isize,
+        data: PrimaryExtraData,
     },
     PrimaryReentry {
         reference_index: usize,
@@ -13,6 +14,7 @@ pub enum Identifier {
         gap_type: GapType,
         /// Positive for left flank, negative for right flank.
         flank_index: isize,
+        data: PrimaryExtraData,
     },
     TemplateSwitchEntrance {
         entrance_reference_index: usize,
@@ -67,12 +69,13 @@ pub enum TemplateSwitchSecondary {
     Query,
 }
 
-impl Identifier {
+impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
     pub const fn new_primary(
         reference_index: usize,
         query_index: usize,
         flank_index: isize,
         gap_type: GapType,
+        data: PrimaryExtraData,
     ) -> Self {
         debug_assert!(reference_index != usize::MAX);
         debug_assert!(query_index != usize::MAX);
@@ -84,6 +87,7 @@ impl Identifier {
             query_index,
             flank_index,
             gap_type,
+            data,
         }
     }
 
@@ -92,11 +96,13 @@ impl Identifier {
             Self::Primary {
                 reference_index,
                 query_index,
+                data,
                 ..
             }
             | Self::PrimaryReentry {
                 reference_index,
                 query_index,
+                data,
                 ..
             } => {
                 debug_assert!(reference_index != usize::MAX);
@@ -109,6 +115,7 @@ impl Identifier {
                     query_index: query_index + 1,
                     flank_index,
                     gap_type: GapType::None,
+                    data,
                 }
             }
             other => unreachable!(
@@ -122,11 +129,13 @@ impl Identifier {
             Self::Primary {
                 reference_index,
                 query_index,
+                data,
                 ..
             }
             | Self::PrimaryReentry {
                 reference_index,
                 query_index,
+                data,
                 ..
             } => {
                 debug_assert!(reference_index != usize::MAX);
@@ -139,6 +148,7 @@ impl Identifier {
                     query_index,
                     flank_index,
                     gap_type: GapType::Deletion,
+                    data,
                 }
             }
             other => unreachable!(
@@ -152,11 +162,13 @@ impl Identifier {
             Self::Primary {
                 reference_index,
                 query_index,
+                data,
                 ..
             }
             | Self::PrimaryReentry {
                 reference_index,
                 query_index,
+                data,
                 ..
             } => {
                 debug_assert!(reference_index != usize::MAX);
@@ -169,6 +181,7 @@ impl Identifier {
                     query_index: query_index + 1,
                     flank_index,
                     gap_type: GapType::Insertion,
+                    data,
                 }
             }
             other => unreachable!(
@@ -309,7 +322,7 @@ impl Identifier {
     }
 
     /// Returns the anti-diagonal for variants where it exists, or [`usize::MAX`](core::primitive::usize::MAX) otherwise.
-    pub const fn anti_diagonal(self) -> usize {
+    pub fn anti_diagonal(self) -> usize {
         match self {
             Self::Primary {
                 reference_index,

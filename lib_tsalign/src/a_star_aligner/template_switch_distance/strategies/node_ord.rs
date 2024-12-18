@@ -98,7 +98,7 @@ impl AlignmentStrategy for CostOnlyNodeOrdStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier,
+        _identifier: Identifier<()>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -121,7 +121,7 @@ impl AlignmentStrategy for AntiDiagonalNodeOrdStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier,
+        _identifier: Identifier<()>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -143,7 +143,7 @@ impl AlignmentStrategy for PrimaryMatchNodeOrdStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier,
+        _identifier: Identifier<()>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {

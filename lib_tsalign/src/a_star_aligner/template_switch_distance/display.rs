@@ -60,7 +60,7 @@ impl Display for TemplateSwitchSecondary {
     }
 }
 
-impl Display for Identifier {
+impl<PrimaryExtraData> Display for Identifier<PrimaryExtraData> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             Self::Primary {
@@ -68,6 +68,7 @@ impl Display for Identifier {
                 query_index,
                 flank_index,
                 gap_type,
+                ..
             } => write!(
                 f,
                 "Primary({}R, {}Q, {}F, {})",
@@ -79,6 +80,7 @@ impl Display for Identifier {
                 query_index,
                 flank_index,
                 gap_type,
+                ..
             } => write!(
                 f,
                 "PrimaryReentry({}R, {}Q, {}F, {})",

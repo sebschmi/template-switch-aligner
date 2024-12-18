@@ -127,6 +127,7 @@ impl TemplateSwitchLowerBoundMatrix {
                             query_index,
                             gap_type,
                             flank_index,
+                            ..
                         } => {
                             debug_assert_eq!(gap_type, GapType::None);
                             debug_assert_eq!(flank_index, 0);

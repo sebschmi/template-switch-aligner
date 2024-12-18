@@ -166,7 +166,7 @@ impl AlignmentStrategy for NoTemplateSwitchMinLengthStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier,
+        _identifier: Identifier<()>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -189,7 +189,7 @@ impl AlignmentStrategy for LookaheadTemplateSwitchMinLengthStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier,
+        _identifier: Identifier<()>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
