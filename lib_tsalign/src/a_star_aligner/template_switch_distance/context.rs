@@ -125,10 +125,7 @@ impl<
                     let is_match = r == q;
 
                     if flank_index == 0 {
-                        let can_do_primary_non_flank_match = node
-                            .strategies
-                            .primary_match
-                            .can_do_primary_non_flank_match(self);
+                        let can_do_primary_non_flank_match = <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::can_do_primary_non_flank_match(node.node_data.identifier, self);
 
                         let (is_match, cost_increment) =
                             if is_match && can_do_primary_non_flank_match {
@@ -164,10 +161,7 @@ impl<
                     if (flank_index < config.left_flank_length && can_start_another_template_switch)
                         || flank_index < 0
                     {
-                        let can_do_primary_flank_match = node
-                            .strategies
-                            .primary_match
-                            .can_do_primary_flank_match(self);
+                        let can_do_primary_flank_match = <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::can_do_primary_flank_match(node.node_data.identifier, self);
 
                         let edit_costs = if flank_index < 0 {
                             &config.right_flank_edit_costs

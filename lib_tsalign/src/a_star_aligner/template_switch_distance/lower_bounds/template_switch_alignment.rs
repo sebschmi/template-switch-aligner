@@ -19,10 +19,9 @@ use crate::{
             context::Memory,
             strategies::{
                 chaining::NoChainingStrategy,
-                node_ord::PrimaryMatchNodeOrdStrategy,
+                node_ord::CostOnlyNodeOrdStrategy,
                 primary_match::{
                     MaxConsecutivePrimaryMatchMemory, MaxConsecutivePrimaryMatchStrategy,
-                    PrimaryMatchStrategy,
                 },
                 secondary_deletion::AllowSecondaryDeletionStrategy,
                 shortcut::TemplateSwitchLowerBoundShortcutStrategy,
@@ -48,7 +47,7 @@ pub struct TemplateSwitchAlignmentLowerBoundMatrix {
 
 type TSALBAlignmentStrategies<AlphabetType> = AlignmentStrategySelection<
     AlphabetType,
-    PrimaryMatchNodeOrdStrategy,
+    CostOnlyNodeOrdStrategy,
     NoTemplateSwitchMinLengthStrategy,
     NoChainingStrategy,
     NoTemplateSwitchCountStrategy,
@@ -115,19 +114,19 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
                 Identifier::Primary {
                     reference_index,
                     query_index,
-                    flank_index,
+                    flank_index,data,
                     ..
                 }
                 | Identifier::PrimaryReentry {
                     reference_index,
                     query_index,
-                    flank_index,
+                    flank_index,data,
                     ..
                 } => {
                     if flank_index == 0
                         && reference_index <= reference_length
                         && query_index <= query_length
-                        && (node.strategies.primary_match.available_primary_matches() >= target_min_available_primary_matches || (reference_index == 0 && query_index == 0))
+                        && (data >= target_min_available_primary_matches || (reference_index == 0 && query_index == 0))
                     {
                         if let Some(previous) = closed_lower_bounds.get(&(reference_index, query_index)) {
                             debug_assert!(*previous <= node.cost(), "Search may find the same node thrice due to gap types, but never with a lower cost.");

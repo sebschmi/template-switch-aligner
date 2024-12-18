@@ -52,7 +52,7 @@ pub trait PrimaryMatchStrategy: Eq + Clone + Debug + Display {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
-        &self,
+        identifier: Identifier<Self::IdentifierPrimaryExtraData>,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> bool;
 
@@ -61,7 +61,7 @@ pub trait PrimaryMatchStrategy: Eq + Clone + Debug + Display {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
-        &self,
+        identifier: Identifier<Self::IdentifierPrimaryExtraData>,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> bool;
 
@@ -72,17 +72,13 @@ pub trait PrimaryMatchStrategy: Eq + Clone + Debug + Display {
         &self,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Cost;
-
-    fn available_primary_matches(&self) -> usize;
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct AllowPrimaryMatchStrategy;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct MaxConsecutivePrimaryMatchStrategy {
-    available_primary_matches: usize,
-}
+pub struct MaxConsecutivePrimaryMatchStrategy;
 
 pub struct MaxConsecutivePrimaryMatchMemory {
     pub max_consecutive_primary_matches: usize,
@@ -137,7 +133,7 @@ impl PrimaryMatchStrategy for AllowPrimaryMatchStrategy {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
-        &self,
+        _identifier: Identifier<Self::IdentifierPrimaryExtraData>,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> bool {
         // Can always use a match.
@@ -148,7 +144,7 @@ impl PrimaryMatchStrategy for AllowPrimaryMatchStrategy {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
-        &self,
+        _identifier: Identifier<Self::IdentifierPrimaryExtraData>,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> bool {
         // Can always use a match.
@@ -164,10 +160,6 @@ impl PrimaryMatchStrategy for AllowPrimaryMatchStrategy {
     ) -> Cost {
         Cost::MAX
     }
-
-    fn available_primary_matches(&self) -> usize {
-        usize::MAX
-    }
 }
 
 impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
@@ -178,11 +170,9 @@ impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
-        context: &Context<'_, '_, SubsequenceType, Strategies>,
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
-        Self {
-            available_primary_matches: context.memory.primary_match.root_available_primary_matches,
-        }
+        Self
     }
 
     fn generate_successor<
@@ -191,17 +181,10 @@ impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
     >(
         &self,
         _identifier: Identifier<Self::IdentifierPrimaryExtraData>,
-        alignment_type: AlignmentType,
-        context: &Context<'_, '_, SubsequenceType, Strategies>,
+        _alignment_type: AlignmentType,
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
-        Self {
-            available_primary_matches: if alignment_type == AlignmentType::PrimaryMatch {
-                debug_assert!(self.available_primary_matches > 0);
-                self.available_primary_matches - 1
-            } else {
-                context.memory.primary_match.max_consecutive_primary_matches
-            },
-        }
+        *self
     }
 
     fn create_root_identifier_primary_extra_data<
@@ -237,18 +220,23 @@ impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
-        &self,
+        identifier: Identifier<Self::IdentifierPrimaryExtraData>,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> bool {
-        debug_assert!(self.available_primary_matches < isize::MAX as usize);
-        self.available_primary_matches > 0
+        let (Identifier::Primary { data, .. } | Identifier::PrimaryReentry { data, .. }) =
+            identifier
+        else {
+            unreachable!("This method is only called on primary nodes.")
+        };
+        debug_assert!(data < isize::MAX as usize);
+        data > 0
     }
 
     fn can_do_primary_flank_match<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
-        &self,
+        _identifier: Identifier<Self::IdentifierPrimaryExtraData>,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> bool {
         // Can always use a flank match.
@@ -264,10 +252,6 @@ impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
     ) -> Cost {
         context.memory.primary_match.fake_substitution_cost
     }
-
-    fn available_primary_matches(&self) -> usize {
-        self.available_primary_matches
-    }
 }
 
 impl Display for AllowPrimaryMatchStrategy {
@@ -278,10 +262,6 @@ impl Display for AllowPrimaryMatchStrategy {
 
 impl Display for MaxConsecutivePrimaryMatchStrategy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "PrimaryMatch available: {}",
-            self.available_primary_matches
-        )
+        write!(f, "PrimaryMatch")
     }
 }
