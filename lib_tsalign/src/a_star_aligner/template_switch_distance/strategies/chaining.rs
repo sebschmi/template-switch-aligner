@@ -1,6 +1,7 @@
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::cost::Cost;
 use log::debug;
+use num_traits::SaturatingSub;
 use seed_chain::{
     chain::{Chain, ChainingCostsProvider},
     seed::{ChainingAnchor, ChainingAnchors},
@@ -188,7 +189,8 @@ impl ChainingStrategy for LowerBoundChainingStrategy {
                     .chain
                     .chain_lower_bound(reference_index, query_index);
                 if gap_type != GapType::None {
-                    chain_lower_bound -= context.memory.chaining.max_gap_open_cost;
+                    chain_lower_bound = chain_lower_bound
+                        .saturating_sub(&context.memory.chaining.max_gap_open_cost);
                 }
 
                 node.node_data.a_star_lower_bound =
