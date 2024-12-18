@@ -2,11 +2,11 @@ use std::fmt::Display;
 
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::AStarNode;
-use identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
+use identifier::{GapType, IdentifierKind, TemplateSwitchPrimary, TemplateSwitchSecondary};
 use num_traits::SaturatingSub;
 use strategies::{
     node_ord::NodeOrdStrategy, template_switch_min_length::TemplateSwitchMinLengthStrategy,
-    AlignmentStrategiesNodeMemory, AlignmentStrategySelector,
+    AlignmentStrategiesNodeIdentifier, AlignmentStrategiesNodeMemory, AlignmentStrategySelector,
 };
 
 use crate::costs::cost::Cost;
@@ -24,42 +24,37 @@ pub use identifier::Identifier;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node<Strategies: AlignmentStrategySelector> {
-    node_data: NodeData,
-    strategies: AlignmentStrategiesNodeMemory<Strategies>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct NodeData {
-    identifier: Identifier,
-    predecessor: Option<Identifier>,
+    identifier: Identifier<Strategies>,
+    predecessor: Option<Identifier<Strategies>>,
     predecessor_edge_type: AlignmentType,
     cost: Cost,
     a_star_lower_bound: Cost,
+    strategies: AlignmentStrategiesNodeMemory<Strategies>,
 }
 
 impl<Strategies: AlignmentStrategySelector> AStarNode for Node<Strategies> {
-    type Identifier = Identifier;
+    type Identifier = Identifier<Strategies>;
 
     type EdgeType = AlignmentType;
 
     fn identifier(&self) -> &Self::Identifier {
-        &self.node_data.identifier
+        &self.identifier
     }
 
     fn cost(&self) -> Cost {
-        self.node_data.cost
+        self.cost
     }
 
     fn a_star_lower_bound(&self) -> Cost {
-        self.node_data.a_star_lower_bound
+        self.a_star_lower_bound
     }
 
     fn predecessor(&self) -> Option<&Self::Identifier> {
-        self.node_data.predecessor.as_ref()
+        self.predecessor.as_ref()
     }
 
     fn predecessor_edge_type(&self) -> Option<Self::EdgeType> {
-        Some(self.node_data.predecessor_edge_type)
+        Some(self.predecessor_edge_type)
     }
 }
 
@@ -72,12 +67,19 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         Self {
-            node_data: NodeData::create_root(Identifier::Primary {
-                reference_index,
-                query_index,
-                gap_type: GapType::None,
-                flank_index: 0,
-            }),
+            identifier: Identifier {
+                kind: IdentifierKind::Primary {
+                    reference_index,
+                    query_index,
+                    gap_type: GapType::None,
+                    flank_index: 0,
+                },
+                strategies: AlignmentStrategiesNodeIdentifier::create_root(context),
+            },
+            predecessor: None,
+            predecessor_edge_type: AlignmentType::Root,
+            cost: Cost::ZERO,
+            a_star_lower_bound: Cost::ZERO,
             strategies: AlignmentStrategiesNodeMemory::create_root(context),
         }
     }
@@ -95,8 +97,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let predecessor_identifier @ (Identifier::Primary { flank_index, .. }
-        | Identifier::PrimaryReentry { flank_index, .. }) = self.node_data.identifier
+        let predecessor_identifier @ (IdentifierKind::Primary { flank_index, .. }
+        | IdentifierKind::PrimaryReentry { flank_index, .. }) = self.identifier.kind
         else {
             unreachable!("This method is only called on primary nodes.")
         };
@@ -129,8 +131,12 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let predecessor_identifier @ (Identifier::Primary { flank_index, .. }
-        | Identifier::PrimaryReentry { flank_index, .. }) = self.node_data.identifier
+        let predecessor_identifier @ Identifier {
+            kind:
+                IdentifierKind::Primary { flank_index, .. }
+                | IdentifierKind::PrimaryReentry { flank_index, .. },
+            ..
+        } = self.identifier
         else {
             unreachable!("This method is only called on primary nodes.")
         };
@@ -159,8 +165,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let predecessor_identifier @ (Identifier::Primary { flank_index, .. }
-        | Identifier::PrimaryReentry { flank_index, .. }) = self.node_data.identifier
+        let predecessor_identifier @ (IdentifierKind::Primary { flank_index, .. }
+        | IdentifierKind::PrimaryReentry { flank_index, .. }) = self.identifier
         else {
             unreachable!("This method is only called on primary nodes.")
         };
@@ -597,17 +603,20 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        identifier: Identifier,
+        identifier: Identifier<Strategies>,
         cost_increment: Cost,
         alignment_type: AlignmentType,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Self {
+        let cost = self.cost + cost_increment;
+        let a_star_lower_bound = self.a_star_lower_bound.saturating_sub(&cost_increment);
+
         Self {
-            node_data: self.node_data.generate_successor(
-                identifier,
-                cost_increment,
-                alignment_type,
-            ),
+            identifier,
+            predecessor: Some(self.identifier),
+            predecessor_edge_type: alignment_type,
+            cost,
+            a_star_lower_bound,
             strategies: self
                 .strategies
                 .generate_successor(identifier, alignment_type, context),
@@ -616,33 +625,6 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
 }
 
 impl NodeData {
-    fn create_root(identifier: Identifier) -> Self {
-        Self {
-            identifier,
-            predecessor: None,
-            predecessor_edge_type: AlignmentType::Root,
-            cost: Cost::ZERO,
-            a_star_lower_bound: Cost::ZERO,
-        }
-    }
-
-    fn generate_successor(
-        &self,
-        identifier: Identifier,
-        cost_increment: Cost,
-        alignment_type: AlignmentType,
-    ) -> Self {
-        let cost = self.cost + cost_increment;
-        let a_star_lower_bound = self.a_star_lower_bound.saturating_sub(&cost_increment);
-        Self {
-            identifier,
-            predecessor: Some(self.identifier),
-            predecessor_edge_type: alignment_type,
-            cost,
-            a_star_lower_bound,
-        }
-    }
-
     fn lower_bound_cost(&self) -> Cost {
         self.cost + self.a_star_lower_bound
     }
@@ -666,14 +648,11 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Self {
-            node_data:
-                NodeData {
-                    identifier,
-                    predecessor,
-                    predecessor_edge_type,
-                    cost,
-                    a_star_lower_bound,
-                },
+            identifier,
+            predecessor,
+            predecessor_edge_type,
+            cost,
+            a_star_lower_bound,
             strategies,
         } = self;
         write!(f, "{identifier}; ")?;

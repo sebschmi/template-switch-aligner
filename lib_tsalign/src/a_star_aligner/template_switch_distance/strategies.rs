@@ -1,4 +1,4 @@
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 use chaining::ChainingStrategy;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
@@ -19,7 +19,7 @@ pub mod shortcut;
 pub mod template_switch_count;
 pub mod template_switch_min_length;
 
-pub trait AlignmentStrategySelector: Eq + Clone + std::fmt::Debug {
+pub trait AlignmentStrategySelector: Eq + Copy + Ord + std::fmt::Debug {
     type Alphabet: Alphabet;
     type NodeOrd: NodeOrdStrategy<Self::PrimaryMatch>;
     type TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy;
@@ -38,6 +38,11 @@ pub struct AlignmentStrategiesNodeMemory<Selector: AlignmentStrategySelector> {
     pub primary_match: Selector::PrimaryMatch,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AlignmentStrategiesNodeIdentifier<Strategies: AlignmentStrategySelector> {
+    pub primary_match: <Strategies::PrimaryMatch as PrimaryMatchStrategy>::Identifier,
+}
+
 pub trait AlignmentStrategy: Eq + Clone + std::fmt::Debug {
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
@@ -51,7 +56,7 @@ pub trait AlignmentStrategy: Eq + Clone + std::fmt::Debug {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        identifier: Identifier,
+        identifier: Identifier<Strategies>,
         alignment_type: AlignmentType,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self;
@@ -77,7 +82,7 @@ impl<Strategies: AlignmentStrategySelector> AlignmentStrategiesNodeMemory<Strate
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        identifier: Identifier,
+        identifier: Identifier<Strategies>,
         alignment_type: AlignmentType,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -97,6 +102,35 @@ impl<Strategies: AlignmentStrategySelector> AlignmentStrategiesNodeMemory<Strate
             ),
             primary_match: self.primary_match.generate_successor(
                 identifier,
+                alignment_type,
+                context,
+            ),
+        }
+    }
+}
+
+impl<Strategies: AlignmentStrategySelector> AlignmentStrategiesNodeIdentifier<Strategies> {
+    pub fn create_root<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    >(
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
+        Self {
+            primary_match: Strategies::PrimaryMatch::create_root_identifier(context),
+        }
+    }
+
+    pub fn generate_successor<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    >(
+        &self,
+        identifier: Identifier<Strategies>,
+        alignment_type: AlignmentType,
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
+        Self {
+            primary_match: Strategies::PrimaryMatch::generate_successor_identifier(
+                identifier.strategies.primary_match,
                 alignment_type,
                 context,
             ),
@@ -221,6 +255,29 @@ impl<
         SecondaryDeletion: SecondaryDeletionStrategy,
         Shortcut: ShortcutStrategy,
         PrimaryMatch: PrimaryMatchStrategy,
+    > Copy
+    for AlignmentStrategySelection<
+        AlphabetType,
+        NodeOrd,
+        TemplateSwitchMinLength,
+        Chaining,
+        TemplateSwitchCount,
+        SecondaryDeletion,
+        Shortcut,
+        PrimaryMatch,
+    >
+{
+}
+
+impl<
+        AlphabetType: Alphabet,
+        NodeOrd: NodeOrdStrategy<PrimaryMatch>,
+        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
+        Chaining: ChainingStrategy,
+        TemplateSwitchCount: TemplateSwitchCountStrategy,
+        SecondaryDeletion: SecondaryDeletionStrategy,
+        Shortcut: ShortcutStrategy,
+        PrimaryMatch: PrimaryMatchStrategy,
     > PartialEq
     for AlignmentStrategySelection<
         AlphabetType,
@@ -260,3 +317,77 @@ impl<
     >
 {
 }
+
+impl<
+        AlphabetType: Alphabet,
+        NodeOrd: NodeOrdStrategy<PrimaryMatch>,
+        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
+        Chaining: ChainingStrategy,
+        TemplateSwitchCount: TemplateSwitchCountStrategy,
+        SecondaryDeletion: SecondaryDeletionStrategy,
+        Shortcut: ShortcutStrategy,
+        PrimaryMatch: PrimaryMatchStrategy,
+    > PartialOrd
+    for AlignmentStrategySelection<
+        AlphabetType,
+        NodeOrd,
+        TemplateSwitchMinLength,
+        Chaining,
+        TemplateSwitchCount,
+        SecondaryDeletion,
+        Shortcut,
+        PrimaryMatch,
+    >
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.phantom_data.partial_cmp(&other.phantom_data)
+    }
+}
+
+impl<
+        AlphabetType: Alphabet,
+        NodeOrd: NodeOrdStrategy<PrimaryMatch>,
+        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
+        Chaining: ChainingStrategy,
+        TemplateSwitchCount: TemplateSwitchCountStrategy,
+        SecondaryDeletion: SecondaryDeletionStrategy,
+        Shortcut: ShortcutStrategy,
+        PrimaryMatch: PrimaryMatchStrategy,
+    > Ord
+    for AlignmentStrategySelection<
+        AlphabetType,
+        NodeOrd,
+        TemplateSwitchMinLength,
+        Chaining,
+        TemplateSwitchCount,
+        SecondaryDeletion,
+        Shortcut,
+        PrimaryMatch,
+    >
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.phantom_data.cmp(&other.phantom_data)
+    }
+}
+
+impl<Strategies: AlignmentStrategySelector> PartialOrd
+    for AlignmentStrategiesNodeIdentifier<Strategies>
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<Strategies: AlignmentStrategySelector> Ord for AlignmentStrategiesNodeIdentifier<Strategies> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.primary_match.cmp(&other.primary_match)
+    }
+}
+
+impl<Strategies: AlignmentStrategySelector> Hash for AlignmentStrategiesNodeIdentifier<Strategies> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.primary_match.hash(state);
+    }
+}
+
+impl<Strategies: AlignmentStrategySelector> Copy for AlignmentStrategiesNodeIdentifier<Strategies> {}

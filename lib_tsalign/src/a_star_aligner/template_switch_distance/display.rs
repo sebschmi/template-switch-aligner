@@ -1,6 +1,9 @@
 use std::fmt::{Display, Formatter, Result};
 
-use super::{AlignmentType, GapType, Identifier, TemplateSwitchPrimary, TemplateSwitchSecondary};
+use super::{
+    identifier::IdentifierKind, AlignmentType, GapType, TemplateSwitchPrimary,
+    TemplateSwitchSecondary,
+};
 
 impl Display for AlignmentType {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
@@ -60,7 +63,7 @@ impl Display for TemplateSwitchSecondary {
     }
 }
 
-impl Display for Identifier {
+impl Display for IdentifierKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             Self::Primary {

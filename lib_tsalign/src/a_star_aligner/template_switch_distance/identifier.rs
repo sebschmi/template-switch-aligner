@@ -1,5 +1,14 @@
+use super::strategies::{AlignmentStrategiesNodeIdentifier, AlignmentStrategySelector};
+use std::hash::Hash;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
+pub struct Identifier<Strategies: AlignmentStrategySelector> {
+    pub kind: IdentifierKind,
+    pub strategies: AlignmentStrategiesNodeIdentifier<Strategies>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
-pub enum Identifier {
+pub enum IdentifierKind {
     Primary {
         reference_index: usize,
         query_index: usize,
@@ -67,7 +76,7 @@ pub enum TemplateSwitchSecondary {
     Query,
 }
 
-impl Identifier {
+impl IdentifierKind {
     pub const fn new_primary(
         reference_index: usize,
         query_index: usize,
@@ -181,12 +190,12 @@ impl Identifier {
         self,
     ) -> impl Iterator<Item = Self> {
         match self {
-            Identifier::Primary {
+            Self::Primary {
                 reference_index: entrance_reference_index,
                 query_index: entrance_query_index,
                 ..
             }
-            | Identifier::PrimaryReentry {
+            | Self::PrimaryReentry {
                 reference_index: entrance_reference_index,
                 query_index: entrance_query_index,
                 ..
@@ -208,7 +217,7 @@ impl Identifier {
                 ])
                 .map(
                     move |(template_switch_primary, template_switch_secondary)| {
-                        Identifier::TemplateSwitchEntrance {
+                        Self::TemplateSwitchEntrance {
                             entrance_reference_index,
                             entrance_query_index,
                             template_switch_primary,
@@ -325,5 +334,12 @@ impl Identifier {
             }
             _ => usize::MAX,
         }
+    }
+}
+
+impl<Strategies: AlignmentStrategySelector> Hash for Identifier<Strategies> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.kind.hash(state);
+        self.strategies.hash(state);
     }
 }

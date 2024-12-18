@@ -4,7 +4,7 @@ use compact_genome::interface::alphabet::AlphabetCharacter;
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::cost::Cost;
 use generic_a_star::reset::Reset;
-use generic_a_star::{AStarBuffers, AStarContext};
+use generic_a_star::{AStarBuffers, AStarContext, AStarNode};
 
 use crate::a_star_aligner::template_switch_distance::Node;
 use crate::a_star_aligner::AlignmentContext;
@@ -76,7 +76,7 @@ impl<
     fn create_root(&self) -> Self::Node {
         Self::Node {
             node_data: NodeData {
-                identifier: Identifier::new_primary(0, 0, 0, GapType::None),
+                identifier: Identifier::new_primary_root(0, 0, 0, GapType::None, self),
                 predecessor: None,
                 predecessor_edge_type: AlignmentType::Root,
                 cost: Cost::ZERO,
@@ -123,10 +123,11 @@ impl<
                     let is_match = r == q;
 
                     if flank_index == 0 {
-                        let can_do_primary_non_flank_match = node
-                            .strategies
-                            .primary_match
-                            .can_do_primary_non_flank_match(self);
+                        let can_do_primary_non_flank_match =
+                            Strategies::PrimaryMatch::can_do_primary_non_flank_match(
+                                node.identifier(),
+                                self,
+                            );
 
                         let (is_match, cost_increment) =
                             if is_match && can_do_primary_non_flank_match {
@@ -162,10 +163,11 @@ impl<
                     if (flank_index < config.left_flank_length && can_start_another_template_switch)
                         || flank_index < 0
                     {
-                        let can_do_primary_flank_match = node
-                            .strategies
-                            .primary_match
-                            .can_do_primary_flank_match(self);
+                        let can_do_primary_flank_match =
+                            Strategies::PrimaryMatch::can_do_primary_flank_match(
+                                node.identifier(),
+                                self,
+                            );
 
                         let edit_costs = if flank_index < 0 {
                             &config.right_flank_edit_costs
