@@ -172,29 +172,31 @@ impl ChainingStrategy for LowerBoundChainingStrategy {
                 reference_index,
                 query_index,
                 gap_type,
-                flank_index: 0,
+                flank_index,
                 ..
             }
             | Identifier::PrimaryReentry {
                 reference_index,
                 query_index,
                 gap_type,
-                flank_index: 0,
+                flank_index,
                 ..
             } = node.node_data.identifier
             {
-                let mut chain_lower_bound = context
-                    .memory
-                    .chaining
-                    .chain
-                    .chain_lower_bound(reference_index, query_index);
-                if gap_type != GapType::None {
-                    chain_lower_bound = chain_lower_bound
-                        .saturating_sub(&context.memory.chaining.max_gap_open_cost);
-                }
+                if flank_index <= 0 {
+                    let mut chain_lower_bound = context
+                        .memory
+                        .chaining
+                        .chain
+                        .chain_lower_bound(reference_index, query_index);
+                    if gap_type != GapType::None {
+                        chain_lower_bound = chain_lower_bound
+                            .saturating_sub(&context.memory.chaining.max_gap_open_cost);
+                    }
 
-                node.node_data.a_star_lower_bound =
-                    node.node_data.a_star_lower_bound.max(chain_lower_bound);
+                    node.node_data.a_star_lower_bound =
+                        node.node_data.a_star_lower_bound.max(chain_lower_bound);
+                }
             }
 
             node
