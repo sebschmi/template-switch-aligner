@@ -1,4 +1,7 @@
-use std::fmt::{Debug, Display};
+use std::{
+    fmt::{Debug, Display},
+    hash::Hash,
+};
 
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::cost::Cost;
@@ -9,12 +12,13 @@ use super::AlignmentStrategySelector;
 
 pub trait PrimaryMatchStrategy: Eq + Clone + Debug + Display {
     type Memory;
+    type IdentifierPrimaryExtraData: Eq + Copy + Debug + Ord + Hash;
 
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
-        _context: &Context<'_, '_, SubsequenceType, Strategies>,
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self;
 
     fn generate_successor<
@@ -22,10 +26,26 @@ pub trait PrimaryMatchStrategy: Eq + Clone + Debug + Display {
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
         &self,
-        _identifier: Identifier<()>,
-        _alignment_type: AlignmentType,
-        _context: &Context<'_, '_, SubsequenceType, Strategies>,
+        identifier: Identifier<Self::IdentifierPrimaryExtraData>,
+        alignment_type: AlignmentType,
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self;
+
+    fn create_root_identifier_primary_extra_data<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
+    >(
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self::IdentifierPrimaryExtraData;
+
+    fn generate_successor_identifier_primary_extra_data<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
+    >(
+        identifier: Identifier<Self::IdentifierPrimaryExtraData>,
+        alignment_type: AlignmentType,
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self::IdentifierPrimaryExtraData;
 
     /// If false, then this node cannot have a primary match outgoing edge outside of a flank.
     fn can_do_primary_non_flank_match<
@@ -72,6 +92,7 @@ pub struct MaxConsecutivePrimaryMatchMemory {
 
 impl PrimaryMatchStrategy for AllowPrimaryMatchStrategy {
     type Memory = ();
+    type IdentifierPrimaryExtraData = ();
 
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
@@ -87,11 +108,29 @@ impl PrimaryMatchStrategy for AllowPrimaryMatchStrategy {
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
         &self,
-        _identifier: Identifier<()>,
+        _identifier: Identifier<Self::IdentifierPrimaryExtraData>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
         *self
+    }
+
+    fn create_root_identifier_primary_extra_data<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
+    >(
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self::IdentifierPrimaryExtraData {
+    }
+
+    fn generate_successor_identifier_primary_extra_data<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
+    >(
+        _identifier: Identifier<Self::IdentifierPrimaryExtraData>,
+        _alignment_type: AlignmentType,
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self::IdentifierPrimaryExtraData {
     }
 
     fn can_do_primary_non_flank_match<
@@ -133,6 +172,7 @@ impl PrimaryMatchStrategy for AllowPrimaryMatchStrategy {
 
 impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
     type Memory = MaxConsecutivePrimaryMatchMemory;
+    type IdentifierPrimaryExtraData = usize;
 
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
@@ -150,7 +190,7 @@ impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
         Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
     >(
         &self,
-        _identifier: Identifier<()>,
+        _identifier: Identifier<Self::IdentifierPrimaryExtraData>,
         alignment_type: AlignmentType,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -161,6 +201,35 @@ impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
             } else {
                 context.memory.primary_match.max_consecutive_primary_matches
             },
+        }
+    }
+
+    fn create_root_identifier_primary_extra_data<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
+    >(
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self::IdentifierPrimaryExtraData {
+        context.memory.primary_match.root_available_primary_matches
+    }
+
+    fn generate_successor_identifier_primary_extra_data<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
+    >(
+        identifier: Identifier<Self::IdentifierPrimaryExtraData>,
+        alignment_type: AlignmentType,
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self::IdentifierPrimaryExtraData {
+        match (identifier, alignment_type) {
+            (
+                Identifier::Primary { data, .. } | Identifier::PrimaryReentry { data, .. },
+                AlignmentType::PrimaryMatch,
+            ) => {
+                debug_assert!(data > 0);
+                data - 1
+            }
+            _ => context.memory.primary_match.max_consecutive_primary_matches,
         }
     }
 

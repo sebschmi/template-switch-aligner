@@ -17,7 +17,7 @@ use crate::{
     config::TemplateSwitchConfig,
 };
 
-use super::{AlignmentStrategy, AlignmentStrategySelector};
+use super::{primary_match::PrimaryMatchStrategy, AlignmentStrategy, AlignmentStrategySelector};
 
 pub trait ChainingStrategy: AlignmentStrategy {
     type Memory;
@@ -165,7 +165,7 @@ impl AlignmentStrategy for NoChainingStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<()>,
+        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -188,7 +188,7 @@ impl AlignmentStrategy for PrecomputeOnlyChainingStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<()>,
+        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {

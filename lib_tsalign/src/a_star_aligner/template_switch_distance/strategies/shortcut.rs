@@ -9,7 +9,7 @@ use crate::{
     config::TemplateSwitchConfig,
 };
 
-use super::{AlignmentStrategy, AlignmentStrategySelector};
+use super::{primary_match::PrimaryMatchStrategy, AlignmentStrategy, AlignmentStrategySelector};
 
 pub trait ShortcutStrategy: AlignmentStrategy {
     type Memory;
@@ -83,7 +83,7 @@ impl ShortcutStrategy for TemplateSwitchLowerBoundShortcutStrategy {
             | Identifier::PrimaryReentry { flank_index, .. } => {
                 if flank_index == context.config.left_flank_length {
                     opened_nodes_output.extend(context.memory.shortcut.iter().flat_map(|entry| {
-                        node.generate_primary_shortcut_successor(
+                        node.generate_template_switch_shortcut_successor(
                             entry.x(),
                             entry.y(),
                             entry.cost(),
@@ -113,7 +113,7 @@ impl AlignmentStrategy for NoShortcutStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<()>,
+        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -136,7 +136,7 @@ impl AlignmentStrategy for TemplateSwitchLowerBoundShortcutStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<()>,
+        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {

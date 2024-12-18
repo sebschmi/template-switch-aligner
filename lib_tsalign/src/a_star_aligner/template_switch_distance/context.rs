@@ -31,7 +31,7 @@ pub struct Context<
 
     pub config: TemplateSwitchConfig<Strategies::Alphabet>,
 
-    pub a_star_buffers: AStarBuffers<Identifier<()>, Node<Strategies>>,
+    pub a_star_buffers: AStarBuffers<Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>, Node<Strategies>>,
     pub memory: Memory<Strategies>,
 }
 
@@ -76,7 +76,7 @@ impl<
     fn create_root(&self) -> Self::Node {
         Self::Node {
             node_data: NodeData {
-                identifier: Identifier::new_primary(0, 0, 0, GapType::None, ()),
+                identifier: Identifier::new_primary(0, 0, 0, GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::create_root_identifier_primary_extra_data(self)),
                 predecessor: None,
                 predecessor_edge_type: AlignmentType::Root,
                 cost: Cost::ZERO,

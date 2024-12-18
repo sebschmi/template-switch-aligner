@@ -2,7 +2,7 @@ use compact_genome::interface::sequence::GenomeSequence;
 
 use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Identifier};
 
-use super::{AlignmentStrategy, AlignmentStrategySelector};
+use super::{primary_match::PrimaryMatchStrategy, AlignmentStrategy, AlignmentStrategySelector};
 
 pub trait SecondaryDeletionStrategy: AlignmentStrategy {
     fn allow_secondary_deletions() -> bool;
@@ -41,7 +41,7 @@ impl AlignmentStrategy for AllowSecondaryDeletionStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<()>,
+        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -64,7 +64,7 @@ impl AlignmentStrategy for ForbidSecondaryDeletionStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<()>,
+        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {

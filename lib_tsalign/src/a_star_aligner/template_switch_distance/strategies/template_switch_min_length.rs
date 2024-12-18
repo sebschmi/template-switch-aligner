@@ -14,6 +14,7 @@ use crate::{
     costs::cost::Cost,
 };
 
+use super::primary_match::PrimaryMatchStrategy;
 use super::{AlignmentStrategy, AlignmentStrategySelector};
 
 pub trait TemplateSwitchMinLengthStrategy: AlignmentStrategy {
@@ -166,7 +167,7 @@ impl AlignmentStrategy for NoTemplateSwitchMinLengthStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<()>,
+        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -189,7 +190,7 @@ impl AlignmentStrategy for LookaheadTemplateSwitchMinLengthStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<()>,
+        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {

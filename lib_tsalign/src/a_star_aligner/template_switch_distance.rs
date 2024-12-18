@@ -5,8 +5,9 @@ use generic_a_star::AStarNode;
 use identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
 use num_traits::SaturatingSub;
 use strategies::{
-    node_ord::NodeOrdStrategy, template_switch_min_length::TemplateSwitchMinLengthStrategy,
-    AlignmentStrategiesNodeMemory, AlignmentStrategySelector,
+    node_ord::NodeOrdStrategy, primary_match::PrimaryMatchStrategy,
+    template_switch_min_length::TemplateSwitchMinLengthStrategy, AlignmentStrategiesNodeMemory,
+    AlignmentStrategySelector,
 };
 
 use crate::costs::cost::Cost;
@@ -24,7 +25,7 @@ pub use identifier::Identifier;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node<Strategies: AlignmentStrategySelector> {
-    node_data: NodeData<()>,
+    node_data: NodeData<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
     strategies: AlignmentStrategiesNodeMemory<Strategies>,
 }
 
@@ -38,7 +39,7 @@ pub struct NodeData<PrimaryExtraData: Copy> {
 }
 
 impl<Strategies: AlignmentStrategySelector> AStarNode for Node<Strategies> {
-    type Identifier = Identifier<()>;
+    type Identifier = Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>;
 
     type EdgeType = AlignmentType;
 
@@ -77,7 +78,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 query_index,
                 gap_type: GapType::None,
                 flank_index: 0,
-                data: (),
+                data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::create_root_identifier_primary_extra_data( context),
             }),
             strategies: AlignmentStrategiesNodeMemory::create_root(context),
         }
@@ -484,7 +485,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         &self,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Option<Self> {
-        let Identifier::TemplateSwitchExit {
+        let identifier @ Identifier::TemplateSwitchExit {
             entrance_reference_index,
             entrance_query_index,
             template_switch_primary,
@@ -532,7 +533,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 query_index,
                 gap_type: GapType::None,
                 flank_index: -context.config.right_flank_length,
-                data: (),
+                data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::generate_successor_identifier_primary_extra_data(identifier, AlignmentType::PrimaryReentry, context),
             },
             0.into(),
             AlignmentType::PrimaryReentry,
@@ -540,7 +541,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ))
     }
 
-    fn generate_primary_shortcut_successor<
+    fn generate_template_switch_shortcut_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -553,7 +554,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             return None;
         }
 
-        let (Identifier::Primary {
+        let identifier @ (Identifier::Primary {
             reference_index,
             query_index,
             flank_index,
@@ -585,7 +586,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 query_index,
                 gap_type: GapType::None,
                 flank_index: -context.config.right_flank_length,
-                data: (),
+                data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::generate_successor_identifier_primary_extra_data(identifier, AlignmentType::PrimaryReentry, context),
             },
             cost_increment,
             AlignmentType::PrimaryShortcut {
@@ -600,7 +601,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        identifier: Identifier<()>,
+        identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
         cost_increment: Cost,
         alignment_type: AlignmentType,
         context: &Context<SubsequenceType, Strategies>,
