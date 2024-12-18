@@ -73,6 +73,10 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
         let target_min_available_primary_matches =
             max_consecutive_primary_matches - max_consecutive_primary_matches_at_start_and_end;
 
+        debug!("Max consecutive primary matches: {max_consecutive_primary_matches}");
+        debug!("Max consecutive primary matches at start and end: {max_consecutive_primary_matches_at_start_and_end}");
+        debug!("Min available primary matches at target: {target_min_available_primary_matches}");
+
         debug!("Using genome length {genome_length}");
         assert!(genome_length < usize::try_from(isize::MAX).unwrap() / 2);
         let genome = VectorGenome::<AlphabetType>::from_iter(
@@ -114,15 +118,21 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
                 Identifier::Primary {
                     reference_index,
                     query_index,
-                    flank_index,data,
+                    flank_index,
+                    data,
                     ..
                 }
                 | Identifier::PrimaryReentry {
                     reference_index,
                     query_index,
-                    flank_index,data,
+                    flank_index,
+                    data,
                     ..
                 } => {
+                    if reference_index == 0 && query_index == 1 {
+                        debug!("Potential target {node}; data: {data}");
+                    }
+
                     if flank_index == 0
                         && reference_index <= reference_length
                         && query_index <= query_length

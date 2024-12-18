@@ -102,19 +102,24 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         else {
             unreachable!("This method is only called on primary nodes.")
         };
+        let alignment_type = match (
+            is_match,
+            flank_index == successor_flank_index && successor_flank_index == 0,
+        ) {
+            (true, true) => AlignmentType::PrimaryMatch,
+            (true, false) => AlignmentType::PrimaryFlankMatch,
+            (false, true) => AlignmentType::PrimarySubstitution,
+            (false, false) => AlignmentType::PrimaryFlankSubstitution,
+        };
 
         Some(self.generate_successor(
-            predecessor_identifier.generate_primary_diagonal_successor(successor_flank_index),
+            predecessor_identifier.generate_primary_diagonal_successor(
+                successor_flank_index,
+                alignment_type,
+                context,
+            ),
             cost_increment,
-            match (
-                is_match,
-                flank_index == successor_flank_index && successor_flank_index == 0,
-            ) {
-                (true, true) => AlignmentType::PrimaryMatch,
-                (true, false) => AlignmentType::PrimaryFlankMatch,
-                (false, true) => AlignmentType::PrimarySubstitution,
-                (false, false) => AlignmentType::PrimaryFlankSubstitution,
-            },
+            alignment_type,
             context,
         ))
     }
@@ -136,15 +141,20 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         else {
             unreachable!("This method is only called on primary nodes.")
         };
+        let alignment_type = if flank_index == successor_flank_index && successor_flank_index == 0 {
+            AlignmentType::PrimaryDeletion
+        } else {
+            AlignmentType::PrimaryFlankDeletion
+        };
 
         Some(self.generate_successor(
-            predecessor_identifier.generate_primary_deletion_successor(successor_flank_index),
+            predecessor_identifier.generate_primary_deletion_successor(
+                successor_flank_index,
+                alignment_type,
+                context,
+            ),
             cost_increment,
-            if flank_index == successor_flank_index && successor_flank_index == 0 {
-                AlignmentType::PrimaryDeletion
-            } else {
-                AlignmentType::PrimaryFlankDeletion
-            },
+            alignment_type,
             context,
         ))
     }
@@ -166,15 +176,20 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         else {
             unreachable!("This method is only called on primary nodes.")
         };
+        let alignment_type = if flank_index == successor_flank_index && successor_flank_index == 0 {
+            AlignmentType::PrimaryInsertion
+        } else {
+            AlignmentType::PrimaryFlankInsertion
+        };
 
         Some(self.generate_successor(
-            predecessor_identifier.generate_primary_insertion_successor(successor_flank_index),
+            predecessor_identifier.generate_primary_insertion_successor(
+                successor_flank_index,
+                alignment_type,
+                context,
+            ),
             cost_increment,
-            if flank_index == successor_flank_index && successor_flank_index == 0 {
-                AlignmentType::PrimaryInsertion
-            } else {
-                AlignmentType::PrimaryFlankInsertion
-            },
+            alignment_type,
             context,
         ))
     }

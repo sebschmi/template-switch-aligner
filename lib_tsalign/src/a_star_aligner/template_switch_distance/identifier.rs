@@ -1,3 +1,10 @@
+use compact_genome::interface::sequence::GenomeSequence;
+
+use super::{
+    strategies::{primary_match::PrimaryMatchStrategy, AlignmentStrategySelector},
+    AlignmentType, Context,
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum Identifier<PrimaryExtraData> {
     Primary {
@@ -91,18 +98,25 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
         }
     }
 
-    pub fn generate_primary_diagonal_successor(self, flank_index: isize) -> Self {
+    pub fn generate_primary_diagonal_successor<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector<PrimaryMatch = PrimaryMatch>,
+        PrimaryMatch: PrimaryMatchStrategy<IdentifierPrimaryExtraData = PrimaryExtraData>,
+    >(
+        self,
+        flank_index: isize,
+        alignment_type: AlignmentType,
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
         match self {
             Self::Primary {
                 reference_index,
                 query_index,
-                data,
                 ..
             }
             | Self::PrimaryReentry {
                 reference_index,
                 query_index,
-                data,
                 ..
             } => {
                 debug_assert!(reference_index != usize::MAX);
@@ -115,7 +129,7 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                     query_index: query_index + 1,
                     flank_index,
                     gap_type: GapType::None,
-                    data,
+                    data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::generate_successor_identifier_primary_extra_data(self, alignment_type, context),
                 }
             }
             other => unreachable!(
@@ -124,18 +138,25 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
         }
     }
 
-    pub fn generate_primary_deletion_successor(self, flank_index: isize) -> Self {
+    pub fn generate_primary_deletion_successor<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector<PrimaryMatch = PrimaryMatch>,
+        PrimaryMatch: PrimaryMatchStrategy<IdentifierPrimaryExtraData = PrimaryExtraData>,
+    >(
+        self,
+        flank_index: isize,
+        alignment_type: AlignmentType,
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
         match self {
             Self::Primary {
                 reference_index,
                 query_index,
-                data,
                 ..
             }
             | Self::PrimaryReentry {
                 reference_index,
                 query_index,
-                data,
                 ..
             } => {
                 debug_assert!(reference_index != usize::MAX);
@@ -148,7 +169,7 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                     query_index,
                     flank_index,
                     gap_type: GapType::Deletion,
-                    data,
+                    data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::generate_successor_identifier_primary_extra_data(self, alignment_type, context),
                 }
             }
             other => unreachable!(
@@ -157,18 +178,25 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
         }
     }
 
-    pub fn generate_primary_insertion_successor(self, flank_index: isize) -> Self {
+    pub fn generate_primary_insertion_successor<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector<PrimaryMatch = PrimaryMatch>,
+        PrimaryMatch: PrimaryMatchStrategy<IdentifierPrimaryExtraData = PrimaryExtraData>,
+    >(
+        self,
+        flank_index: isize,
+        alignment_type: AlignmentType,
+        context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
         match self {
             Self::Primary {
                 reference_index,
                 query_index,
-                data,
                 ..
             }
             | Self::PrimaryReentry {
                 reference_index,
                 query_index,
-                data,
                 ..
             } => {
                 debug_assert!(reference_index != usize::MAX);
@@ -181,7 +209,7 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                     query_index: query_index + 1,
                     flank_index,
                     gap_type: GapType::Insertion,
-                    data,
+                    data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::generate_successor_identifier_primary_extra_data(self, alignment_type, context),
                 }
             }
             other => unreachable!(
