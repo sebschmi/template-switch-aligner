@@ -56,7 +56,7 @@ impl<ChainingCosts: ChainingCostsProvider> AStarContext for Context<ChainingCost
                     };
                     let cost_increment = self
                         .chaining_costs
-                        .chaining_costs(node.predecessor().unwrap(), &successor_identifier);
+                        .chaining_costs(node.identifier(), &successor_identifier);
                     node.generate_successor(successor_identifier, cost_increment)
                 })
                 .chain(if !matches!(node.identifier(), Identifier::Target) {
