@@ -5,7 +5,10 @@ use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use lib_tsalign::{
     a_star_aligner::{
         template_switch_distance::strategies::{
-            chaining::{ChainingStrategy, NoChainingStrategy, PrecomputeOnlyChainingStrategy},
+            chaining::{
+                ChainingStrategy, LowerBoundChainingStrategy, NoChainingStrategy,
+                PrecomputeOnlyChainingStrategy,
+            },
             node_ord::{AntiDiagonalNodeOrdStrategy, CostOnlyNodeOrdStrategy, NodeOrdStrategy},
             primary_match::AllowPrimaryMatchStrategy,
             secondary_deletion::AllowSecondaryDeletionStrategy,
@@ -41,6 +44,7 @@ pub enum TemplateSwitchMinLengthStrategySelector {
 pub enum TemplateSwitchChainingStrategySelector {
     None,
     PrecomputeOnly,
+    LowerBound,
 }
 
 pub fn align_a_star_template_switch_distance<
@@ -136,6 +140,15 @@ fn align_a_star_template_switch_select_chaining_strategy<
                 NodeOrd,
                 TemplateSwitchMinLength,
                 PrecomputeOnlyChainingStrategy,
+            >(cli, reference, query)
+        }
+        TemplateSwitchChainingStrategySelector::LowerBound => {
+            align_a_star_template_switch_distance_call::<
+                _,
+                _,
+                NodeOrd,
+                TemplateSwitchMinLength,
+                LowerBoundChainingStrategy,
             >(cli, reference, query)
         }
     }

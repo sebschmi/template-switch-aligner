@@ -85,10 +85,7 @@ impl TemplateSwitchMinLengthStrategy for LookaheadTemplateSwitchMinLengthStrateg
 
     fn template_switch_min_length_lookahead<
         Strategies: AlignmentStrategySelector<TemplateSwitchMinLength = Self>,
-        SubsequenceType: compact_genome::interface::sequence::GenomeSequence<
-                Strategies::Alphabet,
-                SubsequenceType,
-            > + ?Sized,
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
         mut secondary_root_node: Node<Strategies>,

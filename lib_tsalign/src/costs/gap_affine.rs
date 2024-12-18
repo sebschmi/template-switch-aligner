@@ -133,6 +133,10 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         self.gap_open_cost_vector.iter().min().copied().unwrap()
     }
 
+    pub fn max_gap_open_cost(&self) -> Cost {
+        self.gap_open_cost_vector.iter().max().copied().unwrap()
+    }
+
     pub fn min_gap_extend_cost(&self) -> Cost {
         self.gap_extend_cost_vector.iter().min().copied().unwrap()
     }

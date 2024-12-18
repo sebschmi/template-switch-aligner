@@ -8,11 +8,12 @@ use seed_chain::{
 
 use crate::{
     a_star_aligner::template_switch_distance::{
+        identifier::GapType,
         lower_bounds::{
             template_switch::TemplateSwitchLowerBoundMatrix,
             template_switch_alignment::TemplateSwitchAlignmentLowerBoundMatrix,
         },
-        AlignmentType, Context, Identifier,
+        AlignmentType, Context, Identifier, Node,
     },
     config::TemplateSwitchConfig,
 };
@@ -31,6 +32,14 @@ pub trait ChainingStrategy: AlignmentStrategy {
         config: &TemplateSwitchConfig<AlphabetType>,
         block_size: usize,
     ) -> Self::Memory;
+
+    fn apply_lower_bound<
+        Strategies: AlignmentStrategySelector<Chaining = Self>,
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    >(
+        nodes: impl IntoIterator<Item = Node<Strategies>>,
+        context: &Context<SubsequenceType, Strategies>,
+    ) -> impl IntoIterator<Item = Node<Strategies>>;
 }
 
 #[expect(dead_code)]
@@ -38,6 +47,7 @@ pub struct ChainingMemory {
     ts_lower_bounds: TemplateSwitchLowerBoundMatrix,
     tsa_lower_bounds: TemplateSwitchAlignmentLowerBoundMatrix,
     chain: Chain,
+    max_gap_open_cost: Cost,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -45,6 +55,9 @@ pub struct NoChainingStrategy;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct PrecomputeOnlyChainingStrategy;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct LowerBoundChainingStrategy;
 
 struct TemplateSwitchAlignmentLowerBoundChainingCosts<'a> {
     matrix: &'a TemplateSwitchAlignmentLowerBoundMatrix,
@@ -65,6 +78,16 @@ impl ChainingStrategy for NoChainingStrategy {
         _block_size: usize,
     ) -> Self::Memory {
         // Do nothing.
+    }
+
+    fn apply_lower_bound<
+        Strategies: AlignmentStrategySelector<Chaining = Self>,
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    >(
+        nodes: impl IntoIterator<Item = Node<Strategies>>,
+        _context: &Context<SubsequenceType, Strategies>,
+    ) -> impl IntoIterator<Item = Node<Strategies>> {
+        nodes
     }
 }
 
@@ -106,7 +129,74 @@ impl ChainingStrategy for PrecomputeOnlyChainingStrategy {
             ts_lower_bounds,
             tsa_lower_bounds,
             chain,
+            max_gap_open_cost: config.primary_edit_costs.max_gap_open_cost(),
         }
+    }
+
+    fn apply_lower_bound<
+        Strategies: AlignmentStrategySelector<Chaining = Self>,
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    >(
+        nodes: impl IntoIterator<Item = Node<Strategies>>,
+        _context: &Context<SubsequenceType, Strategies>,
+    ) -> impl IntoIterator<Item = Node<Strategies>> {
+        nodes
+    }
+}
+
+impl ChainingStrategy for LowerBoundChainingStrategy {
+    type Memory = ChainingMemory;
+
+    fn initialise_memory<
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    >(
+        reference: &SubsequenceType,
+        query: &SubsequenceType,
+        config: &TemplateSwitchConfig<AlphabetType>,
+        block_size: usize,
+    ) -> Self::Memory {
+        PrecomputeOnlyChainingStrategy::initialise_memory(reference, query, config, block_size)
+    }
+
+    fn apply_lower_bound<
+        Strategies: AlignmentStrategySelector<Chaining = Self>,
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    >(
+        nodes: impl IntoIterator<Item = Node<Strategies>>,
+        context: &Context<SubsequenceType, Strategies>,
+    ) -> impl IntoIterator<Item = Node<Strategies>> {
+        nodes.into_iter().map(|mut node| {
+            if let Identifier::Primary {
+                reference_index,
+                query_index,
+                gap_type,
+                flank_index: 0,
+                ..
+            }
+            | Identifier::PrimaryReentry {
+                reference_index,
+                query_index,
+                gap_type,
+                flank_index: 0,
+                ..
+            } = node.node_data.identifier
+            {
+                let mut chain_lower_bound = context
+                    .memory
+                    .chaining
+                    .chain
+                    .chain_lower_bound(reference_index, query_index);
+                if gap_type != GapType::None {
+                    chain_lower_bound -= context.memory.chaining.max_gap_open_cost;
+                }
+
+                node.node_data.a_star_lower_bound =
+                    node.node_data.a_star_lower_bound.max(chain_lower_bound);
+            }
+
+            node
+        })
     }
 }
 
@@ -174,6 +264,29 @@ impl AlignmentStrategy for NoChainingStrategy {
 }
 
 impl AlignmentStrategy for PrecomputeOnlyChainingStrategy {
+    fn create_root<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector,
+    >(
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
+        Self
+    }
+
+    fn generate_successor<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector,
+    >(
+        &self,
+        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
+        _alignment_type: AlignmentType,
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
+        *self
+    }
+}
+
+impl AlignmentStrategy for LowerBoundChainingStrategy {
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
