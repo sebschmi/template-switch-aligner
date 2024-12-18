@@ -72,6 +72,8 @@ pub trait PrimaryMatchStrategy: Eq + Clone + Debug + Display {
         &self,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Cost;
+
+    fn always_generate_substitution() -> bool;
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -159,6 +161,10 @@ impl PrimaryMatchStrategy for AllowPrimaryMatchStrategy {
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Cost {
         Cost::MAX
+    }
+
+    fn always_generate_substitution() -> bool {
+        false
     }
 }
 
@@ -251,6 +257,10 @@ impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Cost {
         context.memory.primary_match.fake_substitution_cost
+    }
+
+    fn always_generate_substitution() -> bool {
+        true
     }
 }
 

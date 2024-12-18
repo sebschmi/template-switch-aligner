@@ -156,6 +156,18 @@ impl<
                                 self,
                             ));
                         }
+
+                        if is_match && <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::always_generate_substitution() {
+                            let cost_increment = node.strategies.primary_match.fake_substitution_cost(self);
+
+                            if cost_increment != Cost::MAX {
+                                opened_nodes_output.extend(node.generate_primary_diagonal_successor(
+                                    0,
+                                    cost_increment,
+                                    false,
+                                    self,
+                                ));
+                            }}
                     }
 
                     if (flank_index < config.left_flank_length && can_start_another_template_switch)

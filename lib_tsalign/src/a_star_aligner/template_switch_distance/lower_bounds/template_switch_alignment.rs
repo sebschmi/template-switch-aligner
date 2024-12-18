@@ -129,7 +129,8 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
                     data,
                     ..
                 } => {
-                    if reference_index == 0 && query_index == 1 {
+                    if reference_index == 1 && query_index == 1 && flank_index == 0 {
+                        // TODO remove
                         debug!("Potential target {node}; data: {data}");
                     }
 
