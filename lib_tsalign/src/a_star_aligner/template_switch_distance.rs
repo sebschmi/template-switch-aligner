@@ -24,14 +24,14 @@ pub use identifier::Identifier;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node<Strategies: AlignmentStrategySelector> {
-    node_data: NodeData,
+    node_data: NodeData<()>,
     strategies: AlignmentStrategiesNodeMemory<Strategies>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct NodeData {
-    identifier: Identifier<()>,
-    predecessor: Option<Identifier<()>>,
+pub struct NodeData<PrimaryExtraData: Copy> {
+    identifier: Identifier<PrimaryExtraData>,
+    predecessor: Option<Identifier<PrimaryExtraData>>,
     predecessor_edge_type: AlignmentType,
     cost: Cost,
     a_star_lower_bound: Cost,
@@ -618,8 +618,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
     }
 }
 
-impl NodeData {
-    fn create_root(identifier: Identifier<()>) -> Self {
+impl<PrimaryExtraData: Copy> NodeData<PrimaryExtraData> {
+    fn create_root(identifier: Identifier<PrimaryExtraData>) -> Self {
         Self {
             identifier,
             predecessor: None,
@@ -631,7 +631,7 @@ impl NodeData {
 
     fn generate_successor(
         &self,
-        identifier: Identifier<()>,
+        identifier: Identifier<PrimaryExtraData>,
         cost_increment: Cost,
         alignment_type: AlignmentType,
     ) -> Self {
