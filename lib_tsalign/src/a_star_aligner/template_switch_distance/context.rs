@@ -167,7 +167,8 @@ impl<
                                     false,
                                     self,
                                 ));
-                            }}
+                            }
+                        }
                     }
 
                     if (flank_index < config.left_flank_length && can_start_another_template_switch)
