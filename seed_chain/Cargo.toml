@@ -4,7 +4,7 @@ description = "A seeding and generic chaining mechanism for sequence-to-sequence
 license = "BSD-2-Clause"
 repository = "https://github.com/sebschmi/seed-chain"
 authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
-version = "0.0.0"
+version = "0.6.0"
 edition = "2021"
 rust-version.workspace = true
 
@@ -12,4 +12,4 @@ rust-version.workspace = true
 [dependencies]
 compact-genome.workspace = true
 log.workspace = true
-generic_a_star = { version = "0.5.0", path = "../generic_a_star" }
+generic_a_star = { version = "0.6.0", path = "../generic_a_star" }

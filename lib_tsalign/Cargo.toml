@@ -4,7 +4,7 @@ description = "A sequence-to-sequence aligner that accounts for template switche
 license = "BSD-2-Clause"
 repository = "https://github.com/sebschmi/template-switch-aligner"
 authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 rust-version.workspace = true
 
@@ -26,7 +26,7 @@ thiserror = "2.0.3"
 num-traits.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
 noisy_float = { version = "0.2.0" }
-generic_a_star = { version = "0.5.0", path = "../generic_a_star" }
+generic_a_star = { version = "0.6.0", path = "../generic_a_star" }
 log.workspace = true
-seed_chain = { version = "0.0.0", path = "../seed_chain" }
-deterministic_default_hasher = { version = "0.5.0", path = "../deterministic_default_hasher" }
+seed_chain = { version = "0.6.0", path = "../seed_chain" }
+deterministic_default_hasher = { version = "0.6.0", path = "../deterministic_default_hasher" }
