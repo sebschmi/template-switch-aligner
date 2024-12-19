@@ -17,7 +17,7 @@ use lib_tsalign::{
     alignment_configuration::AlignmentConfiguration,
     alignment_matrix::AlignmentMatrix,
 };
-use log::{info, LevelFilter};
+use log::{debug, info, LevelFilter};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 use template_switch_distance_type_selectors::{
     align_a_star_template_switch_distance, TemplateSwitchChainingStrategySelector,
@@ -177,7 +177,7 @@ fn main() {
     let reference = sequence_store.get(&sequences[0].sequence_handle);
     let query = sequence_store.get(&sequences[1].sequence_handle);
 
-    info!("Choosing alignment method...");
+    debug!("Choosing alignment method...");
     match cli.alignment_method {
         AlignmentMethod::Matrix => align_matrix(cli, reference, query),
         AlignmentMethod::AStarGapAffine => {
