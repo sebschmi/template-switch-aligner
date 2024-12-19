@@ -1,6 +1,24 @@
 {
     "rust-analyzer.cargo.features": "all",
     "cSpell.words": [
-        "nonoverlapping"
+        "nonoverlapping",
+        "rustup",
+        "tsalign"
+    ],
+    "markdownlint.config": {
+        "MD033": false,
+    },
+    "cSpell.ignorePaths": [
+        "package-lock.json",
+        "node_modules",
+        "vscode-extension",
+        ".git/{info,lfs,logs,refs,objects}/**",
+        ".git/{index,*refs,*HEAD}",
+        ".vscode",
+        ".vscode-insiders",
+        "Cargo.lock",
+        "Cargo.toml",
+        "*.fa",
+        "*.toml"
     ]
 }
