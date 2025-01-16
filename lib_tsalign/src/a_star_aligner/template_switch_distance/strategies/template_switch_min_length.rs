@@ -238,6 +238,10 @@ impl<
 
         length == self.context.config.min_length
     }
+
+    fn max_cost(&self) -> Option<Cost> {
+        self.context.max_cost()
+    }
 }
 
 impl<

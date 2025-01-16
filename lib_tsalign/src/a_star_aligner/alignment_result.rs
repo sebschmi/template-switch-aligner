@@ -15,11 +15,18 @@ pub trait IAlignmentType {
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AlignmentResult<AlignmentType> {
-    pub alignment: Vec<(usize, AlignmentType)>,
+pub enum AlignmentResult<AlignmentType> {
+    WithTarget {
+        alignment: Vec<(usize, AlignmentType)>,
 
-    #[cfg_attr(feature = "serde", serde(flatten))]
-    pub statistics: AlignmentStatistics,
+        #[cfg_attr(feature = "serde", serde(flatten))]
+        statistics: AlignmentStatistics,
+    },
+
+    WithoutTarget {
+        #[cfg_attr(feature = "serde", serde(flatten))]
+        statistics: AlignmentStatistics,
+    },
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default)]
@@ -48,8 +55,7 @@ macro_rules! each_statistic {
 }
 
 impl<AlignmentType> AlignmentResult<AlignmentType> {
-    #[expect(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn new_with_target(
         alignment: Vec<(usize, AlignmentType)>,
         cost: Cost,
         duration_seconds: f64,
@@ -59,23 +65,79 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
         reference_length: usize,
         query_length: usize,
     ) -> Self {
-        Self {
-            alignment,
-            statistics: AlignmentStatistics {
-                cost: (cost.as_u64() as f64).try_into().unwrap(),
-                cost_per_base: ((cost.as_u64() * 2) as f64
-                    / (reference_length + query_length) as f64)
-                    .try_into()
-                    .unwrap(),
-                duration_seconds: duration_seconds.try_into().unwrap(),
-                opened_nodes: (opened_nodes as f64).try_into().unwrap(),
-                closed_nodes: (closed_nodes as f64).try_into().unwrap(),
-                suboptimal_opened_nodes: (suboptimal_opened_nodes as f64).try_into().unwrap(),
-                suboptimal_opened_nodes_ratio: (suboptimal_opened_nodes as f64
-                    / (opened_nodes - suboptimal_opened_nodes) as f64)
-                    .try_into()
-                    .unwrap(),
-            },
+        Self::new(
+            Some(alignment),
+            cost,
+            duration_seconds,
+            opened_nodes,
+            closed_nodes,
+            suboptimal_opened_nodes,
+            reference_length,
+            query_length,
+        )
+    }
+
+    pub fn new_without_target(
+        cost: Cost,
+        duration_seconds: f64,
+        opened_nodes: usize,
+        closed_nodes: usize,
+        suboptimal_opened_nodes: usize,
+        reference_length: usize,
+        query_length: usize,
+    ) -> Self {
+        Self::new(
+            None,
+            cost,
+            duration_seconds,
+            opened_nodes,
+            closed_nodes,
+            suboptimal_opened_nodes,
+            reference_length,
+            query_length,
+        )
+    }
+
+    #[expect(clippy::too_many_arguments)]
+    fn new(
+        alignment: Option<Vec<(usize, AlignmentType)>>,
+        cost: Cost,
+        duration_seconds: f64,
+        opened_nodes: usize,
+        closed_nodes: usize,
+        suboptimal_opened_nodes: usize,
+        reference_length: usize,
+        query_length: usize,
+    ) -> Self {
+        let statistics = AlignmentStatistics {
+            cost: (cost.as_u64() as f64).try_into().unwrap(),
+            cost_per_base: ((cost.as_u64() * 2) as f64 / (reference_length + query_length) as f64)
+                .try_into()
+                .unwrap(),
+            duration_seconds: duration_seconds.try_into().unwrap(),
+            opened_nodes: (opened_nodes as f64).try_into().unwrap(),
+            closed_nodes: (closed_nodes as f64).try_into().unwrap(),
+            suboptimal_opened_nodes: (suboptimal_opened_nodes as f64).try_into().unwrap(),
+            suboptimal_opened_nodes_ratio: (suboptimal_opened_nodes as f64
+                / (opened_nodes - suboptimal_opened_nodes) as f64)
+                .try_into()
+                .unwrap(),
+        };
+
+        if let Some(alignment) = alignment {
+            Self::WithTarget {
+                alignment,
+                statistics,
+            }
+        } else {
+            Self::WithoutTarget { statistics }
+        }
+    }
+
+    pub fn statistics(&self) -> &AlignmentStatistics {
+        match self {
+            AlignmentResult::WithTarget { statistics, .. } => statistics,
+            AlignmentResult::WithoutTarget { statistics } => statistics,
         }
     }
 }
@@ -94,7 +156,11 @@ impl<AlignmentType: IAlignmentType> AlignmentResult<AlignmentType> {
     where
         AlignmentType: Display,
     {
-        for (amount, alignment_type) in &self.alignment {
+        let Self::WithTarget { alignment, .. } = self else {
+            return Ok(());
+        };
+
+        for (amount, alignment_type) in alignment {
             if alignment_type.is_repeatable() {
                 write!(writer, "{amount}{alignment_type}")?;
             } else {
@@ -229,10 +295,18 @@ impl AlignmentStatistics {
 
 impl<AlignmentType: Display + IAlignmentType> Display for AlignmentResult<AlignmentType> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "CIGAR: ")?;
-        self.write_cigar(f)?;
-        writeln!(f)?;
-        self.statistics.fmt(f)
+        if let AlignmentResult::WithTarget { .. } = self {
+            write!(f, "CIGAR: ")?;
+            self.write_cigar(f)?;
+            writeln!(f)?;
+        } else {
+            writeln!(f, "No alignment found with given maximum costs")?;
+        }
+
+        let (AlignmentResult::WithTarget { statistics, .. }
+        | AlignmentResult::WithoutTarget { statistics }) = self;
+
+        statistics.fmt(f)
     }
 }
 

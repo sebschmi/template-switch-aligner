@@ -172,6 +172,10 @@ impl<
         node.identifier.reference_index == self.reference.len()
             && node.identifier.query_index == self.query.len()
     }
+
+    fn max_cost(&self) -> Option<Cost> {
+        None
+    }
 }
 
 impl<

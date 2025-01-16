@@ -16,6 +16,7 @@ use lib_tsalign::{
     a_star_aligner::{gap_affine_edit_distance, gap_affine_edit_distance_a_star_align},
     alignment_configuration::AlignmentConfiguration,
     alignment_matrix::AlignmentMatrix,
+    costs::cost::Cost,
 };
 use log::{debug, info, LevelFilter};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
@@ -67,6 +68,9 @@ struct Cli {
 
     #[clap(long, default_value = "none")]
     ts_chaining_strategy: TemplateSwitchChainingStrategySelector,
+
+    #[clap(long)]
+    max_cost: Option<Cost>,
 }
 
 #[derive(Args)]

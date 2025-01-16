@@ -99,6 +99,7 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
                         .min_substitution_cost(),
                 },
             },
+            None,
         ));
         a_star.initialise();
 
@@ -188,7 +189,7 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
                         });
                     }
                 }
-                AStarResult::NoTarget => {
+                AStarResult::NoTarget { .. } => {
                     unreachable!("Search terminated without target for target reference index {target_reference_index} and target query index {target_query_index}");
                 }
             }

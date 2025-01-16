@@ -185,7 +185,7 @@ fn align_a_star_template_switch_distance_call<
             AllowPrimaryMatchStrategy,
         >,
         _,
-    >(reference, query, costs);
+    >(reference, query, costs, cli.max_cost);
 
     if let Some(output) = cli.output {
         info!("Outputting alignment statistics to {output:?}");

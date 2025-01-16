@@ -58,6 +58,10 @@ pub trait AStarContext: Reset {
 
     /// Returns true if this node is a target node of the A* graph.
     fn is_target(&self, node: &Self::Node) -> bool;
+
+    /// Returns the maximum cost that the target node is allowed to have.
+    /// If no target is found with this cost or lower, then [`AStarResult::NoTarget`] is returned.
+    fn max_cost(&self) -> Option<Cost>;
 }
 
 #[derive(Debug, Default)]
@@ -107,7 +111,7 @@ pub enum AStarResult<NodeIdentifier> {
         cost: Cost,
     },
     /// The algorithm terminated, but did not find a target.
-    NoTarget,
+    NoTarget { max_cost: Option<Cost> },
 }
 
 struct BacktrackingIterator<'a_star, Context: AStarContext> {
@@ -210,8 +214,9 @@ impl<Context: AStarContext> AStar<Context> {
             AStarState::Init | AStarState::Searching | AStarState::Terminated { .. }
         ));
 
+        let max_cost = self.context.max_cost();
         if self.open_list.is_empty() {
-            return AStarResult::NoTarget;
+            return AStarResult::NoTarget { max_cost };
         }
 
         self.state = AStarState::Searching;
@@ -224,10 +229,18 @@ impl<Context: AStarContext> AStar<Context> {
                     unreachable!("Open list was empty.");
                 };
                 self.state = AStarState::Terminated {
-                    result: AStarResult::NoTarget,
+                    result: AStarResult::NoTarget { max_cost },
                 };
-                return AStarResult::NoTarget;
+                return AStarResult::NoTarget { max_cost };
             };
+
+            if node.cost() > max_cost.unwrap_or(Cost::MAX) {
+                self.state = AStarState::Terminated {
+                    result: AStarResult::NoTarget { max_cost },
+                };
+                return AStarResult::NoTarget { max_cost };
+            }
+
             last_node = Some(node.identifier().clone());
 
             if let Some(previous_visit) = self.closed_list.get(node.identifier()) {

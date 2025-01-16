@@ -74,6 +74,10 @@ impl<ChainingCosts: ChainingCostsProvider> AStarContext for Context<ChainingCost
     fn is_target(&self, node: &Self::Node) -> bool {
         matches!(node.identifier(), Identifier::Target)
     }
+
+    fn max_cost(&self) -> Option<Cost> {
+        None
+    }
 }
 
 impl<ChainingCosts: ChainingCostsProvider> Context<ChainingCosts> {

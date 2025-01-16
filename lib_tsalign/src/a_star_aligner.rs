@@ -2,7 +2,7 @@ use std::{fmt::Debug, time::Instant};
 
 use alignment_result::{AlignmentResult, IAlignmentType};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
-use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
+use generic_a_star::{cost::Cost, AStar, AStarContext, AStarNode, AStarResult};
 use template_switch_distance::{
     context::Memory,
     strategies::{
@@ -46,45 +46,65 @@ where
     // Perform forwards search.
     let mut a_star = AStar::new(context);
     a_star.initialise();
-    let AStarResult::FoundTarget { cost, .. } = a_star.search() else {
-        unreachable!("The search can always reach a target.")
+    let (cost, has_target) = match a_star.search() {
+        AStarResult::FoundTarget { cost, .. } => (cost, true),
+        AStarResult::NoTarget { max_cost: None } => {
+            unreachable!("The search can always reach a target if cost is unlimited.")
+        }
+        AStarResult::NoTarget {
+            max_cost: Some(cost),
+        } => (cost, false),
     };
 
     let mut alignment = Vec::new();
 
-    // Backtrack.
-    for alignment_type in a_star
-        .backtrack()
-        .map(<Context as AlignmentContext>::AlignmentType::from)
-    {
-        if !alignment_type.is_internal() {
-            if let Some((count, previous_alignment_type)) = alignment.last_mut() {
-                if alignment_type.is_repeated(previous_alignment_type) {
-                    *count += 1;
+    if has_target {
+        // Backtrack.
+        for alignment_type in a_star
+            .backtrack()
+            .map(<Context as AlignmentContext>::AlignmentType::from)
+        {
+            if !alignment_type.is_internal() {
+                if let Some((count, previous_alignment_type)) = alignment.last_mut() {
+                    if alignment_type.is_repeated(previous_alignment_type) {
+                        *count += 1;
+                    } else {
+                        alignment.push((1, alignment_type));
+                    }
                 } else {
                     alignment.push((1, alignment_type));
                 }
-            } else {
-                alignment.push((1, alignment_type));
             }
         }
-    }
 
-    alignment.reverse();
+        alignment.reverse();
+    }
 
     let end_time = Instant::now();
     let duration = (end_time - start_time).as_secs_f64();
 
-    AlignmentResult::new(
-        alignment,
-        cost,
-        duration,
-        a_star.performance_counters().opened_nodes,
-        a_star.performance_counters().closed_nodes,
-        a_star.performance_counters().suboptimal_opened_nodes,
-        a_star.context().reference().len(),
-        a_star.context().query().len(),
-    )
+    if has_target {
+        AlignmentResult::new_with_target(
+            alignment,
+            cost,
+            duration,
+            a_star.performance_counters().opened_nodes,
+            a_star.performance_counters().closed_nodes,
+            a_star.performance_counters().suboptimal_opened_nodes,
+            a_star.context().reference().len(),
+            a_star.context().query().len(),
+        )
+    } else {
+        AlignmentResult::new_without_target(
+            cost,
+            duration,
+            a_star.performance_counters().opened_nodes,
+            a_star.performance_counters().closed_nodes,
+            a_star.performance_counters().suboptimal_opened_nodes,
+            a_star.context().reference().len(),
+            a_star.context().query().len(),
+        )
+    }
 }
 
 pub fn gap_affine_edit_distance_a_star_align<
@@ -113,6 +133,7 @@ pub fn template_switch_distance_a_star_align<
     reference: &SubsequenceType,
     query: &SubsequenceType,
     config: config::TemplateSwitchConfig<Strategies::Alphabet>,
+    max_cost: Option<Cost>,
 ) -> AlignmentResult<template_switch_distance::AlignmentType> {
     let memory = Memory {
         template_switch_min_length: Default::default(),
@@ -125,5 +146,5 @@ pub fn template_switch_distance_a_star_align<
     a_star_align(template_switch_distance::Context::<
         SubsequenceType,
         Strategies,
-    >::new(reference, query, config, memory))
+    >::new(reference, query, config, memory, max_cost))
 }

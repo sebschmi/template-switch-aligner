@@ -34,6 +34,8 @@ pub struct Context<
 
     pub a_star_buffers: AStarBuffers<Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>, Node<Strategies>>,
     pub memory: Memory<Strategies>,
+
+    max_cost: Option<Cost>,
 }
 
 pub struct Memory<Strategies: AlignmentStrategySelector> {
@@ -56,6 +58,7 @@ impl<
         query: &'query SubsequenceType,
         config: TemplateSwitchConfig<Strategies::Alphabet>,
         memory: Memory<Strategies>,
+        max_cost: Option<Cost>,
     ) -> Self {
         Self {
             reference,
@@ -63,6 +66,7 @@ impl<
             config,
             a_star_buffers: Default::default(),
             memory,
+            max_cost,
         }
     }
 }
@@ -541,6 +545,10 @@ impl<
             } => reference_index == self.reference.len() && query_index == self.query.len(),
             _ => false,
         }
+    }
+
+    fn max_cost(&self) -> Option<Cost> {
+        self.max_cost
     }
 }
 
