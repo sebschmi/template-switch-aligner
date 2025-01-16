@@ -6,6 +6,7 @@ members = [
     "generic_a_star",
     "deterministic_default_hasher",
     "seed_chain",
+    "extend_map",
 ]
 resolver = "2"
 package.rust-version = "1.83.0"

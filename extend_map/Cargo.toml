@@ -1,0 +1,9 @@
+[package]
+name = "extend_map"
+description = "A type to map values passed into an Extend type before extending."
+version = "0.0.0"
+edition = "2021"
+rust-version.workspace = true
+license = "BSD-2-Clause"
+
+[dependencies]

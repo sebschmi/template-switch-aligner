@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use compact_genome::interface::alphabet::AlphabetCharacter;
 use compact_genome::interface::sequence::GenomeSequence;
+use extend_map::ExtendMap;
 use generic_a_star::cost::Cost;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStarBuffers, AStarContext};
@@ -66,6 +67,23 @@ impl<
     }
 }
 
+fn generate_output_mapper_function<
+    'context,
+    'reference,
+    'query,
+    SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    Strategies: AlignmentStrategySelector,
+>(
+    context: &'context Context<'reference, 'query, SubsequenceType, Strategies>,
+) -> impl use<'context, 'reference, 'query, SubsequenceType, Strategies>
+       + Fn(
+    <Context<'reference, 'query, SubsequenceType, Strategies> as AStarContext>::Node,
+) -> <Context<'reference, 'query, SubsequenceType, Strategies> as AStarContext>::Node {
+    move |node| {
+        <Strategies as AlignmentStrategySelector>::Chaining::apply_lower_bound(node, context)
+    }
+}
+
 impl<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
@@ -92,6 +110,8 @@ impl<
         opened_nodes_output: &mut impl Extend<Self::Node>,
     ) {
         let config = &self.config;
+        let mut opened_nodes_output =
+            ExtendMap::new(opened_nodes_output, generate_output_mapper_function(self));
 
         match node.node_data.identifier {
             Identifier::Primary {
@@ -368,7 +388,18 @@ impl<
                     }
                 }
 
-                opened_nodes_output.extend(node.generate_secondary_root_node(self));
+                // Temporarily unpack opened_nodes_output because it borrows self,
+                // but generating the secondary root node wants to borrow self as mutable.
+                let opened_nodes_direct_output = opened_nodes_output.into_inner();
+                let secondary_root_node: Vec<_> = node
+                    .generate_secondary_root_node(self)
+                    .into_iter()
+                    .collect();
+                opened_nodes_output = ExtendMap::new(
+                    opened_nodes_direct_output,
+                    generate_output_mapper_function(self),
+                );
+                opened_nodes_output.extend(secondary_root_node);
             }
 
             Identifier::Secondary {
@@ -515,7 +546,7 @@ impl<
         }
 
         // Add additional successors through strategies.
-        <<Strategies as AlignmentStrategySelector>::Shortcut as ShortcutStrategy>::generate_successors(node, self, opened_nodes_output);
+        <<Strategies as AlignmentStrategySelector>::Shortcut as ShortcutStrategy>::generate_successors(node, self, &mut opened_nodes_output);
     }
 
     fn is_target(&self, node: &Self::Node) -> bool {

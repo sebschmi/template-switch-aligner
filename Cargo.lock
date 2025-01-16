@@ -213,6 +213,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 
 [[package]]
+name = "extend_map"
+version = "0.0.0"
+
+[[package]]
 name = "flate2"
 version = "1.0.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -294,6 +298,7 @@ dependencies = [
  "binary-heap-plus",
  "compact-genome",
  "deterministic_default_hasher",
+ "extend_map",
  "generic_a_star",
  "log",
  "ndarray",
