@@ -5,7 +5,7 @@ use std::{
 };
 
 use compact_genome::{
-    implementation::vec_sequence::{SliceSubGenome, VectorGenome},
+    implementation::vec_sequence::VectorGenome,
     interface::{alphabet::Alphabet, sequence::GenomeSequence},
 };
 use generic_a_star::{cost::Cost, AStar, AStarNode, AStarResult};
@@ -31,7 +31,6 @@ use crate::{
             },
             Context, Identifier,
         },
-        AlignmentContext,
     },
     config::TemplateSwitchConfig,
     costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable},
@@ -170,12 +169,7 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
 
                             // Backtrack.
                             for alignment_type in
-                                a_star.backtrack().map(
-                                    <Context<
-                                        SliceSubGenome<_>,
-                                        TSALBAlignmentStrategies<AlphabetType>,
-                                    > as AlignmentContext>::AlignmentType::from,
-                                )
+                                a_star.backtrack()
                             {
                                 if let Some((count, previous_alignment_type)) = alignment.last_mut()
                                 {
