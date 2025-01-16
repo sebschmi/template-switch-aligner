@@ -5,6 +5,7 @@ version = "0.6.0"
 edition = "2021"
 rust-version.workspace = true
 license = "BSD-2-Clause"
+repository.workspace = true
 
 [features]
 serde = ["dep:serde"]

@@ -67,23 +67,6 @@ impl<
     }
 }
 
-fn generate_output_mapper_function<
-    'context,
-    'reference,
-    'query,
-    SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-    Strategies: AlignmentStrategySelector,
->(
-    context: &'context Context<'reference, 'query, SubsequenceType, Strategies>,
-) -> impl use<'context, 'reference, 'query, SubsequenceType, Strategies>
-       + Fn(
-    <Context<'reference, 'query, SubsequenceType, Strategies> as AStarContext>::Node,
-) -> <Context<'reference, 'query, SubsequenceType, Strategies> as AStarContext>::Node {
-    move |node| {
-        <Strategies as AlignmentStrategySelector>::Chaining::apply_lower_bound(node, context)
-    }
-}
-
 impl<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
@@ -558,6 +541,23 @@ impl<
             } => reference_index == self.reference.len() && query_index == self.query.len(),
             _ => false,
         }
+    }
+}
+
+fn generate_output_mapper_function<
+    'context,
+    'reference,
+    'query,
+    SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    Strategies: AlignmentStrategySelector,
+>(
+    context: &'context Context<'reference, 'query, SubsequenceType, Strategies>,
+) -> impl use<'context, 'reference, 'query, SubsequenceType, Strategies>
+       + Fn(
+    <Context<'reference, 'query, SubsequenceType, Strategies> as AStarContext>::Node,
+) -> <Context<'reference, 'query, SubsequenceType, Strategies> as AStarContext>::Node {
+    move |node| {
+        <Strategies as AlignmentStrategySelector>::Chaining::apply_lower_bound(node, context)
     }
 }
 
