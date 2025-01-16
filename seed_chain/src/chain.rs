@@ -46,6 +46,12 @@ impl Chain {
         });
         chain.reverse();
 
+        // Transform costs from cost to root into cost to target.
+        let total_cost = chain.last().unwrap().cost;
+        chain
+            .iter_mut()
+            .for_each(|link| link.cost = total_cost - link.cost);
+
         // Assert that costs and blocks are ordered, and blocks do not overlap.
         debug_assert!({
             chain.windows(2).all(|window| {
@@ -60,7 +66,7 @@ impl Chain {
                     | (Identifier::Target, Identifier::Target) => false,
                     (Identifier::Root, Identifier::Anchor { .. })
                     | (Identifier::Root, Identifier::Target)
-                    | (Identifier::Anchor { .. }, Identifier::Target) => first.cost <= second.cost,
+                    | (Identifier::Anchor { .. }, Identifier::Target) => first.cost >= second.cost,
                     (
                         Identifier::Anchor {
                             anchor: first_anchor,
