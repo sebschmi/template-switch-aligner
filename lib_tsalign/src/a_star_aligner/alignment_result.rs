@@ -55,6 +55,7 @@ macro_rules! each_statistic {
 }
 
 impl<AlignmentType> AlignmentResult<AlignmentType> {
+    #[expect(clippy::too_many_arguments)]
     pub fn new_with_target(
         alignment: Vec<(usize, AlignmentType)>,
         cost: Cost,
