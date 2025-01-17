@@ -1,7 +1,7 @@
 [package]
 name = "deterministic_default_hasher"
 description = "A deterministic initialisation of the stdlib default hasher"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 rust-version.workspace = true
 license = "BSD-2-Clause"
