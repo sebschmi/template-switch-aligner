@@ -169,7 +169,10 @@ fn align_a_star_template_switch_distance_call<
     info!("Loading alignment config directory {config_path:?}");
 
     config_path.push("config.tsa");
-    let config_file = std::io::BufReader::new(std::fs::File::open(config_path).unwrap());
+    let config_file = std::io::BufReader::new(
+        std::fs::File::open(&config_path)
+            .unwrap_or_else(|error| panic!("Error opening config file {config_path:?}: {error}")),
+    );
     let costs = TemplateSwitchConfig::read_plain(config_file).unwrap();
 
     info!("Calling aligner...");
