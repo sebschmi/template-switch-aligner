@@ -138,7 +138,7 @@ fn main() {
             true,
             &skip_characters,
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("Error loading pair file: {error}"));
 
         assert_eq!(
             sequences.len(),
