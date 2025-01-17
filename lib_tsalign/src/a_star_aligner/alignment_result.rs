@@ -15,6 +15,7 @@ pub trait IAlignmentType {
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum AlignmentResult<AlignmentType> {
     WithTarget {
         alignment: Vec<(usize, AlignmentType)>,
