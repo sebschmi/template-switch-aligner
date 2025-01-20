@@ -1,6 +1,7 @@
 #![deny(clippy::mod_module_files)]
 
 use std::{
+    fmt::Debug,
     fs::File,
     io::{BufReader, Read},
     path::PathBuf,
@@ -8,7 +9,10 @@ use std::{
 
 use clap::{Args, Parser, ValueEnum};
 use compact_genome::{
-    implementation::{alphabets::dna_alphabet::DnaAlphabet, DefaultSequenceStore},
+    implementation::{
+        alphabets::{dna_alphabet::DnaAlphabet, dna_alphabet_or_n::DnaAlphabetOrN},
+        DefaultSequenceStore,
+    },
     interface::{alphabet::Alphabet, sequence::GenomeSequence, sequence_store::SequenceStore},
     io::fasta::read_fasta_file,
 };
@@ -119,6 +123,13 @@ fn main() {
         panic!("Unsupported alphabet type: {:?}", cli.alphabet);
     }
 
+    match cli.alphabet {
+        InputAlphabet::Dna => execute_with_alphabet::<DnaAlphabet>(cli),
+        InputAlphabet::DnaN => execute_with_alphabet::<DnaAlphabetOrN>(cli),
+    }
+}
+
+fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(cli: Cli) {
     let mut skip_characters = Vec::new();
     for character in cli.skip_characters.bytes().map(usize::from) {
         if skip_characters.len() <= character {
@@ -128,7 +139,7 @@ fn main() {
     }
     let skip_characters = skip_characters;
 
-    let mut sequence_store = DefaultSequenceStore::<DnaAlphabet>::new();
+    let mut sequence_store = DefaultSequenceStore::<AlphabetType>::new();
     let sequences = if let Some(pair_fasta) = &cli.input.pair_fasta {
         info!("Loading pair file {pair_fasta:?}");
         let sequences = read_fasta_file(
