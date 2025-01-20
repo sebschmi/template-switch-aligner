@@ -81,7 +81,7 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         writeln!(writer)?;
 
         write!(writer, "--+")?;
-        for _ in 0..(AlphabetType::SIZE * (column_width + 1)) {
+        for _ in 0..(usize::from(AlphabetType::SIZE) * (column_width + 1)) {
             write!(writer, "-")?;
         }
         writeln!(writer)?;
@@ -90,9 +90,10 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
             let character = AlphabetType::CharacterType::from_index(row_index).unwrap();
             write!(writer, "{character} |")?;
             for column_index in 0..AlphabetType::SIZE {
-                let cost = self.substitution_cost_table
-                    [row_index * AlphabetType::SIZE + column_index]
-                    .as_u64();
+                let cost = self.substitution_cost_table[usize::from(row_index)
+                    * usize::from(AlphabetType::SIZE)
+                    + usize::from(column_index)]
+                .as_u64();
                 write!(writer, " {cost: >column_width$}")?;
             }
             writeln!(writer)?;
@@ -118,7 +119,7 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         writeln!(writer)?;
 
         for column_index in 0..AlphabetType::SIZE {
-            let cost = self.gap_open_cost_vector[column_index].as_u64();
+            let cost = self.gap_open_cost_vector[usize::from(column_index)].as_u64();
             write!(writer, " {cost: >column_width$}")?;
         }
         writeln!(writer)?;
@@ -143,7 +144,7 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         writeln!(writer)?;
 
         for column_index in 0..AlphabetType::SIZE {
-            let cost = self.gap_extend_cost_vector[column_index].as_u64();
+            let cost = self.gap_extend_cost_vector[usize::from(column_index)].as_u64();
             write!(writer, " {cost: >column_width$}")?;
         }
         writeln!(writer)?;
@@ -193,12 +194,13 @@ fn parse_substitution_cost_table<AlphabetType: Alphabet>(input: &str) -> IResult
     // Then we have the rows
     let (input, mut rows) = count(
         parse_substitution_cost_table_row::<AlphabetType>,
-        AlphabetType::SIZE,
+        AlphabetType::SIZE.into(),
     )(input)?;
     rows.sort_unstable_by_key(|(character, _)| character.index());
 
     // And finally we can write everything into a matrix, ensuring that everything is in the correct order
-    let mut substitution_cost_table = Vec::with_capacity(AlphabetType::SIZE * AlphabetType::SIZE);
+    let mut substitution_cost_table =
+        Vec::with_capacity(usize::from(AlphabetType::SIZE) * usize::from(AlphabetType::SIZE));
     for (_, row) in rows.iter() {
         for column in 0..AlphabetType::SIZE {
             let column_index = column_character_order
@@ -222,14 +224,16 @@ fn parse_substitution_cost_table_first_row<AlphabetType: Alphabet>(
             parse_whitespace,
             parse_alphabet_character::<AlphabetType::CharacterType>,
         ),
-        AlphabetType::SIZE,
+        AlphabetType::SIZE.into(),
     )(input)?;
 
     let mut sorted_characters = characters.clone();
     sorted_characters.sort();
     sorted_characters.dedup();
 
-    if characters.len() != AlphabetType::SIZE || sorted_characters.len() != AlphabetType::SIZE {
+    if characters.len() != AlphabetType::SIZE.into()
+        || sorted_characters.len() != AlphabetType::SIZE.into()
+    {
         Err(nom::Err::Failure(nom::error::Error {
             input,
             code: nom::error::ErrorKind::Verify,
@@ -248,7 +252,7 @@ fn parse_substitution_cost_table_row<AlphabetType: Alphabet>(
     let input = tag("|")(input)?.0;
     let (input, cost_vector) = count(
         preceded(parse_whitespace, nom::character::complete::u64),
-        AlphabetType::SIZE,
+        AlphabetType::SIZE.into(),
     )(input)?;
     let cost_vector = cost_vector.into_iter().map(Cost::from).collect();
     Ok((input, (character, cost_vector)))
@@ -289,14 +293,16 @@ fn parse_cost_vector_index_row<AlphabetType: Alphabet>(
             parse_whitespace,
             parse_alphabet_character::<AlphabetType::CharacterType>,
         ),
-        AlphabetType::SIZE,
+        AlphabetType::SIZE.into(),
     )(input)?;
 
     let mut sorted_characters = characters.clone();
     sorted_characters.sort();
     sorted_characters.dedup();
 
-    if characters.len() != AlphabetType::SIZE || sorted_characters.len() != AlphabetType::SIZE {
+    if characters.len() != AlphabetType::SIZE.into()
+        || sorted_characters.len() != AlphabetType::SIZE.into()
+    {
         Err(nom::Err::Failure(nom::error::Error {
             input,
             code: nom::error::ErrorKind::Verify,
@@ -310,7 +316,7 @@ fn parse_cost_vector_value_row<AlphabetType: Alphabet>(input: &str) -> IResult<&
     let input = skip_any_whitespace(input)?;
     let (input, cost_vector) = count(
         preceded(parse_whitespace, nom::character::complete::u64),
-        AlphabetType::SIZE,
+        AlphabetType::SIZE.into(),
     )(input)?;
     let cost_vector = cost_vector.into_iter().map(Cost::from).collect();
     Ok((input, cost_vector))

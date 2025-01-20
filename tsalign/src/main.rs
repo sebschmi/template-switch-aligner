@@ -10,7 +10,12 @@ use std::{
 use clap::{Args, Parser, ValueEnum};
 use compact_genome::{
     implementation::{
-        alphabets::{dna_alphabet::DnaAlphabet, dna_alphabet_or_n::DnaAlphabetOrN},
+        alphabets::{
+            dna_alphabet::DnaAlphabet, dna_alphabet_or_n::DnaAlphabetOrN,
+            dna_iupac_nucleic_acid_alphabet::DnaIupacNucleicAcidAlphabet,
+            rna_alphabet::RnaAlphabet, rna_alphabet_or_n::RnaAlphabetOrN,
+            rna_iupac_nucleic_acid_alphabet::RnaIupacNucleicAcidAlphabet,
+        },
         DefaultSequenceStore,
     },
     interface::{alphabet::Alphabet, sequence::GenomeSequence, sequence_store::SequenceStore},
@@ -104,6 +109,10 @@ enum AlignmentMethod {
 enum InputAlphabet {
     Dna,
     DnaN,
+    Rna,
+    RnaN,
+    DnaIupac,
+    RnaIupac,
 }
 
 fn main() {
@@ -126,6 +135,10 @@ fn main() {
     match cli.alphabet {
         InputAlphabet::Dna => execute_with_alphabet::<DnaAlphabet>(cli),
         InputAlphabet::DnaN => execute_with_alphabet::<DnaAlphabetOrN>(cli),
+        InputAlphabet::Rna => execute_with_alphabet::<RnaAlphabet>(cli),
+        InputAlphabet::RnaN => execute_with_alphabet::<RnaAlphabetOrN>(cli),
+        InputAlphabet::DnaIupac => execute_with_alphabet::<DnaIupacNucleicAcidAlphabet>(cli),
+        InputAlphabet::RnaIupac => execute_with_alphabet::<RnaIupacNucleicAcidAlphabet>(cli),
     }
 }
 
