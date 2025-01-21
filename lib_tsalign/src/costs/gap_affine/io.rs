@@ -9,6 +9,7 @@ use crate::{
 };
 
 use compact_genome::interface::alphabet::{Alphabet, AlphabetCharacter};
+use log::trace;
 use nom::{
     bytes::complete::{tag, take},
     combinator::opt,
@@ -217,6 +218,11 @@ fn parse_substitution_cost_table<AlphabetType: Alphabet>(input: &str) -> IResult
 fn parse_substitution_cost_table_first_row<AlphabetType: Alphabet>(
     input: &str,
 ) -> IResult<&str, Vec<AlphabetType::CharacterType>> {
+    trace!(
+        "Parsing the first row of a substitution cost table with alphabet size {}",
+        AlphabetType::SIZE
+    );
+
     let input = skip_any_whitespace(input)?;
     let input = tag("|")(input)?.0;
     let (input, characters) = count(

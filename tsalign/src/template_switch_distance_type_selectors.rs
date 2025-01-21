@@ -173,7 +173,8 @@ fn align_a_star_template_switch_distance_call<
         std::fs::File::open(&config_path)
             .unwrap_or_else(|error| panic!("Error opening config file {config_path:?}: {error}")),
     );
-    let costs = TemplateSwitchConfig::read_plain(config_file).unwrap();
+    let costs = TemplateSwitchConfig::read_plain(config_file)
+        .unwrap_or_else(|error| panic!("Error parsing template switch config:\n{error}"));
 
     info!("Calling aligner...");
     let alignment = template_switch_distance_a_star_align::<

@@ -14,7 +14,7 @@ package.repository = "https://github.com/sebschmi/template-switch-aligner"
 
 [workspace.dependencies]
 serde = "1.0.216"
-compact-genome = "11.1.0"
+compact-genome = "12.0.0"
 traitsequence = "3.0.0"
 log = "0.4.22"
 num-traits = "0.2.19"

@@ -7,7 +7,7 @@ pub enum Error {
     #[error("An IO error occurred: {0}.")]
     Io(#[from] std::io::Error),
 
-    #[error("A parsing error occurred on string '{input}': {kind:?}.")]
+    #[error("A parsing error of kind '{kind:?}' occurred when the remaining input was '{input}'.")]
     Parser {
         input: String,
         kind: nom::error::ErrorKind,

@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use compact_genome::interface::alphabet::Alphabet;
+use log::trace;
 use nom::{
     bytes::complete::{tag, take_while1},
     character::complete::line_ending,
@@ -27,23 +28,30 @@ impl<AlphabetType: Alphabet> TemplateSwitchConfig<AlphabetType> {
     }
 
     fn parse_plain(input: &str) -> IResult<&str, Self> {
+        trace!("Parsing limits");
         let (input, ()) = parse_specific_name("Limits")(input)?;
         let (input, left_flank_length) = parse_specific_equals_value("left_flank_length")(input)?;
         let (input, right_flank_length) = parse_specific_equals_value("right_flank_length")(input)?;
 
+        trace!("Parsing base costs");
         let (input, ()) = parse_specific_name("Base Cost")(input)?;
         let (input, base_cost) = parse_specific_equals_value("base_cost")(input)?;
 
+        trace!("Parsing jump costs");
         let (input, ()) = parse_specific_name("Jump Costs")(input)?;
         let (input, offset_costs) = parse_named_cost_function("Offset")(input)?;
         let (input, length_costs) = parse_named_cost_function("Length")(input)?;
         let (input, length_difference_costs) =
             parse_named_cost_function("LengthDifference")(input)?;
 
+        trace!("Parsing primary edit costs");
         let (input, primary_edit_costs) = parse_named_cost_table("Primary Edit Costs")(input)?;
+        trace!("Parsing secondary edit costs");
         let (input, secondary_edit_costs) = parse_named_cost_table("Secondary Edit Costs")(input)?;
+        trace!("Parsing left flank edit costs");
         let (input, left_flank_edit_costs) =
             parse_named_cost_table("Left Flank Edit Costs")(input)?;
+        trace!("Parsing right flank edit costs");
         let (input, right_flank_edit_costs) =
             parse_named_cost_table("Right Flank Edit Costs")(input)?;
 
