@@ -60,8 +60,14 @@ pub trait AStarContext: Reset {
     fn is_target(&self, node: &Self::Node) -> bool;
 
     /// Returns the maximum cost that the target node is allowed to have.
-    /// If no target is found with this cost or lower, then [`AStarResult::NoTarget`] is returned.
-    fn max_cost(&self) -> Option<Cost>;
+    ///
+    /// If no target is found with this cost or lower, then [`AStarResult::ExceededCostLimit`] is returned.
+    fn cost_limit(&self) -> Option<Cost>;
+
+    /// An approximate memory limit for the aligner in bytes.
+    ///
+    /// If it is exceeded, then [`AStarResult::ExceededMemoryLimit`] is returned
+    fn memory_limit(&self) -> Option<usize>;
 }
 
 #[derive(Debug, Default)]
@@ -103,15 +109,27 @@ pub struct AStarBuffers<NodeIdentifier, Node> {
     open_list: BinaryHeap<Node, MinComparator>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Ord, PartialOrd, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AStarResult<NodeIdentifier> {
     /// The algorithm has found a target node.
     FoundTarget {
         identifier: NodeIdentifier,
         cost: Cost,
     },
+
+    /// The algorithm terminated before finding a target because the cost limit was reached.
+    ExceededCostLimit { cost_limit: Cost },
+
+    /// The algorithm termianted before finding a target because the memory limit was reached.
+    ExceededMemoryLimit {
+        /// The maximum cost reached before reaching the memory limit.
+        max_cost: Cost,
+    },
+
     /// The algorithm terminated, but did not find a target.
-    NoTarget { max_cost: Option<Cost> },
+    #[default]
+    NoTarget,
 }
 
 struct BacktrackingIterator<'a_star, Context: AStarContext> {
@@ -214,9 +232,15 @@ impl<Context: AStarContext> AStar<Context> {
             AStarState::Init | AStarState::Searching | AStarState::Terminated { .. }
         ));
 
-        let max_cost = self.context.max_cost();
+        let cost_limit = self.context.cost_limit().unwrap_or(Cost::MAX);
+        let memory_limit = self.context.memory_limit().unwrap_or(usize::MAX);
+        // The factor of 2.3 is determined empirically.
+        let node_count_limit =
+            (memory_limit as f64 / std::mem::size_of::<Context::Node>() as f64 / 2.3).round()
+                as usize;
+
         if self.open_list.is_empty() {
-            return AStarResult::NoTarget { max_cost };
+            return AStarResult::NoTarget;
         }
 
         self.state = AStarState::Searching;
@@ -229,16 +253,27 @@ impl<Context: AStarContext> AStar<Context> {
                     unreachable!("Open list was empty.");
                 };
                 self.state = AStarState::Terminated {
-                    result: AStarResult::NoTarget { max_cost },
+                    result: AStarResult::NoTarget,
                 };
-                return AStarResult::NoTarget { max_cost };
+                return AStarResult::NoTarget;
             };
 
-            if node.cost() > max_cost.unwrap_or(Cost::MAX) {
+            if node.cost() > cost_limit {
                 self.state = AStarState::Terminated {
-                    result: AStarResult::NoTarget { max_cost },
+                    result: AStarResult::ExceededCostLimit { cost_limit },
                 };
-                return AStarResult::NoTarget { max_cost };
+                return AStarResult::ExceededCostLimit { cost_limit };
+            }
+
+            if self.closed_list.len() + self.open_list.len() > node_count_limit {
+                self.state = AStarState::Terminated {
+                    result: AStarResult::ExceededMemoryLimit {
+                        max_cost: node.cost(),
+                    },
+                };
+                return AStarResult::ExceededMemoryLimit {
+                    max_cost: node.cost(),
+                };
             }
 
             last_node = Some(node.identifier().clone());
@@ -371,6 +406,31 @@ impl<Context: AStarContext> AStar<Context> {
         }
     }
 }
+impl<NodeIdentifier> AStarResult<NodeIdentifier> {
+    /// Returns the maximum cost of closed nodes reached during alignment.
+    ///
+    /// **Panics** if `self` is [`AStarResult::NoTarget`].
+    pub fn cost(&self) -> Cost {
+        match self {
+            Self::FoundTarget { cost, .. } => *cost,
+            Self::ExceededCostLimit { cost_limit } => *cost_limit,
+            Self::ExceededMemoryLimit { max_cost } => *max_cost,
+            Self::NoTarget => panic!("AStarResult has no costs"),
+        }
+    }
+
+    pub fn without_node_identifier(&self) -> AStarResult<()> {
+        match *self {
+            Self::FoundTarget { cost, .. } => AStarResult::FoundTarget {
+                identifier: (),
+                cost,
+            },
+            Self::ExceededCostLimit { cost_limit } => AStarResult::ExceededCostLimit { cost_limit },
+            Self::ExceededMemoryLimit { max_cost } => AStarResult::ExceededMemoryLimit { max_cost },
+            Self::NoTarget => AStarResult::NoTarget,
+        }
+    }
+}
 
 impl<Context: AStarContext> Iterator for BacktrackingIterator<'_, Context> {
     type Item = <Context::Node as AStarNode>::EdgeType;
@@ -410,6 +470,22 @@ impl<NodeIdentifier, Node: Ord> Default for AStarBuffers<NodeIdentifier, Node> {
         Self {
             closed_list: Default::default(),
             open_list: BinaryHeap::new_min(),
+        }
+    }
+}
+
+impl<NodeIdentifier> Display for AStarResult<NodeIdentifier> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AStarResult::FoundTarget { cost, .. } => write!(f, "Reached target with cost {cost}"),
+            AStarResult::ExceededCostLimit { cost_limit } => {
+                write!(f, "Exceeded cost limit of {cost_limit}")
+            }
+            AStarResult::ExceededMemoryLimit { max_cost } => write!(
+                f,
+                "Exceeded memory limit, but reached a maximum cost of {max_cost}"
+            ),
+            AStarResult::NoTarget => write!(f, "Found no target"),
         }
     }
 }

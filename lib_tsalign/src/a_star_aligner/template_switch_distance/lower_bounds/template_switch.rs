@@ -94,6 +94,7 @@ impl TemplateSwitchLowerBoundMatrix {
                     primary_match: (),
                 },
                 None,
+                None,
             ));
             let root_xy = genome_length / 2;
             a_star.initialise_with(|context| Node::new_root_at(root_xy, root_xy, context));
@@ -227,12 +228,14 @@ impl TemplateSwitchLowerBoundMatrix {
                             continue 'outer;
                         }
                     }
-                    AStarResult::NoTarget { .. } => {
+                    AStarResult::NoTarget => {
                         trace!("Search terminated without target");
                         let previous = closed_lower_bounds.insert((x, y), Cost::MAX);
                         debug_assert!(previous.is_none());
                         false
                     }
+                    AStarResult::ExceededCostLimit { .. }
+                    | AStarResult::ExceededMemoryLimit { .. } => unreachable!("No limits set"),
                 };
 
                 if has_target {

@@ -75,7 +75,11 @@ impl<ChainingCosts: ChainingCostsProvider> AStarContext for Context<ChainingCost
         matches!(node.identifier(), Identifier::Target)
     }
 
-    fn max_cost(&self) -> Option<Cost> {
+    fn cost_limit(&self) -> Option<Cost> {
+        None
+    }
+
+    fn memory_limit(&self) -> Option<usize> {
         None
     }
 }

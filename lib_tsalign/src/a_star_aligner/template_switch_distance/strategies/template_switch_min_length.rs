@@ -239,8 +239,12 @@ impl<
         length == self.context.config.min_length
     }
 
-    fn max_cost(&self) -> Option<Cost> {
-        self.context.max_cost()
+    fn cost_limit(&self) -> Option<Cost> {
+        self.context.cost_limit()
+    }
+
+    fn memory_limit(&self) -> Option<usize> {
+        self.context.memory_limit()
     }
 }
 

@@ -1,9 +1,8 @@
 use std::fmt::{Display, Formatter, Result, Write};
 
+use generic_a_star::AStarResult;
 use noisy_float::types::R64;
 use num_traits::{Float, Zero};
-
-use crate::costs::cost::Cost;
 
 pub trait IAlignmentType {
     fn is_repeatable(&self) -> bool;
@@ -34,6 +33,7 @@ pub enum AlignmentResult<AlignmentType> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[must_use]
 pub struct AlignmentStatistics {
+    pub result: AStarResult<()>,
     pub cost: R64,
     pub cost_per_base: R64,
     pub duration_seconds: R64,
@@ -59,7 +59,7 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
     #[expect(clippy::too_many_arguments)]
     pub fn new_with_target(
         alignment: Vec<(usize, AlignmentType)>,
-        cost: Cost,
+        result: AStarResult<()>,
         duration_seconds: f64,
         opened_nodes: usize,
         closed_nodes: usize,
@@ -69,7 +69,7 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
     ) -> Self {
         Self::new(
             Some(alignment),
-            cost,
+            result,
             duration_seconds,
             opened_nodes,
             closed_nodes,
@@ -80,7 +80,7 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
     }
 
     pub fn new_without_target(
-        cost: Cost,
+        result: AStarResult<()>,
         duration_seconds: f64,
         opened_nodes: usize,
         closed_nodes: usize,
@@ -90,7 +90,7 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
     ) -> Self {
         Self::new(
             None,
-            cost,
+            result,
             duration_seconds,
             opened_nodes,
             closed_nodes,
@@ -103,7 +103,7 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
     #[expect(clippy::too_many_arguments)]
     fn new(
         alignment: Option<Vec<(usize, AlignmentType)>>,
-        cost: Cost,
+        result: AStarResult<()>,
         duration_seconds: f64,
         opened_nodes: usize,
         closed_nodes: usize,
@@ -111,7 +111,9 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
         reference_length: usize,
         query_length: usize,
     ) -> Self {
+        let cost = result.cost();
         let statistics = AlignmentStatistics {
+            result,
             cost: (cost.as_u64() as f64).try_into().unwrap(),
             cost_per_base: ((cost.as_u64() * 2) as f64 / (reference_length + query_length) as f64)
                 .try_into()
@@ -314,7 +316,7 @@ impl<AlignmentType: Display + IAlignmentType> Display for AlignmentResult<Alignm
 
 impl Display for AlignmentStatistics {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        writeln!(f, "Cost: {}", self.cost)?;
+        writeln!(f, "{}", self.result)?;
         writeln!(f, "Cost per base: {:.2}", self.cost_per_base)?;
         writeln!(f, "Opened nodes: {}", self.opened_nodes)?;
         writeln!(f, "Closed nodes: {}", self.closed_nodes)?;

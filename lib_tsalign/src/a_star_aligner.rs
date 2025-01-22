@@ -46,15 +46,8 @@ where
     // Perform forwards search.
     let mut a_star = AStar::new(context);
     a_star.initialise();
-    let (cost, has_target) = match a_star.search() {
-        AStarResult::FoundTarget { cost, .. } => (cost, true),
-        AStarResult::NoTarget { max_cost: None } => {
-            unreachable!("The search can always reach a target if cost is unlimited.")
-        }
-        AStarResult::NoTarget {
-            max_cost: Some(cost),
-        } => (cost, false),
-    };
+    let result = a_star.search();
+    let has_target = matches!(result, AStarResult::FoundTarget { .. });
 
     let mut alignment = Vec::new();
 
@@ -86,7 +79,7 @@ where
     if has_target {
         AlignmentResult::new_with_target(
             alignment,
-            cost,
+            result.without_node_identifier(),
             duration,
             a_star.performance_counters().opened_nodes,
             a_star.performance_counters().closed_nodes,
@@ -96,7 +89,7 @@ where
         )
     } else {
         AlignmentResult::new_without_target(
-            cost,
+            result.without_node_identifier(),
             duration,
             a_star.performance_counters().opened_nodes,
             a_star.performance_counters().closed_nodes,
@@ -133,7 +126,8 @@ pub fn template_switch_distance_a_star_align<
     reference: &SubsequenceType,
     query: &SubsequenceType,
     config: config::TemplateSwitchConfig<Strategies::Alphabet>,
-    max_cost: Option<Cost>,
+    cost_limit: Option<Cost>,
+    memory_limit: Option<usize>,
 ) -> AlignmentResult<template_switch_distance::AlignmentType> {
     let memory = Memory {
         template_switch_min_length: Default::default(),
@@ -146,5 +140,7 @@ pub fn template_switch_distance_a_star_align<
     a_star_align(template_switch_distance::Context::<
         SubsequenceType,
         Strategies,
-    >::new(reference, query, config, memory, max_cost))
+    >::new(
+        reference, query, config, memory, cost_limit, memory_limit
+    ))
 }

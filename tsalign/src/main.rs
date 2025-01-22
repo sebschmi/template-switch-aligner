@@ -78,8 +78,17 @@ struct Cli {
     #[clap(long, default_value = "none")]
     ts_chaining_strategy: TemplateSwitchChainingStrategySelector,
 
+    /// A cost limit for the alignment.
+    ///
+    /// If there is no alignment with that cost, the aligner will abort without result.
     #[clap(long)]
-    max_cost: Option<Cost>,
+    cost_limit: Option<Cost>,
+
+    /// An approximate memory limit in bytes for the aligner.
+    ///
+    /// If it is exceeded, then the aligner will abort without result.
+    #[clap(long)]
+    memory_limit: Option<usize>,
 }
 
 #[derive(Args)]

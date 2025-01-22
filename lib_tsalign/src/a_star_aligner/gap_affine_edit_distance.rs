@@ -173,7 +173,11 @@ impl<
             && node.identifier.query_index == self.query.len()
     }
 
-    fn max_cost(&self) -> Option<Cost> {
+    fn cost_limit(&self) -> Option<Cost> {
+        None
+    }
+
+    fn memory_limit(&self) -> Option<usize> {
         None
     }
 }
