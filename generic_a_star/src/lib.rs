@@ -114,7 +114,7 @@ pub struct AStarBuffers<NodeIdentifier, Node> {
 pub enum AStarResult<NodeIdentifier> {
     /// The algorithm has found a target node.
     FoundTarget {
-        #[serde(skip)]
+        #[cfg_attr(feature = "serde", serde(skip))]
         identifier: NodeIdentifier,
         cost: Cost,
     },
