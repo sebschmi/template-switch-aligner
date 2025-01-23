@@ -686,7 +686,7 @@ checksum = "eccc87c72a0ca5aec58d3f762b496c87c6500884511fcf878942dd8bed63cc69"
 
 [[package]]
 name = "tsalign"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "clap",
  "compact-genome",
