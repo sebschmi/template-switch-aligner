@@ -190,6 +190,7 @@ fn align_a_star_template_switch_distance_call<
         >,
         _,
     >(reference, query, costs, cli.cost_limit, cli.memory_limit);
+    info!("Finished aligning");
 
     if let Some(output) = cli.output {
         info!("Outputting alignment statistics to {output:?}");
