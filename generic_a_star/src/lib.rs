@@ -111,6 +111,7 @@ pub struct AStarBuffers<NodeIdentifier, Node> {
 
 #[derive(Debug, Default, Clone, Ord, PartialOrd, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "astar_result_type"))]
 pub enum AStarResult<NodeIdentifier> {
     /// The algorithm has found a target node.
     FoundTarget {
