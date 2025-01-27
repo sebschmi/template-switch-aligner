@@ -158,6 +158,13 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
             AlignmentResult::WithoutTarget { statistics } => statistics,
         }
     }
+
+    pub fn statistics_mut(&mut self) -> &mut AlignmentStatistics {
+        match self {
+            AlignmentResult::WithTarget { statistics, .. } => statistics,
+            AlignmentResult::WithoutTarget { statistics } => statistics,
+        }
+    }
 }
 
 impl<AlignmentType: IAlignmentType> AlignmentResult<AlignmentType> {
