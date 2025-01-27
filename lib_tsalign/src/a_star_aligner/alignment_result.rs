@@ -271,6 +271,7 @@ impl AlignmentStatistics {
     pub fn piecewise_percentile(statistics: &[Self], percentile: R64) -> Self {
         assert!(percentile >= 0.0);
         assert!(percentile <= 1.0);
+        assert!(!statistics.is_empty());
         let mut result = Self::zero();
         let mut buffer = Vec::new();
 
