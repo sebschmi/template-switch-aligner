@@ -45,11 +45,13 @@ pub struct AlignmentStatistics {
     /// Runtime in seconds.
     ///
     /// To be filled by some other tool, not collected by tsalign.
+    #[cfg_attr(feature = "serde", serde(default))]
     pub runtime: R64,
 
     /// Memory in bytes.
     ///
     /// To be filled by some other tool, not collected by tsalign.
+    #[cfg_attr(feature = "serde", serde(default))]
     pub memory: R64,
 }
 
