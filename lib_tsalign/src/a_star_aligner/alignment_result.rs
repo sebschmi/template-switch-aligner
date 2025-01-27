@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result, Write};
 
 use generic_a_star::AStarResult;
-use noisy_float::types::R64;
+use noisy_float::types::{r64, R64};
 use num_traits::{Float, Zero};
 
 pub trait IAlignmentType {
@@ -41,6 +41,16 @@ pub struct AlignmentStatistics {
     pub closed_nodes: R64,
     pub suboptimal_opened_nodes: R64,
     pub suboptimal_opened_nodes_ratio: R64,
+
+    /// Runtime in seconds.
+    ///
+    /// To be filled by some other tool, not collected by tsalign.
+    pub runtime: R64,
+
+    /// Memory in bytes.
+    ///
+    /// To be filled by some other tool, not collected by tsalign.
+    pub memory: R64,
 }
 
 macro_rules! each_statistic {
@@ -52,6 +62,8 @@ macro_rules! each_statistic {
         $action!(closed_nodes);
         $action!(suboptimal_opened_nodes);
         $action!(suboptimal_opened_nodes_ratio);
+        $action!(runtime);
+        $action!(memory);
     }};
 }
 
@@ -126,6 +138,8 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
                 / (opened_nodes - suboptimal_opened_nodes) as f64)
                 .try_into()
                 .unwrap(),
+            runtime: r64(0.0),
+            memory: r64(0.0),
         };
 
         if let Some(alignment) = alignment {
