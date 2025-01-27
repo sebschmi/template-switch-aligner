@@ -33,7 +33,6 @@ pub enum AlignmentResult<AlignmentType> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[must_use]
 pub struct AlignmentStatistics {
-    #[cfg_attr(feature = "serde", serde(flatten))]
     pub result: AStarResult<()>,
     pub cost: R64,
     pub cost_per_base: R64,
