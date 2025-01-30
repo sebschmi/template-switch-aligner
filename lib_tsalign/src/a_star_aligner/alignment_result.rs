@@ -10,6 +10,8 @@ pub trait IAlignmentType {
     fn is_repeated(&self, previous: &Self) -> bool;
 
     fn is_internal(&self) -> bool;
+
+    fn is_template_switch_exit(&self) -> bool;
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -41,6 +43,7 @@ pub struct AlignmentStatistics {
     pub closed_nodes: R64,
     pub suboptimal_opened_nodes: R64,
     pub suboptimal_opened_nodes_ratio: R64,
+    pub template_switch_amount: R64,
 
     /// Runtime in seconds.
     ///
@@ -64,12 +67,13 @@ macro_rules! each_statistic {
         $action!(closed_nodes);
         $action!(suboptimal_opened_nodes);
         $action!(suboptimal_opened_nodes_ratio);
+        $action!(template_switch_amount);
         $action!(runtime);
         $action!(memory);
     }};
 }
 
-impl<AlignmentType> AlignmentResult<AlignmentType> {
+impl<AlignmentType: IAlignmentType> AlignmentResult<AlignmentType> {
     #[expect(clippy::too_many_arguments)]
     pub fn new_with_target(
         alignment: Vec<(usize, AlignmentType)>,
@@ -140,6 +144,15 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
                 / (opened_nodes - suboptimal_opened_nodes) as f64)
                 .try_into()
                 .unwrap(),
+            template_switch_amount: r64(alignment
+                .as_ref()
+                .map(|alignment| {
+                    alignment
+                        .iter()
+                        .filter(|(_, alignment_type)| alignment_type.is_template_switch_exit())
+                        .count() as f64
+                })
+                .unwrap_or(0.0)),
             runtime: r64(0.0),
             memory: r64(0.0),
         };
@@ -153,7 +166,9 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
             Self::WithoutTarget { statistics }
         }
     }
+}
 
+impl<AlignmentType> AlignmentResult<AlignmentType> {
     pub fn statistics(&self) -> &AlignmentStatistics {
         match self {
             AlignmentResult::WithTarget { statistics, .. } => statistics,

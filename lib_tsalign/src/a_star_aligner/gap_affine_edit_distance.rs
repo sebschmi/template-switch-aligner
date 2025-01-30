@@ -352,4 +352,8 @@ impl IAlignmentType for AlignmentType {
     fn is_internal(&self) -> bool {
         self == &Self::Root
     }
+
+    fn is_template_switch_exit(&self) -> bool {
+        false
+    }
 }

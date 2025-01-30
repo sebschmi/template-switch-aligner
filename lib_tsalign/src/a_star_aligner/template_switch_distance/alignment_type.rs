@@ -130,4 +130,8 @@ impl IAlignmentType for AlignmentType {
             Self::Root | Self::SecondaryRoot | Self::PrimaryReentry
         )
     }
+
+    fn is_template_switch_exit(&self) -> bool {
+        matches!(self, Self::TemplateSwitchExit { .. })
+    }
 }
