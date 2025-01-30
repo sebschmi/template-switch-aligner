@@ -79,9 +79,10 @@ impl TemplateSwitchLowerBoundMatrix {
         'outer: loop {
             debug!("Using genome length {genome_length}");
             assert!(genome_length < usize::try_from(isize::MAX).unwrap() / 2);
-            let genome = VectorGenome::<AlphabetType>::from_iter(
-                iter::repeat(AlphabetType::iter().next().unwrap()).take(genome_length),
-            );
+            let genome = VectorGenome::<AlphabetType>::from_iter(iter::repeat_n(
+                AlphabetType::iter().next().unwrap(),
+                genome_length,
+            ));
             let mut a_star = AStar::new(Context::<_, TSLBAlignmentStrategies<AlphabetType>>::new(
                 genome.as_genome_subsequence(),
                 genome.as_genome_subsequence(),
