@@ -437,6 +437,10 @@ impl<
                     if secondary_index > 0
                         && Strategies::SecondaryDeletion::allow_secondary_deletions()
                     {
+                        if secondary_index > secondary_sequence.len() {
+                            panic!("Secondary index out of bounds for node {node}");
+                        }
+
                         // Deleted character
                         let s = secondary_sequence[secondary_index - 1].complement();
 

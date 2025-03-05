@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use compact_genome::interface::sequence::GenomeSequence;
+use compact_genome::interface::sequence::{self, GenomeSequence};
 use generic_a_star::AStarNode;
 use identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
 use num_traits::SaturatingSub;
@@ -312,6 +312,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             TemplateSwitchSecondary::Query => entrance_query_index,
         } as isize
             + template_switch_first_offset) as usize;
+
+        debug_assert!(match template_switch_secondary {
+            TemplateSwitchSecondary::Reference => secondary_index <= context.reference.len(),
+            TemplateSwitchSecondary::Query => secondary_index <= context.query.len(),
+        });
 
         let secondary_root_node = self.generate_successor(
             Identifier::Secondary {
