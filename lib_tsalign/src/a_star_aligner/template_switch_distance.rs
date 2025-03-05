@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use compact_genome::interface::sequence::{self, GenomeSequence};
+use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::AStarNode;
 use identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
 use num_traits::SaturatingSub;
