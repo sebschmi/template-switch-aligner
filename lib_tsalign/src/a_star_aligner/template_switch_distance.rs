@@ -313,10 +313,14 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         } as isize
             + template_switch_first_offset) as usize;
 
-        debug_assert!(match template_switch_secondary {
-            TemplateSwitchSecondary::Reference => secondary_index <= context.reference.len(),
-            TemplateSwitchSecondary::Query => secondary_index <= context.query.len(),
-        });
+        match template_switch_secondary {
+            TemplateSwitchSecondary::Reference => {
+                debug_assert!(secondary_index <= context.reference.len(), "{self}")
+            }
+            TemplateSwitchSecondary::Query => {
+                debug_assert!(secondary_index <= context.query.len(), "{self}")
+            }
+        }
 
         let secondary_root_node = self.generate_successor(
             Identifier::Secondary {

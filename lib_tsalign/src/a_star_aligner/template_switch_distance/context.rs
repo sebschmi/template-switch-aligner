@@ -332,10 +332,10 @@ impl<
                     }
                     TemplateSwitchSecondary::Query => (entrance_query_index, self.query.len()),
                 };
+                let secondary_index =
+                    secondary_entrance_index as isize + template_switch_first_offset;
 
-                if template_switch_first_offset >= 0
-                    && secondary_entrance_index as isize + template_switch_first_offset
-                        < secondary_length as isize
+                if template_switch_first_offset >= 0 && secondary_index < secondary_length as isize
                 {
                     let new_cost = config
                         .offset_costs
@@ -357,7 +357,7 @@ impl<
                 }
 
                 if template_switch_first_offset <= 0
-                    && secondary_entrance_index as isize + template_switch_first_offset > 0
+                    && secondary_index > self.config.min_length as isize
                 {
                     let new_cost = config
                         .offset_costs
@@ -378,18 +378,22 @@ impl<
                     }
                 }
 
-                // Temporarily unpack opened_nodes_output because it borrows self,
-                // but generating the secondary root node wants to borrow self as mutable.
-                let opened_nodes_direct_output = opened_nodes_output.into_inner();
-                let secondary_root_node: Vec<_> = node
-                    .generate_secondary_root_node(self)
-                    .into_iter()
-                    .collect();
-                opened_nodes_output = ExtendMap::new(
-                    opened_nodes_direct_output,
-                    generate_output_mapper_function(self),
-                );
-                opened_nodes_output.extend(secondary_root_node);
+                if secondary_index >= self.config.min_length as isize
+                    && secondary_index <= secondary_length as isize
+                {
+                    // Temporarily unpack opened_nodes_output because it borrows self,
+                    // but generating the secondary root node wants to borrow self as mutable.
+                    let opened_nodes_direct_output = opened_nodes_output.into_inner();
+                    let secondary_root_node: Vec<_> = node
+                        .generate_secondary_root_node(self)
+                        .into_iter()
+                        .collect();
+                    opened_nodes_output = ExtendMap::new(
+                        opened_nodes_direct_output,
+                        generate_output_mapper_function(self),
+                    );
+                    opened_nodes_output.extend(secondary_root_node);
+                }
             }
 
             Identifier::Secondary {
