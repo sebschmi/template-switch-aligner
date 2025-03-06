@@ -147,4 +147,9 @@ macro_rules! primitive_cost {
     };
 }
 
+primitive_cost!(U16Cost, u16);
+primitive_cost!(I16Cost, i16);
+primitive_cost!(U32Cost, u32);
+primitive_cost!(I32Cost, i32);
 primitive_cost!(U64Cost, u64);
+primitive_cost!(I64Cost, i64);
