@@ -5,7 +5,7 @@ use std::{
     str::FromStr,
 };
 
-use num_traits::{Bounded, CheckedSub, SaturatingSub, Zero};
+use num_traits::{Bounded, CheckedAdd, CheckedSub, SaturatingSub, Zero};
 
 /// The cost of an A* node.
 pub trait AStarCost:
@@ -14,6 +14,7 @@ pub trait AStarCost:
     + Add<Output = Self>
     + Sub<Output = Self>
     + SaturatingSub
+    + CheckedAdd
     + CheckedSub
     + AddAssign
     + SubAssign
@@ -32,6 +33,8 @@ pub trait AStarCost:
     fn as_f64(&self) -> f64;
 
     fn as_u64(&self) -> u64;
+
+    fn as_primitive(&self) -> Self::CostType;
 }
 
 macro_rules! primitive_cost {
@@ -51,10 +54,8 @@ macro_rules! primitive_cost {
             fn as_u64(&self)->u64{
                 self.0 as u64
             }
-        }
 
-        impl $name {
-            pub fn as_primitive(&self) -> $primitive {
+            fn as_primitive(&self) -> Self::CostType {
                 self.0
             }
         }
@@ -75,7 +76,7 @@ macro_rules! primitive_cost {
             type Output = Self;
 
             fn add(self, rhs: Self) -> Self::Output {
-                Self(self.0 + rhs.0)
+                Self(self.0.checked_add(rhs.0).unwrap())
             }
         }
 
@@ -83,13 +84,19 @@ macro_rules! primitive_cost {
             type Output = Self;
 
             fn sub(self, rhs: Self) -> Self::Output {
-                Self(self.0 - rhs.0)
+                Self(self.0.checked_sub(rhs.0).unwrap())
             }
         }
 
         impl num_traits::SaturatingSub for $name {
             fn saturating_sub(&self, rhs: &Self) -> Self {
                 Self(self.0.saturating_sub(rhs.0))
+            }
+        }
+
+        impl num_traits::CheckedAdd for $name {
+            fn checked_add(&self, rhs: &Self) -> Option<Self> {
+                self.0.checked_add(rhs.0).map($name)
             }
         }
 
