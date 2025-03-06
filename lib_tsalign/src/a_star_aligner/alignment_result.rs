@@ -31,7 +31,7 @@ pub enum AlignmentResult<AlignmentType, Cost> {
     },
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[must_use]
 pub struct AlignmentStatistics<Cost> {
@@ -214,7 +214,7 @@ impl<AlignmentType: IAlignmentType, Cost> AlignmentResult<AlignmentType, Cost> {
     }
 }
 
-impl<Cost: Clone + Default> AlignmentStatistics<Cost> {
+impl<Cost: Clone> AlignmentStatistics<Cost> {
     pub fn min_value() -> Self {
         let mut result = Self::default();
 
@@ -374,5 +374,23 @@ impl<Cost: Display> Display for AlignmentStatistics<Cost> {
         write!(f, "Duration: {:.2}s", self.duration_seconds)?;
 
         Ok(())
+    }
+}
+
+impl<Cost> Default for AlignmentStatistics<Cost> {
+    fn default() -> Self {
+        Self {
+            result: Default::default(),
+            cost: Default::default(),
+            cost_per_base: Default::default(),
+            duration_seconds: Default::default(),
+            opened_nodes: Default::default(),
+            closed_nodes: Default::default(),
+            suboptimal_opened_nodes: Default::default(),
+            suboptimal_opened_nodes_ratio: Default::default(),
+            template_switch_amount: Default::default(),
+            runtime: Default::default(),
+            memory: Default::default(),
+        }
     }
 }
