@@ -112,10 +112,7 @@ impl<SourceType: FromStr + PrimInt, Cost: FromStr + Bounded> CostFunction<Source
         Ok((
             input,
             Self {
-                function: indexes
-                    .into_iter()
-                    .zip(costs.into_iter().map(Into::into))
-                    .collect(),
+                function: indexes.into_iter().zip(costs).collect(),
             },
         ))
     }
