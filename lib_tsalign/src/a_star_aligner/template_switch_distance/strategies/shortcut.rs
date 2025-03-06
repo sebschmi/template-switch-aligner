@@ -1,5 +1,7 @@
+use std::marker::PhantomData;
+
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
-use generic_a_star::{AStarContext, AStarNode};
+use generic_a_star::{cost::AStarCost, AStarContext, AStarNode};
 
 use crate::{
     a_star_aligner::template_switch_distance::{
@@ -11,16 +13,16 @@ use crate::{
 
 use super::{primary_match::PrimaryMatchStrategy, AlignmentStrategy, AlignmentStrategySelector};
 
-pub trait ShortcutStrategy: AlignmentStrategy {
+pub trait ShortcutStrategy<Cost>: AlignmentStrategy {
     type Memory;
 
     fn initialise_memory<AlphabetType: Alphabet>(
-        config: &TemplateSwitchConfig<AlphabetType>,
+        config: &TemplateSwitchConfig<AlphabetType, Cost>,
     ) -> Self::Memory;
 
     fn generate_successors<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector<Shortcut = Self>,
+        Strategies: AlignmentStrategySelector<Cost = Cost, Shortcut = Self>,
     >(
         node: &<Context<SubsequenceType, Strategies> as AStarContext>::Node,
         context: &Context<SubsequenceType, Strategies>,
@@ -31,23 +33,27 @@ pub trait ShortcutStrategy: AlignmentStrategy {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct NoShortcutStrategy;
+pub struct NoShortcutStrategy<Cost> {
+    phantom_data: PhantomData<Cost>,
+}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct TemplateSwitchLowerBoundShortcutStrategy;
+pub struct TemplateSwitchLowerBoundShortcutStrategy<Cost> {
+    phantom_data: PhantomData<Cost>,
+}
 
-impl ShortcutStrategy for NoShortcutStrategy {
+impl<Cost: AStarCost> ShortcutStrategy<Cost> for NoShortcutStrategy<Cost> {
     type Memory = ();
 
     fn initialise_memory<AlphabetType: Alphabet>(
-        _config: &TemplateSwitchConfig<AlphabetType>,
+        _config: &TemplateSwitchConfig<AlphabetType, Cost>,
     ) -> Self::Memory {
         // Do nothing.
     }
 
     fn generate_successors<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector<Shortcut = Self>,
+        Strategies: AlignmentStrategySelector<Cost = Cost, Shortcut = Self>,
     >(
         _node: &<Context<SubsequenceType, Strategies> as AStarContext>::Node,
         _context: &Context<SubsequenceType, Strategies>,
@@ -59,18 +65,18 @@ impl ShortcutStrategy for NoShortcutStrategy {
     }
 }
 
-impl ShortcutStrategy for TemplateSwitchLowerBoundShortcutStrategy {
-    type Memory = TemplateSwitchLowerBoundMatrix;
+impl<Cost: AStarCost> ShortcutStrategy<Cost> for TemplateSwitchLowerBoundShortcutStrategy<Cost> {
+    type Memory = TemplateSwitchLowerBoundMatrix<Cost>;
 
     fn initialise_memory<AlphabetType: Alphabet>(
-        config: &TemplateSwitchConfig<AlphabetType>,
+        config: &TemplateSwitchConfig<AlphabetType, Cost>,
     ) -> Self::Memory {
         TemplateSwitchLowerBoundMatrix::new(config)
     }
 
     fn generate_successors<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector<Shortcut = Self>,
+        Strategies: AlignmentStrategySelector<Cost = Cost, Shortcut = Self>,
     >(
         node: &<Context<SubsequenceType, Strategies> as AStarContext>::Node,
         context: &Context<SubsequenceType, Strategies>,
@@ -98,14 +104,16 @@ impl ShortcutStrategy for TemplateSwitchLowerBoundShortcutStrategy {
     }
 }
 
-impl AlignmentStrategy for NoShortcutStrategy {
+impl<Cost: AStarCost> AlignmentStrategy for NoShortcutStrategy<Cost> {
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
     >(
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
-        Self
+        Self {
+            phantom_data: PhantomData,
+        }
     }
 
     fn generate_successor<
@@ -113,7 +121,11 @@ impl AlignmentStrategy for NoShortcutStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
+        _identifier: Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -121,14 +133,16 @@ impl AlignmentStrategy for NoShortcutStrategy {
     }
 }
 
-impl AlignmentStrategy for TemplateSwitchLowerBoundShortcutStrategy {
+impl<Cost: AStarCost> AlignmentStrategy for TemplateSwitchLowerBoundShortcutStrategy<Cost> {
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
     >(
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
-        Self
+        Self {
+            phantom_data: PhantomData,
+        }
     }
 
     fn generate_successor<
@@ -136,7 +150,11 @@ impl AlignmentStrategy for TemplateSwitchLowerBoundShortcutStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
+        _identifier: Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {

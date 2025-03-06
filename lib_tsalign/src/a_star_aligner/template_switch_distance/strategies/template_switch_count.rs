@@ -77,7 +77,11 @@ impl AlignmentStrategy for NoTemplateSwitchCountStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
+        _identifier: Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -102,7 +106,11 @@ impl AlignmentStrategy for MaxTemplateSwitchCountStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
+        _identifier: Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {

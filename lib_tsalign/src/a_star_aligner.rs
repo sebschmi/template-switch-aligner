@@ -2,7 +2,7 @@ use std::{fmt::Debug, time::Instant};
 
 use alignment_result::{AlignmentResult, IAlignmentType};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
-use generic_a_star::{cost::Cost, AStar, AStarContext, AStarNode, AStarResult};
+use generic_a_star::{cost::AStarCost, AStar, AStarContext, AStarNode, AStarResult};
 use template_switch_distance::{
     context::Memory,
     strategies::{
@@ -37,7 +37,7 @@ pub trait AlignmentContext: AStarContext {
 
 fn a_star_align<Context: AStarContext + AlignmentContext>(
     context: Context,
-) -> AlignmentResult<Context::AlignmentType>
+) -> AlignmentResult<Context::AlignmentType, <<Context as AStarContext>::Node as AStarNode>::Cost>
 where
     <Context::Node as AStarNode>::EdgeType: IAlignmentType,
 {
@@ -102,12 +102,13 @@ where
 
 pub fn gap_affine_edit_distance_a_star_align<
     AlphabetType: Alphabet,
+    Cost: AStarCost,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
 >(
     reference: &SubsequenceType,
     query: &SubsequenceType,
-    scoring_table: gap_affine_edit_distance::ScoringTable,
-) -> AlignmentResult<gap_affine_edit_distance::AlignmentType> {
+    scoring_table: gap_affine_edit_distance::ScoringTable<Cost>,
+) -> AlignmentResult<gap_affine_edit_distance::AlignmentType, Cost> {
     a_star_align(gap_affine_edit_distance::Context::new(
         reference,
         query,
@@ -118,23 +119,28 @@ pub fn gap_affine_edit_distance_a_star_align<
 pub fn template_switch_distance_a_star_align<
     Strategies: AlignmentStrategySelector<
         TemplateSwitchCount = NoTemplateSwitchCountStrategy,
-        Shortcut = NoShortcutStrategy,
+        Shortcut = NoShortcutStrategy<<Strategies as AlignmentStrategySelector>::Cost>,
         PrimaryMatch = AllowPrimaryMatchStrategy,
     >,
     SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
 >(
     reference: &SubsequenceType,
     query: &SubsequenceType,
-    config: config::TemplateSwitchConfig<Strategies::Alphabet>,
-    cost_limit: Option<Cost>,
+    config: config::TemplateSwitchConfig<
+        Strategies::Alphabet,
+        <Strategies as AlignmentStrategySelector>::Cost,
+    >,
+    cost_limit: Option<Strategies::Cost>,
     memory_limit: Option<usize>,
-) -> AlignmentResult<template_switch_distance::AlignmentType> {
+) -> AlignmentResult<template_switch_distance::AlignmentType, Strategies::Cost> {
     let memory = Memory {
         template_switch_min_length: Default::default(),
-        chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::initialise_memory(reference, query, &config, 20),
+        chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy<
+            <Strategies as AlignmentStrategySelector>::Cost,
+        >>::initialise_memory(reference, query, &config, 20),
         template_switch_count: (),
         shortcut: (),
-        primary_match:(),
+        primary_match: (),
     };
 
     a_star_align(template_switch_distance::Context::<

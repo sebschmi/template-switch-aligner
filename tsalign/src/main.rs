@@ -25,7 +25,7 @@ use lib_tsalign::{
     a_star_aligner::{gap_affine_edit_distance, gap_affine_edit_distance_a_star_align},
     alignment_configuration::AlignmentConfiguration,
     alignment_matrix::AlignmentMatrix,
-    costs::cost::Cost,
+    costs::U64Cost,
 };
 use log::{debug, info, LevelFilter};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
@@ -82,7 +82,7 @@ struct Cli {
     ///
     /// If there is no alignment with that cost, the aligner will abort without result.
     #[clap(long)]
-    cost_limit: Option<Cost>,
+    cost_limit: Option<U64Cost>,
 
     /// An approximate memory limit in bytes for the aligner.
     ///
@@ -259,7 +259,8 @@ fn align_matrix<
         deletion_cost: matrix_config.indel_cost.into(),
     };
 
-    let mut alignment_matrix = AlignmentMatrix::new(configuration, reference.len(), query.len());
+    let mut alignment_matrix =
+        AlignmentMatrix::<U64Cost>::new(configuration, reference.len(), query.len());
     let cost = alignment_matrix.align(reference, query);
     println!("Cost: {}", cost);
 }
@@ -290,7 +291,7 @@ fn align_a_star_gap_affine_edit_distance<
     let alignment = gap_affine_edit_distance_a_star_align(
         reference,
         query,
-        gap_affine_edit_distance::ScoringTable {
+        gap_affine_edit_distance::ScoringTable::<U64Cost> {
             match_cost: gap_affine_config.match_cost.into(),
             substitution_cost: gap_affine_config.substitution_cost.into(),
             gap_open_cost: gap_affine_config.gap_open_cost.into(),

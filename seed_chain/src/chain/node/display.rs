@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use super::{Identifier, Node};
 
-impl Display for Node {
+impl<Cost: Display> Display for Node<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[{}; ", self.identifier)?;
         if let Some(predecessor) = &self.predecessor {

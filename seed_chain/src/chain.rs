@@ -1,5 +1,5 @@
 use context::Context;
-use generic_a_star::{cost::Cost, AStar};
+use generic_a_star::{cost::AStarCost, AStar};
 use log::info;
 use node::EdgeType;
 
@@ -12,17 +12,17 @@ mod context;
 mod display;
 mod node;
 
-pub struct Chain {
-    chain: Vec<ChainLink>,
+pub struct Chain<Cost> {
+    chain: Vec<ChainLink<Cost>>,
 }
 
-pub struct ChainLink {
+pub struct ChainLink<Cost> {
     identifier: Identifier,
     cost: Cost,
 }
 
-impl Chain {
-    pub fn compute_chain<ChainingCosts: ChainingCostsProvider>(
+impl<Cost: AStarCost> Chain<Cost> {
+    pub fn compute_chain<ChainingCosts: ChainingCostsProvider<Cost = Cost>>(
         chaining_costs: ChainingCosts,
         chaining_anchors: ChainingAnchors,
     ) -> Self {
@@ -42,7 +42,7 @@ impl Chain {
         );
         chain.push(ChainLink {
             identifier: Identifier::Root,
-            cost: Cost::ZERO,
+            cost: Cost::zero(),
         });
         chain.reverse();
 
@@ -104,7 +104,7 @@ impl Chain {
                 .chain
                 .get(index)
                 .map(|link| link.cost)
-                .unwrap_or(Cost::ZERO),
+                .unwrap_or(Cost::zero()),
         }
     }
 }

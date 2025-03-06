@@ -4,13 +4,14 @@ use std::{
 };
 
 use compact_genome::interface::sequence::GenomeSequence;
-use generic_a_star::cost::Cost;
+use generic_a_star::cost::AStarCost;
+use num_traits::Bounded;
 
 use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Identifier};
 
 use super::AlignmentStrategySelector;
 
-pub trait PrimaryMatchStrategy: Eq + Clone + Debug + Display {
+pub trait PrimaryMatchStrategy<Cost>: Eq + Clone + Debug + Display {
     type Memory;
     type IdentifierPrimaryExtraData: Eq + Copy + Debug + Ord + Hash;
 
@@ -67,7 +68,7 @@ pub trait PrimaryMatchStrategy: Eq + Clone + Debug + Display {
 
     fn fake_substitution_cost<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
+        Strategies: AlignmentStrategySelector<Cost = Cost, PrimaryMatch = Self>,
     >(
         &self,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
@@ -82,13 +83,13 @@ pub struct AllowPrimaryMatchStrategy;
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct MaxConsecutivePrimaryMatchStrategy;
 
-pub struct MaxConsecutivePrimaryMatchMemory {
+pub struct MaxConsecutivePrimaryMatchMemory<Cost> {
     pub max_consecutive_primary_matches: usize,
     pub root_available_primary_matches: usize,
     pub fake_substitution_cost: Cost,
 }
 
-impl PrimaryMatchStrategy for AllowPrimaryMatchStrategy {
+impl<Cost: Bounded> PrimaryMatchStrategy<Cost> for AllowPrimaryMatchStrategy {
     type Memory = ();
     type IdentifierPrimaryExtraData = ();
 
@@ -155,12 +156,12 @@ impl PrimaryMatchStrategy for AllowPrimaryMatchStrategy {
 
     fn fake_substitution_cost<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
+        Strategies: AlignmentStrategySelector<Cost = Cost, PrimaryMatch = Self>,
     >(
         &self,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Cost {
-        Cost::MAX
+        Cost::max_value()
     }
 
     fn always_generate_substitution() -> bool {
@@ -168,8 +169,8 @@ impl PrimaryMatchStrategy for AllowPrimaryMatchStrategy {
     }
 }
 
-impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
-    type Memory = MaxConsecutivePrimaryMatchMemory;
+impl<Cost: AStarCost> PrimaryMatchStrategy<Cost> for MaxConsecutivePrimaryMatchStrategy {
+    type Memory = MaxConsecutivePrimaryMatchMemory<Cost>;
     type IdentifierPrimaryExtraData = usize;
 
     fn create_root<
@@ -251,7 +252,7 @@ impl PrimaryMatchStrategy for MaxConsecutivePrimaryMatchStrategy {
 
     fn fake_substitution_cost<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector<PrimaryMatch = Self>,
+        Strategies: AlignmentStrategySelector<Cost = Cost, PrimaryMatch = Self>,
     >(
         &self,
         context: &Context<'_, '_, SubsequenceType, Strategies>,

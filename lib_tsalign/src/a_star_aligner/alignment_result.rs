@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter, Result, Write};
 
-use generic_a_star::AStarResult;
+use generic_a_star::{cost::AStarCost, AStarResult};
 use noisy_float::types::{r64, R64};
 use num_traits::{Float, Zero};
 
@@ -17,25 +17,25 @@ pub trait IAlignmentType {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type"))]
-pub enum AlignmentResult<AlignmentType> {
+pub enum AlignmentResult<AlignmentType, Cost> {
     WithTarget {
         alignment: Vec<(usize, AlignmentType)>,
 
         #[cfg_attr(feature = "serde", serde(flatten))]
-        statistics: AlignmentStatistics,
+        statistics: AlignmentStatistics<Cost>,
     },
 
     WithoutTarget {
         #[cfg_attr(feature = "serde", serde(flatten))]
-        statistics: AlignmentStatistics,
+        statistics: AlignmentStatistics<Cost>,
     },
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[must_use]
-pub struct AlignmentStatistics {
-    pub result: AStarResult<()>,
+pub struct AlignmentStatistics<Cost> {
+    pub result: AStarResult<(), Cost>,
     pub cost: R64,
     pub cost_per_base: R64,
     pub duration_seconds: R64,
@@ -73,11 +73,11 @@ macro_rules! each_statistic {
     }};
 }
 
-impl<AlignmentType: IAlignmentType> AlignmentResult<AlignmentType> {
+impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentType, Cost> {
     #[expect(clippy::too_many_arguments)]
     pub fn new_with_target(
         alignment: Vec<(usize, AlignmentType)>,
-        result: AStarResult<()>,
+        result: AStarResult<(), Cost>,
         duration_seconds: f64,
         opened_nodes: usize,
         closed_nodes: usize,
@@ -98,7 +98,7 @@ impl<AlignmentType: IAlignmentType> AlignmentResult<AlignmentType> {
     }
 
     pub fn new_without_target(
-        result: AStarResult<()>,
+        result: AStarResult<(), Cost>,
         duration_seconds: f64,
         opened_nodes: usize,
         closed_nodes: usize,
@@ -121,7 +121,7 @@ impl<AlignmentType: IAlignmentType> AlignmentResult<AlignmentType> {
     #[expect(clippy::too_many_arguments)]
     fn new(
         alignment: Option<Vec<(usize, AlignmentType)>>,
-        result: AStarResult<()>,
+        result: AStarResult<(), Cost>,
         duration_seconds: f64,
         opened_nodes: usize,
         closed_nodes: usize,
@@ -132,8 +132,8 @@ impl<AlignmentType: IAlignmentType> AlignmentResult<AlignmentType> {
         let cost = result.cost();
         let statistics = AlignmentStatistics {
             result,
-            cost: (cost.as_u64() as f64).try_into().unwrap(),
-            cost_per_base: ((cost.as_u64() * 2) as f64 / (reference_length + query_length) as f64)
+            cost: (cost.as_f64()).try_into().unwrap(),
+            cost_per_base: ((cost.as_f64() * 2.0) / (reference_length + query_length) as f64)
                 .try_into()
                 .unwrap(),
             duration_seconds: duration_seconds.try_into().unwrap(),
@@ -168,15 +168,15 @@ impl<AlignmentType: IAlignmentType> AlignmentResult<AlignmentType> {
     }
 }
 
-impl<AlignmentType> AlignmentResult<AlignmentType> {
-    pub fn statistics(&self) -> &AlignmentStatistics {
+impl<AlignmentType, Cost> AlignmentResult<AlignmentType, Cost> {
+    pub fn statistics(&self) -> &AlignmentStatistics<Cost> {
         match self {
             AlignmentResult::WithTarget { statistics, .. } => statistics,
             AlignmentResult::WithoutTarget { statistics } => statistics,
         }
     }
 
-    pub fn statistics_mut(&mut self) -> &mut AlignmentStatistics {
+    pub fn statistics_mut(&mut self) -> &mut AlignmentStatistics<Cost> {
         match self {
             AlignmentResult::WithTarget { statistics, .. } => statistics,
             AlignmentResult::WithoutTarget { statistics } => statistics,
@@ -184,7 +184,7 @@ impl<AlignmentType> AlignmentResult<AlignmentType> {
     }
 }
 
-impl<AlignmentType: IAlignmentType> AlignmentResult<AlignmentType> {
+impl<AlignmentType: IAlignmentType, Cost> AlignmentResult<AlignmentType, Cost> {
     pub fn cigar(&self) -> String
     where
         AlignmentType: Display,
@@ -214,7 +214,7 @@ impl<AlignmentType: IAlignmentType> AlignmentResult<AlignmentType> {
     }
 }
 
-impl AlignmentStatistics {
+impl<Cost: Clone + Default> AlignmentStatistics<Cost> {
     pub fn min_value() -> Self {
         let mut result = Self::default();
 
@@ -336,7 +336,9 @@ impl AlignmentStatistics {
     }
 }
 
-impl<AlignmentType: Display + IAlignmentType> Display for AlignmentResult<AlignmentType> {
+impl<AlignmentType: Display + IAlignmentType, Cost: Display> Display
+    for AlignmentResult<AlignmentType, Cost>
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         if let AlignmentResult::WithTarget { .. } = self {
             write!(f, "CIGAR: ")?;
@@ -353,7 +355,7 @@ impl<AlignmentType: Display + IAlignmentType> Display for AlignmentResult<Alignm
     }
 }
 
-impl Display for AlignmentStatistics {
+impl<Cost: Display> Display for AlignmentStatistics<Cost> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         writeln!(f, "{}", self.result)?;
         writeln!(f, "Cost per base: {:.2}", self.cost_per_base)?;

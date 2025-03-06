@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use compact_genome::interface::alphabet::Alphabet;
+use generic_a_star::cost::AStarCost;
 use log::trace;
 use nom::{
     bytes::complete::{tag, take_while1},
@@ -8,7 +9,7 @@ use nom::{
     sequence::tuple,
     IResult,
 };
-use num_traits::PrimInt;
+use num_traits::{Bounded, PrimInt};
 
 use crate::{
     costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable},
@@ -17,7 +18,7 @@ use crate::{
 
 use super::TemplateSwitchConfig;
 
-impl<AlphabetType: Alphabet> TemplateSwitchConfig<AlphabetType> {
+impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType, Cost> {
     pub fn read_plain(mut reader: impl std::io::Read) -> crate::error::Result<Self> {
         let mut input = String::new();
         reader.read_to_string(&mut input)?;
@@ -124,9 +125,9 @@ fn parse_equals_value<Value: FromStr>(input: &str) -> IResult<&str, (&str, Value
     Ok((input, (identifier, value)))
 }
 
-fn parse_named_cost_function<SourceType: PrimInt>(
+fn parse_named_cost_function<SourceType: FromStr + PrimInt, Cost: FromStr + Bounded>(
     name: &str,
-) -> impl '_ + FnMut(&str) -> IResult<&str, CostFunction<SourceType>> {
+) -> impl '_ + FnMut(&str) -> IResult<&str, CostFunction<SourceType, Cost>> {
     move |input| {
         let input = skip_any_whitespace(input)?;
         let (input, _) = tag(name)(input)?;
@@ -134,9 +135,9 @@ fn parse_named_cost_function<SourceType: PrimInt>(
     }
 }
 
-fn parse_named_cost_table<AlphabetType: Alphabet>(
+fn parse_named_cost_table<AlphabetType: Alphabet, Cost: AStarCost>(
     name: &str,
-) -> impl '_ + FnMut(&str) -> IResult<&str, GapAffineAlignmentCostTable<AlphabetType>> {
+) -> impl '_ + FnMut(&str) -> IResult<&str, GapAffineAlignmentCostTable<AlphabetType, Cost>> {
     move |input| {
         let (input, result) = GapAffineAlignmentCostTable::parse_plain(input)?;
         if result.name() == name {

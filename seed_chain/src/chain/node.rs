@@ -1,4 +1,4 @@
-use generic_a_star::{cost::Cost, AStarNode};
+use generic_a_star::{cost::AStarCost, AStarNode};
 
 use crate::seed::ChainingAnchor;
 
@@ -12,7 +12,7 @@ pub enum Identifier {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Node {
+pub struct Node<Cost> {
     identifier: Identifier,
     predecessor: Option<Identifier>,
     cost: Cost,
@@ -25,21 +25,23 @@ pub struct EdgeType {
     pub to: Identifier,
 }
 
-impl AStarNode for Node {
+impl<Cost: AStarCost> AStarNode for Node<Cost> {
     type Identifier = Identifier;
 
     type EdgeType = EdgeType;
+
+    type Cost = Cost;
 
     fn identifier(&self) -> &Self::Identifier {
         &self.identifier
     }
 
-    fn cost(&self) -> Cost {
+    fn cost(&self) -> Self::Cost {
         self.cost
     }
 
-    fn a_star_lower_bound(&self) -> Cost {
-        Cost::ZERO
+    fn a_star_lower_bound(&self) -> Self::Cost {
+        Cost::zero()
     }
 
     fn predecessor(&self) -> Option<&Self::Identifier> {
@@ -54,12 +56,12 @@ impl AStarNode for Node {
     }
 }
 
-impl Node {
+impl<Cost: AStarCost> Node<Cost> {
     pub fn new_root() -> Self {
         Self {
             identifier: Identifier::Root,
             predecessor: None,
-            cost: Cost::ZERO,
+            cost: Cost::zero(),
         }
     }
 
@@ -68,7 +70,7 @@ impl Node {
         successor_identifier: Identifier,
         cost_increment: Cost,
     ) -> Option<Self> {
-        if cost_increment == Cost::MAX {
+        if cost_increment == Cost::max_value() {
             return None;
         }
 
@@ -82,13 +84,13 @@ impl Node {
     }
 }
 
-impl Ord for Node {
+impl<Cost: Ord> Ord for Node<Cost> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.cost.cmp(&other.cost)
     }
 }
 
-impl PartialOrd for Node {
+impl<Cost: Ord> PartialOrd for Node<Cost> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }

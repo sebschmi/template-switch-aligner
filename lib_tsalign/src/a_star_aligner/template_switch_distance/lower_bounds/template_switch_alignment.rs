@@ -8,7 +8,7 @@ use compact_genome::{
     implementation::vec_sequence::VectorGenome,
     interface::{alphabet::Alphabet, sequence::GenomeSequence},
 };
-use generic_a_star::{cost::Cost, AStar, AStarNode, AStarResult};
+use generic_a_star::{cost::AStarCost, AStar, AStarNode, AStarResult};
 use log::{debug, info, trace};
 use ndarray::Array2;
 
@@ -40,25 +40,26 @@ use super::template_switch::TemplateSwitchLowerBoundMatrix;
 
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct TemplateSwitchAlignmentLowerBoundMatrix {
+pub struct TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
     matrix: Array2<Cost>,
 }
 
-type TSALBAlignmentStrategies<AlphabetType> = AlignmentStrategySelection<
+type TSALBAlignmentStrategies<AlphabetType, Cost> = AlignmentStrategySelection<
     AlphabetType,
+    Cost,
     CostOnlyNodeOrdStrategy,
-    NoTemplateSwitchMinLengthStrategy,
-    NoChainingStrategy,
+    NoTemplateSwitchMinLengthStrategy<Cost>,
+    NoChainingStrategy<Cost>,
     NoTemplateSwitchCountStrategy,
     AllowSecondaryDeletionStrategy,
-    TemplateSwitchLowerBoundShortcutStrategy,
+    TemplateSwitchLowerBoundShortcutStrategy<Cost>,
     MaxConsecutivePrimaryMatchStrategy,
 >;
 
-impl TemplateSwitchAlignmentLowerBoundMatrix {
+impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
     pub fn new<AlphabetType: Alphabet>(
-        config: &TemplateSwitchConfig<AlphabetType>,
-        tslb_matrix: &TemplateSwitchLowerBoundMatrix,
+        config: &TemplateSwitchConfig<AlphabetType, Cost>,
+        tslb_matrix: &TemplateSwitchLowerBoundMatrix<Cost>,
         reference_length: usize,
         query_length: usize,
         max_consecutive_primary_matches: usize,
@@ -82,27 +83,29 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
             AlphabetType::iter().next().unwrap(),
             genome_length,
         ));
-        let mut a_star = AStar::new(Context::<_, TSALBAlignmentStrategies<AlphabetType>>::new(
-            genome.as_genome_subsequence(),
-            genome.as_genome_subsequence(),
-            lower_bound_config.clone(),
-            Memory {
-                template_switch_min_length: (),
-                chaining: (),
-                template_switch_count: (),
-                shortcut: tslb_matrix.clone(),
-                primary_match: MaxConsecutivePrimaryMatchMemory {
-                    max_consecutive_primary_matches,
-                    root_available_primary_matches:
-                        max_consecutive_primary_matches_at_start_and_end,
-                    fake_substitution_cost: lower_bound_config
-                        .primary_edit_costs
-                        .min_substitution_cost(),
+        let mut a_star = AStar::new(
+            Context::<_, TSALBAlignmentStrategies<AlphabetType, Cost>>::new(
+                genome.as_genome_subsequence(),
+                genome.as_genome_subsequence(),
+                lower_bound_config.clone(),
+                Memory {
+                    template_switch_min_length: (),
+                    chaining: (),
+                    template_switch_count: (),
+                    shortcut: tslb_matrix.clone(),
+                    primary_match: MaxConsecutivePrimaryMatchMemory {
+                        max_consecutive_primary_matches,
+                        root_available_primary_matches:
+                            max_consecutive_primary_matches_at_start_and_end,
+                        fake_substitution_cost: lower_bound_config
+                            .primary_edit_costs
+                            .min_substitution_cost(),
+                    },
                 },
-            },
-            None,
-            None,
-        ));
+                None,
+                None,
+            ),
+        );
         a_star.initialise();
 
         for (target_reference_index, target_query_index) in
@@ -205,12 +208,12 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
                 (max_x.max(x), max_y.max(y))
             });
 
-        let mut matrix = Array2::from_elem((max_x + 1, max_y + 1), Cost::MAX);
+        let mut matrix = Array2::from_elem((max_x + 1, max_y + 1), Cost::max_value());
         for ((x, y), cost) in matrix.indexed_iter_mut() {
             *cost = *closed_lower_bounds
                 .get(&(x, y))
                 .unwrap_or_else(|| unreachable!("Missing matrix entry for ({x}, {y})"));
-            assert_ne!(*cost, Cost::MAX);
+            assert_ne!(*cost, Cost::max_value());
         }
 
         Self { matrix }
@@ -221,16 +224,19 @@ impl TemplateSwitchAlignmentLowerBoundMatrix {
     }
 }
 
-fn generate_template_switch_alignment_lower_bound_config<AlphabetType: Alphabet>(
-    config: &TemplateSwitchConfig<AlphabetType>,
-) -> TemplateSwitchConfig<AlphabetType> {
+fn generate_template_switch_alignment_lower_bound_config<
+    AlphabetType: Alphabet,
+    Cost: AStarCost,
+>(
+    config: &TemplateSwitchConfig<AlphabetType, Cost>,
+) -> TemplateSwitchConfig<AlphabetType, Cost> {
     // Template switches are handled by the TS lower bound matrix, hence we disable them in the search.
     TemplateSwitchConfig {
         left_flank_length: config.left_flank_length,
         right_flank_length: config.right_flank_length,
         min_length: usize::MAX,
 
-        base_cost: Cost::MAX,
+        base_cost: Cost::max_value(),
 
         primary_edit_costs: config.primary_edit_costs.clone(),
         secondary_edit_costs: GapAffineAlignmentCostTable::new_max(),
@@ -243,7 +249,7 @@ fn generate_template_switch_alignment_lower_bound_config<AlphabetType: Alphabet>
     }
 }
 
-impl Display for TemplateSwitchAlignmentLowerBoundMatrix {
+impl<Cost: AStarCost> Display for TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let min_x = 0;
         let min_y = 0;
@@ -256,7 +262,7 @@ impl Display for TemplateSwitchAlignmentLowerBoundMatrix {
         let mut buffer = String::new();
         let mut column_widths: HashMap<_, _> = (min_x..=max_x).map(|x| (x, 1)).collect();
         for ((x, _), cost) in self.matrix.indexed_iter() {
-            let current_column_width = if *cost == Cost::MAX {
+            let current_column_width = if *cost == Cost::max_value() {
                 1
             } else {
                 buffer.clear();
@@ -273,7 +279,7 @@ impl Display for TemplateSwitchAlignmentLowerBoundMatrix {
                 let column_width = *column_widths.get(&x).unwrap();
                 buffer.clear();
                 let cost = self.matrix[(x, y)];
-                if cost == Cost::MAX {
+                if cost == Cost::max_value() {
                     write!(buffer, "∞").unwrap();
                 } else {
                     write!(buffer, "{cost}").unwrap();

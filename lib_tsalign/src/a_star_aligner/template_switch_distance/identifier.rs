@@ -101,7 +101,7 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
     pub fn generate_primary_diagonal_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector<PrimaryMatch = PrimaryMatch>,
-        PrimaryMatch: PrimaryMatchStrategy<IdentifierPrimaryExtraData = PrimaryExtraData>,
+        PrimaryMatch: PrimaryMatchStrategy<Strategies::Cost, IdentifierPrimaryExtraData = PrimaryExtraData>,
     >(
         self,
         flank_index: isize,
@@ -129,7 +129,9 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                     query_index: query_index + 1,
                     flank_index,
                     gap_type: GapType::None,
-                    data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::generate_successor_identifier_primary_extra_data(self, alignment_type, context),
+                    data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                    <Strategies as AlignmentStrategySelector>::Cost,
+                >>::generate_successor_identifier_primary_extra_data(self, alignment_type, context),
                 }
             }
             other => unreachable!(
@@ -141,7 +143,7 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
     pub fn generate_primary_deletion_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector<PrimaryMatch = PrimaryMatch>,
-        PrimaryMatch: PrimaryMatchStrategy<IdentifierPrimaryExtraData = PrimaryExtraData>,
+        PrimaryMatch: PrimaryMatchStrategy<Strategies::Cost, IdentifierPrimaryExtraData = PrimaryExtraData>,
     >(
         self,
         flank_index: isize,
@@ -169,7 +171,9 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                     query_index,
                     flank_index,
                     gap_type: GapType::Deletion,
-                    data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::generate_successor_identifier_primary_extra_data(self, alignment_type, context),
+                    data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                    <Strategies as AlignmentStrategySelector>::Cost,
+                >>::generate_successor_identifier_primary_extra_data(self, alignment_type, context),
                 }
             }
             other => unreachable!(
@@ -181,7 +185,7 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
     pub fn generate_primary_insertion_successor<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector<PrimaryMatch = PrimaryMatch>,
-        PrimaryMatch: PrimaryMatchStrategy<IdentifierPrimaryExtraData = PrimaryExtraData>,
+        PrimaryMatch: PrimaryMatchStrategy<Strategies::Cost, IdentifierPrimaryExtraData = PrimaryExtraData>,
     >(
         self,
         flank_index: isize,
@@ -209,7 +213,9 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                     query_index: query_index + 1,
                     flank_index,
                     gap_type: GapType::Insertion,
-                    data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::generate_successor_identifier_primary_extra_data(self, alignment_type, context),
+                    data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                    <Strategies as AlignmentStrategySelector>::Cost,
+                >>::generate_successor_identifier_primary_extra_data(self, alignment_type, context),
                 }
             }
             other => unreachable!(

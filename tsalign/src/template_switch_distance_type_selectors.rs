@@ -23,6 +23,7 @@ use lib_tsalign::{
         template_switch_distance_a_star_align,
     },
     config::TemplateSwitchConfig,
+    costs::U64Cost,
 };
 use log::info;
 
@@ -87,7 +88,7 @@ fn align_a_star_template_switch_distance_select_node_ord_strategy<
 fn align_a_star_template_switch_distance_select_template_switch_min_length_strategy<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    NodeOrd: NodeOrdStrategy<AllowPrimaryMatchStrategy>,
+    NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
 >(
     cli: Cli,
     reference: &SubsequenceType,
@@ -99,7 +100,7 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
                 _,
                 _,
                 NodeOrd,
-                NoTemplateSwitchMinLengthStrategy,
+                NoTemplateSwitchMinLengthStrategy<U64Cost>,
             >(cli, reference, query)
         }
         TemplateSwitchMinLengthStrategySelector::Lookahead => {
@@ -107,7 +108,7 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
                 _,
                 _,
                 NodeOrd,
-                LookaheadTemplateSwitchMinLengthStrategy,
+                LookaheadTemplateSwitchMinLengthStrategy<U64Cost>,
             >(cli, reference, query)
         }
     }
@@ -116,8 +117,8 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
 fn align_a_star_template_switch_select_chaining_strategy<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    NodeOrd: NodeOrdStrategy<AllowPrimaryMatchStrategy>,
-    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
+    NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
+    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<U64Cost>,
 >(
     cli: Cli,
     reference: &SubsequenceType,
@@ -130,7 +131,7 @@ fn align_a_star_template_switch_select_chaining_strategy<
                 _,
                 NodeOrd,
                 TemplateSwitchMinLength,
-                NoChainingStrategy,
+                NoChainingStrategy<U64Cost>,
             >(cli, reference, query)
         }
         TemplateSwitchChainingStrategySelector::PrecomputeOnly => {
@@ -139,7 +140,7 @@ fn align_a_star_template_switch_select_chaining_strategy<
                 _,
                 NodeOrd,
                 TemplateSwitchMinLength,
-                PrecomputeOnlyChainingStrategy,
+                PrecomputeOnlyChainingStrategy<U64Cost>,
             >(cli, reference, query)
         }
         TemplateSwitchChainingStrategySelector::LowerBound => {
@@ -148,7 +149,7 @@ fn align_a_star_template_switch_select_chaining_strategy<
                 _,
                 NodeOrd,
                 TemplateSwitchMinLength,
-                LowerBoundChainingStrategy,
+                LowerBoundChainingStrategy<U64Cost>,
             >(cli, reference, query)
         }
     }
@@ -157,9 +158,9 @@ fn align_a_star_template_switch_select_chaining_strategy<
 fn align_a_star_template_switch_distance_call<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    NodeOrd: NodeOrdStrategy<AllowPrimaryMatchStrategy>,
-    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
-    Chaining: ChainingStrategy,
+    NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
+    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<U64Cost>,
+    Chaining: ChainingStrategy<U64Cost>,
 >(
     cli: Cli,
     reference: &SubsequenceType,
@@ -180,12 +181,13 @@ fn align_a_star_template_switch_distance_call<
     let alignment = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<
             AlphabetType,
+            U64Cost,
             NodeOrd,
             TemplateSwitchMinLength,
             Chaining,
             NoTemplateSwitchCountStrategy,
             AllowSecondaryDeletionStrategy,
-            NoShortcutStrategy,
+            NoShortcutStrategy<U64Cost>,
             AllowPrimaryMatchStrategy,
         >,
         _,

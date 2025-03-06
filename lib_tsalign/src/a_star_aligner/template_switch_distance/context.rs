@@ -3,9 +3,9 @@ use std::fmt::Display;
 use compact_genome::interface::alphabet::AlphabetCharacter;
 use compact_genome::interface::sequence::GenomeSequence;
 use extend_map::ExtendMap;
-use generic_a_star::cost::Cost;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStarBuffers, AStarContext};
+use num_traits::{Bounded, Zero};
 
 use crate::a_star_aligner::template_switch_distance::Node;
 use crate::a_star_aligner::AlignmentContext;
@@ -30,21 +30,31 @@ pub struct Context<
     pub reference: &'reference SubsequenceType,
     pub query: &'query SubsequenceType,
 
-    pub config: TemplateSwitchConfig<Strategies::Alphabet>,
+    pub config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
 
-    pub a_star_buffers: AStarBuffers<Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>, Node<Strategies>>,
+    #[allow(clippy::type_complexity)]
+    pub a_star_buffers: AStarBuffers<
+        Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
+        Node<Strategies>,
+    >,
     pub memory: Memory<Strategies>,
 
-    cost_limit: Option<Cost>,
+    cost_limit: Option<Strategies::Cost>,
     memory_limit: Option<usize>,
 }
 
 pub struct Memory<Strategies: AlignmentStrategySelector> {
-    pub template_switch_min_length: <<Strategies as AlignmentStrategySelector>::TemplateSwitchMinLength as TemplateSwitchMinLengthStrategy>::Memory,
-    pub chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy>::Memory,
+    pub template_switch_min_length: <<Strategies as AlignmentStrategySelector>::TemplateSwitchMinLength as TemplateSwitchMinLengthStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::Memory,
+    pub chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::Memory,
     pub template_switch_count:  <<Strategies as AlignmentStrategySelector>::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
-    pub shortcut: <<Strategies as AlignmentStrategySelector>::Shortcut as ShortcutStrategy>::Memory,
-    pub primary_match: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::Memory,
+    pub shortcut: <<Strategies as AlignmentStrategySelector>::Shortcut as ShortcutStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::Memory,
+    pub primary_match: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+    <Strategies as AlignmentStrategySelector>::Cost,
+>>::Memory,
 }
 
 impl<
@@ -57,9 +67,9 @@ impl<
     pub fn new(
         reference: &'reference SubsequenceType,
         query: &'query SubsequenceType,
-        config: TemplateSwitchConfig<Strategies::Alphabet>,
+        config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
         memory: Memory<Strategies>,
-        cost_limit: Option<Cost>,
+        cost_limit: Option<Strategies::Cost>,
         memory_limit: Option<usize>,
     ) -> Self {
         Self {
@@ -84,11 +94,11 @@ impl<
     fn create_root(&self) -> Self::Node {
         Self::Node {
             node_data: NodeData {
-                identifier: Identifier::new_primary(0, 0, 0, GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::create_root_identifier_primary_extra_data(self)),
+                identifier: Identifier::new_primary(0, 0, 0, GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::create_root_identifier_primary_extra_data(self)),
                 predecessor: None,
                 predecessor_edge_type: AlignmentType::Root,
-                cost: Cost::ZERO,
-                a_star_lower_bound: Cost::ZERO,
+                cost: Strategies::Cost::zero(),
+                a_star_lower_bound: Strategies::Cost::zero(),
             },
             strategies: AlignmentStrategiesNodeMemory::create_root(self),
         }
@@ -135,7 +145,7 @@ impl<
                     let is_match = r == q;
 
                     if flank_index == 0 {
-                        let can_do_primary_non_flank_match = <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::can_do_primary_non_flank_match(node.node_data.identifier, self);
+                        let can_do_primary_non_flank_match = <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::can_do_primary_non_flank_match(node.node_data.identifier, self);
 
                         let (is_match, cost_increment) =
                             if is_match && can_do_primary_non_flank_match {
@@ -158,7 +168,7 @@ impl<
                                 )
                             };
 
-                        if cost_increment != Cost::MAX {
+                        if cost_increment != Strategies::Cost::max_value() {
                             opened_nodes_output.extend(node.generate_primary_diagonal_successor(
                                 0,
                                 cost_increment,
@@ -167,10 +177,10 @@ impl<
                             ));
                         }
 
-                        if is_match && <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::always_generate_substitution() {
+                        if is_match && <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::always_generate_substitution() {
                             let cost_increment = node.strategies.primary_match.fake_substitution_cost(self);
 
-                            if cost_increment != Cost::MAX {
+                            if cost_increment != Strategies::Cost::max_value() {
                                 opened_nodes_output.extend(node.generate_primary_diagonal_successor(
                                     0,
                                     cost_increment,
@@ -184,7 +194,7 @@ impl<
                     if (flank_index < config.left_flank_length && can_start_another_template_switch)
                         || flank_index < 0
                     {
-                        let can_do_primary_flank_match = <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::can_do_primary_flank_match(node.node_data.identifier, self);
+                        let can_do_primary_flank_match = <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::can_do_primary_flank_match(node.node_data.identifier, self);
 
                         let edit_costs = if flank_index < 0 {
                             &config.right_flank_edit_costs
@@ -204,7 +214,7 @@ impl<
                             (false, edit_costs.substitution_cost(r.clone(), q.clone()))
                         };
 
-                        if cost_increment != Cost::MAX {
+                        if cost_increment != Strategies::Cost::max_value() {
                             opened_nodes_output.extend(node.generate_primary_diagonal_successor(
                                 flank_index + 1,
                                 cost_increment,
@@ -303,7 +313,9 @@ impl<
                 if flank_index == config.left_flank_length && can_start_another_template_switch {
                     let offset_costs = config.offset_costs.evaluate(&0);
 
-                    if offset_costs != Cost::MAX && config.base_cost != Cost::MAX {
+                    if offset_costs != Strategies::Cost::max_value()
+                        && config.base_cost != Strategies::Cost::max_value()
+                    {
                         opened_nodes_output.extend(
                             node.generate_initial_template_switch_entrance_successors(
                                 config.offset_costs.evaluate(&0) + config.base_cost,
@@ -341,7 +353,7 @@ impl<
                         .offset_costs
                         .evaluate(&(&template_switch_first_offset + 1));
 
-                    if new_cost != Cost::MAX {
+                    if new_cost != Strategies::Cost::max_value() {
                         let old_cost = config.offset_costs.evaluate(&template_switch_first_offset);
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
@@ -363,7 +375,7 @@ impl<
                         .offset_costs
                         .evaluate(&(&template_switch_first_offset - 1));
 
-                    if new_cost != Cost::MAX {
+                    if new_cost != Strategies::Cost::max_value() {
                         let old_cost = config.offset_costs.evaluate(&template_switch_first_offset);
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
@@ -421,7 +433,7 @@ impl<
 
                 // Only generate secondary successors if they can ever exit the template switch based on their length.
                 let min_length_cost = config.length_costs.min(length..).unwrap();
-                if min_length_cost != Cost::MAX {
+                if min_length_cost != Strategies::Cost::max_value() {
                     if primary_index < primary_sequence.len() && secondary_index > 0 {
                         // Diagonal characters
                         let p = primary_sequence[primary_index].clone();
@@ -474,9 +486,9 @@ impl<
                 }
 
                 let length_cost = config.length_costs.evaluate(&length);
-                if length_cost != Cost::MAX {
+                if length_cost != Strategies::Cost::max_value() {
                     let length_difference_cost = config.length_difference_costs.evaluate(&0);
-                    assert_ne!(length_difference_cost, Cost::MAX);
+                    assert_ne!(length_difference_cost, Strategies::Cost::max_value());
                     let cost_increment = length_cost + length_difference_cost;
 
                     opened_nodes_output.extend(
@@ -503,7 +515,7 @@ impl<
                         .length_difference_costs
                         .evaluate(&(&length_difference + 1));
 
-                    if new_cost != Cost::MAX {
+                    if new_cost != Strategies::Cost::max_value() {
                         let old_cost = config.length_difference_costs.evaluate(&length_difference);
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
@@ -521,7 +533,7 @@ impl<
                         .length_difference_costs
                         .evaluate(&(&length_difference - 1));
 
-                    if new_cost != Cost::MAX {
+                    if new_cost != Strategies::Cost::max_value() {
                         let old_cost = config.length_difference_costs.evaluate(&length_difference);
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
@@ -544,7 +556,9 @@ impl<
         }
 
         // Add additional successors through strategies.
-        <<Strategies as AlignmentStrategySelector>::Shortcut as ShortcutStrategy>::generate_successors(node, self, &mut opened_nodes_output);
+        <<Strategies as AlignmentStrategySelector>::Shortcut as ShortcutStrategy<
+            <Strategies as AlignmentStrategySelector>::Cost,
+        >>::generate_successors(node, self, &mut opened_nodes_output);
     }
 
     fn is_target(&self, node: &Self::Node) -> bool {
@@ -558,7 +572,7 @@ impl<
         }
     }
 
-    fn cost_limit(&self) -> Option<Cost> {
+    fn cost_limit(&self) -> Option<Strategies::Cost> {
         self.cost_limit
     }
 

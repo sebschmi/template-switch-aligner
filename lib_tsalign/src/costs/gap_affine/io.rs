@@ -1,6 +1,6 @@
 use super::GapAffineAlignmentCostTable;
 use crate::{
-    costs::cost::Cost,
+    costs::cost_function::io::parse_inf_value,
     error::{Error, Result},
     io::{
         parse_any_whitespace, parse_title, parse_whitespace, skip_any_whitespace, skip_whitespace,
@@ -9,6 +9,7 @@ use crate::{
 };
 
 use compact_genome::interface::alphabet::{Alphabet, AlphabetCharacter};
+use generic_a_star::cost::AStarCost;
 use log::trace;
 use nom::{
     bytes::complete::{tag, take},
@@ -26,7 +27,7 @@ use std::{
 #[cfg(test)]
 mod tests;
 
-impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
+impl<AlphabetType: Alphabet, Cost: AStarCost> GapAffineAlignmentCostTable<AlphabetType, Cost> {
     pub fn read_plain_multi(mut reader: impl Read) -> Result<HashMap<String, Self>> {
         let mut input = String::new();
         reader.read_to_string(&mut input)?;
@@ -67,9 +68,10 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         let column_width = self
             .substitution_cost_table
             .iter()
-            .map(|substitution_cost| format!("{}", substitution_cost.as_u64()).len())
+            .map(|substitution_cost| format!("{substitution_cost}").len())
             .max()
             .unwrap();
+        println!("{column_width:?}");
 
         write!(writer, "  |")?;
         for column_index in 0..AlphabetType::SIZE {
@@ -93,8 +95,7 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
             for column_index in 0..AlphabetType::SIZE {
                 let cost = self.substitution_cost_table[usize::from(row_index)
                     * usize::from(AlphabetType::SIZE)
-                    + usize::from(column_index)]
-                .as_u64();
+                    + usize::from(column_index)];
                 write!(writer, " {cost: >column_width$}")?;
             }
             writeln!(writer)?;
@@ -106,7 +107,7 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         let column_width = self
             .gap_open_cost_vector
             .iter()
-            .map(|gap_open_cost| format!("{}", gap_open_cost.as_u64()).len())
+            .map(|gap_open_cost| format!("{gap_open_cost}").len())
             .max()
             .unwrap();
 
@@ -120,7 +121,7 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         writeln!(writer)?;
 
         for column_index in 0..AlphabetType::SIZE {
-            let cost = self.gap_open_cost_vector[usize::from(column_index)].as_u64();
+            let cost = self.gap_open_cost_vector[usize::from(column_index)];
             write!(writer, " {cost: >column_width$}")?;
         }
         writeln!(writer)?;
@@ -131,7 +132,7 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         let column_width = self
             .gap_extend_cost_vector
             .iter()
-            .map(|gap_extend_cost| format!("{}", gap_extend_cost.as_u64()).len())
+            .map(|gap_extend_cost| format!("{gap_extend_cost}").len())
             .max()
             .unwrap();
 
@@ -145,7 +146,7 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
         writeln!(writer)?;
 
         for column_index in 0..AlphabetType::SIZE {
-            let cost = self.gap_extend_cost_vector[usize::from(column_index)].as_u64();
+            let cost = self.gap_extend_cost_vector[usize::from(column_index)];
             write!(writer, " {cost: >column_width$}")?;
         }
         writeln!(writer)?;
@@ -156,9 +157,10 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
     pub(crate) fn parse_plain(input: &str) -> IResult<&str, Self> {
         let (input, name) = opt(parse_title)(input)?;
         let (input, substitution_cost_table) =
-            parse_substitution_cost_table::<AlphabetType>(input)?;
-        let (input, gap_open_cost_vector) = parse_gap_open_cost_vector::<AlphabetType>(input)?;
-        let (input, gap_extend_cost_vector) = parse_gap_extend_cost_vector::<AlphabetType>(input)?;
+            parse_substitution_cost_table::<AlphabetType, _>(input)?;
+        let (input, gap_open_cost_vector) = parse_gap_open_cost_vector::<AlphabetType, _>(input)?;
+        let (input, gap_extend_cost_vector) =
+            parse_gap_extend_cost_vector::<AlphabetType, _>(input)?;
 
         let name = name.unwrap_or("").to_string();
 
@@ -174,7 +176,9 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
     }
 }
 
-fn parse_substitution_cost_table<AlphabetType: Alphabet>(input: &str) -> IResult<&str, Vec<Cost>> {
+fn parse_substitution_cost_table<AlphabetType: Alphabet, Cost: AStarCost>(
+    input: &str,
+) -> IResult<&str, Vec<Cost>> {
     // Identifier
     let input = skip_any_whitespace(input)?;
     let input = tag("SubstitutionCostTable")(input)?.0;
@@ -194,7 +198,7 @@ fn parse_substitution_cost_table<AlphabetType: Alphabet>(input: &str) -> IResult
 
     // Then we have the rows
     let (input, mut rows) = count(
-        parse_substitution_cost_table_row::<AlphabetType>,
+        parse_substitution_cost_table_row::<AlphabetType, _>,
         AlphabetType::SIZE.into(),
     )(input)?;
     rows.sort_unstable_by_key(|(character, _)| character.index());
@@ -249,7 +253,7 @@ fn parse_substitution_cost_table_first_row<AlphabetType: Alphabet>(
     }
 }
 
-fn parse_substitution_cost_table_row<AlphabetType: Alphabet>(
+fn parse_substitution_cost_table_row<AlphabetType: Alphabet, Cost: AStarCost>(
     input: &str,
 ) -> IResult<&str, (AlphabetType::CharacterType, Vec<Cost>)> {
     let input = skip_any_whitespace(input)?;
@@ -257,32 +261,38 @@ fn parse_substitution_cost_table_row<AlphabetType: Alphabet>(
     let input = skip_whitespace(input)?;
     let input = tag("|")(input)?.0;
     let (input, cost_vector) = count(
-        preceded(parse_whitespace, nom::character::complete::u64),
+        preceded(parse_whitespace, parse_inf_value),
         AlphabetType::SIZE.into(),
     )(input)?;
-    let cost_vector = cost_vector.into_iter().map(Cost::from).collect();
+    let cost_vector = cost_vector.into_iter().collect();
     Ok((input, (character, cost_vector)))
 }
 
-fn parse_gap_open_cost_vector<AlphabetType: Alphabet>(input: &str) -> IResult<&str, Vec<Cost>> {
+fn parse_gap_open_cost_vector<AlphabetType: Alphabet, Cost: AStarCost>(
+    input: &str,
+) -> IResult<&str, Vec<Cost>> {
     // Identifier
     let input = skip_any_whitespace(input)?;
     let input = tag("GapOpenCostVector")(input)?.0;
 
-    parse_cost_vector::<AlphabetType>(input)
+    parse_cost_vector::<AlphabetType, _>(input)
 }
 
-fn parse_gap_extend_cost_vector<AlphabetType: Alphabet>(input: &str) -> IResult<&str, Vec<Cost>> {
+fn parse_gap_extend_cost_vector<AlphabetType: Alphabet, Cost: AStarCost>(
+    input: &str,
+) -> IResult<&str, Vec<Cost>> {
     // Identifier
     let input = skip_any_whitespace(input)?;
     let input = tag("GapExtendCostVector")(input)?.0;
 
-    parse_cost_vector::<AlphabetType>(input)
+    parse_cost_vector::<AlphabetType, _>(input)
 }
 
-fn parse_cost_vector<AlphabetType: Alphabet>(input: &str) -> IResult<&str, Vec<Cost>> {
+fn parse_cost_vector<AlphabetType: Alphabet, Cost: AStarCost>(
+    input: &str,
+) -> IResult<&str, Vec<Cost>> {
     let (input, index_row) = parse_cost_vector_index_row::<AlphabetType>(input)?;
-    let (input, value_row) = parse_cost_vector_value_row::<AlphabetType>(input)?;
+    let (input, value_row) = parse_cost_vector_value_row::<AlphabetType, _>(input)?;
 
     let mut combined_row: Vec<_> = index_row.into_iter().zip(value_row).collect();
     combined_row.sort_unstable_by_key(|(character, _)| character.index());
@@ -318,13 +328,15 @@ fn parse_cost_vector_index_row<AlphabetType: Alphabet>(
     }
 }
 
-fn parse_cost_vector_value_row<AlphabetType: Alphabet>(input: &str) -> IResult<&str, Vec<Cost>> {
+fn parse_cost_vector_value_row<AlphabetType: Alphabet, Cost: AStarCost>(
+    input: &str,
+) -> IResult<&str, Vec<Cost>> {
     let input = skip_any_whitespace(input)?;
     let (input, cost_vector) = count(
-        preceded(parse_whitespace, nom::character::complete::u64),
+        preceded(parse_whitespace, parse_inf_value),
         AlphabetType::SIZE.into(),
     )(input)?;
-    let cost_vector = cost_vector.into_iter().map(Cost::from).collect();
+    let cost_vector = cost_vector.into_iter().collect();
     Ok((input, cost_vector))
 }
 

@@ -13,3 +13,4 @@ repository.workspace = true
 compact-genome.workspace = true
 log.workspace = true
 generic_a_star = { version = "0.8.0", path = "../generic_a_star" }
+num-traits.workspace = true

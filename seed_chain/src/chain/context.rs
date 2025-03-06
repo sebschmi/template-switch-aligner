@@ -1,14 +1,16 @@
-use generic_a_star::{cost::Cost, reset::Reset, AStarContext, AStarNode};
+use generic_a_star::{cost::AStarCost, reset::Reset, AStarContext, AStarNode};
 
 use crate::seed::ChainingAnchors;
 
 use super::node::{Identifier, Node};
 
 pub trait ChainingCostsProvider {
+    type Cost: AStarCost;
+
     /// Returns the cost of chaining `to` after `from`.
     ///
     /// If the chaining is impossible, then `Cost::MAX` is returned.
-    fn chaining_costs(&self, from: &Identifier, to: &Identifier) -> Cost;
+    fn chaining_costs(&self, from: &Identifier, to: &Identifier) -> Self::Cost;
 }
 
 pub struct Context<ChainingCosts: ChainingCostsProvider> {
@@ -17,7 +19,7 @@ pub struct Context<ChainingCosts: ChainingCostsProvider> {
 }
 
 impl<ChainingCosts: ChainingCostsProvider> AStarContext for Context<ChainingCosts> {
-    type Node = Node;
+    type Node = Node<<ChainingCosts as ChainingCostsProvider>::Cost>;
 
     fn create_root(&self) -> Self::Node {
         Self::Node::new_root()
@@ -75,7 +77,7 @@ impl<ChainingCosts: ChainingCostsProvider> AStarContext for Context<ChainingCost
         matches!(node.identifier(), Identifier::Target)
     }
 
-    fn cost_limit(&self) -> Option<Cost> {
+    fn cost_limit(&self) -> Option<<Self::Node as AStarNode>::Cost> {
         None
     }
 

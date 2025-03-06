@@ -8,7 +8,7 @@ use compact_genome::{
     implementation::vec_sequence::VectorGenome,
     interface::{alphabet::Alphabet, sequence::GenomeSequence},
 };
-use generic_a_star::{cost::Cost, AStar, AStarNode, AStarResult};
+use generic_a_star::{cost::AStarCost, AStar, AStarNode, AStarResult};
 use log::{debug, info, trace};
 
 use crate::{
@@ -34,39 +34,40 @@ use crate::{
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct TemplateSwitchLowerBoundMatrix {
-    entries: Vec<TSLBMatrixEntry>,
+pub struct TemplateSwitchLowerBoundMatrix<Cost> {
+    entries: Vec<TSLBMatrixEntry<Cost>>,
     min_distance_between_two_template_switches: usize,
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct TSLBMatrixEntry {
+pub struct TSLBMatrixEntry<Cost> {
     x: isize,
     y: isize,
     cost: Cost,
 }
 
-type TSLBAlignmentStrategies<AlphabetType> = AlignmentStrategySelection<
+type TSLBAlignmentStrategies<AlphabetType, Cost> = AlignmentStrategySelection<
     AlphabetType,
+    Cost,
     CostOnlyNodeOrdStrategy,
-    NoTemplateSwitchMinLengthStrategy,
-    NoChainingStrategy,
+    NoTemplateSwitchMinLengthStrategy<Cost>,
+    NoChainingStrategy<Cost>,
     MaxTemplateSwitchCountStrategy,
     ForbidSecondaryDeletionStrategy,
-    NoShortcutStrategy,
+    NoShortcutStrategy<Cost>,
     AllowPrimaryMatchStrategy,
 >;
 
-impl TemplateSwitchLowerBoundMatrix {
-    pub fn new<AlphabetType: Alphabet>(config: &TemplateSwitchConfig<AlphabetType>) -> Self {
+impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
+    pub fn new<AlphabetType: Alphabet>(config: &TemplateSwitchConfig<AlphabetType, Cost>) -> Self {
         info!("Computing TS lower bound matrix...");
         let lower_bound_config = generate_template_switch_lower_bound_config(config);
         assert!(
             lower_bound_config
                 .secondary_edit_costs
                 .min_gap_extend_cost()
-                > Cost::ZERO,
+                > Cost::zero(),
             "Secondary gap extend costs must be greater than zero for all alphabet characters."
         );
 
@@ -83,20 +84,22 @@ impl TemplateSwitchLowerBoundMatrix {
                 AlphabetType::iter().next().unwrap(),
                 genome_length,
             ));
-            let mut a_star = AStar::new(Context::<_, TSLBAlignmentStrategies<AlphabetType>>::new(
-                genome.as_genome_subsequence(),
-                genome.as_genome_subsequence(),
-                lower_bound_config.clone(),
-                Memory {
-                    template_switch_min_length: (),
-                    chaining: (),
-                    template_switch_count: 1,
-                    shortcut: (),
-                    primary_match: (),
-                },
-                None,
-                None,
-            ));
+            let mut a_star = AStar::new(
+                Context::<_, TSLBAlignmentStrategies<AlphabetType, Cost>>::new(
+                    genome.as_genome_subsequence(),
+                    genome.as_genome_subsequence(),
+                    lower_bound_config.clone(),
+                    Memory {
+                        template_switch_min_length: (),
+                        chaining: (),
+                        template_switch_count: 1,
+                        shortcut: (),
+                        primary_match: (),
+                    },
+                    None,
+                    None,
+                ),
+            );
             let root_xy = genome_length / 2;
             a_star.initialise_with(|context| Node::new_root_at(root_xy, root_xy, context));
             previous_closed_lower_bounds.extend(closed_lower_bounds.drain());
@@ -231,7 +234,7 @@ impl TemplateSwitchLowerBoundMatrix {
                     }
                     AStarResult::NoTarget => {
                         trace!("Search terminated without target");
-                        let previous = closed_lower_bounds.insert((x, y), Cost::MAX);
+                        let previous = closed_lower_bounds.insert((x, y), Cost::max_value());
                         debug_assert!(previous.is_none());
                         false
                     }
@@ -251,7 +254,7 @@ impl TemplateSwitchLowerBoundMatrix {
         let entries = closed_lower_bounds
             .into_iter()
             .filter_map(|((x, y), cost)| {
-                if cost != Cost::MAX {
+                if cost != Cost::max_value() {
                     Some(TSLBMatrixEntry { x, y, cost })
                 } else {
                     None
@@ -271,12 +274,12 @@ impl TemplateSwitchLowerBoundMatrix {
         self.min_distance_between_two_template_switches
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &TSLBMatrixEntry> {
+    pub fn iter(&self) -> impl Iterator<Item = &TSLBMatrixEntry<Cost>> {
         self.entries.iter()
     }
 }
 
-impl TSLBMatrixEntry {
+impl<Cost> TSLBMatrixEntry<Cost> {
     pub fn x(&self) -> isize {
         self.x
     }
@@ -284,15 +287,17 @@ impl TSLBMatrixEntry {
     pub fn y(&self) -> isize {
         self.y
     }
+}
 
+impl<Cost: Copy> TSLBMatrixEntry<Cost> {
     pub fn cost(&self) -> Cost {
         self.cost
     }
 }
 
-fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet>(
-    config: &TemplateSwitchConfig<AlphabetType>,
-) -> TemplateSwitchConfig<AlphabetType> {
+fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet, Cost: AStarCost>(
+    config: &TemplateSwitchConfig<AlphabetType, Cost>,
+) -> TemplateSwitchConfig<AlphabetType, Cost> {
     TemplateSwitchConfig {
         left_flank_length: 0,
         right_flank_length: 0,
@@ -311,9 +316,9 @@ fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet>(
         // The offset only affects which part of the secondary string is being compared against, but otherwise does not change anything.
         // Hence we can ignore it for the lower bound, and simply choose its minimum.
         offset_costs: vec![
-            (isize::MIN, Cost::MAX),
+            (isize::MIN, Cost::max_value()),
             (0, config.offset_costs.min(..).unwrap()),
-            (1, Cost::MAX),
+            (1, Cost::max_value()),
         ]
         .try_into()
         .unwrap(),
@@ -322,7 +327,7 @@ fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet>(
     }
 }
 
-fn enqueue_neighbours(
+fn enqueue_neighbours<Cost>(
     x: isize,
     y: isize,
     closed_lower_bounds: &mut HashMap<(isize, isize), Cost>,
@@ -344,12 +349,12 @@ fn enqueue_neighbours(
     }
 }
 
-impl Display for TemplateSwitchLowerBoundMatrix {
+impl<Cost: AStarCost> Display for TemplateSwitchLowerBoundMatrix<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (min_x, max_x, min_y, max_y) = self.entries.iter().fold(
             (isize::MAX, isize::MIN, isize::MAX, isize::MIN),
             |(min_x, max_x, min_y, max_y), &TSLBMatrixEntry { x, y, cost }| {
-                if cost != Cost::MAX {
+                if cost != Cost::max_value() {
                     (min_x.min(x), max_x.max(x), min_y.min(y), max_y.max(y))
                 } else {
                     (min_x, max_x, min_y, max_y)
@@ -370,11 +375,11 @@ impl Display for TemplateSwitchLowerBoundMatrix {
 
         let mut buffer = String::new();
         let mut matrix: HashMap<_, _> = (min_x..=max_x)
-            .flat_map(|x| (min_y..=max_y).map(move |y| ((x, y), Cost::MAX)))
+            .flat_map(|x| (min_y..=max_y).map(move |y| ((x, y), Cost::max_value())))
             .collect();
         let mut column_widths: HashMap<_, _> = (min_x..=max_x).map(|x| (x, 1)).collect();
         for TSLBMatrixEntry { x, y, cost } in &self.entries {
-            debug_assert_ne!(*cost, Cost::MAX);
+            debug_assert_ne!(*cost, Cost::max_value());
             buffer.clear();
             write!(buffer, "{cost}").unwrap();
 
@@ -388,7 +393,7 @@ impl Display for TemplateSwitchLowerBoundMatrix {
                 let column_width = *column_widths.get(&x).unwrap();
                 buffer.clear();
                 let cost = *matrix.get(&(x, y)).unwrap();
-                if cost == Cost::MAX {
+                if cost == Cost::max_value() {
                     write!(buffer, "∞").unwrap();
                 } else {
                     write!(buffer, "{cost}").unwrap();

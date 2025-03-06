@@ -517,6 +517,7 @@ dependencies = [
  "compact-genome",
  "generic_a_star",
  "log",
+ "num-traits",
 ]
 
 [[package]]

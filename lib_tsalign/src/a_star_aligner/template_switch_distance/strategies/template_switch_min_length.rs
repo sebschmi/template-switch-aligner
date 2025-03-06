@@ -2,29 +2,27 @@ use std::{collections::HashMap, marker::PhantomData, mem};
 
 use compact_genome::interface::sequence::GenomeSequence;
 use deterministic_default_hasher::DeterministicDefaultHasher;
+use generic_a_star::cost::AStarCost;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
 
 use crate::a_star_aligner::template_switch_distance::AlignmentType;
-use crate::{
-    a_star_aligner::template_switch_distance::{
-        identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary},
-        Context, Identifier, Node,
-    },
-    costs::cost::Cost,
+use crate::a_star_aligner::template_switch_distance::{
+    identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary},
+    Context, Identifier, Node,
 };
 
 use super::primary_match::PrimaryMatchStrategy;
 use super::{AlignmentStrategy, AlignmentStrategySelector};
 
-pub trait TemplateSwitchMinLengthStrategy: AlignmentStrategy {
+pub trait TemplateSwitchMinLengthStrategy<Cost>: AlignmentStrategy {
     /// The type used to memorise lookahead results.
     type Memory: Default + Reset;
 
     /// Takes the template switch entrance node and provides a lower bound for its costs depending on the minimum length of a template switch.
     /// The modified entrance node is returned in the iterator along with further nodes that were created while computing the lower bound.
     fn template_switch_min_length_lookahead<
-        Strategies: AlignmentStrategySelector<TemplateSwitchMinLength = Self>,
+        Strategies: AlignmentStrategySelector<Cost = Cost, TemplateSwitchMinLength = Self>,
         SubsequenceType: compact_genome::interface::sequence::GenomeSequence<
                 Strategies::Alphabet,
                 SubsequenceType,
@@ -37,10 +35,14 @@ pub trait TemplateSwitchMinLengthStrategy: AlignmentStrategy {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct NoTemplateSwitchMinLengthStrategy;
+pub struct NoTemplateSwitchMinLengthStrategy<Cost> {
+    phantom_data: PhantomData<Cost>,
+}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct LookaheadTemplateSwitchMinLengthStrategy;
+pub struct LookaheadTemplateSwitchMinLengthStrategy<Cost> {
+    phantom_data: PhantomData<Cost>,
+}
 
 struct TemplateSwitchMinLengthContext<
     'reference,
@@ -54,11 +56,13 @@ struct TemplateSwitchMinLengthContext<
     phantom_data: PhantomData<Strategies>,
 }
 
-impl TemplateSwitchMinLengthStrategy for NoTemplateSwitchMinLengthStrategy {
+impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
+    for NoTemplateSwitchMinLengthStrategy<Cost>
+{
     type Memory = ();
 
     fn template_switch_min_length_lookahead<
-        Strategies: AlignmentStrategySelector<TemplateSwitchMinLength = Self>,
+        Strategies: AlignmentStrategySelector<Cost = Cost, TemplateSwitchMinLength = Self>,
         SubsequenceType: compact_genome::interface::sequence::GenomeSequence<
                 Strategies::Alphabet,
                 SubsequenceType,
@@ -80,11 +84,13 @@ pub struct LookaheadMemoryKey {
     secondary_index: usize,
 }
 
-impl TemplateSwitchMinLengthStrategy for LookaheadTemplateSwitchMinLengthStrategy {
+impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
+    for LookaheadTemplateSwitchMinLengthStrategy<Cost>
+{
     type Memory = HashMap<LookaheadMemoryKey, Cost, DeterministicDefaultHasher>;
 
     fn template_switch_min_length_lookahead<
-        Strategies: AlignmentStrategySelector<TemplateSwitchMinLength = Self>,
+        Strategies: AlignmentStrategySelector<Cost = Cost, TemplateSwitchMinLength = Self>,
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
@@ -149,14 +155,16 @@ impl TemplateSwitchMinLengthStrategy for LookaheadTemplateSwitchMinLengthStrateg
     }
 }
 
-impl AlignmentStrategy for NoTemplateSwitchMinLengthStrategy {
+impl<Cost: AStarCost> AlignmentStrategy for NoTemplateSwitchMinLengthStrategy<Cost> {
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
     >(
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
-        Self
+        Self {
+            phantom_data: PhantomData,
+        }
     }
 
     fn generate_successor<
@@ -164,7 +172,11 @@ impl AlignmentStrategy for NoTemplateSwitchMinLengthStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
+        _identifier: Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -172,14 +184,16 @@ impl AlignmentStrategy for NoTemplateSwitchMinLengthStrategy {
     }
 }
 
-impl AlignmentStrategy for LookaheadTemplateSwitchMinLengthStrategy {
+impl<Cost: AStarCost> AlignmentStrategy for LookaheadTemplateSwitchMinLengthStrategy<Cost> {
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
     >(
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
-        Self
+        Self {
+            phantom_data: PhantomData,
+        }
     }
 
     fn generate_successor<
@@ -187,7 +201,11 @@ impl AlignmentStrategy for LookaheadTemplateSwitchMinLengthStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
+        _identifier: Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -239,7 +257,7 @@ impl<
         length == self.context.config.min_length
     }
 
-    fn cost_limit(&self) -> Option<Cost> {
+    fn cost_limit(&self) -> Option<Strategies::Cost> {
         self.context.cost_limit()
     }
 

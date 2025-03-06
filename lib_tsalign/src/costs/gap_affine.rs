@@ -1,13 +1,12 @@
 use std::marker::PhantomData;
 
 use compact_genome::interface::alphabet::{Alphabet, AlphabetCharacter};
-
-use crate::costs::cost::Cost;
+use generic_a_star::cost::AStarCost;
 
 pub mod io;
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct GapAffineAlignmentCostTable<AlphabetType> {
+pub struct GapAffineAlignmentCostTable<AlphabetType, Cost> {
     name: String,
     substitution_cost_table: Vec<Cost>,
     gap_open_cost_vector: Vec<Cost>,
@@ -15,7 +14,7 @@ pub struct GapAffineAlignmentCostTable<AlphabetType> {
     phantom_data: PhantomData<AlphabetType>,
 }
 
-impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
+impl<AlphabetType: Alphabet, Cost: AStarCost> GapAffineAlignmentCostTable<AlphabetType, Cost> {
     pub fn new(
         name: impl Into<String>,
         substitution_cost_table: impl Into<Vec<Cost>>,
@@ -36,22 +35,22 @@ impl<AlphabetType: Alphabet> GapAffineAlignmentCostTable<AlphabetType> {
 
         Self {
             name: "new_zero".to_string(),
-            substitution_cost_table: vec![Cost::ZERO; alphabet_size * alphabet_size],
-            gap_open_cost_vector: vec![Cost::ZERO; alphabet_size],
-            gap_extend_cost_vector: vec![Cost::ZERO; alphabet_size],
+            substitution_cost_table: vec![Cost::zero(); alphabet_size * alphabet_size],
+            gap_open_cost_vector: vec![Cost::zero(); alphabet_size],
+            gap_extend_cost_vector: vec![Cost::zero(); alphabet_size],
             phantom_data: Default::default(),
         }
     }
 
-    /// Creates a new table with all costs set to `Cost::MAX`.
+    /// Creates a new table with all costs set to `Cost::max_value()`.
     pub fn new_max() -> Self {
         let alphabet_size: usize = AlphabetType::SIZE.into();
 
         Self {
             name: "new_max".to_string(),
-            substitution_cost_table: vec![Cost::MAX; alphabet_size * alphabet_size],
-            gap_open_cost_vector: vec![Cost::MAX; alphabet_size],
-            gap_extend_cost_vector: vec![Cost::MAX; alphabet_size],
+            substitution_cost_table: vec![Cost::max_value(); alphabet_size * alphabet_size],
+            gap_open_cost_vector: vec![Cost::max_value(); alphabet_size],
+            gap_extend_cost_vector: vec![Cost::max_value(); alphabet_size],
             phantom_data: Default::default(),
         }
     }
@@ -194,7 +193,7 @@ fn vec_into_min<ValueType: Clone + Ord>(mut vec: Vec<ValueType>) -> Vec<ValueTyp
     vec
 }
 
-impl<AlphabetType> Clone for GapAffineAlignmentCostTable<AlphabetType> {
+impl<AlphabetType, Cost: Clone> Clone for GapAffineAlignmentCostTable<AlphabetType, Cost> {
     fn clone(&self) -> Self {
         Self {
             name: self.name.clone(),

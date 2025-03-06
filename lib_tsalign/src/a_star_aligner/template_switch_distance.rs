@@ -1,16 +1,14 @@
 use std::fmt::Display;
 
 use compact_genome::interface::sequence::GenomeSequence;
-use generic_a_star::AStarNode;
+use generic_a_star::{cost::AStarCost, AStarNode};
 use identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
-use num_traits::SaturatingSub;
+use num_traits::{Bounded, Zero};
 use strategies::{
     node_ord::NodeOrdStrategy, primary_match::PrimaryMatchStrategy,
     template_switch_min_length::TemplateSwitchMinLengthStrategy, AlignmentStrategiesNodeMemory,
     AlignmentStrategySelector,
 };
-
-use crate::costs::cost::Cost;
 
 mod alignment_type;
 pub mod context;
@@ -25,12 +23,17 @@ pub use identifier::Identifier;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node<Strategies: AlignmentStrategySelector> {
-    node_data: NodeData<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
+    node_data: NodeData<
+        <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+            <Strategies as AlignmentStrategySelector>::Cost,
+        >>::IdentifierPrimaryExtraData,
+        <Strategies as AlignmentStrategySelector>::Cost,
+    >,
     strategies: AlignmentStrategiesNodeMemory<Strategies>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct NodeData<PrimaryExtraData: Copy> {
+pub struct NodeData<PrimaryExtraData: Copy, Cost> {
     identifier: Identifier<PrimaryExtraData>,
     predecessor: Option<Identifier<PrimaryExtraData>>,
     predecessor_edge_type: AlignmentType,
@@ -39,19 +42,25 @@ pub struct NodeData<PrimaryExtraData: Copy> {
 }
 
 impl<Strategies: AlignmentStrategySelector> AStarNode for Node<Strategies> {
-    type Identifier = Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>;
+    type Identifier = Identifier<
+        <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+            <Strategies as AlignmentStrategySelector>::Cost,
+        >>::IdentifierPrimaryExtraData,
+    >;
 
     type EdgeType = AlignmentType;
+
+    type Cost = Strategies::Cost;
 
     fn identifier(&self) -> &Self::Identifier {
         &self.node_data.identifier
     }
 
-    fn cost(&self) -> Cost {
+    fn cost(&self) -> Self::Cost {
         self.node_data.cost
     }
 
-    fn a_star_lower_bound(&self) -> Cost {
+    fn a_star_lower_bound(&self) -> Self::Cost {
         self.node_data.a_star_lower_bound
     }
 
@@ -78,7 +87,9 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 query_index,
                 gap_type: GapType::None,
                 flank_index: 0,
-                data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::create_root_identifier_primary_extra_data( context),
+                data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::create_root_identifier_primary_extra_data( context),
             }),
             strategies: AlignmentStrategiesNodeMemory::create_root(context),
         }
@@ -89,11 +100,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
     >(
         &self,
         successor_flank_index: isize,
-        cost_increment: Cost,
+        cost_increment: Strategies::Cost,
         is_match: bool,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Option<Self> {
-        if cost_increment == Cost::MAX {
+        if cost_increment == Strategies::Cost::max_value() {
             return None;
         }
 
@@ -129,10 +140,10 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
     >(
         &self,
         successor_flank_index: isize,
-        cost_increment: Cost,
+        cost_increment: Strategies::Cost,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Option<Self> {
-        if cost_increment == Cost::MAX {
+        if cost_increment == Strategies::Cost::max_value() {
             return None;
         }
 
@@ -164,10 +175,10 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
     >(
         &self,
         successor_flank_index: isize,
-        cost_increment: Cost,
+        cost_increment: Strategies::Cost,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Option<Self> {
-        if cost_increment == Cost::MAX {
+        if cost_increment == Strategies::Cost::max_value() {
             return None;
         }
 
@@ -199,7 +210,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &'result self,
-        cost_increment: Cost,
+        cost_increment: Strategies::Cost,
         context: &'result Context<SubsequenceType, Strategies>,
     ) -> impl 'result + Iterator<Item = Self> {
         if !matches!(
@@ -240,11 +251,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        cost_increment: Cost,
+        cost_increment: Strategies::Cost,
         successor_template_switch_first_offset: isize,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Option<Self> {
-        if cost_increment == Cost::MAX {
+        if cost_increment == Strategies::Cost::max_value() {
             return None;
         }
 
@@ -333,7 +344,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 secondary_index,
                 gap_type: GapType::None,
             },
-            0.into(),
+            Strategies::Cost::zero(),
             AlignmentType::SecondaryRoot,
             context,
         );
@@ -347,11 +358,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        cost_increment: Cost,
+        cost_increment: Strategies::Cost,
         is_match: bool,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Option<Self> {
-        if cost_increment == Cost::MAX {
+        if cost_increment == Strategies::Cost::max_value() {
             return None;
         }
 
@@ -377,10 +388,10 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        cost_increment: Cost,
+        cost_increment: Strategies::Cost,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Option<Self> {
-        if cost_increment == Cost::MAX {
+        if cost_increment == Strategies::Cost::max_value() {
             return None;
         }
 
@@ -402,10 +413,10 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        cost_increment: Cost,
+        cost_increment: Strategies::Cost,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Option<Self> {
-        if cost_increment == Cost::MAX {
+        if cost_increment == Strategies::Cost::max_value() {
             return None;
         }
 
@@ -426,10 +437,10 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        cost_increment: Cost,
+        cost_increment: Strategies::Cost,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Option<Self> {
-        if cost_increment == Cost::MAX {
+        if cost_increment == Strategies::Cost::max_value() {
             return None;
         }
 
@@ -466,11 +477,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        cost_increment: Cost,
+        cost_increment: Strategies::Cost,
         successor_length_difference: isize,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Option<Self> {
-        if cost_increment == Cost::MAX {
+        if cost_increment == Strategies::Cost::max_value() {
             return None;
         }
 
@@ -557,9 +568,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 query_index,
                 gap_type: GapType::None,
                 flank_index: -context.config.right_flank_length,
-                data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::generate_successor_identifier_primary_extra_data(identifier, AlignmentType::PrimaryReentry, context),
+                data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::generate_successor_identifier_primary_extra_data(identifier, AlignmentType::PrimaryReentry, context),
             },
-            0.into(),
+            Strategies::Cost::zero(),
             AlignmentType::PrimaryReentry,
             context,
         ))
@@ -571,10 +584,10 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         &self,
         delta_reference: isize,
         delta_query: isize,
-        cost_increment: Cost,
+        cost_increment: Strategies::Cost,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Option<Self> {
-        if cost_increment == Cost::MAX {
+        if cost_increment == Strategies::Cost::max_value() {
             return None;
         }
 
@@ -610,7 +623,9 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 query_index,
                 gap_type: GapType::None,
                 flank_index: -context.config.right_flank_length,
-                data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::generate_successor_identifier_primary_extra_data(identifier, AlignmentType::PrimaryReentry, context),
+                data: <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::generate_successor_identifier_primary_extra_data(identifier, AlignmentType::PrimaryReentry, context),
             },
             cost_increment,
             AlignmentType::PrimaryShortcut {
@@ -625,8 +640,12 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
-        cost_increment: Cost,
+        identifier: Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
+        cost_increment: Strategies::Cost,
         alignment_type: AlignmentType,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Self {
@@ -643,14 +662,14 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
     }
 }
 
-impl<PrimaryExtraData: Copy> NodeData<PrimaryExtraData> {
+impl<PrimaryExtraData: Copy, Cost: AStarCost> NodeData<PrimaryExtraData, Cost> {
     fn create_root(identifier: Identifier<PrimaryExtraData>) -> Self {
         Self {
             identifier,
             predecessor: None,
             predecessor_edge_type: AlignmentType::Root,
-            cost: Cost::ZERO,
-            a_star_lower_bound: Cost::ZERO,
+            cost: Cost::zero(),
+            a_star_lower_bound: Cost::zero(),
         }
     }
 

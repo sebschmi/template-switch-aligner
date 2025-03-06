@@ -4,8 +4,6 @@ use num_traits::{Bounded, One};
 
 use crate::error::Error;
 
-use super::cost::Cost;
-
 pub mod io;
 
 /// A step-wise cost funtion.
@@ -20,20 +18,20 @@ pub mod io;
 ///
 /// The function can be evaluated via its [`evaluate`](Self::evaluate) function.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct CostFunction<SourceType> {
+pub struct CostFunction<SourceType, Cost> {
     function: Vec<(SourceType, Cost)>,
 }
 
-impl<SourceType: Bounded> CostFunction<SourceType> {
+impl<SourceType: Bounded, Cost: Bounded> CostFunction<SourceType, Cost> {
     /// Constructs a cost function that returns `Cost::MAX` for all input values.
     pub fn new_max() -> Self {
         Self {
-            function: vec![(SourceType::min_value(), Cost::MAX)],
+            function: vec![(SourceType::min_value(), Cost::max_value())],
         }
     }
 }
 
-impl<SourceType: Clone + Ord> CostFunction<SourceType> {
+impl<SourceType: Clone + Ord, Cost: Bounded + Copy + Ord> CostFunction<SourceType, Cost> {
     /// Evaluate the cost function at position `input`.
     ///
     /// **Panics** if the given input is before the first entry in the cost function.
@@ -51,7 +49,7 @@ impl<SourceType: Clone + Ord> CostFunction<SourceType> {
         self.function
             .iter()
             .filter_map(|(input, cost)| {
-                if *cost < Cost::MAX {
+                if *cost < Cost::max_value() {
                     Some(input.clone())
                 } else {
                     None
@@ -63,7 +61,8 @@ impl<SourceType: Clone + Ord> CostFunction<SourceType> {
 
 impl<
         SourceType: Clone + Ord + Bounded + One + Add<Output = SourceType> + Sub<Output = SourceType>,
-    > CostFunction<SourceType>
+        Cost: Ord + Copy,
+    > CostFunction<SourceType, Cost>
 {
     pub fn min(&self, range: impl RangeBounds<SourceType>) -> Option<Cost> {
         let is_not_empty = match (range.start_bound(), range.end_bound()) {
@@ -131,14 +130,22 @@ impl<
     }
 }
 
-impl<SourceType: Clone + Ord + From<u8> + Sub<Output = SourceType>> CostFunction<SourceType> {
+impl<SourceType: Clone + Ord + From<u8> + Sub<Output = SourceType>, Cost: Bounded + Ord>
+    CostFunction<SourceType, Cost>
+{
     pub fn maximum_finite_input(&self) -> Option<SourceType> {
-        let last_finite_index = self
-            .function
-            .iter()
-            .enumerate()
-            .rev()
-            .find_map(|(index, (_, cost))| if *cost < Cost::MAX { Some(index) } else { None })?;
+        let last_finite_index =
+            self.function
+                .iter()
+                .enumerate()
+                .rev()
+                .find_map(|(index, (_, cost))| {
+                    if *cost < Cost::max_value() {
+                        Some(index)
+                    } else {
+                        None
+                    }
+                })?;
         let infinite_index = last_finite_index + 1;
 
         if infinite_index == self.function.len() {
@@ -149,7 +156,7 @@ impl<SourceType: Clone + Ord + From<u8> + Sub<Output = SourceType>> CostFunction
     }
 }
 
-impl<SourceType: Ord> TryFrom<Vec<(SourceType, Cost)>> for CostFunction<SourceType> {
+impl<SourceType: Ord, Cost> TryFrom<Vec<(SourceType, Cost)>> for CostFunction<SourceType, Cost> {
     type Error = Error;
     fn try_from(function: Vec<(SourceType, Cost)>) -> Result<Self, Self::Error> {
         for (index, window) in function.windows(2).enumerate() {
@@ -162,15 +169,16 @@ impl<SourceType: Ord> TryFrom<Vec<(SourceType, Cost)>> for CostFunction<SourceTy
     }
 }
 
-impl<SourceType> From<CostFunction<SourceType>> for Vec<(SourceType, Cost)> {
-    fn from(value: CostFunction<SourceType>) -> Self {
+impl<SourceType, Cost> From<CostFunction<SourceType, Cost>> for Vec<(SourceType, Cost)> {
+    fn from(value: CostFunction<SourceType, Cost>) -> Self {
         value.function
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use generic_a_star::cost::Cost;
+
+    use generic_a_star::cost::U64Cost;
 
     use super::CostFunction;
 
@@ -178,13 +186,13 @@ mod tests {
     #[expect(clippy::reversed_empty_ranges)]
     fn min() {
         let cost_function = CostFunction::try_from(vec![
-            (2, Cost::from(100)),
-            (3, Cost::from(1)),
-            (4, Cost::from(2)),
-            (6, Cost::from(1)),
-            (8, Cost::from(3)),
-            (70, Cost::from(2)),
-            (100, Cost::from(100)),
+            (2, U64Cost::from(100u64)),
+            (3, U64Cost::from(1u64)),
+            (4, U64Cost::from(2u64)),
+            (6, U64Cost::from(1u64)),
+            (8, U64Cost::from(3u64)),
+            (70, U64Cost::from(2u64)),
+            (100, U64Cost::from(100u64)),
         ])
         .unwrap();
 
@@ -194,22 +202,22 @@ mod tests {
         assert_eq!(cost_function.min(4..2), None);
         assert_eq!(cost_function.min(4..=2), None);
         assert_eq!(cost_function.min(3..=2), None);
-        assert_eq!(cost_function.min(2..=2), Some(100.into()));
-        assert_eq!(cost_function.min(3..=3), Some(1.into()));
-        assert_eq!(cost_function.min(4..=4), Some(2.into()));
-        assert_eq!(cost_function.min(5..=5), Some(2.into()));
-        assert_eq!(cost_function.min(6..=6), Some(1.into()));
-        assert_eq!(cost_function.min(2..3), Some(100.into()));
-        assert_eq!(cost_function.min(3..4), Some(1.into()));
-        assert_eq!(cost_function.min(4..5), Some(2.into()));
-        assert_eq!(cost_function.min(5..6), Some(2.into()));
-        assert_eq!(cost_function.min(6..7), Some(1.into()));
-        assert_eq!(cost_function.min(22..=33), Some(3.into()));
-        assert_eq!(cost_function.min(22..33), Some(3.into()));
+        assert_eq!(cost_function.min(2..=2), Some(100u64.into()));
+        assert_eq!(cost_function.min(3..=3), Some(1u64.into()));
+        assert_eq!(cost_function.min(4..=4), Some(2u64.into()));
+        assert_eq!(cost_function.min(5..=5), Some(2u64.into()));
+        assert_eq!(cost_function.min(6..=6), Some(1u64.into()));
+        assert_eq!(cost_function.min(2..3), Some(100u64.into()));
+        assert_eq!(cost_function.min(3..4), Some(1u64.into()));
+        assert_eq!(cost_function.min(4..5), Some(2u64.into()));
+        assert_eq!(cost_function.min(5..6), Some(2u64.into()));
+        assert_eq!(cost_function.min(6..7), Some(1u64.into()));
+        assert_eq!(cost_function.min(22..=33), Some(3u64.into()));
+        assert_eq!(cost_function.min(22..33), Some(3u64.into()));
 
-        assert_eq!(cost_function.min(..), Some(1.into()));
+        assert_eq!(cost_function.min(..), Some(1u64.into()));
         assert!([
-            (0.., Some(1)),
+            (0.., Some(1u64)),
             (1.., Some(1)),
             (2.., Some(1)),
             (3.., Some(1)),
@@ -228,14 +236,14 @@ mod tests {
             (101.., Some(100)),
         ]
         .into_iter()
-        .map(|(range, cost)| (range, cost.map(Cost::from)))
+        .map(|(range, cost)| (range, cost.map(U64Cost::from)))
         .all(|(range, min)| cost_function.min(range) == min));
 
         assert!([
             (..0, None),
             (..1, None),
             (..2, None),
-            (..3, Some(100)),
+            (..3, Some(100u64)),
             (..4, Some(1)),
             (..5, Some(1)),
             (..6, Some(1)),
@@ -251,13 +259,13 @@ mod tests {
             (..101, Some(1)),
         ]
         .into_iter()
-        .map(|(range, cost)| (range, cost.map(Cost::from)))
+        .map(|(range, cost)| (range, cost.map(U64Cost::from)))
         .all(|(range, min)| cost_function.min(range) == min));
 
         assert!([
             (..=0, None),
             (..=1, None),
-            (..=2, Some(100)),
+            (..=2, Some(100u64)),
             (..=3, Some(1)),
             (..=4, Some(1)),
             (..=5, Some(1)),
@@ -274,7 +282,7 @@ mod tests {
             (..=101, Some(1)),
         ]
         .into_iter()
-        .map(|(range, cost)| (range, cost.map(Cost::from)))
+        .map(|(range, cost)| (range, cost.map(U64Cost::from)))
         .all(|(range, min)| cost_function.min(range) == min));
     }
 }

@@ -1,11 +1,14 @@
 use compact_genome::interface::sequence::GenomeSequence;
+use generic_a_star::cost::AStarCost;
 
 use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Identifier, Node};
 
 use super::{primary_match::PrimaryMatchStrategy, AlignmentStrategy, AlignmentStrategySelector};
 
-pub trait NodeOrdStrategy<PrimaryMatch: PrimaryMatchStrategy>: AlignmentStrategy {
-    fn cmp<Strategies: AlignmentStrategySelector<PrimaryMatch = PrimaryMatch>>(
+pub trait NodeOrdStrategy<Cost, PrimaryMatch: PrimaryMatchStrategy<Cost>>:
+    AlignmentStrategy
+{
+    fn cmp<Strategies: AlignmentStrategySelector<Cost = Cost, PrimaryMatch = PrimaryMatch>>(
         &self,
         n1: &Node<Strategies>,
         n2: &Node<Strategies>,
@@ -18,8 +21,10 @@ pub struct CostOnlyNodeOrdStrategy;
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct AntiDiagonalNodeOrdStrategy;
 
-impl<PrimaryMatch: PrimaryMatchStrategy> NodeOrdStrategy<PrimaryMatch> for CostOnlyNodeOrdStrategy {
-    fn cmp<Strategies: AlignmentStrategySelector<PrimaryMatch = PrimaryMatch>>(
+impl<Cost: AStarCost, PrimaryMatch: PrimaryMatchStrategy<Cost>> NodeOrdStrategy<Cost, PrimaryMatch>
+    for CostOnlyNodeOrdStrategy
+{
+    fn cmp<Strategies: AlignmentStrategySelector<Cost = Cost, PrimaryMatch = PrimaryMatch>>(
         &self,
         n1: &Node<Strategies>,
         n2: &Node<Strategies>,
@@ -30,10 +35,10 @@ impl<PrimaryMatch: PrimaryMatchStrategy> NodeOrdStrategy<PrimaryMatch> for CostO
     }
 }
 
-impl<PrimaryMatch: PrimaryMatchStrategy> NodeOrdStrategy<PrimaryMatch>
+impl<Cost: AStarCost, PrimaryMatch: PrimaryMatchStrategy<Cost>> NodeOrdStrategy<Cost, PrimaryMatch>
     for AntiDiagonalNodeOrdStrategy
 {
-    fn cmp<Strategies: AlignmentStrategySelector<PrimaryMatch = PrimaryMatch>>(
+    fn cmp<Strategies: AlignmentStrategySelector<Cost = Cost, PrimaryMatch = PrimaryMatch>>(
         &self,
         n1: &Node<Strategies>,
         n2: &Node<Strategies>,
@@ -72,7 +77,11 @@ impl AlignmentStrategy for CostOnlyNodeOrdStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
+        _identifier: Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -95,7 +104,11 @@ impl AlignmentStrategy for AntiDiagonalNodeOrdStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
+        _identifier: Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {

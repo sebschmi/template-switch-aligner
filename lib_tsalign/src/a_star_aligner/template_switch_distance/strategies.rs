@@ -2,6 +2,7 @@ use std::{fmt::Debug, marker::PhantomData};
 
 use chaining::ChainingStrategy;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
+use generic_a_star::cost::AStarCost;
 use node_ord::NodeOrdStrategy;
 use primary_match::PrimaryMatchStrategy;
 use secondary_deletion::SecondaryDeletionStrategy;
@@ -21,13 +22,14 @@ pub mod template_switch_min_length;
 
 pub trait AlignmentStrategySelector: Eq + Clone + std::fmt::Debug {
     type Alphabet: Alphabet;
-    type NodeOrd: NodeOrdStrategy<Self::PrimaryMatch>;
-    type TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy;
-    type Chaining: ChainingStrategy;
+    type Cost: AStarCost;
+    type NodeOrd: NodeOrdStrategy<Self::Cost, Self::PrimaryMatch>;
+    type TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Self::Cost>;
+    type Chaining: ChainingStrategy<Self::Cost>;
     type TemplateSwitchCount: TemplateSwitchCountStrategy;
     type SecondaryDeletion: SecondaryDeletionStrategy;
-    type Shortcut: ShortcutStrategy;
-    type PrimaryMatch: PrimaryMatchStrategy;
+    type Shortcut: ShortcutStrategy<Self::Cost>;
+    type PrimaryMatch: PrimaryMatchStrategy<Self::Cost>;
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -51,7 +53,11 @@ pub trait AlignmentStrategy: Eq + Clone + std::fmt::Debug {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
+        identifier: Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
         alignment_type: AlignmentType,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self;
@@ -77,7 +83,11 @@ impl<Strategies: AlignmentStrategySelector> AlignmentStrategiesNodeMemory<Strate
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
+        identifier: Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
         alignment_type: AlignmentType,
         context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -106,17 +116,19 @@ impl<Strategies: AlignmentStrategySelector> AlignmentStrategiesNodeMemory<Strate
 
 pub struct AlignmentStrategySelection<
     AlphabetType: Alphabet,
-    NodeOrd: NodeOrdStrategy<PrimaryMatch>,
-    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
-    Chaining: ChainingStrategy,
+    Cost: AStarCost,
+    NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
+    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
+    Chaining: ChainingStrategy<Cost>,
     TemplateSwitchCount: TemplateSwitchCountStrategy,
     SecondaryDeletion: SecondaryDeletionStrategy,
-    Shortcut: ShortcutStrategy,
-    PrimaryMatch: PrimaryMatchStrategy,
+    Shortcut: ShortcutStrategy<Cost>,
+    PrimaryMatch: PrimaryMatchStrategy<Cost>,
 > {
     #[allow(clippy::type_complexity)]
     phantom_data: PhantomData<(
         AlphabetType,
+        Cost,
         NodeOrd,
         TemplateSwitchMinLength,
         Chaining,
@@ -129,16 +141,18 @@ pub struct AlignmentStrategySelection<
 
 impl<
         AlphabetType: Alphabet,
-        NodeOrd: NodeOrdStrategy<PrimaryMatch>,
-        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
-        Chaining: ChainingStrategy,
+        Cost: AStarCost,
+        NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
+        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
+        Chaining: ChainingStrategy<Cost>,
         TemplateSwitchCount: TemplateSwitchCountStrategy,
         SecondaryDeletion: SecondaryDeletionStrategy,
-        Shortcut: ShortcutStrategy,
-        PrimaryMatch: PrimaryMatchStrategy,
+        Shortcut: ShortcutStrategy<Cost>,
+        PrimaryMatch: PrimaryMatchStrategy<Cost>,
     > AlignmentStrategySelector
     for AlignmentStrategySelection<
         AlphabetType,
+        Cost,
         NodeOrd,
         TemplateSwitchMinLength,
         Chaining,
@@ -149,6 +163,7 @@ impl<
     >
 {
     type Alphabet = AlphabetType;
+    type Cost = Cost;
     type NodeOrd = NodeOrd;
     type TemplateSwitchMinLength = TemplateSwitchMinLength;
     type Chaining = Chaining;
@@ -160,16 +175,18 @@ impl<
 
 impl<
         AlphabetType: Alphabet,
-        NodeOrd: NodeOrdStrategy<PrimaryMatch>,
-        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
-        Chaining: ChainingStrategy,
+        Cost: AStarCost,
+        NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
+        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
+        Chaining: ChainingStrategy<Cost>,
         TemplateSwitchCount: TemplateSwitchCountStrategy,
         SecondaryDeletion: SecondaryDeletionStrategy,
-        Shortcut: ShortcutStrategy,
-        PrimaryMatch: PrimaryMatchStrategy,
+        Shortcut: ShortcutStrategy<Cost>,
+        PrimaryMatch: PrimaryMatchStrategy<Cost>,
     > Debug
     for AlignmentStrategySelection<
         AlphabetType,
+        Cost,
         NodeOrd,
         TemplateSwitchMinLength,
         Chaining,
@@ -186,16 +203,18 @@ impl<
 
 impl<
         AlphabetType: Alphabet,
-        NodeOrd: NodeOrdStrategy<PrimaryMatch>,
-        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
-        Chaining: ChainingStrategy,
+        Cost: AStarCost,
+        NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
+        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
+        Chaining: ChainingStrategy<Cost>,
         TemplateSwitchCount: TemplateSwitchCountStrategy,
         SecondaryDeletion: SecondaryDeletionStrategy,
-        Shortcut: ShortcutStrategy,
-        PrimaryMatch: PrimaryMatchStrategy,
+        Shortcut: ShortcutStrategy<Cost>,
+        PrimaryMatch: PrimaryMatchStrategy<Cost>,
     > Clone
     for AlignmentStrategySelection<
         AlphabetType,
+        Cost,
         NodeOrd,
         TemplateSwitchMinLength,
         Chaining,
@@ -214,16 +233,18 @@ impl<
 
 impl<
         AlphabetType: Alphabet,
-        NodeOrd: NodeOrdStrategy<PrimaryMatch>,
-        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
-        Chaining: ChainingStrategy,
+        Cost: AStarCost,
+        NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
+        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
+        Chaining: ChainingStrategy<Cost>,
         TemplateSwitchCount: TemplateSwitchCountStrategy,
         SecondaryDeletion: SecondaryDeletionStrategy,
-        Shortcut: ShortcutStrategy,
-        PrimaryMatch: PrimaryMatchStrategy,
+        Shortcut: ShortcutStrategy<Cost>,
+        PrimaryMatch: PrimaryMatchStrategy<Cost>,
     > PartialEq
     for AlignmentStrategySelection<
         AlphabetType,
+        Cost,
         NodeOrd,
         TemplateSwitchMinLength,
         Chaining,
@@ -240,16 +261,18 @@ impl<
 
 impl<
         AlphabetType: Alphabet,
-        NodeOrd: NodeOrdStrategy<PrimaryMatch>,
-        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy,
-        Chaining: ChainingStrategy,
+        Cost: AStarCost,
+        NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
+        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
+        Chaining: ChainingStrategy<Cost>,
         TemplateSwitchCount: TemplateSwitchCountStrategy,
         SecondaryDeletion: SecondaryDeletionStrategy,
-        Shortcut: ShortcutStrategy,
-        PrimaryMatch: PrimaryMatchStrategy,
+        Shortcut: ShortcutStrategy<Cost>,
+        PrimaryMatch: PrimaryMatchStrategy<Cost>,
     > Eq
     for AlignmentStrategySelection<
         AlphabetType,
+        Cost,
         NodeOrd,
         TemplateSwitchMinLength,
         Chaining,

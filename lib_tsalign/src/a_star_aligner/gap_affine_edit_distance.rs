@@ -1,14 +1,12 @@
 use std::marker::PhantomData;
 
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
-use generic_a_star::{reset::Reset, AStarContext, AStarNode};
-
-use crate::costs::cost::Cost;
+use generic_a_star::{cost::AStarCost, reset::Reset, AStarContext, AStarNode};
 
 use super::{alignment_result::IAlignmentType, AlignmentContext};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Node {
+pub struct Node<Cost> {
     identifier: Identifier,
     predecessor: Option<Identifier>,
     predecessor_edge_type: AlignmentType,
@@ -45,7 +43,7 @@ pub enum AlignmentType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ScoringTable {
+pub struct ScoringTable<Cost> {
     pub match_cost: Cost,
     pub substitution_cost: Cost,
     pub gap_open_cost: Cost,
@@ -57,19 +55,22 @@ pub struct Context<
     'reference,
     'query,
     AlphabetType: Alphabet,
+    Cost: AStarCost,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
 > {
     reference: &'reference SubsequenceType,
     query: &'query SubsequenceType,
 
-    scoring_table: ScoringTable,
+    scoring_table: ScoringTable<Cost>,
     phantom_data: PhantomData<AlphabetType>,
 }
 
-impl AStarNode for Node {
+impl<Cost: AStarCost> AStarNode for Node<Cost> {
     type Identifier = Identifier;
 
     type EdgeType = AlignmentType;
+
+    type Cost = Cost;
 
     fn identifier(&self) -> &Self::Identifier {
         &self.identifier
@@ -80,7 +81,7 @@ impl AStarNode for Node {
     }
 
     fn a_star_lower_bound(&self) -> Cost {
-        0.into()
+        Cost::zero()
     }
 
     fn predecessor(&self) -> Option<&Self::Identifier> {
@@ -94,17 +95,18 @@ impl AStarNode for Node {
 
 impl<
         AlphabetType: Alphabet,
+        Cost: AStarCost,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    > AStarContext for Context<'_, '_, AlphabetType, SubsequenceType>
+    > AStarContext for Context<'_, '_, AlphabetType, Cost, SubsequenceType>
 {
-    type Node = Node;
+    type Node = Node<Cost>;
 
     fn create_root(&self) -> Self::Node {
         Self::Node {
             identifier: Identifier::new(0, 0, GapType::None),
             predecessor: None,
             predecessor_edge_type: AlignmentType::Root,
-            cost: Cost::ZERO,
+            cost: Cost::zero(),
         }
     }
 
@@ -184,16 +186,18 @@ impl<
 
 impl<
         AlphabetType: Alphabet,
+        Cost: AStarCost,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    > Reset for Context<'_, '_, AlphabetType, SubsequenceType>
+    > Reset for Context<'_, '_, AlphabetType, Cost, SubsequenceType>
 {
     fn reset(&mut self) {}
 }
 
 impl<
         AlphabetType: Alphabet,
+        Cost: AStarCost,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    > AlignmentContext for Context<'_, '_, AlphabetType, SubsequenceType>
+    > AlignmentContext for Context<'_, '_, AlphabetType, Cost, SubsequenceType>
 {
     type AlphabetType = AlphabetType;
 
@@ -214,13 +218,14 @@ impl<
         'reference,
         'query,
         AlphabetType: Alphabet,
+        Cost: AStarCost,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    > Context<'reference, 'query, AlphabetType, SubsequenceType>
+    > Context<'reference, 'query, AlphabetType, Cost, SubsequenceType>
 {
     pub fn new(
         reference: &'reference SubsequenceType,
         query: &'query SubsequenceType,
-        scoring_table: ScoringTable,
+        scoring_table: ScoringTable<Cost>,
     ) -> Self {
         Self {
             reference,
@@ -231,13 +236,13 @@ impl<
     }
 }
 
-impl PartialOrd for Node {
+impl<Cost: Ord> PartialOrd for Node<Cost> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for Node {
+impl<Cost: Ord> Ord for Node<Cost> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match self.cost.cmp(&other.cost) {
             // This secondary ordering may make things actually slower.
@@ -253,7 +258,7 @@ impl Ord for Node {
     }
 }
 
-impl std::fmt::Display for Node {
+impl<Cost: std::fmt::Display> std::fmt::Display for Node<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Self {
             identifier,

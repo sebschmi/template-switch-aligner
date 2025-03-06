@@ -1,4 +1,5 @@
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
+use generic_a_star::cost::AStarCost;
 use index::{
     iterators::{
         AlignmentMatrixInnerIterator, AlignmentMatrixQueryIterator,
@@ -7,19 +8,20 @@ use index::{
     AlignmentMatrixIndex,
 };
 use ndarray::Array2;
+use num_traits::Bounded;
 
-use crate::{alignment_configuration::AlignmentConfiguration, costs::cost::Cost};
+use crate::alignment_configuration::AlignmentConfiguration;
 
 pub mod index;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AlignmentMatrix {
-    matrix: Array2<AlignmentMatrixEntry>,
-    configuration: AlignmentConfiguration,
+pub struct AlignmentMatrix<Cost> {
+    matrix: Array2<AlignmentMatrixEntry<Cost>>,
+    configuration: AlignmentConfiguration<Cost>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct AlignmentMatrixEntry {
+pub struct AlignmentMatrixEntry<Cost> {
     pub cost: Cost,
     pub alignment_type: BaseAlignmentType,
 }
@@ -34,9 +36,9 @@ pub enum BaseAlignmentType {
     Substitution,
 }
 
-impl AlignmentMatrix {
+impl<Cost: AStarCost> AlignmentMatrix<Cost> {
     pub fn new(
-        configuration: AlignmentConfiguration,
+        configuration: AlignmentConfiguration<Cost>,
         reference_length: usize,
         query_length: usize,
     ) -> Self {
@@ -77,7 +79,7 @@ impl AlignmentMatrix {
 
     fn initialise(&mut self) {
         // Initialise matrix origin.
-        self.matrix[[0, 0]].cost = Cost::ZERO;
+        self.matrix[[0, 0]].cost = Cost::zero();
         self.matrix[[0, 0]].alignment_type = BaseAlignmentType::None;
 
         // Initialise matrix edges.
@@ -139,7 +141,7 @@ impl AlignmentMatrix {
         self.matrix[index] = entry;
     }
 
-    fn compute_insertion_entry(&self, index: AlignmentMatrixIndex) -> AlignmentMatrixEntry {
+    fn compute_insertion_entry(&self, index: AlignmentMatrixIndex) -> AlignmentMatrixEntry<Cost> {
         let alignment_type = BaseAlignmentType::Insertion;
         let predecessor_cost = self.matrix[index.predecessor(alignment_type)].cost;
 
@@ -149,7 +151,7 @@ impl AlignmentMatrix {
         }
     }
 
-    fn compute_deletion_entry(&self, index: AlignmentMatrixIndex) -> AlignmentMatrixEntry {
+    fn compute_deletion_entry(&self, index: AlignmentMatrixIndex) -> AlignmentMatrixEntry<Cost> {
         let alignment_type = BaseAlignmentType::Deletion;
         let predecessor_cost = self.matrix[index.predecessor(alignment_type)].cost;
 
@@ -168,7 +170,7 @@ impl AlignmentMatrix {
         index: AlignmentMatrixIndex,
         reference: &SequenceType,
         query: &SequenceType,
-    ) -> AlignmentMatrixEntry {
+    ) -> AlignmentMatrixEntry<Cost> {
         let alignment_type = if reference[index.reference_index - 1] == query[index.query_index - 1]
         {
             BaseAlignmentType::Match
@@ -184,7 +186,7 @@ impl AlignmentMatrix {
     }
 
     #[cfg(test)]
-    fn manual_debug_fill(&mut self, entries: impl IntoIterator<Item = AlignmentMatrixEntry>) {
+    fn manual_debug_fill(&mut self, entries: impl IntoIterator<Item = AlignmentMatrixEntry<Cost>>) {
         let mut entries = entries.into_iter();
         for index in self.inner_index_iter() {
             self.matrix[index] = entries.next().unwrap();
@@ -193,7 +195,7 @@ impl AlignmentMatrix {
     }
 }
 
-impl PartialOrd for AlignmentMatrixEntry {
+impl<Cost: PartialOrd> PartialOrd for AlignmentMatrixEntry<Cost> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match self.cost.partial_cmp(&other.cost) {
             ord @ (Some(core::cmp::Ordering::Greater | core::cmp::Ordering::Less) | None) => ord,
@@ -208,16 +210,16 @@ impl PartialOrd for AlignmentMatrixEntry {
     }
 }
 
-impl Default for AlignmentMatrixEntry {
+impl<Cost: Bounded> Default for AlignmentMatrixEntry<Cost> {
     fn default() -> Self {
         Self {
-            cost: Cost::MAX,
+            cost: Cost::max_value(),
             alignment_type: BaseAlignmentType::None,
         }
     }
 }
 
-impl core::fmt::Display for AlignmentMatrix {
+impl<Cost: AStarCost> core::fmt::Display for AlignmentMatrix<Cost> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let mut cost_column_widths = vec![0; self.matrix.dim().1];
         for reference_index in 0..self.matrix.dim().0 {
@@ -273,6 +275,7 @@ mod tests {
         },
         interface::sequence_store::SequenceStore,
     };
+    use generic_a_star::cost::U64Cost;
     use traitsequence::interface::Sequence;
 
     use crate::{
@@ -290,17 +293,17 @@ mod tests {
         let reference = sequence_store.get(&reference);
         let query = sequence_store.get(&query);
 
-        let mut matrix = AlignmentMatrix::new(
+        let mut matrix = AlignmentMatrix::<U64Cost>::new(
             AlignmentConfiguration::default(),
             reference.len(),
             query.len(),
         );
-        assert_eq!(matrix.align(reference, query), 3.into());
+        assert_eq!(matrix.align(reference, query), 3u64.into());
 
         let mut manual_matrix = matrix.clone();
         manual_matrix.manual_debug_fill(
             [
-                (0, BaseAlignmentType::Match),
+                (0u64, BaseAlignmentType::Match),
                 (3, BaseAlignmentType::Deletion),
                 (6, BaseAlignmentType::Deletion),
                 (3, BaseAlignmentType::Insertion),
@@ -329,23 +332,23 @@ mod tests {
         let reference = sequence_store.get(&reference);
         let query = sequence_store.get(&query);
 
-        let mut matrix = AlignmentMatrix::new(
+        let mut matrix = AlignmentMatrix::<U64Cost>::new(
             AlignmentConfiguration::default(),
             reference.len(),
             query.len(),
         );
-        assert_eq!(matrix.align(reference, query), 3.into());
+        assert_eq!(matrix.align(reference, query), 3u64.into());
 
         let reference = sequence_store.add_from_slice_u8(b"ACGCCCCCT").unwrap();
         let query = sequence_store.add_from_slice_u8(b"ACCCCCGCT").unwrap();
         let reference = sequence_store.get(&reference);
         let query = sequence_store.get(&query);
 
-        let mut matrix = AlignmentMatrix::new(
+        let mut matrix = AlignmentMatrix::<U64Cost>::new(
             AlignmentConfiguration::default(),
             reference.len(),
             query.len(),
         );
-        assert_eq!(matrix.align(reference, query), 4.into());
+        assert_eq!(matrix.align(reference, query), 4u64.into());
     }
 }

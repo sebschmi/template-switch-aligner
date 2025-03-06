@@ -7,8 +7,9 @@ use std::{
 };
 
 use binary_heap_plus::{BinaryHeap, MinComparator};
-use cost::Cost;
+use cost::AStarCost;
 use deterministic_default_hasher::DeterministicDefaultHasher;
+use num_traits::Bounded;
 use reset::Reset;
 
 pub mod cost;
@@ -28,16 +29,18 @@ pub trait AStarNode: Sized + Ord + Debug + Display {
     /// These are used when backtracking a solution.
     type EdgeType: Debug;
 
+    type Cost: AStarCost;
+
     /// Returns the identifier of this node.
     fn identifier(&self) -> &Self::Identifier;
 
     /// Returns the cost of this node.
     ///
     /// This is the cost measured from the root node, and does NOT include the A* lower bound.
-    fn cost(&self) -> Cost;
+    fn cost(&self) -> Self::Cost;
 
     /// Returns the A* lower bound of this node.
-    fn a_star_lower_bound(&self) -> Cost;
+    fn a_star_lower_bound(&self) -> Self::Cost;
 
     /// Returns the identifier of the predecessor of this node.
     fn predecessor(&self) -> Option<&Self::Identifier>;
@@ -62,7 +65,7 @@ pub trait AStarContext: Reset {
     /// Returns the maximum cost that the target node is allowed to have.
     ///
     /// If no target is found with this cost or lower, then [`AStarResult::ExceededCostLimit`] is returned.
-    fn cost_limit(&self) -> Option<Cost>;
+    fn cost_limit(&self) -> Option<<Self::Node as AStarNode>::Cost>;
 
     /// An approximate memory limit for the aligner in bytes.
     ///
@@ -79,7 +82,7 @@ pub struct AStarPerformanceCounters {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum AStarState<NodeIdentifier> {
+pub enum AStarState<NodeIdentifier, Cost> {
     /// The algorithm was just created or reset.
     Empty,
     /// The algorithm was just initialised.
@@ -87,12 +90,14 @@ pub enum AStarState<NodeIdentifier> {
     /// The algorithm is searching for a target node.
     Searching,
     /// The algorithm terminated.
-    Terminated { result: AStarResult<NodeIdentifier> },
+    Terminated {
+        result: AStarResult<NodeIdentifier, Cost>,
+    },
 }
 
 #[derive(Debug)]
 pub struct AStar<Context: AStarContext> {
-    state: AStarState<<Context::Node as AStarNode>::Identifier>,
+    state: AStarState<<Context::Node as AStarNode>::Identifier, <Context::Node as AStarNode>::Cost>,
     context: Context,
     closed_list: HashMap<
         <Context::Node as AStarNode>::Identifier,
@@ -112,7 +117,7 @@ pub struct AStarBuffers<NodeIdentifier, Node> {
 #[derive(Debug, Default, Clone, Ord, PartialOrd, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(tag = "astar_result_type"))]
-pub enum AStarResult<NodeIdentifier> {
+pub enum AStarResult<NodeIdentifier, Cost> {
     /// The algorithm has found a target node.
     FoundTarget {
         #[cfg_attr(feature = "serde", serde(skip))]
@@ -170,7 +175,10 @@ impl<Context: AStarContext> AStar<Context> {
         }
     }
 
-    pub fn state(&self) -> &AStarState<<Context::Node as AStarNode>::Identifier> {
+    pub fn state(
+        &self,
+    ) -> &AStarState<<Context::Node as AStarNode>::Identifier, <Context::Node as AStarNode>::Cost>
+    {
         &self.state
     }
 
@@ -221,20 +229,27 @@ impl<Context: AStarContext> AStar<Context> {
         self.open_list.push(node(&self.context));
     }
 
-    pub fn search(&mut self) -> AStarResult<<Context::Node as AStarNode>::Identifier> {
+    pub fn search(
+        &mut self,
+    ) -> AStarResult<<Context::Node as AStarNode>::Identifier, <Context::Node as AStarNode>::Cost>
+    {
         self.search_until(|context, node| context.is_target(node))
     }
 
     pub fn search_until(
         &mut self,
         mut is_target: impl FnMut(&Context, &Context::Node) -> bool,
-    ) -> AStarResult<<Context::Node as AStarNode>::Identifier> {
+    ) -> AStarResult<<Context::Node as AStarNode>::Identifier, <Context::Node as AStarNode>::Cost>
+    {
         assert!(matches!(
             self.state,
             AStarState::Init | AStarState::Searching | AStarState::Terminated { .. }
         ));
 
-        let cost_limit = self.context.cost_limit().unwrap_or(Cost::MAX);
+        let cost_limit = self
+            .context
+            .cost_limit()
+            .unwrap_or(<Context::Node as AStarNode>::Cost::max_value());
         let memory_limit = self.context.memory_limit().unwrap_or(usize::MAX);
         // The factor of 2.3 is determined empirically.
         let node_count_limit =
@@ -361,8 +376,13 @@ impl<Context: AStarContext> AStar<Context> {
     /// The cost of the first node is never returned.
     pub fn backtrack_with_costs(
         &self,
-    ) -> impl use<'_, Context> + Iterator<Item = (<Context::Node as AStarNode>::EdgeType, Cost)>
-    {
+    ) -> impl use<'_, Context>
+           + Iterator<
+        Item = (
+            <Context::Node as AStarNode>::EdgeType,
+            <Context::Node as AStarNode>::Cost,
+        ),
+    > {
         let AStarState::Terminated {
             result: AStarResult::FoundTarget { identifier, .. },
         } = &self.state
@@ -392,11 +412,18 @@ impl<Context: AStarContext> AStar<Context> {
     ///
     /// The elements of the iterator are a pair of an edge and the cost of the node that is reached by the edge.
     /// The cost of the first node is never returned.
+    #[allow(clippy::type_complexity)]
     pub fn backtrack_with_costs_from(
         &self,
         identifier: &<Context::Node as AStarNode>::Identifier,
     ) -> Option<
-        impl use<'_, Context> + Iterator<Item = (<Context::Node as AStarNode>::EdgeType, Cost)>,
+        impl use<'_, Context>
+            + Iterator<
+                Item = (
+                    <Context::Node as AStarNode>::EdgeType,
+                    <Context::Node as AStarNode>::Cost,
+                ),
+            >,
     > {
         if self.closed_list.contains_key(identifier) {
             Some(BacktrackingIteratorWithCost {
@@ -408,7 +435,8 @@ impl<Context: AStarContext> AStar<Context> {
         }
     }
 }
-impl<NodeIdentifier> AStarResult<NodeIdentifier> {
+
+impl<NodeIdentifier, Cost: Copy> AStarResult<NodeIdentifier, Cost> {
     /// Returns the maximum cost of closed nodes reached during alignment.
     ///
     /// **Panics** if `self` is [`AStarResult::NoTarget`].
@@ -421,7 +449,7 @@ impl<NodeIdentifier> AStarResult<NodeIdentifier> {
         }
     }
 
-    pub fn without_node_identifier(&self) -> AStarResult<()> {
+    pub fn without_node_identifier(&self) -> AStarResult<(), Cost> {
         match *self {
             Self::FoundTarget { cost, .. } => AStarResult::FoundTarget {
                 identifier: (),
@@ -430,6 +458,27 @@ impl<NodeIdentifier> AStarResult<NodeIdentifier> {
             Self::ExceededCostLimit { cost_limit } => AStarResult::ExceededCostLimit { cost_limit },
             Self::ExceededMemoryLimit { max_cost } => AStarResult::ExceededMemoryLimit { max_cost },
             Self::NoTarget => AStarResult::NoTarget,
+        }
+    }
+}
+
+impl<NodeIdentifier: Clone, Cost> AStarResult<NodeIdentifier, Cost> {
+    pub fn transform_cost<TargetCost>(
+        &self,
+        transform: impl Fn(&Cost) -> TargetCost,
+    ) -> AStarResult<NodeIdentifier, TargetCost> {
+        match self {
+            AStarResult::FoundTarget { identifier, cost } => AStarResult::FoundTarget {
+                identifier: identifier.clone(),
+                cost: transform(cost),
+            },
+            AStarResult::ExceededCostLimit { cost_limit } => AStarResult::ExceededCostLimit {
+                cost_limit: transform(cost_limit),
+            },
+            AStarResult::ExceededMemoryLimit { max_cost } => AStarResult::ExceededMemoryLimit {
+                max_cost: transform(max_cost),
+            },
+            AStarResult::NoTarget => AStarResult::NoTarget,
         }
     }
 }
@@ -451,7 +500,10 @@ impl<Context: AStarContext> Iterator for BacktrackingIterator<'_, Context> {
 }
 
 impl<Context: AStarContext> Iterator for BacktrackingIteratorWithCost<'_, Context> {
-    type Item = (<Context::Node as AStarNode>::EdgeType, Cost);
+    type Item = (
+        <Context::Node as AStarNode>::EdgeType,
+        <Context::Node as AStarNode>::Cost,
+    );
 
     fn next(&mut self) -> Option<Self::Item> {
         let current = self.a_star.closed_list.get(&self.current).unwrap();
@@ -476,7 +528,7 @@ impl<NodeIdentifier, Node: Ord> Default for AStarBuffers<NodeIdentifier, Node> {
     }
 }
 
-impl<NodeIdentifier> Display for AStarResult<NodeIdentifier> {
+impl<NodeIdentifier, Cost: Display> Display for AStarResult<NodeIdentifier, Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             AStarResult::FoundTarget { cost, .. } => write!(f, "Reached target with cost {cost}"),

@@ -1,7 +1,8 @@
+use std::{fmt::Debug, marker::PhantomData};
+
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
-use generic_a_star::cost::Cost;
+use generic_a_star::cost::AStarCost;
 use log::debug;
-use num_traits::SaturatingSub;
 use seed_chain::{
     chain::{Chain, ChainingCostsProvider},
     seed::{ChainingAnchor, ChainingAnchors},
@@ -21,7 +22,7 @@ use crate::{
 
 use super::{primary_match::PrimaryMatchStrategy, AlignmentStrategy, AlignmentStrategySelector};
 
-pub trait ChainingStrategy: AlignmentStrategy {
+pub trait ChainingStrategy<Cost>: AlignmentStrategy {
     type Memory;
 
     fn initialise_memory<
@@ -30,12 +31,12 @@ pub trait ChainingStrategy: AlignmentStrategy {
     >(
         reference: &SubsequenceType,
         query: &SubsequenceType,
-        config: &TemplateSwitchConfig<AlphabetType>,
+        config: &TemplateSwitchConfig<AlphabetType, Cost>,
         block_size: usize,
     ) -> Self::Memory;
 
     fn apply_lower_bound<
-        Strategies: AlignmentStrategySelector<Chaining = Self>,
+        Strategies: AlignmentStrategySelector<Cost = Cost, Chaining = Self>,
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         node: Node<Strategies>,
@@ -44,29 +45,36 @@ pub trait ChainingStrategy: AlignmentStrategy {
 }
 
 #[expect(dead_code)]
-pub struct ChainingMemory {
-    ts_lower_bounds: TemplateSwitchLowerBoundMatrix,
-    tsa_lower_bounds: TemplateSwitchAlignmentLowerBoundMatrix,
-    chain: Chain,
+pub struct ChainingMemory<Cost> {
+    ts_lower_bounds: TemplateSwitchLowerBoundMatrix<Cost>,
+    tsa_lower_bounds: TemplateSwitchAlignmentLowerBoundMatrix<Cost>,
+    chain: Chain<Cost>,
     max_gap_open_cost: Cost,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct NoChainingStrategy;
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct PrecomputeOnlyChainingStrategy;
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct LowerBoundChainingStrategy;
-
-struct TemplateSwitchAlignmentLowerBoundChainingCosts<'a> {
-    matrix: &'a TemplateSwitchAlignmentLowerBoundMatrix,
-    reference_length: usize,
-    query_length: usize,
+pub struct NoChainingStrategy<Cost> {
+    phantom_data: PhantomData<Cost>,
 }
 
-impl ChainingStrategy for NoChainingStrategy {
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct PrecomputeOnlyChainingStrategy<Cost> {
+    phantom_data: PhantomData<Cost>,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct LowerBoundChainingStrategy<Cost> {
+    phantom_data: PhantomData<Cost>,
+}
+
+struct TemplateSwitchAlignmentLowerBoundChainingCosts<'a, Cost> {
+    matrix: &'a TemplateSwitchAlignmentLowerBoundMatrix<Cost>,
+    reference_length: usize,
+    query_length: usize,
+    phantom_data: PhantomData<Cost>,
+}
+
+impl<Cost: AStarCost> ChainingStrategy<Cost> for NoChainingStrategy<Cost> {
     type Memory = ();
 
     fn initialise_memory<
@@ -75,14 +83,14 @@ impl ChainingStrategy for NoChainingStrategy {
     >(
         _reference: &SubsequenceType,
         _query: &SubsequenceType,
-        _config: &TemplateSwitchConfig<AlphabetType>,
+        _config: &TemplateSwitchConfig<AlphabetType, Cost>,
         _block_size: usize,
     ) -> Self::Memory {
         // Do nothing.
     }
 
     fn apply_lower_bound<
-        Strategies: AlignmentStrategySelector<Chaining = Self>,
+        Strategies: AlignmentStrategySelector<Cost = Cost, Chaining = Self>,
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         node: Node<Strategies>,
@@ -92,8 +100,8 @@ impl ChainingStrategy for NoChainingStrategy {
     }
 }
 
-impl ChainingStrategy for PrecomputeOnlyChainingStrategy {
-    type Memory = ChainingMemory;
+impl<Cost: AStarCost> ChainingStrategy<Cost> for PrecomputeOnlyChainingStrategy<Cost> {
+    type Memory = ChainingMemory<Cost>;
 
     fn initialise_memory<
         AlphabetType: Alphabet,
@@ -101,7 +109,7 @@ impl ChainingStrategy for PrecomputeOnlyChainingStrategy {
     >(
         reference: &SubsequenceType,
         query: &SubsequenceType,
-        config: &TemplateSwitchConfig<AlphabetType>,
+        config: &TemplateSwitchConfig<AlphabetType, Cost>,
         block_size: usize,
     ) -> Self::Memory {
         let ts_lower_bounds = TemplateSwitchLowerBoundMatrix::new(config);
@@ -121,6 +129,7 @@ impl ChainingStrategy for PrecomputeOnlyChainingStrategy {
                 matrix: &tsa_lower_bounds,
                 reference_length: reference.len(),
                 query_length: query.len(),
+                phantom_data: PhantomData,
             },
             chaining_anchors,
         );
@@ -135,7 +144,7 @@ impl ChainingStrategy for PrecomputeOnlyChainingStrategy {
     }
 
     fn apply_lower_bound<
-        Strategies: AlignmentStrategySelector<Chaining = Self>,
+        Strategies: AlignmentStrategySelector<Cost = Cost, Chaining = Self>,
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         node: Node<Strategies>,
@@ -145,8 +154,8 @@ impl ChainingStrategy for PrecomputeOnlyChainingStrategy {
     }
 }
 
-impl ChainingStrategy for LowerBoundChainingStrategy {
-    type Memory = ChainingMemory;
+impl<Cost: AStarCost> ChainingStrategy<Cost> for LowerBoundChainingStrategy<Cost> {
+    type Memory = ChainingMemory<Cost>;
 
     fn initialise_memory<
         AlphabetType: Alphabet,
@@ -154,14 +163,14 @@ impl ChainingStrategy for LowerBoundChainingStrategy {
     >(
         reference: &SubsequenceType,
         query: &SubsequenceType,
-        config: &TemplateSwitchConfig<AlphabetType>,
+        config: &TemplateSwitchConfig<AlphabetType, Cost>,
         block_size: usize,
     ) -> Self::Memory {
         PrecomputeOnlyChainingStrategy::initialise_memory(reference, query, config, block_size)
     }
 
     fn apply_lower_bound<
-        Strategies: AlignmentStrategySelector<Chaining = Self>,
+        Strategies: AlignmentStrategySelector<Cost = Cost, Chaining = Self>,
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         mut node: Node<Strategies>,
@@ -202,7 +211,11 @@ impl ChainingStrategy for LowerBoundChainingStrategy {
     }
 }
 
-impl ChainingCostsProvider for TemplateSwitchAlignmentLowerBoundChainingCosts<'_> {
+impl<Cost: AStarCost> ChainingCostsProvider
+    for TemplateSwitchAlignmentLowerBoundChainingCosts<'_, Cost>
+{
+    type Cost = Cost;
+
     fn chaining_costs(
         &self,
         from: &seed_chain::chain::Identifier,
@@ -218,7 +231,7 @@ impl ChainingCostsProvider for TemplateSwitchAlignmentLowerBoundChainingCosts<'_
         if from.reference_block().end > to.reference_block().start
             || from.query_block().end > to.query_block().start
         {
-            return Cost::MAX;
+            return Cost::max_value();
         }
 
         let delta_reference = to.reference_block().start - from.reference_block().end;
@@ -242,14 +255,16 @@ fn seed_chain_identifier_to_chaining_anchor(
     }
 }
 
-impl AlignmentStrategy for NoChainingStrategy {
+impl<Cost: AStarCost> AlignmentStrategy for NoChainingStrategy<Cost> {
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
     >(
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
-        Self
+        Self {
+            phantom_data: PhantomData,
+        }
     }
 
     fn generate_successor<
@@ -257,7 +272,11 @@ impl AlignmentStrategy for NoChainingStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
+        _identifier: Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -265,14 +284,16 @@ impl AlignmentStrategy for NoChainingStrategy {
     }
 }
 
-impl AlignmentStrategy for PrecomputeOnlyChainingStrategy {
+impl<Cost: AStarCost> AlignmentStrategy for PrecomputeOnlyChainingStrategy<Cost> {
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
     >(
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
-        Self
+        Self {
+            phantom_data: PhantomData,
+        }
     }
 
     fn generate_successor<
@@ -280,7 +301,11 @@ impl AlignmentStrategy for PrecomputeOnlyChainingStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
+        _identifier: Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
@@ -288,14 +313,16 @@ impl AlignmentStrategy for PrecomputeOnlyChainingStrategy {
     }
 }
 
-impl AlignmentStrategy for LowerBoundChainingStrategy {
+impl<Cost: AStarCost> AlignmentStrategy for LowerBoundChainingStrategy<Cost> {
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
     >(
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
-        Self
+        Self {
+            phantom_data: PhantomData,
+        }
     }
 
     fn generate_successor<
@@ -303,7 +330,11 @@ impl AlignmentStrategy for LowerBoundChainingStrategy {
         Strategies: AlignmentStrategySelector,
     >(
         &self,
-        _identifier: Identifier<<<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy>::IdentifierPrimaryExtraData>,
+        _identifier: Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
         _alignment_type: AlignmentType,
         _context: &Context<'_, '_, SubsequenceType, Strategies>,
     ) -> Self {
