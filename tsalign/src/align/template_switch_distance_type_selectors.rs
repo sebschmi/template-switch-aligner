@@ -27,7 +27,7 @@ use lib_tsalign::{
 };
 use log::info;
 
-use crate::Cli;
+use super::Cli;
 
 #[derive(Clone, ValueEnum)]
 pub enum TemplateSwitchNodeOrdStrategySelector {

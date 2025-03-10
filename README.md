@@ -37,7 +37,7 @@ If you ever want to update to a new release, simply run `cargo install tsalign` 
 
 2. Clone this git repository using `git clone <url of this repository>`.
 
-3. From within the root of the git repository, you can run `cargo run --release -- <arguments>` to run tsalign, where `<arguments>` are the arguments that are passed to tsalign.
+3. From within the root of the git repository, you can run `cargo run --release -- align <arguments>` to run tsalign, where `<arguments>` are the arguments that are passed to tsalign.
 
 Cargo acts as a wrapper here, ensuring that whenever you make changes to the code, it will be recompiled if necessary.
 Hence, for updating, it is enough to do a `git pull`.
