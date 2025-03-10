@@ -122,7 +122,7 @@ enum InputAlphabet {
     RnaIupac,
 }
 
-pub fn align_cli(cli: Cli) {
+pub fn cli(cli: Cli) {
     TermLogger::init(
         cli.log_level,
         Default::default(),
