@@ -13,7 +13,7 @@ package.rust-version = "1.85.0"
 package.repository = "https://github.com/sebschmi/template-switch-aligner"
 
 [workspace.dependencies]
-serde = "1.0.218"
+serde = "1.0.219"
 compact-genome = "12.2.0"
 traitsequence = "8.1.2"
 log = "0.4.26"
