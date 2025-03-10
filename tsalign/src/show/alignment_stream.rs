@@ -94,7 +94,7 @@ impl AlignmentStream {
             let (multiplicity, alignment_type) = self.stream.front_mut().unwrap();
             let front_length = *multiplicity * Self::stream_length(*alignment_type);
 
-            if front_length >= requested_pop_length {
+            if front_length <= requested_pop_length {
                 self.tail_coordinates
                     .advance(*multiplicity, *alignment_type);
                 self.stream.pop_front();
@@ -105,6 +105,16 @@ impl AlignmentStream {
                     .advance(pop_multiplicity, *alignment_type);
                 *multiplicity -= pop_multiplicity;
                 self.actual_length -= pop_multiplicity * Self::stream_length(*alignment_type);
+                break;
+            }
+        }
+
+        while let Some((multiplicity, alignment_type)) = self.stream.front().copied() {
+            if Self::stream_length(alignment_type) == 0 {
+                self.tail_coordinates
+                    .advance(multiplicity, alignment_type);
+                self.stream.pop_front();
+            } else {
                 break;
             }
         }

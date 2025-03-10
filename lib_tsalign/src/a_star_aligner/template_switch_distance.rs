@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::{cost::AStarCost, AStarNode};
-use identifier::{GapType, TemplateSwitchSecondary};
+use identifier::GapType;
 use num_traits::{Bounded, Zero};
 use strategies::{
     node_ord::NodeOrdStrategy, primary_match::PrimaryMatchStrategy,
@@ -19,8 +19,7 @@ pub mod strategies;
 
 pub use alignment_type::AlignmentType;
 pub use context::Context;
-pub use identifier::Identifier;
-pub use identifier::TemplateSwitchPrimary;
+pub use identifier::{Identifier, TemplateSwitchPrimary, TemplateSwitchSecondary};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node<Strategies: AlignmentStrategySelector> {

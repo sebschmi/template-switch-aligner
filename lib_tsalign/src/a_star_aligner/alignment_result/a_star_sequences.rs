@@ -5,10 +5,10 @@ use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 #[derive(Debug, Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SequencePair {
-    reference: String,
-    reference_rc: String,
-    query: String,
-    query_rc: String,
+    pub reference: String,
+    pub reference_rc: String,
+    pub query: String,
+    pub query_rc: String,
 }
 
 impl SequencePair {
