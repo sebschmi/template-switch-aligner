@@ -79,6 +79,8 @@ where
     if has_target {
         AlignmentResult::new_with_target(
             alignment,
+            a_star.context().reference(),
+            a_star.context().query(),
             result.without_node_identifier(),
             duration,
             a_star.performance_counters().opened_nodes,
@@ -90,6 +92,8 @@ where
     } else {
         AlignmentResult::new_without_target(
             result.without_node_identifier(),
+            a_star.context().reference(),
+            a_star.context().query(),
             duration,
             a_star.performance_counters().opened_nodes,
             a_star.performance_counters().closed_nodes,

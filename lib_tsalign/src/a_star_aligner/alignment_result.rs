@@ -1,8 +1,12 @@
 use std::fmt::{Display, Formatter, Result, Write};
 
+use a_star_sequences::SequencePair;
+use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{cost::AStarCost, AStarResult};
 use noisy_float::types::{r64, R64};
 use num_traits::{Float, Zero};
+
+pub mod a_star_sequences;
 
 pub trait IAlignmentType {
     fn is_repeatable(&self) -> bool;
@@ -36,6 +40,7 @@ pub enum AlignmentResult<AlignmentType, Cost> {
 #[must_use]
 pub struct AlignmentStatistics<Cost> {
     pub result: AStarResult<(), Cost>,
+    pub sequences: SequencePair,
     pub cost: R64,
     pub cost_per_base: R64,
     pub duration_seconds: R64,
@@ -75,8 +80,13 @@ macro_rules! each_statistic {
 
 impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentType, Cost> {
     #[expect(clippy::too_many_arguments)]
-    pub fn new_with_target(
+    pub fn new_with_target<
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    >(
         alignment: Vec<(usize, AlignmentType)>,
+        reference: &SubsequenceType,
+        query: &SubsequenceType,
         result: AStarResult<(), Cost>,
         duration_seconds: f64,
         opened_nodes: usize,
@@ -87,27 +97,8 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
     ) -> Self {
         Self::new(
             Some(alignment),
-            result,
-            duration_seconds,
-            opened_nodes,
-            closed_nodes,
-            suboptimal_opened_nodes,
-            reference_length,
-            query_length,
-        )
-    }
-
-    pub fn new_without_target(
-        result: AStarResult<(), Cost>,
-        duration_seconds: f64,
-        opened_nodes: usize,
-        closed_nodes: usize,
-        suboptimal_opened_nodes: usize,
-        reference_length: usize,
-        query_length: usize,
-    ) -> Self {
-        Self::new(
-            None,
+            reference,
+            query,
             result,
             duration_seconds,
             opened_nodes,
@@ -119,8 +110,42 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
     }
 
     #[expect(clippy::too_many_arguments)]
-    fn new(
+    pub fn new_without_target<
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    >(
+        result: AStarResult<(), Cost>,
+        reference: &SubsequenceType,
+        query: &SubsequenceType,
+        duration_seconds: f64,
+        opened_nodes: usize,
+        closed_nodes: usize,
+        suboptimal_opened_nodes: usize,
+        reference_length: usize,
+        query_length: usize,
+    ) -> Self {
+        Self::new(
+            None,
+            reference,
+            query,
+            result,
+            duration_seconds,
+            opened_nodes,
+            closed_nodes,
+            suboptimal_opened_nodes,
+            reference_length,
+            query_length,
+        )
+    }
+
+    #[expect(clippy::too_many_arguments)]
+    fn new<
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    >(
         alignment: Option<Vec<(usize, AlignmentType)>>,
+        reference: &SubsequenceType,
+        query: &SubsequenceType,
         result: AStarResult<(), Cost>,
         duration_seconds: f64,
         opened_nodes: usize,
@@ -132,6 +157,7 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
         let cost = result.cost();
         let statistics = AlignmentStatistics {
             result,
+            sequences: SequencePair::new(reference, query),
             cost: (cost.as_f64()).try_into().unwrap(),
             cost_per_base: ((cost.as_f64() * 2.0) / (reference_length + query_length) as f64)
                 .try_into()
@@ -381,6 +407,7 @@ impl<Cost> Default for AlignmentStatistics<Cost> {
     fn default() -> Self {
         Self {
             result: Default::default(),
+            sequences: Default::default(),
             cost: Default::default(),
             cost_per_base: Default::default(),
             duration_seconds: Default::default(),
