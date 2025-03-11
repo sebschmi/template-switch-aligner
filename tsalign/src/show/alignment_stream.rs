@@ -6,7 +6,6 @@ use lib_tsalign::a_star_aligner::template_switch_distance::{AlignmentType, Templ
 pub struct AlignmentStream {
     stream: VecDeque<(usize, AlignmentType)>,
     actual_length: usize,
-    requested_length: usize,
 
     /// The alignment coordinates of the first alignment after the head of the queue.
     head_coordinates: AlignmentCoordinates,
@@ -22,11 +21,10 @@ pub struct AlignmentCoordinates {
 }
 
 impl AlignmentStream {
-    pub fn new(length: usize) -> Self {
+    pub fn new() -> Self {
         Self {
             stream: Default::default(),
             actual_length: 0,
-            requested_length: length,
             head_coordinates: Default::default(),
             tail_coordinates: Default::default(),
         }
@@ -48,47 +46,40 @@ impl AlignmentStream {
         self.tail_coordinates
     }
 
-    pub fn push(&mut self, multiplicity: usize, alignment_type: AlignmentType) {
-        self.push_without_pop(multiplicity, alignment_type);
-        self.pop_to_requested_length();
-    }
-
-    /// Does not pop to requested length.
-    pub fn push_until_full(&mut self, multiplicity: usize, alignment_type: AlignmentType) {
-        let available_length = self.requested_length - self.actual_length;
-        let push_length = multiplicity * Self::stream_length(alignment_type);
+    pub fn push_until_full(
+        &mut self,
+        multiplicity: &mut usize,
+        alignment_type: AlignmentType,
+        requested_length: usize,
+    ) {
+        let available_length = requested_length - self.actual_length;
+        let push_length = *multiplicity * Self::stream_length(alignment_type);
 
         if available_length >= push_length {
-            self.push(multiplicity, alignment_type);
+            self.push(*multiplicity, alignment_type);
+            *multiplicity = 0;
         } else {
-            let multiplicity = available_length.div_ceil(Self::stream_length(alignment_type));
-            self.push_without_pop(multiplicity, alignment_type);
+            let push_multiplicity = available_length.div_ceil(Self::stream_length(alignment_type));
+            self.push(push_multiplicity, alignment_type);
+            *multiplicity -= push_multiplicity;
         }
-    }
-
-    pub fn pop_to_requested_length(&mut self) {
-        self.pop(self.requested_length);
     }
 
     pub fn clear(&mut self) {
         self.pop(0);
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.stream.is_empty()
+    pub fn is_full(&self, requested_length: usize) -> bool {
+        self.actual_length >= requested_length
     }
 
-    pub fn is_full(&self) -> bool {
-        self.actual_length >= self.requested_length
-    }
-
-    fn push_without_pop(&mut self, multiplicity: usize, alignment_type: AlignmentType) {
+    pub fn push(&mut self, multiplicity: usize, alignment_type: AlignmentType) {
         self.stream.push_back((multiplicity, alignment_type));
         self.head_coordinates.advance(multiplicity, alignment_type);
         self.actual_length += multiplicity * Self::stream_length(alignment_type);
     }
 
-    fn pop(&mut self, requested_length: usize) {
+    pub fn pop(&mut self, requested_length: usize) {
         while self.actual_length > requested_length {
             let requested_pop_length = self.actual_length - requested_length;
             let (multiplicity, alignment_type) = self.stream.front_mut().unwrap();
@@ -175,7 +166,9 @@ impl AlignmentCoordinates {
             }
             AlignmentType::TemplateSwitchExit { length_difference } => {
                 let Some(template_switch_primary) = self.template_switch_primary.take() else {
-                    panic!("Encountered template switch exit without first encountering a template switch entrance")
+                    panic!(
+                        "Encountered template switch exit without first encountering a template switch entrance"
+                    )
                 };
                 match template_switch_primary {
                     TemplateSwitchPrimary::Reference => {

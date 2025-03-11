@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{stdout, Read},
+    io::{Read, stdout},
     path::PathBuf,
 };
 
@@ -8,14 +8,14 @@ use alignment_stream::AlignmentCoordinates;
 use clap::Parser;
 use lib_tsalign::{
     a_star_aligner::{
-        alignment_result::{a_star_sequences::SequencePair, AlignmentResult},
+        alignment_result::{AlignmentResult, a_star_sequences::SequencePair},
         template_switch_distance::{AlignmentType, TemplateSwitchPrimary, TemplateSwitchSecondary},
     },
     costs::U64Cost,
 };
-use log::{info, warn, LevelFilter};
+use log::{LevelFilter, debug, info, warn};
 use mutlipair_alignment_renderer::MultipairAlignmentRenderer;
-use parse_template_switches::TSShow;
+use parse_template_switches::{STREAM_PADDING, TSShow};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 
 mod alignment_stream;
@@ -63,6 +63,8 @@ fn show_template_switches(result: &AlignmentResult<AlignmentType, U64Cost>) {
         return;
     };
 
+    debug!("CIGAR: {}", result.cigar());
+
     info!("Collecting template switches");
     let template_switches = parse_template_switches::parse(alignment);
     info!("Found {} template switches", template_switches.len());
@@ -84,7 +86,7 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
     let (
         primary_name,
         primary,
-        primary_c,
+        _primary_c,
         primary_coordinate_picker,
         anti_primary_name,
         anti_primary,
@@ -104,7 +106,7 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
             &query_c,
             Box::new(|alignment_coordinates: &AlignmentCoordinates| alignment_coordinates.query())
                 as Box<dyn Fn(&AlignmentCoordinates) -> usize>,
-            false,
+            true,
         ),
         TemplateSwitchPrimary::Query => (
             "Qry".to_string(),
@@ -118,7 +120,7 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
             Box::new(|alignment_coordinates: &AlignmentCoordinates| {
                 alignment_coordinates.reference()
             }) as Box<dyn Fn(&AlignmentCoordinates) -> usize>,
-            true,
+            false,
         ),
     };
     let primary_equals_secondary = (template_switch.primary == TemplateSwitchPrimary::Reference
@@ -129,23 +131,61 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
     if primary_equals_secondary {
         todo!()
     } else {
-        let primary_forward_name = format!("{primary_name}F");
-        let primary_reverse_name = format!("{primary_name}R");
-        let f1_name = format!("{anti_primary_name}1");
-        let f2_name = format!("{anti_primary_name}2");
-        let f3_name = format!("{anti_primary_name}3");
+        let anti_primary_forward_name = format!("{anti_primary_name}F");
+        let anti_primary_reverse_name = format!("{anti_primary_name}R");
+        let f1_name = format!("{primary_name}1");
+        let f2_name = format!("{primary_name}2");
+        let f3_name = format!("{primary_name}3");
 
         let primary_offset = primary_coordinate_picker(&template_switch.upstream_offset);
-        let primary_limit = primary_coordinate_picker(&template_switch.downstream_limit);
-        let anti_primary_offset = anti_primary_coordinate_picker(&template_switch.upstream_offset);
-        let anti_primary_limit = anti_primary_coordinate_picker(&template_switch.downstream_limit);
 
-        let ts_reverse: String =
-            anti_primary[anti_primary_coordinate_picker(&template_switch.sp1_offset)
-                ..anti_primary_coordinate_picker(&template_switch.sp4_offset)]
+        let primary_limit = primary_coordinate_picker(&template_switch.downstream_limit);
+
+        let anti_primary_offset = anti_primary_coordinate_picker(&template_switch.upstream_offset);
+        let anti_primary_extended_offset = anti_primary_offset.min(
+            template_switch
+                .sp3_secondary_offset
+                .saturating_sub(STREAM_PADDING),
+        );
+        let anti_primary_limit = anti_primary_coordinate_picker(&template_switch.downstream_limit);
+        let anti_primary_extended_limit = anti_primary_limit.max(
+            anti_primary
                 .chars()
-                .rev()
-                .collect();
+                .count()
+                .min(template_switch.sp2_secondary_offset + STREAM_PADDING),
+        );
+
+        let primary_sp1 = primary_coordinate_picker(&template_switch.sp1_offset);
+        let anti_primary_sp1 = anti_primary_coordinate_picker(&template_switch.sp1_offset);
+        let primary_sp4 = primary_coordinate_picker(&template_switch.sp4_offset);
+        let anti_primary_sp4 = anti_primary_coordinate_picker(&template_switch.sp4_offset);
+
+        debug!("Primary offset: {primary_offset}");
+        debug!("SP1 primary offset: {primary_sp1}");
+        debug!("SP4 primary offset: {primary_sp4}");
+        debug!("Primary limit: {primary_limit}");
+        debug!("Primary len: {}", primary.len());
+        debug!("Anti-primary extended offset: {anti_primary_extended_offset}");
+        debug!("Anti-primary offset: {anti_primary_offset}");
+        debug!("SP1 anti-primary offset: {anti_primary_sp1}");
+        debug!("SP4 anti-primary offset: {anti_primary_sp4}");
+        debug!("Anti-primary limit: {anti_primary_limit}");
+        debug!("Anti-primary extended limit: {anti_primary_extended_limit}");
+        debug!("Anti-primary len: {}", anti_primary.len());
+        debug!(
+            "SP2 primary offset: {}",
+            template_switch.sp2_secondary_offset
+        );
+        debug!(
+            "SP3 primary offset: {}",
+            template_switch.sp3_secondary_offset
+        );
+
+        let ts_reverse: String = primary[primary_coordinate_picker(&template_switch.sp1_offset)
+            ..primary_coordinate_picker(&template_switch.sp4_offset)]
+            .chars()
+            .rev()
+            .collect();
         let ts_reverse_alignment: Vec<_> = template_switch
             .template_switch
             .iter()
@@ -153,44 +193,51 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
             .rev()
             .collect();
 
+        debug!("Creating renderer");
         let mut renderer = MultipairAlignmentRenderer::new(
-            primary_forward_name.clone(),
-            &primary[primary_offset..primary_limit],
+            anti_primary_forward_name.clone(),
+            &anti_primary[anti_primary_extended_offset..anti_primary_extended_limit],
         );
+        debug!("Adding complement primary");
         renderer.add_aligned_sequence(
-            &primary_forward_name,
+            &anti_primary_forward_name,
             0,
-            primary_reverse_name.clone(),
-            &primary_c[primary_offset..primary_limit],
-            &[(primary_limit - primary_offset, AlignmentType::PrimaryMatch)],
+            anti_primary_reverse_name.clone(),
+            &anti_primary_c[anti_primary_extended_offset..anti_primary_extended_limit],
+            &[(
+                anti_primary_extended_limit - anti_primary_extended_offset,
+                AlignmentType::PrimaryMatch,
+            )],
             false,
             false,
         );
 
+        debug!("Adding F1");
         renderer.add_aligned_sequence(
-            &primary_forward_name,
-            0,
+            &anti_primary_forward_name,
+            anti_primary_offset - anti_primary_extended_offset,
             f1_name.clone(),
-            &anti_primary
-                [anti_primary_offset..anti_primary_coordinate_picker(&template_switch.sp1_offset)],
+            &primary[primary_offset..primary_coordinate_picker(&template_switch.sp1_offset)],
             &template_switch.upstream,
             true,
             invert_alignment,
         );
+        debug!("Adding F3");
         renderer.add_aligned_sequence(
-            &primary_forward_name,
-            primary_coordinate_picker(&template_switch.sp4_offset) - primary_offset,
+            &anti_primary_forward_name,
+            anti_primary_coordinate_picker(&template_switch.sp4_offset)
+                - anti_primary_extended_offset,
             f3_name.clone(),
-            &anti_primary
-                [anti_primary_coordinate_picker(&template_switch.sp4_offset)..anti_primary_limit],
+            &primary[primary_coordinate_picker(&template_switch.sp4_offset)..primary_limit],
             &template_switch.downstream,
             true,
             invert_alignment,
         );
 
+        debug!("Adding F2");
         renderer.add_aligned_sequence(
-            &primary_reverse_name,
-            template_switch.sp3_primary_offset - primary_offset,
+            &anti_primary_reverse_name,
+            template_switch.sp3_secondary_offset - anti_primary_extended_offset,
             f2_name.clone(),
             &ts_reverse,
             &ts_reverse_alignment,
@@ -198,6 +245,17 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
             invert_alignment,
         );
 
-        renderer.render(stdout()).unwrap();
+        renderer
+            .render(
+                stdout(),
+                &[
+                    f1_name,
+                    f3_name,
+                    anti_primary_forward_name,
+                    anti_primary_reverse_name,
+                    f2_name,
+                ],
+            )
+            .unwrap();
     }
 }

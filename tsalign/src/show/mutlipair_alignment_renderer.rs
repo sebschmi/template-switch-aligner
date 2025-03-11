@@ -1,11 +1,12 @@
 use std::{
     collections::BTreeMap,
-    fmt::Debug,
+    fmt::{Debug, Display},
     iter, mem,
     ops::{Index, IndexMut},
 };
 
 use lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType;
+use log::debug;
 
 #[derive(Debug)]
 pub struct MultipairAlignmentRenderer<SequenceName> {
@@ -28,6 +29,12 @@ impl<SequenceName> MultipairAlignmentRenderer<SequenceName> {}
 
 impl<SequenceName: Eq + Ord> MultipairAlignmentRenderer<SequenceName> {
     pub fn new(root_sequence_name: SequenceName, root_sequence: &str) -> Self {
+        debug!("Adding root sequence");
+        debug!(
+            "root_sequence (len: {}): {root_sequence}",
+            root_sequence.chars().count()
+        );
+
         Self {
             sequences: [(root_sequence_name, root_sequence.into())]
                 .into_iter()
@@ -48,11 +55,24 @@ impl<SequenceName: Eq + Ord + Clone> MultipairAlignmentRenderer<SequenceName> {
         do_lowercasing: bool,
         invert_alignment: bool,
     ) {
+        debug!("Adding aligned sequence");
+        debug!("reference_offset: {reference_sequence_offset}");
+        debug!(
+            "new_sequence (len: {}): {new_sequence}",
+            new_sequence.chars().count()
+        );
+        debug!("alignment: {alignment:?}");
+        debug!("invert_alignment: {invert_alignment}");
+
         assert!(!self.sequences.contains_key(&new_sequence_name));
 
         let mut new_sequence = new_sequence.chars();
         let reference_sequence = self.sequences.get_mut(reference_sequence_name).unwrap();
-        let mut index = reference_sequence.nth_character_index(reference_sequence_offset);
+        let mut index = reference_sequence
+            .nth_character_index(reference_sequence_offset)
+            .unwrap_or_else(|| {
+                panic!("reference_sequence_offset {reference_sequence_offset} is out of bounds")
+            });
         let mut translated_new_sequence = vec![Character::Blank; index];
         let mut reference_gaps = Vec::new();
 
@@ -138,21 +158,47 @@ impl<SequenceName: Eq + Ord + Clone> MultipairAlignmentRenderer<SequenceName> {
     }
 }
 
-impl<SequenceName: Eq + Ord + Debug> MultipairAlignmentRenderer<SequenceName> {
-    pub fn render(&self, mut output: impl std::io::Write) -> Result<(), std::io::Error> {
-        write!(output, "{self:?}")
+impl<SequenceName: Eq + Ord + Display> MultipairAlignmentRenderer<SequenceName> {
+    pub fn render<'name>(
+        &self,
+        mut output: impl std::io::Write,
+        names: impl IntoIterator<Item = &'name SequenceName>,
+    ) -> Result<(), std::io::Error>
+    where
+        SequenceName: 'name,
+    {
+        let names: Vec<_> = names.into_iter().collect();
+        let max_name_len = names
+            .iter()
+            .map(ToString::to_string)
+            .map(|name| name.chars().count())
+            .max()
+            .unwrap();
+
+        for name in names {
+            let sequence = self.sequences.get(name).unwrap();
+
+            let name = name.to_string();
+            write!(output, "{name}: ")?;
+            for _ in name.len()..max_name_len {
+                write!(output, " ")?;
+            }
+
+            writeln!(output, "{sequence}")?;
+        }
+
+        Ok(())
     }
 }
 
 impl MultipairAlignmentSequence {
-    fn nth_character_index(&self, n: usize) -> usize {
+    fn nth_character_index(&self, n: usize) -> Option<usize> {
         self.sequence
             .iter()
             .enumerate()
             .filter(|(_, character)| matches!(character, Character::Char(_)))
             .nth(n)
-            .unwrap()
-            .0
+            .map(|(index, _)| index)
     }
 
     fn len(&self) -> usize {
@@ -185,6 +231,20 @@ impl MultipairAlignmentSequence {
 
             self.sequence.push(original_character);
         }
+    }
+}
+
+impl Display for MultipairAlignmentSequence {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for character in &self.sequence {
+            match character {
+                Character::Char(character) => write!(f, "{character}")?,
+                Character::Gap => write!(f, "-")?,
+                Character::Blank => write!(f, " ")?,
+            }
+        }
+
+        Ok(())
     }
 }
 
