@@ -111,8 +111,7 @@ impl AlignmentStream {
 
         while let Some((multiplicity, alignment_type)) = self.stream.front().copied() {
             if Self::stream_length(alignment_type) == 0 {
-                self.tail_coordinates
-                    .advance(multiplicity, alignment_type);
+                self.tail_coordinates.advance(multiplicity, alignment_type);
                 self.stream.pop_front();
             } else {
                 break;

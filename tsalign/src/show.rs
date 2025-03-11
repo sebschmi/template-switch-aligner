@@ -1,5 +1,10 @@
-use std::{fs::File, io::Read, iter, path::PathBuf};
+use std::{
+    fs::File,
+    io::{stdout, Read},
+    path::PathBuf,
+};
 
+use alignment_stream::AlignmentCoordinates;
 use clap::Parser;
 use lib_tsalign::{
     a_star_aligner::{
@@ -9,10 +14,12 @@ use lib_tsalign::{
     costs::U64Cost,
 };
 use log::{info, warn, LevelFilter};
+use mutlipair_alignment_renderer::MultipairAlignmentRenderer;
 use parse_template_switches::TSShow;
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 
 mod alignment_stream;
+mod mutlipair_alignment_renderer;
 mod parse_template_switches;
 
 #[derive(Parser)]
@@ -69,36 +76,51 @@ fn show_template_switches(result: &AlignmentResult<AlignmentType, U64Cost>) {
 fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &SequencePair) {
     // println!("Showing template switch\n{template_switch:?}");
 
-    let (primary_name, primary, primary_rc, primary_upstream_offset) = match template_switch.primary
-    {
+    let reference = &sequences.reference;
+    let reference_c: String = sequences.reference_rc.chars().rev().collect();
+    let query = &sequences.query;
+    let query_c: String = sequences.query_rc.chars().rev().collect();
+
+    let (
+        primary_name,
+        primary,
+        primary_c,
+        primary_coordinate_picker,
+        anti_primary_name,
+        anti_primary,
+        anti_primary_c,
+        anti_primary_coordinate_picker,
+        invert_alignment,
+    ) = match template_switch.primary {
         TemplateSwitchPrimary::Reference => (
             "Ref".to_string(),
-            &sequences.reference,
-            &sequences.reference_rc,
-            template_switch.upstream_offset.reference(),
+            reference,
+            &reference_c,
+            Box::new(|alignment_coordinates: &AlignmentCoordinates| {
+                alignment_coordinates.reference()
+            }) as Box<dyn Fn(&AlignmentCoordinates) -> usize>,
+            "Qry".to_string(),
+            query,
+            &query_c,
+            Box::new(|alignment_coordinates: &AlignmentCoordinates| alignment_coordinates.query())
+                as Box<dyn Fn(&AlignmentCoordinates) -> usize>,
+            false,
         ),
         TemplateSwitchPrimary::Query => (
             "Qry".to_string(),
-            &sequences.query,
-            &sequences.query_rc,
-            template_switch.upstream_offset.query(),
+            query,
+            &query_c,
+            Box::new(|alignment_coordinates: &AlignmentCoordinates| alignment_coordinates.query())
+                as Box<dyn Fn(&AlignmentCoordinates) -> usize>,
+            "Ref".to_string(),
+            reference,
+            &reference_c,
+            Box::new(|alignment_coordinates: &AlignmentCoordinates| {
+                alignment_coordinates.reference()
+            }) as Box<dyn Fn(&AlignmentCoordinates) -> usize>,
+            true,
         ),
     };
-    let (secondary_name, secondary, secondary_rc, secondary_upstream_offset) =
-        match template_switch.secondary {
-            TemplateSwitchSecondary::Reference => (
-                "Ref".to_string(),
-                &sequences.reference,
-                &sequences.reference_rc,
-                template_switch.upstream_offset.reference(),
-            ),
-            TemplateSwitchSecondary::Query => (
-                "Qry".to_string(),
-                &sequences.query,
-                &sequences.query_rc,
-                template_switch.upstream_offset.query(),
-            ),
-        };
     let primary_equals_secondary = (template_switch.primary == TemplateSwitchPrimary::Reference
         && template_switch.secondary == TemplateSwitchSecondary::Reference)
         || (template_switch.primary == TemplateSwitchPrimary::Query
@@ -107,170 +129,75 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
     if primary_equals_secondary {
         todo!()
     } else {
-        let mut rendered_primary = String::new();
-        let mut rendered_primary_c = String::new();
-        let mut rendered_secondary_upstream = String::new();
-        let mut rendered_secondary_ts = String::new();
-        let mut secondary_ts_spacer = String::new();
-        let mut rendered_secondary_downstream = String::new();
-        let mut secondary_downstream_spacer = String::new();
+        let primary_forward_name = format!("{primary_name}F");
+        let primary_reverse_name = format!("{primary_name}R");
+        let f1_name = format!("{anti_primary_name}1");
+        let f2_name = format!("{anti_primary_name}2");
+        let f3_name = format!("{anti_primary_name}3");
 
-        let (primary_upstream_count, secondary_upstream_count) = render_primary_alignment(
+        let primary_offset = primary_coordinate_picker(&template_switch.upstream_offset);
+        let primary_limit = primary_coordinate_picker(&template_switch.downstream_limit);
+        let anti_primary_offset = anti_primary_coordinate_picker(&template_switch.upstream_offset);
+        let anti_primary_limit = anti_primary_coordinate_picker(&template_switch.downstream_limit);
+
+        let ts_reverse: String =
+            anti_primary[anti_primary_coordinate_picker(&template_switch.sp1_offset)
+                ..anti_primary_coordinate_picker(&template_switch.sp4_offset)]
+                .chars()
+                .rev()
+                .collect();
+        let ts_reverse_alignment: Vec<_> = template_switch
+            .template_switch
+            .iter()
+            .copied()
+            .rev()
+            .collect();
+
+        let mut renderer = MultipairAlignmentRenderer::new(
+            primary_forward_name.clone(),
+            &primary[primary_offset..primary_limit],
+        );
+        renderer.add_aligned_sequence(
+            &primary_forward_name,
+            0,
+            primary_reverse_name.clone(),
+            &primary_c[primary_offset..primary_limit],
+            &[(primary_limit - primary_offset, AlignmentType::PrimaryMatch)],
+            false,
+            false,
+        );
+
+        renderer.add_aligned_sequence(
+            &primary_forward_name,
+            0,
+            f1_name.clone(),
+            &anti_primary
+                [anti_primary_offset..anti_primary_coordinate_picker(&template_switch.sp1_offset)],
             &template_switch.upstream,
-            primary.chars().skip(primary_upstream_offset),
-            secondary.chars().skip(secondary_upstream_offset),
-            &mut rendered_primary,
-            &mut rendered_secondary_upstream,
+            true,
+            invert_alignment,
+        );
+        renderer.add_aligned_sequence(
+            &primary_forward_name,
+            primary_coordinate_picker(&template_switch.sp4_offset) - primary_offset,
+            f3_name.clone(),
+            &anti_primary
+                [anti_primary_coordinate_picker(&template_switch.sp4_offset)..anti_primary_limit],
+            &template_switch.downstream,
+            true,
+            invert_alignment,
         );
 
-        let primary_len = primary.chars().count();
-        render_ts_alignment(
-            &template_switch.template_switch,
-            primary
-                .chars()
-                .skip(primary_upstream_offset + primary_upstream_count),
-            primary_rc
-                .chars()
-                .skip(primary_len - template_switch.sp2_offset),
-            secondary
-                .chars()
-                .skip(secondary_upstream_offset + secondary_upstream_count),
-            &mut rendered_primary,
-            &mut rendered_primary_c,
-            &mut rendered_secondary_ts,
+        renderer.add_aligned_sequence(
+            &primary_reverse_name,
+            template_switch.sp3_primary_offset - primary_offset,
+            f2_name.clone(),
+            &ts_reverse,
+            &ts_reverse_alignment,
+            true,
+            invert_alignment,
         );
 
-        rendered_primary_c = rendered_primary_c.chars().rev().collect();
-        rendered_secondary_ts = rendered_secondary_ts.chars().rev().collect();
-
-        println!("{secondary_name}1: L {rendered_secondary_upstream} 1");
-        println!(
-            "{secondary_name}3:{secondary_downstream_spacer} 4 {rendered_secondary_downstream} R"
-        );
-        println!("{primary_name}F:   {rendered_primary}");
-        println!("{primary_name}R:   {rendered_primary_c}");
-        println!("{secondary_name}2:{secondary_ts_spacer} 3 {rendered_secondary_ts} 2");
+        renderer.render(stdout()).unwrap();
     }
-}
-
-fn render_primary_alignment(
-    alignment: &[(usize, AlignmentType)],
-    mut reference: impl Iterator<Item = char>,
-    mut query: impl Iterator<Item = char>,
-    reference_out: &mut impl Extend<char>,
-    query_out: &mut impl Extend<char>,
-) -> (usize, usize) {
-    let mut reference_count = 0;
-    let mut query_count = 0;
-
-    for alignment_type in alignment
-        .iter()
-        .copied()
-        .flat_map(|(multiplicity, alignment_type)| iter::repeat(alignment_type).take(multiplicity))
-    {
-        match alignment_type {
-            AlignmentType::PrimaryInsertion | AlignmentType::PrimaryFlankInsertion => {
-                reference_out.extend(Some('-'));
-                query_out.extend(Some(query.next().unwrap()));
-                query_count += 1;
-            }
-            AlignmentType::PrimaryDeletion | AlignmentType::PrimaryFlankDeletion => {
-                reference_out.extend(Some(reference.next().unwrap()));
-                query_out.extend(Some('-'));
-                reference_count += 1;
-            }
-            AlignmentType::PrimarySubstitution | AlignmentType::PrimaryFlankSubstitution => {
-                reference_out.extend(Some(reference.next().unwrap().to_ascii_lowercase()));
-                query_out.extend(Some(query.next().unwrap().to_ascii_lowercase()));
-                reference_count += 1;
-                query_count += 1;
-            }
-            AlignmentType::PrimaryMatch | AlignmentType::PrimaryFlankMatch => {
-                reference_out.extend(Some(reference.next().unwrap()));
-                query_out.extend(Some(query.next().unwrap()));
-                reference_count += 1;
-                query_count += 1;
-            }
-            AlignmentType::Root | AlignmentType::PrimaryReentry => { /* Ignore */ }
-            AlignmentType::SecondaryInsertion
-            | AlignmentType::SecondaryDeletion
-            | AlignmentType::SecondarySubstitution
-            | AlignmentType::SecondaryMatch
-            | AlignmentType::TemplateSwitchEntrance { .. }
-            | AlignmentType::TemplateSwitchExit { .. }
-            | AlignmentType::SecondaryRoot
-            | AlignmentType::PrimaryShortcut { .. } => {
-                panic!("Not allowed in primary alignment: {alignment_type:?}")
-            }
-        }
-    }
-
-    (reference_count, query_count)
-}
-
-#[expect(clippy::too_many_arguments)]
-fn render_ts_alignment(
-    alignment: &[(usize, AlignmentType)],
-    mut reference: impl Iterator<Item = char>,
-    mut reference_rc: impl Iterator<Item = char>,
-    mut query: impl Iterator<Item = char>,
-    reference_out: &mut impl Extend<char>,
-    reference_c_rev_out: &mut impl Extend<char>,
-    query_rev_out: &mut impl Extend<char>,
-) -> (usize, usize) {
-    let mut reference_count = 0;
-    let mut query_count = 0;
-
-    for alignment_type in alignment
-        .iter()
-        .copied()
-        .flat_map(|(multiplicity, alignment_type)| iter::repeat(alignment_type).take(multiplicity))
-    {
-        match alignment_type {
-            AlignmentType::SecondaryInsertion => {
-                reference_out.extend(Some('-'));
-                reference_c_rev_out.extend(Some('-'));
-                query_rev_out.extend(Some(query.next().unwrap()));
-                query_count += 1;
-            }
-            AlignmentType::SecondaryDeletion => {
-                reference_out.extend(Some(reference.next().unwrap()));
-                reference_c_rev_out.extend(Some(reference_rc.next().unwrap()));
-                query_rev_out.extend(Some('-'));
-                reference_count += 1;
-            }
-            AlignmentType::SecondarySubstitution => {
-                reference_out.extend(Some(reference.next().unwrap()));
-                reference_c_rev_out.extend(Some(reference_rc.next().unwrap().to_ascii_lowercase()));
-                query_rev_out.extend(Some(query.next().unwrap().to_ascii_lowercase()));
-                reference_count += 1;
-                query_count += 1;
-            }
-            AlignmentType::SecondaryMatch => {
-                reference_out.extend(Some(reference.next().unwrap()));
-                reference_c_rev_out.extend(Some(reference_rc.next().unwrap()));
-                query_rev_out.extend(Some(query.next().unwrap()));
-                reference_count += 1;
-                query_count += 1;
-            }
-            AlignmentType::Root
-            | AlignmentType::PrimaryReentry
-            | AlignmentType::TemplateSwitchEntrance { .. }
-            | AlignmentType::TemplateSwitchExit { .. }
-            | AlignmentType::SecondaryRoot => { /* Ignore */ }
-            AlignmentType::PrimaryInsertion
-            | AlignmentType::PrimaryFlankInsertion
-            | AlignmentType::PrimaryDeletion
-            | AlignmentType::PrimaryFlankDeletion
-            | AlignmentType::PrimarySubstitution
-            | AlignmentType::PrimaryFlankSubstitution
-            | AlignmentType::PrimaryMatch
-            | AlignmentType::PrimaryFlankMatch
-            | AlignmentType::PrimaryShortcut { .. } => {
-                panic!("Not allowed in template switch alignment: {alignment_type:?}")
-            }
-        }
-    }
-
-    (reference_count, query_count)
 }

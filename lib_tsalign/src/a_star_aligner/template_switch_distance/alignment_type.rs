@@ -135,3 +135,45 @@ impl IAlignmentType for AlignmentType {
         matches!(self, Self::TemplateSwitchExit { .. })
     }
 }
+
+impl AlignmentType {
+    pub fn inverted(&self) -> Self {
+        match self {
+            Self::PrimaryInsertion => Self::PrimaryDeletion,
+            Self::PrimaryDeletion => Self::PrimaryInsertion,
+            Self::PrimaryFlankInsertion => Self::PrimaryFlankDeletion,
+            Self::PrimaryFlankDeletion => Self::PrimaryFlankInsertion,
+            Self::SecondaryInsertion => Self::SecondaryDeletion,
+            Self::SecondaryDeletion => Self::SecondaryInsertion,
+            Self::TemplateSwitchEntrance {
+                primary,
+                secondary,
+                first_offset,
+            } => Self::TemplateSwitchEntrance {
+                primary: primary.inverted(),
+                secondary: secondary.inverted(),
+                first_offset: *first_offset,
+            },
+            Self::TemplateSwitchExit { length_difference } => Self::TemplateSwitchExit {
+                length_difference: -*length_difference,
+            },
+            Self::PrimaryShortcut {
+                delta_reference,
+                delta_query,
+            } => Self::PrimaryShortcut {
+                delta_reference: *delta_query,
+                delta_query: *delta_reference,
+            },
+
+            symmetric @ (Self::PrimarySubstitution
+            | Self::PrimaryMatch
+            | Self::PrimaryFlankSubstitution
+            | Self::PrimaryFlankMatch
+            | Self::SecondarySubstitution
+            | Self::SecondaryMatch
+            | Self::Root
+            | Self::SecondaryRoot
+            | Self::PrimaryReentry) => *symmetric,
+        }
+    }
+}

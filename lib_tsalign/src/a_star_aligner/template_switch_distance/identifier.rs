@@ -374,3 +374,21 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
         }
     }
 }
+
+impl TemplateSwitchPrimary {
+    pub fn inverted(&self) -> Self {
+        match self {
+            Self::Reference => Self::Query,
+            Self::Query => Self::Reference,
+        }
+    }
+}
+
+impl TemplateSwitchSecondary {
+    pub fn inverted(&self) -> Self {
+        match self {
+            Self::Reference => Self::Query,
+            Self::Query => Self::Reference,
+        }
+    }
+}

@@ -9,7 +9,8 @@ pub struct TSShow<AlignmentType> {
     pub upstream_offset: AlignmentCoordinates,
     pub downstream_limit: AlignmentCoordinates,
     pub sp1_offset: AlignmentCoordinates,
-    pub sp2_offset: usize,
+    pub sp2_primary_offset: usize,
+    pub sp3_primary_offset: usize,
     pub sp4_offset: AlignmentCoordinates,
     pub primary: TemplateSwitchPrimary,
     pub secondary: TemplateSwitchSecondary,
@@ -62,7 +63,7 @@ fn parse_template_switch(
     stream.push(multiplicity, alignment_type);
     *alignment = &alignment[1..];
 
-    let sp2_offset = match secondary {
+    let sp2_primary_offset = match secondary {
         TemplateSwitchSecondary::Reference => (sp1_offset.reference() as isize + first_offset)
             .try_into()
             .unwrap(),
@@ -70,6 +71,7 @@ fn parse_template_switch(
             .try_into()
             .unwrap(),
     };
+    let mut sp3_primary_offset = sp2_primary_offset;
 
     while let Some((multiplicity, alignment_type)) = alignment.first().copied() {
         if matches!(alignment_type, AlignmentType::TemplateSwitchEntrance { .. }) {
@@ -89,7 +91,8 @@ fn parse_template_switch(
                 upstream_offset,
                 downstream_limit,
                 sp1_offset,
-                sp2_offset,
+                sp2_primary_offset,
+                sp3_primary_offset,
                 sp4_offset,
                 primary,
                 secondary,
@@ -103,6 +106,16 @@ fn parse_template_switch(
             template_switch.push((multiplicity, alignment_type));
             stream.push(multiplicity, alignment_type);
             *alignment = &alignment[1..];
+
+            if matches!(
+                alignment_type,
+                AlignmentType::SecondaryDeletion
+                    | AlignmentType::SecondarySubstitution
+                    | AlignmentType::SecondaryMatch
+            ) {
+                sp3_primary_offset -= 1;
+                assert!(sp3_primary_offset < sp2_primary_offset);
+            }
         }
     }
 
