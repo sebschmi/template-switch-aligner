@@ -81,12 +81,14 @@ impl<SequenceName: Eq + Ord + Clone> MultipairAlignmentRenderer<SequenceName> {
                 .iter()
                 .copied()
                 .flat_map(|(multiplicity, alignment_type)| {
-                    iter::repeat(if invert_alignment {
-                        alignment_type.inverted()
-                    } else {
-                        alignment_type
-                    })
-                    .take(multiplicity)
+                    iter::repeat_n(
+                        if invert_alignment {
+                            alignment_type.inverted()
+                        } else {
+                            alignment_type
+                        },
+                        multiplicity,
+                    )
                 })
         {
             while matches!(reference_sequence[index], Character::Gap | Character::Blank) {
@@ -143,8 +145,10 @@ impl<SequenceName: Eq + Ord + Clone> MultipairAlignmentRenderer<SequenceName> {
         assert!(new_sequence.next().is_none());
         assert!(index <= reference_sequence.len());
 
-        translated_new_sequence
-            .extend(iter::repeat(Character::Blank).take(reference_sequence.len() - index));
+        translated_new_sequence.extend(iter::repeat_n(
+            Character::Blank,
+            reference_sequence.len() - index,
+        ));
         reference_sequence.insert_gaps(reference_gaps.iter().copied());
 
         for (name, sequence) in self.sequences.iter_mut() {
