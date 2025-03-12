@@ -87,6 +87,8 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
         alignment: Vec<(usize, AlignmentType)>,
         reference: &SubsequenceType,
         query: &SubsequenceType,
+        reference_name: &str,
+        query_name: &str,
         result: AStarResult<(), Cost>,
         duration_seconds: f64,
         opened_nodes: usize,
@@ -99,6 +101,8 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
             Some(alignment),
             reference,
             query,
+            reference_name,
+            query_name,
             result,
             duration_seconds,
             opened_nodes,
@@ -117,6 +121,8 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
         result: AStarResult<(), Cost>,
         reference: &SubsequenceType,
         query: &SubsequenceType,
+        reference_name: &str,
+        query_name: &str,
         duration_seconds: f64,
         opened_nodes: usize,
         closed_nodes: usize,
@@ -128,6 +134,8 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
             None,
             reference,
             query,
+            reference_name,
+            query_name,
             result,
             duration_seconds,
             opened_nodes,
@@ -146,6 +154,8 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
         alignment: Option<Vec<(usize, AlignmentType)>>,
         reference: &SubsequenceType,
         query: &SubsequenceType,
+        reference_name: &str,
+        query_name: &str,
         result: AStarResult<(), Cost>,
         duration_seconds: f64,
         opened_nodes: usize,
@@ -157,7 +167,7 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
         let cost = result.cost();
         let statistics = AlignmentStatistics {
             result,
-            sequences: SequencePair::new(reference, query),
+            sequences: SequencePair::new(reference, query, reference_name, query_name),
             cost: (cost.as_f64()).try_into().unwrap(),
             cost_per_base: ((cost.as_f64() * 2.0) / (reference_length + query_length) as f64)
                 .try_into()

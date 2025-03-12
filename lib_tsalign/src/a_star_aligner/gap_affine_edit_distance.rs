@@ -212,6 +212,14 @@ impl<
     fn query(&self) -> &Self::SubsequenceType {
         self.query
     }
+
+    fn reference_name(&self) -> &str {
+        ""
+    }
+
+    fn query_name(&self) -> &str {
+        ""
+    }
 }
 
 impl<

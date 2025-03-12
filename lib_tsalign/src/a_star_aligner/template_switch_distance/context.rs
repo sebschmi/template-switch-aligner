@@ -29,6 +29,8 @@ pub struct Context<
 > {
     pub reference: &'reference SubsequenceType,
     pub query: &'query SubsequenceType,
+    pub reference_name: String,
+    pub query_name: String,
 
     pub config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
 
@@ -64,9 +66,12 @@ impl<
         Strategies: AlignmentStrategySelector,
     > Context<'reference, 'query, SubsequenceType, Strategies>
 {
+    #[expect(clippy::too_many_arguments)]
     pub fn new(
         reference: &'reference SubsequenceType,
         query: &'query SubsequenceType,
+        reference_name: &str,
+        query_name: &str,
         config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
         memory: Memory<Strategies>,
         cost_limit: Option<Strategies::Cost>,
@@ -75,6 +80,8 @@ impl<
         Self {
             reference,
             query,
+            reference_name: reference_name.to_owned(),
+            query_name: query_name.to_owned(),
             config,
             a_star_buffers: Default::default(),
             memory,
@@ -631,6 +638,14 @@ impl<
 
     fn query(&self) -> &Self::SubsequenceType {
         self.query
+    }
+
+    fn reference_name(&self) -> &str {
+        &self.reference_name
+    }
+
+    fn query_name(&self) -> &str {
+        &self.query_name
     }
 }
 

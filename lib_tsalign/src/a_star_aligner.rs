@@ -33,6 +33,10 @@ pub trait AlignmentContext: AStarContext {
     fn reference(&self) -> &Self::SubsequenceType;
 
     fn query(&self) -> &Self::SubsequenceType;
+
+    fn reference_name(&self) -> &str;
+
+    fn query_name(&self) -> &str;
 }
 
 fn a_star_align<Context: AStarContext + AlignmentContext>(
@@ -81,6 +85,8 @@ where
             alignment,
             a_star.context().reference(),
             a_star.context().query(),
+            a_star.context().reference_name(),
+            a_star.context().query_name(),
             result.without_node_identifier(),
             duration,
             a_star.performance_counters().opened_nodes,
@@ -94,6 +100,8 @@ where
             result.without_node_identifier(),
             a_star.context().reference(),
             a_star.context().query(),
+            a_star.context().reference_name(),
+            a_star.context().query_name(),
             duration,
             a_star.performance_counters().opened_nodes,
             a_star.performance_counters().closed_nodes,
@@ -130,6 +138,8 @@ pub fn template_switch_distance_a_star_align<
 >(
     reference: &SubsequenceType,
     query: &SubsequenceType,
+    reference_name: &str,
+    query_name: &str,
     config: config::TemplateSwitchConfig<
         Strategies::Alphabet,
         <Strategies as AlignmentStrategySelector>::Cost,
@@ -151,6 +161,13 @@ pub fn template_switch_distance_a_star_align<
         SubsequenceType,
         Strategies,
     >::new(
-        reference, query, config, memory, cost_limit, memory_limit
+        reference,
+        query,
+        reference_name,
+        query_name,
+        config,
+        memory,
+        cost_limit,
+        memory_limit,
     ))
 }

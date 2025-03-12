@@ -216,9 +216,13 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
         AlignmentMethod::AStarGapAffine => {
             align_a_star_gap_affine_edit_distance(cli, reference, query)
         }
-        AlignmentMethod::AStarTemplateSwitch => {
-            align_a_star_template_switch_distance(cli, reference, query)
-        }
+        AlignmentMethod::AStarTemplateSwitch => align_a_star_template_switch_distance(
+            cli,
+            reference,
+            query,
+            &format!("{} {}", sequences[0].id, sequences[0].comment),
+            &format!("{} {}", sequences[1].id, sequences[1].comment),
+        ),
     }
 }
 

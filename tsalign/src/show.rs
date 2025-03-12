@@ -84,10 +84,12 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
     let query_c: String = sequences.query_rc.chars().rev().collect();
 
     let (
+        primary_label,
         primary_name,
         primary,
         _primary_c,
         primary_coordinate_picker,
+        anti_primary_label,
         anti_primary_name,
         anti_primary,
         anti_primary_c,
@@ -96,12 +98,14 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
     ) = match template_switch.primary {
         TemplateSwitchPrimary::Reference => (
             "Ref".to_string(),
+            &sequences.reference_name,
             reference,
             &reference_c,
             Box::new(|alignment_coordinates: &AlignmentCoordinates| {
                 alignment_coordinates.reference()
             }) as Box<dyn Fn(&AlignmentCoordinates) -> usize>,
             "Qry".to_string(),
+            &sequences.query_name,
             query,
             &query_c,
             Box::new(|alignment_coordinates: &AlignmentCoordinates| alignment_coordinates.query())
@@ -110,11 +114,13 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
         ),
         TemplateSwitchPrimary::Query => (
             "Qry".to_string(),
+            &sequences.query_name,
             query,
             &query_c,
             Box::new(|alignment_coordinates: &AlignmentCoordinates| alignment_coordinates.query())
                 as Box<dyn Fn(&AlignmentCoordinates) -> usize>,
             "Ref".to_string(),
+            &sequences.reference_name,
             reference,
             &reference_c,
             Box::new(|alignment_coordinates: &AlignmentCoordinates| {
@@ -131,11 +137,11 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
     if primary_equals_secondary {
         todo!()
     } else {
-        let anti_primary_forward_name = format!("{anti_primary_name}F");
-        let anti_primary_reverse_name = format!("{anti_primary_name}R");
-        let f1_name = format!("{primary_name}1");
-        let f2_name = format!("{primary_name}2");
-        let f3_name = format!("{primary_name}3");
+        let anti_primary_forward_label = format!("{anti_primary_label}F");
+        let anti_primary_reverse_label = format!("{anti_primary_label}R");
+        let f1_label = format!("{primary_label}1");
+        let f2_label = format!("{primary_label}2");
+        let f3_label = format!("{primary_label}3");
 
         let primary_offset = primary_coordinate_picker(&template_switch.upstream_offset);
 
@@ -195,14 +201,14 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
 
         debug!("Creating renderer");
         let mut renderer = MultipairAlignmentRenderer::new(
-            anti_primary_forward_name.clone(),
+            anti_primary_forward_label.clone(),
             &anti_primary[anti_primary_extended_offset..anti_primary_extended_limit],
         );
         debug!("Adding complement primary");
         renderer.add_aligned_sequence(
-            &anti_primary_forward_name,
+            &anti_primary_forward_label,
             0,
-            anti_primary_reverse_name.clone(),
+            anti_primary_reverse_label.clone(),
             &anti_primary_c[anti_primary_extended_offset..anti_primary_extended_limit],
             &[(
                 anti_primary_extended_limit - anti_primary_extended_offset,
@@ -214,9 +220,9 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
 
         debug!("Adding F1");
         renderer.add_aligned_sequence(
-            &anti_primary_forward_name,
+            &anti_primary_forward_label,
             anti_primary_offset - anti_primary_extended_offset,
-            f1_name.clone(),
+            f1_label.clone(),
             &primary[primary_offset..primary_coordinate_picker(&template_switch.sp1_offset)],
             &template_switch.upstream,
             true,
@@ -224,10 +230,10 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
         );
         debug!("Adding F3");
         renderer.add_aligned_sequence(
-            &anti_primary_forward_name,
+            &anti_primary_forward_label,
             anti_primary_coordinate_picker(&template_switch.sp4_offset)
                 - anti_primary_extended_offset,
-            f3_name.clone(),
+            f3_label.clone(),
             &primary[primary_coordinate_picker(&template_switch.sp4_offset)..primary_limit],
             &template_switch.downstream,
             true,
@@ -236,24 +242,29 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
 
         debug!("Adding F2");
         renderer.add_aligned_sequence(
-            &anti_primary_reverse_name,
+            &anti_primary_reverse_label,
             template_switch.sp3_secondary_offset - anti_primary_extended_offset,
-            f2_name.clone(),
+            f2_label.clone(),
             &ts_reverse,
             &ts_reverse_alignment,
             true,
             invert_alignment,
         );
 
+        println!("{anti_primary_label}: {anti_primary_name}");
+        println!("{primary_label}: {primary_name}");
+        println!();
+        println!("Switch process:");
+
         renderer
             .render(
                 stdout(),
                 &[
-                    f1_name,
-                    f3_name,
-                    anti_primary_forward_name,
-                    anti_primary_reverse_name,
-                    f2_name,
+                    f1_label,
+                    f3_label,
+                    anti_primary_forward_label,
+                    anti_primary_reverse_label,
+                    f2_label,
                 ],
             )
             .unwrap();
