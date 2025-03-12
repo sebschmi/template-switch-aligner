@@ -14,7 +14,10 @@ use lib_tsalign::{
             primary_match::AllowPrimaryMatchStrategy,
             secondary_deletion::AllowSecondaryDeletionStrategy,
             shortcut::NoShortcutStrategy,
-            template_switch_count::NoTemplateSwitchCountStrategy,
+            template_switch_count::{
+                MaxTemplateSwitchCountStrategy, NoTemplateSwitchCountStrategy,
+                TemplateSwitchCountStrategy,
+            },
             template_switch_min_length::{
                 LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
                 TemplateSwitchMinLengthStrategy,
@@ -140,7 +143,7 @@ fn align_a_star_template_switch_select_chaining_strategy<
 ) {
     match cli.ts_chaining_strategy {
         TemplateSwitchChainingStrategySelector::None => {
-            align_a_star_template_switch_distance_call::<
+            align_a_star_template_switch_select_no_ts_strategy::<
                 _,
                 _,
                 NodeOrd,
@@ -149,7 +152,7 @@ fn align_a_star_template_switch_select_chaining_strategy<
             >(cli, reference, query, reference_name, query_name)
         }
         TemplateSwitchChainingStrategySelector::PrecomputeOnly => {
-            align_a_star_template_switch_distance_call::<
+            align_a_star_template_switch_select_no_ts_strategy::<
                 _,
                 _,
                 NodeOrd,
@@ -158,7 +161,7 @@ fn align_a_star_template_switch_select_chaining_strategy<
             >(cli, reference, query, reference_name, query_name)
         }
         TemplateSwitchChainingStrategySelector::LowerBound => {
-            align_a_star_template_switch_distance_call::<
+            align_a_star_template_switch_select_no_ts_strategy::<
                 _,
                 _,
                 NodeOrd,
@@ -169,7 +172,7 @@ fn align_a_star_template_switch_select_chaining_strategy<
     }
 }
 
-fn align_a_star_template_switch_distance_call<
+fn align_a_star_template_switch_select_no_ts_strategy<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
     NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
@@ -181,6 +184,42 @@ fn align_a_star_template_switch_distance_call<
     query: &SubsequenceType,
     reference_name: &str,
     query_name: &str,
+) {
+    if cli.no_ts {
+        align_a_star_template_switch_distance_call::<
+            _,
+            _,
+            NodeOrd,
+            TemplateSwitchMinLength,
+            Chaining,
+            MaxTemplateSwitchCountStrategy,
+        >(cli, reference, query, reference_name, query_name, 0)
+    } else {
+        align_a_star_template_switch_distance_call::<
+            _,
+            _,
+            NodeOrd,
+            TemplateSwitchMinLength,
+            Chaining,
+            NoTemplateSwitchCountStrategy,
+        >(cli, reference, query, reference_name, query_name, ())
+    }
+}
+
+fn align_a_star_template_switch_distance_call<
+    AlphabetType: Alphabet + Debug + Clone + Eq,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
+    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<U64Cost>,
+    Chaining: ChainingStrategy<U64Cost>,
+    TemplateSwitchCount: TemplateSwitchCountStrategy,
+>(
+    cli: Cli,
+    reference: &SubsequenceType,
+    query: &SubsequenceType,
+    reference_name: &str,
+    query_name: &str,
+    template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
 ) {
     let mut config_path = cli.configuration_directory.clone();
     info!("Loading alignment config directory {config_path:?}");
@@ -201,7 +240,7 @@ fn align_a_star_template_switch_distance_call<
             NodeOrd,
             TemplateSwitchMinLength,
             Chaining,
-            NoTemplateSwitchCountStrategy,
+            TemplateSwitchCount,
             AllowSecondaryDeletionStrategy,
             NoShortcutStrategy<U64Cost>,
             AllowPrimaryMatchStrategy,
@@ -215,6 +254,7 @@ fn align_a_star_template_switch_distance_call<
         costs,
         cli.cost_limit,
         cli.memory_limit,
+        template_switch_count_memory,
     );
     info!("Finished aligning");
 

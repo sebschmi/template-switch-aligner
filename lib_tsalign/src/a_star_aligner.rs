@@ -7,7 +7,7 @@ use template_switch_distance::{
     context::Memory,
     strategies::{
         chaining::ChainingStrategy, primary_match::AllowPrimaryMatchStrategy,
-        shortcut::NoShortcutStrategy, template_switch_count::NoTemplateSwitchCountStrategy,
+        shortcut::NoShortcutStrategy, template_switch_count::TemplateSwitchCountStrategy,
         AlignmentStrategySelector,
     },
 };
@@ -128,9 +128,9 @@ pub fn gap_affine_edit_distance_a_star_align<
     ))
 }
 
+#[expect(clippy::too_many_arguments)]
 pub fn template_switch_distance_a_star_align<
     Strategies: AlignmentStrategySelector<
-        TemplateSwitchCount = NoTemplateSwitchCountStrategy,
         Shortcut = NoShortcutStrategy<<Strategies as AlignmentStrategySelector>::Cost>,
         PrimaryMatch = AllowPrimaryMatchStrategy,
     >,
@@ -146,13 +146,14 @@ pub fn template_switch_distance_a_star_align<
     >,
     cost_limit: Option<Strategies::Cost>,
     memory_limit: Option<usize>,
+    template_switch_count_memory: <Strategies::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
 ) -> AlignmentResult<template_switch_distance::AlignmentType, Strategies::Cost> {
     let memory = Memory {
         template_switch_min_length: Default::default(),
         chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy<
             <Strategies as AlignmentStrategySelector>::Cost,
         >>::initialise_memory(reference, query, &config, 20),
-        template_switch_count: (),
+        template_switch_count: template_switch_count_memory,
         shortcut: (),
         primary_match: (),
     };

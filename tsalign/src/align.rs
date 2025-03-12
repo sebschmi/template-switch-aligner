@@ -76,6 +76,12 @@ pub struct Cli {
     #[clap(long, default_value = "none")]
     ts_chaining_strategy: TemplateSwitchChainingStrategySelector,
 
+    /// If set, template switches are not allowed.
+    ///
+    /// Use this to compare a template switch alignment against an alignment with out template switches.
+    #[clap(long)]
+    no_ts: bool,
+
     /// A cost limit for the alignment.
     ///
     /// If there is no alignment with that cost, the aligner will abort without result.
