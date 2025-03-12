@@ -1,10 +1,11 @@
 use std::{
     fs::File,
     io::{Read, stdout},
+    iter,
     path::PathBuf,
 };
 
-use alignment_stream::AlignmentCoordinates;
+use alignment_stream::{AlignmentCoordinates, AlignmentStream};
 use clap::Parser;
 use lib_tsalign::{
     a_star_aligner::{
@@ -27,9 +28,18 @@ pub struct Cli {
     #[clap(long, short = 'l', default_value = "info")]
     log_level: LevelFilter,
 
-    /// Path to a toml output file of tsalign.
+    /// Path to a toml output file of `tsalign align`.
+    ///
+    /// This is the input from which template switches are visualised.
     #[clap(long, short = 'i')]
     input: PathBuf,
+
+    /// Path to a toml output file of `tsalign align` created with the `--no-ts` flag.
+    ///
+    /// This input can be used to provide an alternative alignment without template switches.
+    /// It is expected to contain no template switches, otherwise it will be rejected.
+    #[clap(long, short = 'n')]
+    no_ts_input: Option<PathBuf>,
 }
 
 pub fn cli(cli: Cli) {
@@ -42,18 +52,31 @@ pub fn cli(cli: Cli) {
     .unwrap();
 
     info!("Reading tsalign output toml file {:?}", cli.input);
-    let mut input = String::new();
+    let mut buffer = String::new();
     File::open(cli.input)
         .unwrap_or_else(|error| panic!("Error opening input file: {error}"))
-        .read_to_string(&mut input)
+        .read_to_string(&mut buffer)
         .unwrap_or_else(|error| panic!("Error reading input file: {error}"));
-
     let result =
-        toml::from_str(&input).unwrap_or_else(|error| panic!("Error parsing input file: {error}"));
-    show_template_switches(&result);
+        toml::from_str(&buffer).unwrap_or_else(|error| panic!("Error parsing input file: {error}"));
+
+    let no_ts_result = cli.no_ts_input.as_ref().map(|no_ts_input| {
+        info!("Reading tsalign no-ts output toml file {no_ts_input:?}");
+        buffer.clear();
+        File::open(no_ts_input)
+            .unwrap_or_else(|error| panic!("Error opening input file: {error}"))
+            .read_to_string(&mut buffer)
+            .unwrap_or_else(|error| panic!("Error reading input file: {error}"));
+        toml::from_str(&buffer).unwrap_or_else(|error| panic!("Error parsing input file: {error}"))
+    });
+
+    show_template_switches(&result, &no_ts_result);
 }
 
-fn show_template_switches(result: &AlignmentResult<AlignmentType, U64Cost>) {
+fn show_template_switches(
+    result: &AlignmentResult<AlignmentType, U64Cost>,
+    no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
+) {
     let AlignmentResult::WithTarget {
         alignment,
         statistics,
@@ -63,7 +86,10 @@ fn show_template_switches(result: &AlignmentResult<AlignmentType, U64Cost>) {
         return;
     };
 
-    debug!("CIGAR: {}", result.cigar());
+    info!("CIGAR: {}", result.cigar());
+    if let Some(no_ts_result) = no_ts_result.as_ref() {
+        info!("No-ts CIGAR: {}", no_ts_result.cigar())
+    }
 
     info!("Collecting template switches");
     let template_switches = parse_template_switches::parse(alignment);
@@ -71,11 +97,15 @@ fn show_template_switches(result: &AlignmentResult<AlignmentType, U64Cost>) {
 
     for (index, template_switch) in template_switches.iter().enumerate() {
         info!("Showing template switch {}", index + 1);
-        show_template_switch(template_switch, &statistics.sequences);
+        show_template_switch(template_switch, &statistics.sequences, no_ts_result);
     }
 }
 
-fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &SequencePair) {
+fn show_template_switch(
+    template_switch: &TSShow<AlignmentType>,
+    sequences: &SequencePair,
+    no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
+) {
     // println!("Showing template switch\n{template_switch:?}");
 
     let reference = &sequences.reference;
@@ -256,17 +286,95 @@ fn show_template_switch(template_switch: &TSShow<AlignmentType>, sequences: &Seq
         println!();
         println!("Switch process:");
 
+        debug!("Rendering");
         renderer
             .render(
                 stdout(),
-                &[
-                    f1_label,
-                    f3_label,
-                    anti_primary_forward_label,
-                    anti_primary_reverse_label,
-                    f2_label,
+                [
+                    &f1_label,
+                    &f3_label,
+                    &anti_primary_forward_label,
+                    &anti_primary_reverse_label,
+                    &f2_label,
                 ],
             )
             .unwrap();
+
+        if let Some(no_ts_result) = no_ts_result {
+            let AlignmentResult::WithTarget {
+                alignment: no_ts_alignment,
+                ..
+            } = no_ts_result
+            else {
+                warn!("No-ts alignment was aborted early, no template switches present");
+                return;
+            };
+
+            assert!(
+                no_ts_alignment.iter().all(|(_, alignment_type)| !matches!(
+                    alignment_type,
+                    AlignmentType::TemplateSwitchEntrance { .. }
+                )),
+                "No-ts alignment must not contain template switches."
+            );
+
+            // Find subsequence of no-ts alignment that matches ts alignment interval.
+            let mut stream = AlignmentStream::new();
+            for alignment_type in
+                no_ts_alignment
+                    .iter()
+                    .copied()
+                    .flat_map(|(multiplicity, alignment_type)| {
+                        iter::repeat_n(alignment_type, multiplicity)
+                    })
+            {
+                if anti_primary_coordinate_picker(&stream.head_coordinates()) >= anti_primary_limit
+                {
+                    break;
+                } else {
+                    stream.push(1, alignment_type);
+                }
+            }
+            assert_eq!(
+                anti_primary_coordinate_picker(&stream.head_coordinates()),
+                anti_primary_limit
+            );
+
+            while anti_primary_coordinate_picker(&stream.tail_coordinates()) < anti_primary_offset {
+                stream.pop_one();
+            }
+            assert_eq!(
+                anti_primary_coordinate_picker(&stream.tail_coordinates()),
+                anti_primary_offset
+            );
+
+            debug!("Creating no-ts renderer");
+            renderer = MultipairAlignmentRenderer::new(
+                anti_primary_label.clone(),
+                &anti_primary[anti_primary_offset..anti_primary_limit],
+            );
+
+            debug!("Adding primary");
+            renderer.add_aligned_sequence(
+                &anti_primary_label,
+                0,
+                primary_label.clone(),
+                &primary[primary_coordinate_picker(&stream.tail_coordinates())
+                    ..primary_coordinate_picker(&stream.head_coordinates())],
+                &stream.stream_vec(),
+                true,
+                invert_alignment,
+            );
+
+            println!();
+            println!("No-ts alignment:");
+
+            debug!("Rendering");
+            renderer
+                .render(stdout(), [&anti_primary_label, &primary_label])
+                .unwrap();
+        } else {
+            debug!("No no-ts alignment given, skipping");
+        }
     }
 }

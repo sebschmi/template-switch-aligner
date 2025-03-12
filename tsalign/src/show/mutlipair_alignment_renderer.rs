@@ -91,7 +91,10 @@ impl<SequenceName: Eq + Ord + Clone> MultipairAlignmentRenderer<SequenceName> {
                     )
                 })
         {
-            while matches!(reference_sequence[index], Character::Gap | Character::Blank) {
+            while matches!(
+                reference_sequence.get(index),
+                Some(Character::Gap | Character::Blank)
+            ) {
                 translated_new_sequence.push(Character::Blank);
                 index += 1;
             }
@@ -209,6 +212,10 @@ impl MultipairAlignmentSequence {
         self.sequence.len()
     }
 
+    fn get(&self, index: usize) -> Option<&Character> {
+        self.sequence.get(index)
+    }
+
     fn insert_gaps(&mut self, gaps: impl IntoIterator<Item = usize>) {
         self.multi_insert(Character::Gap, gaps);
     }
@@ -219,6 +226,7 @@ impl MultipairAlignmentSequence {
 
     fn multi_insert(&mut self, character: Character, positions: impl IntoIterator<Item = usize>) {
         let original_sequence = mem::take(&mut self.sequence);
+        let original_sequence_len = original_sequence.len();
 
         let mut positions = positions.into_iter().peekable();
         let original_characters = original_sequence.into_iter().enumerate();
@@ -234,6 +242,11 @@ impl MultipairAlignmentSequence {
             }
 
             self.sequence.push(original_character);
+        }
+
+        for position in positions {
+            debug_assert_eq!(position, original_sequence_len);
+            self.sequence.push(character);
         }
     }
 }

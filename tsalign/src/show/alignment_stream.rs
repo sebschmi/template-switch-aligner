@@ -79,6 +79,11 @@ impl AlignmentStream {
         self.actual_length += multiplicity * Self::stream_length(alignment_type);
     }
 
+    /// Pops one unit of length from the tail of the stream.
+    pub fn pop_one(&mut self) {
+        self.pop(self.actual_length.saturating_sub(1));
+    }
+
     pub fn pop(&mut self, requested_length: usize) {
         while self.actual_length > requested_length {
             let requested_pop_length = self.actual_length - requested_length;
