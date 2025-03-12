@@ -199,13 +199,30 @@ impl<SequenceName: Eq + Ord + Display> MultipairAlignmentRenderer<SequenceName> 
 }
 
 impl MultipairAlignmentSequence {
+    /// Returns the index of the `n`-th character, where `n` is zero-based.
+    ///
+    /// If there are exactly `n` characters, return the index after the end of the sequence.
+    /// If there are less than `n` characters, return `None`.
     fn nth_character_index(&self, n: usize) -> Option<usize> {
-        self.sequence
+        let mut character_count = 0;
+        for (index, _) in self
+            .sequence
             .iter()
             .enumerate()
             .filter(|(_, character)| matches!(character, Character::Char(_)))
-            .nth(n)
-            .map(|(index, _)| index)
+        {
+            if character_count == n {
+                return Some(index);
+            } else {
+                character_count += 1;
+            }
+        }
+
+        if character_count == n {
+            Some(self.sequence.len())
+        } else {
+            None
+        }
     }
 
     fn len(&self) -> usize {

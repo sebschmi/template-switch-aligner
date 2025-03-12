@@ -86,12 +86,16 @@ fn show_template_switches(
         return;
     };
 
-    info!("CIGAR: {}", result.cigar());
+    info!("CIGAR: {} (Cost: {:.0})", result.cigar(), statistics.cost);
     if let Some(no_ts_result) = no_ts_result.as_ref() {
-        info!("No-ts CIGAR: {}", no_ts_result.cigar())
+        info!(
+            "No-ts CIGAR: {} (Cost: {:.0})",
+            no_ts_result.cigar(),
+            statistics.cost
+        )
     }
 
-    info!("Collecting template switches");
+    debug!("Collecting template switches");
     let template_switches = parse_template_switches::parse(alignment);
     info!("Found {} template switches", template_switches.len());
 
@@ -117,7 +121,7 @@ fn show_template_switch(
         primary_label,
         primary_name,
         primary,
-        _primary_c,
+        primary_c,
         primary_coordinate_picker,
         anti_primary_label,
         anti_primary_name,
@@ -127,14 +131,14 @@ fn show_template_switch(
         invert_alignment,
     ) = match template_switch.primary {
         TemplateSwitchPrimary::Reference => (
-            "Ref".to_string(),
+            "Parent".to_string(),
             &sequences.reference_name,
             reference,
             &reference_c,
             Box::new(|alignment_coordinates: &AlignmentCoordinates| {
                 alignment_coordinates.reference()
             }) as Box<dyn Fn(&AlignmentCoordinates) -> usize>,
-            "Qry".to_string(),
+            "Child".to_string(),
             &sequences.query_name,
             query,
             &query_c,
@@ -143,13 +147,13 @@ fn show_template_switch(
             true,
         ),
         TemplateSwitchPrimary::Query => (
-            "Qry".to_string(),
+            "Child".to_string(),
             &sequences.query_name,
             query,
             &query_c,
             Box::new(|alignment_coordinates: &AlignmentCoordinates| alignment_coordinates.query())
                 as Box<dyn Fn(&AlignmentCoordinates) -> usize>,
-            "Ref".to_string(),
+            "Parent".to_string(),
             &sequences.reference_name,
             reference,
             &reference_c,
@@ -164,26 +168,135 @@ fn show_template_switch(
         || (template_switch.primary == TemplateSwitchPrimary::Query
             && template_switch.secondary == TemplateSwitchSecondary::Query);
 
+    let primary_reverse_label = format!("{primary_label}R");
+    let anti_primary_forward_label = format!("{anti_primary_label}F");
+    let anti_primary_reverse_label = format!("{anti_primary_label}R");
+    let f1_label = format!("{primary_label}1");
+    let f2_label = format!("{primary_label}2");
+    let f3_label = format!("{primary_label}3");
+
+    let primary_offset = primary_coordinate_picker(&template_switch.upstream_offset);
+    let primary_limit = primary_coordinate_picker(&template_switch.downstream_limit);
+    let anti_primary_offset = anti_primary_coordinate_picker(&template_switch.upstream_offset);
+    let anti_primary_limit = anti_primary_coordinate_picker(&template_switch.downstream_limit);
+
+    let primary_sp1 = primary_coordinate_picker(&template_switch.sp1_offset);
+    let anti_primary_sp1 = anti_primary_coordinate_picker(&template_switch.sp1_offset);
+    let primary_sp4 = primary_coordinate_picker(&template_switch.sp4_offset);
+    let anti_primary_sp4 = anti_primary_coordinate_picker(&template_switch.sp4_offset);
+
+    let ts_reverse: String = primary[primary_coordinate_picker(&template_switch.sp1_offset)
+        ..primary_coordinate_picker(&template_switch.sp4_offset)]
+        .chars()
+        .rev()
+        .collect();
+    let ts_reverse_alignment: Vec<_> = template_switch
+        .template_switch
+        .iter()
+        .copied()
+        .rev()
+        .collect();
+
+    debug!("Primary offset: {primary_offset}");
+    debug!("SP1 primary offset: {primary_sp1}");
+    debug!("SP4 primary offset: {primary_sp4}");
+    debug!("Primary limit: {primary_limit}");
+    debug!("Primary len: {}", primary.len());
+    debug!("Anti-primary offset: {anti_primary_offset}");
+    debug!("SP1 anti-primary offset: {anti_primary_sp1}");
+    debug!("SP4 anti-primary offset: {anti_primary_sp4}");
+    debug!("Anti-primary limit: {anti_primary_limit}");
+    debug!("Anti-primary len: {}", anti_primary.len());
+    debug!(
+        "SP2 primary offset: {}",
+        template_switch.sp2_secondary_offset
+    );
+    debug!(
+        "SP3 primary offset: {}",
+        template_switch.sp3_secondary_offset
+    );
+
     if primary_equals_secondary {
-        todo!()
+        let primary_extended_offset = primary_offset.min(
+            template_switch
+                .sp3_secondary_offset
+                .saturating_sub(STREAM_PADDING),
+        );
+        let primary_extended_limit = primary_limit.max(
+            primary
+                .chars()
+                .count()
+                .min(template_switch.sp2_secondary_offset + STREAM_PADDING),
+        );
+
+        debug!("Primary extended offset: {primary_extended_offset}");
+        debug!("Primary extended limit: {primary_extended_limit}");
+
+        debug!("Creating outside renderer");
+        let mut outside_renderer = MultipairAlignmentRenderer::new(
+            anti_primary_forward_label.clone(),
+            &anti_primary[anti_primary_offset..anti_primary_limit],
+        );
+
+        debug!("Adding F1");
+        outside_renderer.add_aligned_sequence(
+            &anti_primary_forward_label,
+            0,
+            f1_label.clone(),
+            &primary[primary_offset..primary_coordinate_picker(&template_switch.sp1_offset)],
+            &template_switch.upstream,
+            true,
+            invert_alignment,
+        );
+        debug!("Adding F3");
+        outside_renderer.add_aligned_sequence(
+            &anti_primary_forward_label,
+            anti_primary_coordinate_picker(&template_switch.sp4_offset) - anti_primary_offset,
+            f3_label.clone(),
+            &primary[primary_coordinate_picker(&template_switch.sp4_offset)..primary_limit],
+            &template_switch.downstream,
+            true,
+            invert_alignment,
+        );
+
+        debug!("Creating inside renderer");
+        let mut inside_renderer = MultipairAlignmentRenderer::new(
+            primary_reverse_label.clone(),
+            &primary_c[primary_extended_offset..primary_extended_limit],
+        );
+        debug!("Adding F2");
+        inside_renderer.add_aligned_sequence(
+            &primary_reverse_label,
+            template_switch.sp3_secondary_offset - primary_extended_offset,
+            f2_label.clone(),
+            &ts_reverse,
+            &ts_reverse_alignment,
+            true,
+            invert_alignment,
+        );
+
+        println!("{anti_primary_label}: {anti_primary_name}");
+        println!("{primary_label}: {primary_name}");
+        println!();
+        println!("Switch process:");
+
+        debug!("Rendering");
+        outside_renderer
+            .render(
+                stdout(),
+                [&f1_label, &f3_label, &anti_primary_forward_label],
+            )
+            .unwrap();
+        println!();
+        inside_renderer
+            .render(stdout(), [&primary_reverse_label, &f2_label])
+            .unwrap();
     } else {
-        let anti_primary_forward_label = format!("{anti_primary_label}F");
-        let anti_primary_reverse_label = format!("{anti_primary_label}R");
-        let f1_label = format!("{primary_label}1");
-        let f2_label = format!("{primary_label}2");
-        let f3_label = format!("{primary_label}3");
-
-        let primary_offset = primary_coordinate_picker(&template_switch.upstream_offset);
-
-        let primary_limit = primary_coordinate_picker(&template_switch.downstream_limit);
-
-        let anti_primary_offset = anti_primary_coordinate_picker(&template_switch.upstream_offset);
         let anti_primary_extended_offset = anti_primary_offset.min(
             template_switch
                 .sp3_secondary_offset
                 .saturating_sub(STREAM_PADDING),
         );
-        let anti_primary_limit = anti_primary_coordinate_picker(&template_switch.downstream_limit);
         let anti_primary_extended_limit = anti_primary_limit.max(
             anti_primary
                 .chars()
@@ -191,43 +304,8 @@ fn show_template_switch(
                 .min(template_switch.sp2_secondary_offset + STREAM_PADDING),
         );
 
-        let primary_sp1 = primary_coordinate_picker(&template_switch.sp1_offset);
-        let anti_primary_sp1 = anti_primary_coordinate_picker(&template_switch.sp1_offset);
-        let primary_sp4 = primary_coordinate_picker(&template_switch.sp4_offset);
-        let anti_primary_sp4 = anti_primary_coordinate_picker(&template_switch.sp4_offset);
-
-        debug!("Primary offset: {primary_offset}");
-        debug!("SP1 primary offset: {primary_sp1}");
-        debug!("SP4 primary offset: {primary_sp4}");
-        debug!("Primary limit: {primary_limit}");
-        debug!("Primary len: {}", primary.len());
         debug!("Anti-primary extended offset: {anti_primary_extended_offset}");
-        debug!("Anti-primary offset: {anti_primary_offset}");
-        debug!("SP1 anti-primary offset: {anti_primary_sp1}");
-        debug!("SP4 anti-primary offset: {anti_primary_sp4}");
-        debug!("Anti-primary limit: {anti_primary_limit}");
         debug!("Anti-primary extended limit: {anti_primary_extended_limit}");
-        debug!("Anti-primary len: {}", anti_primary.len());
-        debug!(
-            "SP2 primary offset: {}",
-            template_switch.sp2_secondary_offset
-        );
-        debug!(
-            "SP3 primary offset: {}",
-            template_switch.sp3_secondary_offset
-        );
-
-        let ts_reverse: String = primary[primary_coordinate_picker(&template_switch.sp1_offset)
-            ..primary_coordinate_picker(&template_switch.sp4_offset)]
-            .chars()
-            .rev()
-            .collect();
-        let ts_reverse_alignment: Vec<_> = template_switch
-            .template_switch
-            .iter()
-            .copied()
-            .rev()
-            .collect();
 
         debug!("Creating renderer");
         let mut renderer = MultipairAlignmentRenderer::new(
@@ -299,82 +377,78 @@ fn show_template_switch(
                 ],
             )
             .unwrap();
+    }
 
-        if let Some(no_ts_result) = no_ts_result {
-            let AlignmentResult::WithTarget {
-                alignment: no_ts_alignment,
-                ..
-            } = no_ts_result
-            else {
-                warn!("No-ts alignment was aborted early, no template switches present");
-                return;
-            };
+    if let Some(no_ts_result) = no_ts_result {
+        let AlignmentResult::WithTarget {
+            alignment: no_ts_alignment,
+            ..
+        } = no_ts_result
+        else {
+            warn!("No-ts alignment was aborted early, no template switches present");
+            return;
+        };
 
-            assert!(
-                no_ts_alignment.iter().all(|(_, alignment_type)| !matches!(
-                    alignment_type,
-                    AlignmentType::TemplateSwitchEntrance { .. }
-                )),
-                "No-ts alignment must not contain template switches."
-            );
+        assert!(
+            no_ts_alignment.iter().all(|(_, alignment_type)| !matches!(
+                alignment_type,
+                AlignmentType::TemplateSwitchEntrance { .. }
+            )),
+            "No-ts alignment must not contain template switches."
+        );
 
-            // Find subsequence of no-ts alignment that matches ts alignment interval.
-            let mut stream = AlignmentStream::new();
-            for alignment_type in
-                no_ts_alignment
-                    .iter()
-                    .copied()
-                    .flat_map(|(multiplicity, alignment_type)| {
-                        iter::repeat_n(alignment_type, multiplicity)
-                    })
-            {
-                if anti_primary_coordinate_picker(&stream.head_coordinates()) >= anti_primary_limit
-                {
-                    break;
-                } else {
-                    stream.push(1, alignment_type);
-                }
+        // Find subsequence of no-ts alignment that matches ts alignment interval.
+        let mut stream = AlignmentStream::new();
+        for alignment_type in no_ts_alignment
+            .iter()
+            .copied()
+            .flat_map(|(multiplicity, alignment_type)| iter::repeat_n(alignment_type, multiplicity))
+        {
+            if anti_primary_coordinate_picker(&stream.head_coordinates()) >= anti_primary_limit {
+                break;
+            } else {
+                stream.push(1, alignment_type);
             }
-            assert_eq!(
-                anti_primary_coordinate_picker(&stream.head_coordinates()),
-                anti_primary_limit
-            );
-
-            while anti_primary_coordinate_picker(&stream.tail_coordinates()) < anti_primary_offset {
-                stream.pop_one();
-            }
-            assert_eq!(
-                anti_primary_coordinate_picker(&stream.tail_coordinates()),
-                anti_primary_offset
-            );
-
-            debug!("Creating no-ts renderer");
-            renderer = MultipairAlignmentRenderer::new(
-                anti_primary_label.clone(),
-                &anti_primary[anti_primary_offset..anti_primary_limit],
-            );
-
-            debug!("Adding primary");
-            renderer.add_aligned_sequence(
-                &anti_primary_label,
-                0,
-                primary_label.clone(),
-                &primary[primary_coordinate_picker(&stream.tail_coordinates())
-                    ..primary_coordinate_picker(&stream.head_coordinates())],
-                &stream.stream_vec(),
-                true,
-                invert_alignment,
-            );
-
-            println!();
-            println!("No-ts alignment:");
-
-            debug!("Rendering");
-            renderer
-                .render(stdout(), [&anti_primary_label, &primary_label])
-                .unwrap();
-        } else {
-            debug!("No no-ts alignment given, skipping");
         }
+        assert_eq!(
+            anti_primary_coordinate_picker(&stream.head_coordinates()),
+            anti_primary_limit
+        );
+
+        while anti_primary_coordinate_picker(&stream.tail_coordinates()) < anti_primary_offset {
+            stream.pop_one();
+        }
+        assert_eq!(
+            anti_primary_coordinate_picker(&stream.tail_coordinates()),
+            anti_primary_offset
+        );
+
+        debug!("Creating no-ts renderer");
+        let mut renderer = MultipairAlignmentRenderer::new(
+            anti_primary_label.clone(),
+            &anti_primary[anti_primary_offset..anti_primary_limit],
+        );
+
+        debug!("Adding primary");
+        renderer.add_aligned_sequence(
+            &anti_primary_label,
+            0,
+            primary_label.clone(),
+            &primary[primary_coordinate_picker(&stream.tail_coordinates())
+                ..primary_coordinate_picker(&stream.head_coordinates())],
+            &stream.stream_vec(),
+            true,
+            invert_alignment,
+        );
+
+        println!();
+        println!("No-ts alignment:");
+
+        debug!("Rendering");
+        renderer
+            .render(stdout(), [&anti_primary_label, &primary_label])
+            .unwrap();
+    } else {
+        debug!("No no-ts alignment given, skipping");
     }
 }
