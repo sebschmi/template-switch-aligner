@@ -4,6 +4,7 @@ on: [push, pull_request]
 
 env:
   RUSTFLAGS: "-Dwarnings"
+  RUSTDOCFLAGS: "-Dwarnings"
 
 jobs:
   rust_check:
