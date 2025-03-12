@@ -16,7 +16,7 @@ pub mod cost;
 pub mod reset;
 
 /// A node of the A* graph.
-/// The node must implement [`Ord`](std::cmp::Ord), ordering it by its cost, ascending.
+/// The node must implement [`Ord`], ordering it by its cost, ascending.
 /// The graph defined by the node type must be cycle-free.
 pub trait AStarNode: Sized + Ord + Debug + Display {
     /// A unique identifier of the node.
