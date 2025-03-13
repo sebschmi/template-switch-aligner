@@ -272,7 +272,7 @@ fn show_template_switch(
             &ts_reverse,
             &ts_reverse_alignment,
             true,
-            invert_alignment,
+            false,
         );
 
         println!("{anti_primary_label}: {anti_primary_name}");
@@ -356,7 +356,7 @@ fn show_template_switch(
             &ts_reverse,
             &ts_reverse_alignment,
             true,
-            invert_alignment,
+            false,
         );
 
         println!("{anti_primary_label}: {anti_primary_name}");
