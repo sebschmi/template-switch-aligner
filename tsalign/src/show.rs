@@ -91,7 +91,7 @@ fn show_template_switches(
         info!(
             "No-ts CIGAR: {} (Cost: {:.0})",
             no_ts_result.cigar(),
-            statistics.cost
+            no_ts_result.statistics().cost
         )
     }
 
