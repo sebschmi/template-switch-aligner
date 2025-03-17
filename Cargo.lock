@@ -235,7 +235,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 
 [[package]]
 name = "generic_a_star"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "binary-heap-plus",
  "deterministic_default_hasher",
