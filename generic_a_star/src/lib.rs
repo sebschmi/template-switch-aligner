@@ -71,6 +71,17 @@ pub trait AStarContext: Reset {
     ///
     /// If it is exceeded, then [`AStarResult::ExceededMemoryLimit`] is returned
     fn memory_limit(&self) -> Option<usize>;
+
+    /// Returns true if the nodes are generated in a label-setting manner.
+    ///
+    /// Label setting means that once a node has been closed, it will never be opened at a smaller cost.
+    /// On the contrary, if this is set to false, then nodes are allowed to be closed multiple times.
+    /// This results in a worse performance, but allows for example to handle negative costs.
+    ///
+    /// This method returns `true` in its default implementation.
+    fn is_label_setting(&self) -> bool {
+        true
+    }
 }
 
 #[derive(Debug, Default)]
@@ -295,32 +306,35 @@ impl<Context: AStarContext> AStar<Context> {
             last_node = Some(node.identifier().clone());
 
             if let Some(previous_visit) = self.closed_list.get(node.identifier()) {
-                // If we have already visited the node, we now must be visiting it with a higher cost.
-                debug_assert!(
-                    previous_visit.cost() + previous_visit.a_star_lower_bound()
-                        <= node.cost() + node.a_star_lower_bound(),
-                    "{}",
-                    {
-                        use std::fmt::Write;
-                        let mut previous_visit = previous_visit;
-                        let mut node = &node;
-                        let mut out = String::new();
+                if self.context.is_label_setting() {
+                    // In label-setting mode, if we have already visited the node, we now must be visiting it with a higher cost.
+                    debug_assert!(
+                        previous_visit.cost() + previous_visit.a_star_lower_bound()
+                            <= node.cost() + node.a_star_lower_bound(),
+                        "{}",
+                        {
+                            use std::fmt::Write;
+                            let mut previous_visit = previous_visit;
+                            let mut node = &node;
+                            let mut out = String::new();
 
-                        writeln!(out, "previous_visit:").unwrap();
-                        while let Some(predecessor) = previous_visit.predecessor() {
-                            writeln!(out, "{previous_visit}").unwrap();
-                            previous_visit = self.closed_list.get(predecessor).unwrap();
+                            writeln!(out, "previous_visit:").unwrap();
+                            while let Some(predecessor) = previous_visit.predecessor() {
+                                writeln!(out, "{previous_visit}").unwrap();
+                                previous_visit = self.closed_list.get(predecessor).unwrap();
+                            }
+
+                            writeln!(out, "\nnode:").unwrap();
+                            while let Some(predecessor) = node.predecessor() {
+                                writeln!(out, "{node}").unwrap();
+                                node = self.closed_list.get(predecessor).unwrap();
+                            }
+
+                            out
                         }
+                    );
+                }
 
-                        writeln!(out, "\nnode:").unwrap();
-                        while let Some(predecessor) = node.predecessor() {
-                            writeln!(out, "{node}").unwrap();
-                            node = self.closed_list.get(predecessor).unwrap();
-                        }
-
-                        out
-                    }
-                );
                 self.performance_counters.suboptimal_opened_nodes += 1;
                 continue;
             }
@@ -334,13 +348,13 @@ impl<Context: AStarContext> AStar<Context> {
                 let identifier = node.identifier().clone();
                 let previous_visit = self.closed_list.insert(node.identifier().clone(), node);
                 self.performance_counters.closed_nodes += 1;
-                debug_assert!(previous_visit.is_none());
+                debug_assert!(previous_visit.is_none() || !self.context.is_label_setting());
                 break identifier;
             }
 
             let previous_visit = self.closed_list.insert(node.identifier().clone(), node);
             self.performance_counters.closed_nodes += 1;
-            debug_assert!(previous_visit.is_none());
+            debug_assert!(previous_visit.is_none() || !self.context.is_label_setting());
         };
 
         let cost = self.closed_list.get(&target_identifier).unwrap().cost();
