@@ -18,10 +18,12 @@ use log::{LevelFilter, debug, info, warn};
 use mutlipair_alignment_renderer::MultipairAlignmentRenderer;
 use parse_template_switches::{STREAM_PADDING, TSShow};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
+use svg::create_ts_svg;
 
 mod alignment_stream;
 mod mutlipair_alignment_renderer;
 mod parse_template_switches;
+mod svg;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -40,6 +42,10 @@ pub struct Cli {
     /// It is expected to contain no template switches, otherwise it will be rejected.
     #[clap(long, short = 'n')]
     no_ts_input: Option<PathBuf>,
+
+    /// Create an SVG image file showing the complete alignment with all template switches.
+    #[clap(long, short = 's')]
+    svg: Option<PathBuf>,
 }
 
 pub fn cli(cli: Cli) {
@@ -71,6 +77,10 @@ pub fn cli(cli: Cli) {
     });
 
     show_template_switches(&result, &no_ts_result);
+
+    if let Some(svg) = cli.svg.as_ref() {
+        create_ts_svg(svg, &result, &no_ts_result);
+    }
 }
 
 fn show_template_switches(
@@ -385,7 +395,7 @@ fn show_template_switch(
             ..
         } = no_ts_result
         else {
-            warn!("No-ts alignment was aborted early, no template switches present");
+            warn!("No-ts alignment was aborted early, unable to render");
             return;
         };
 

@@ -14,12 +14,12 @@ pub struct MultipairAlignmentRenderer<SequenceName> {
 }
 
 #[derive(Debug)]
-struct MultipairAlignmentSequence {
+pub struct MultipairAlignmentSequence {
     sequence: Vec<Character>,
 }
 
 #[derive(Debug, Clone, Copy)]
-enum Character {
+pub enum Character {
     Char(char),
     Gap,
     Blank,
@@ -40,6 +40,10 @@ impl<SequenceName: Eq + Ord> MultipairAlignmentRenderer<SequenceName> {
                 .into_iter()
                 .collect(),
         }
+    }
+
+    pub fn sequence(&self, sequence_name: &SequenceName) -> &MultipairAlignmentSequence {
+        self.sequences.get(sequence_name).unwrap()
     }
 }
 
@@ -203,7 +207,7 @@ impl MultipairAlignmentSequence {
     ///
     /// If there are exactly `n` characters, return the index after the end of the sequence.
     /// If there are less than `n` characters, return `None`.
-    fn nth_character_index(&self, n: usize) -> Option<usize> {
+    pub fn nth_character_index(&self, n: usize) -> Option<usize> {
         let mut character_count = 0;
         for (index, _) in self
             .sequence
@@ -225,23 +229,31 @@ impl MultipairAlignmentSequence {
         }
     }
 
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.sequence.len()
     }
 
-    fn get(&self, index: usize) -> Option<&Character> {
+    pub fn characters(&self) -> impl Iterator<Item = char> {
+        self.sequence.iter().map(Character::as_char)
+    }
+
+    pub fn get(&self, index: usize) -> Option<&Character> {
         self.sequence.get(index)
     }
 
-    fn insert_gaps(&mut self, gaps: impl IntoIterator<Item = usize>) {
+    pub fn insert_gaps(&mut self, gaps: impl IntoIterator<Item = usize>) {
         self.multi_insert(Character::Gap, gaps);
     }
 
-    fn insert_blanks(&mut self, blanks: impl IntoIterator<Item = usize>) {
+    pub fn insert_blanks(&mut self, blanks: impl IntoIterator<Item = usize>) {
         self.multi_insert(Character::Blank, blanks);
     }
 
-    fn multi_insert(&mut self, character: Character, positions: impl IntoIterator<Item = usize>) {
+    pub fn multi_insert(
+        &mut self,
+        character: Character,
+        positions: impl IntoIterator<Item = usize>,
+    ) {
         let original_sequence = mem::take(&mut self.sequence);
         let original_sequence_len = original_sequence.len();
 
@@ -268,14 +280,20 @@ impl MultipairAlignmentSequence {
     }
 }
 
+impl Character {
+    fn as_char(&self) -> char {
+        match self {
+            Character::Char(character) => *character,
+            Character::Gap => '-',
+            Character::Blank => ' ',
+        }
+    }
+}
+
 impl Display for MultipairAlignmentSequence {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for character in &self.sequence {
-            match character {
-                Character::Char(character) => write!(f, "{character}")?,
-                Character::Gap => write!(f, "-")?,
-                Character::Blank => write!(f, " ")?,
-            }
+            write!(f, "{}", character.as_char())?;
         }
 
         Ok(())
