@@ -5,7 +5,7 @@ use lib_tsalign::a_star_aligner::template_switch_distance::{AlignmentType, Templ
 #[derive(Debug, Clone)]
 pub struct AlignmentStream {
     stream: VecDeque<(usize, AlignmentType)>,
-    actual_length: usize,
+    length: usize,
 
     /// The alignment coordinates of the first alignment after the head of the queue.
     head_coordinates: AlignmentCoordinates,
@@ -24,10 +24,14 @@ impl AlignmentStream {
     pub fn new() -> Self {
         Self {
             stream: Default::default(),
-            actual_length: 0,
+            length: 0,
             head_coordinates: Default::default(),
             tail_coordinates: Default::default(),
         }
+    }
+
+    pub fn len(&self) -> usize {
+        self.length
     }
 
     pub fn stream_iter(&self) -> impl use<'_> + Iterator<Item = (usize, AlignmentType)> {
@@ -52,7 +56,7 @@ impl AlignmentStream {
         alignment_type: AlignmentType,
         requested_length: usize,
     ) {
-        let available_length = requested_length - self.actual_length;
+        let available_length = requested_length - self.length;
         let push_length = *multiplicity * Self::stream_length(alignment_type);
 
         if available_length >= push_length {
@@ -70,23 +74,27 @@ impl AlignmentStream {
     }
 
     pub fn is_full(&self, requested_length: usize) -> bool {
-        self.actual_length >= requested_length
+        self.length >= requested_length
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.stream_iter().next().is_none()
     }
 
     pub fn push(&mut self, multiplicity: usize, alignment_type: AlignmentType) {
         self.stream.push_back((multiplicity, alignment_type));
         self.head_coordinates.advance(multiplicity, alignment_type);
-        self.actual_length += multiplicity * Self::stream_length(alignment_type);
+        self.length += multiplicity * Self::stream_length(alignment_type);
     }
 
     /// Pops one unit of length from the tail of the stream.
     pub fn pop_one(&mut self) {
-        self.pop(self.actual_length.saturating_sub(1));
+        self.pop(self.length.saturating_sub(1));
     }
 
     pub fn pop(&mut self, requested_length: usize) {
-        while self.actual_length > requested_length {
-            let requested_pop_length = self.actual_length - requested_length;
+        while self.length > requested_length {
+            let requested_pop_length = self.length - requested_length;
             let (multiplicity, alignment_type) = self.stream.front_mut().unwrap();
             let front_length = *multiplicity * Self::stream_length(*alignment_type);
 
@@ -94,13 +102,13 @@ impl AlignmentStream {
                 self.tail_coordinates
                     .advance(*multiplicity, *alignment_type);
                 self.stream.pop_front();
-                self.actual_length -= front_length;
+                self.length -= front_length;
             } else {
                 let pop_multiplicity = requested_pop_length / Self::stream_length(*alignment_type);
                 self.tail_coordinates
                     .advance(pop_multiplicity, *alignment_type);
                 *multiplicity -= pop_multiplicity;
-                self.actual_length -= pop_multiplicity * Self::stream_length(*alignment_type);
+                self.length -= pop_multiplicity * Self::stream_length(*alignment_type);
                 break;
             }
         }

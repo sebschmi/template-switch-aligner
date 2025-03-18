@@ -55,7 +55,7 @@ impl<SequenceName: Eq + Ord + Clone> MultipairAlignmentRenderer<SequenceName> {
         reference_sequence_offset: usize,
         new_sequence_name: SequenceName,
         new_sequence: &str,
-        alignment: &[(usize, AlignmentType)],
+        alignment: impl IntoIterator<Item = (usize, AlignmentType)>,
         do_lowercasing: bool,
         invert_alignment: bool,
     ) {
@@ -65,7 +65,6 @@ impl<SequenceName: Eq + Ord + Clone> MultipairAlignmentRenderer<SequenceName> {
             "new_sequence (len: {}): {new_sequence}",
             new_sequence.chars().count()
         );
-        debug!("alignment: {alignment:?}");
         debug!("invert_alignment: {invert_alignment}");
 
         assert!(!self.sequences.contains_key(&new_sequence_name));
@@ -80,20 +79,18 @@ impl<SequenceName: Eq + Ord + Clone> MultipairAlignmentRenderer<SequenceName> {
         let mut translated_new_sequence = vec![Character::Blank; index];
         let mut reference_gaps = Vec::new();
 
-        for alignment_type in
-            alignment
-                .iter()
-                .copied()
-                .flat_map(|(multiplicity, alignment_type)| {
-                    iter::repeat_n(
-                        if invert_alignment {
-                            alignment_type.inverted()
-                        } else {
-                            alignment_type
-                        },
-                        multiplicity,
-                    )
-                })
+        for alignment_type in alignment
+            .into_iter()
+            .flat_map(|(multiplicity, alignment_type)| {
+                iter::repeat_n(
+                    if invert_alignment {
+                        alignment_type.inverted()
+                    } else {
+                        alignment_type
+                    },
+                    multiplicity,
+                )
+            })
         {
             while matches!(
                 reference_sequence.get(index),

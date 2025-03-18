@@ -46,6 +46,10 @@ pub struct Cli {
     /// Create an SVG image file showing the complete alignment with all template switches.
     #[clap(long, short = 's')]
     svg: Option<PathBuf>,
+
+    /// If set together with --svg, then the SVG image is rendered to a PNG image as well.
+    #[clap(long, short = 'p')]
+    png: bool,
 }
 
 pub fn cli(cli: Cli) {
@@ -79,7 +83,7 @@ pub fn cli(cli: Cli) {
     show_template_switches(&result, &no_ts_result);
 
     if let Some(svg) = cli.svg.as_ref() {
-        create_ts_svg(svg, &result, &no_ts_result);
+        create_ts_svg(svg, &result, &no_ts_result, cli.png);
     }
 }
 
@@ -254,7 +258,7 @@ fn show_template_switch(
             0,
             f1_label.clone(),
             &primary[primary_offset..primary_coordinate_picker(&template_switch.sp1_offset)],
-            &template_switch.upstream,
+            template_switch.upstream.iter().copied(),
             true,
             invert_alignment,
         );
@@ -264,7 +268,7 @@ fn show_template_switch(
             anti_primary_coordinate_picker(&template_switch.sp4_offset) - anti_primary_offset,
             f3_label.clone(),
             &primary[primary_coordinate_picker(&template_switch.sp4_offset)..primary_limit],
-            &template_switch.downstream,
+            template_switch.downstream.iter().copied(),
             true,
             invert_alignment,
         );
@@ -280,7 +284,7 @@ fn show_template_switch(
             template_switch.sp3_secondary_offset - primary_extended_offset,
             f2_label.clone(),
             &ts_reverse,
-            &ts_reverse_alignment,
+            ts_reverse_alignment.iter().copied(),
             true,
             false,
         );
@@ -328,7 +332,7 @@ fn show_template_switch(
             0,
             anti_primary_reverse_label.clone(),
             &anti_primary_c[anti_primary_extended_offset..anti_primary_extended_limit],
-            &[(
+            [(
                 anti_primary_extended_limit - anti_primary_extended_offset,
                 AlignmentType::PrimaryMatch,
             )],
@@ -342,7 +346,7 @@ fn show_template_switch(
             anti_primary_offset - anti_primary_extended_offset,
             f1_label.clone(),
             &primary[primary_offset..primary_coordinate_picker(&template_switch.sp1_offset)],
-            &template_switch.upstream,
+            template_switch.upstream.iter().copied(),
             true,
             invert_alignment,
         );
@@ -353,7 +357,7 @@ fn show_template_switch(
                 - anti_primary_extended_offset,
             f3_label.clone(),
             &primary[primary_coordinate_picker(&template_switch.sp4_offset)..primary_limit],
-            &template_switch.downstream,
+            template_switch.downstream.iter().copied(),
             true,
             invert_alignment,
         );
@@ -364,7 +368,7 @@ fn show_template_switch(
             template_switch.sp3_secondary_offset - anti_primary_extended_offset,
             f2_label.clone(),
             &ts_reverse,
-            &ts_reverse_alignment,
+            ts_reverse_alignment.iter().copied(),
             true,
             false,
         );
@@ -446,7 +450,7 @@ fn show_template_switch(
             primary_label.clone(),
             &primary[primary_coordinate_picker(&stream.tail_coordinates())
                 ..primary_coordinate_picker(&stream.head_coordinates())],
-            &stream.stream_vec(),
+            stream.stream_iter(),
             true,
             invert_alignment,
         );
