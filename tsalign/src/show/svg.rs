@@ -2,7 +2,10 @@ use std::iter;
 
 use font::{CHARACTER_HEIGHT, CHARACTER_WIDTH, svg_string};
 use lib_tsalign::{
-    a_star_aligner::{alignment_result::AlignmentResult, template_switch_distance::AlignmentType},
+    a_star_aligner::{
+        alignment_result::AlignmentResult,
+        template_switch_distance::{AlignmentType, TemplateSwitchSecondary},
+    },
     costs::U64Cost,
 };
 use log::{debug, info, trace, warn};
@@ -57,9 +60,13 @@ pub fn create_ts_svg(
     let reference = &result.statistics().sequences.reference;
     let query = &result.statistics().sequences.query;
 
-    debug!("Iterating alignment");
+    debug!("Rendering reference and query");
     let mut stream = AlignmentStream::new();
     let mut offset_stream = AlignmentStream::new();
+    let mut renderer = MultipairAlignmentRenderer::new(reference_label.clone(), "");
+    renderer.add_independent_sequence(query_label.clone(), "");
+    let mut reference_render_offset_shift = 0;
+    let mut query_render_offset_shift = 0;
     let mut alignment_iter = alignment
         .iter()
         .copied()
@@ -78,16 +85,24 @@ pub fn create_ts_svg(
             )
         })
         .peekable();
-    let mut rq_group =
-        Group::new().set("transform", SvgLocation { x: 10.0, y: 10.0 }.as_transform());
 
     while let Some(alignment_type) = alignment_iter.peek().copied() {
         trace!("Outer {alignment_type}");
 
         if matches!(alignment_type, AlignmentType::TemplateSwitchEntrance { .. }) {
-            rq_group = rq_group.add(render_inter_ts(reference, query, &stream, &offset_stream));
+            render_inter_ts(
+                &mut renderer,
+                reference_render_offset_shift,
+                &reference_label,
+                &query_label,
+                reference,
+                query,
+                &stream,
+            );
 
-            // Skip TS
+            stream.clear();
+
+            // Accumulate TS
             for alignment_type in alignment_iter.by_ref() {
                 trace!("Skipping {alignment_type}");
 
@@ -99,6 +114,17 @@ pub fn create_ts_svg(
                 }
             }
 
+            render_ts_base(
+                &mut renderer,
+                &mut reference_render_offset_shift,
+                &mut query_render_offset_shift,
+                &reference_label,
+                &query_label,
+                reference,
+                query,
+                &stream,
+            );
+
             stream.clear();
         } else {
             alignment_iter.next().unwrap();
@@ -108,8 +134,32 @@ pub fn create_ts_svg(
     }
 
     if !stream.is_empty() {
-        rq_group = rq_group.add(render_inter_ts(reference, query, &stream, &offset_stream));
+        render_inter_ts(
+            &mut renderer,
+            reference_render_offset_shift,
+            &reference_label,
+            &query_label,
+            reference,
+            query,
+            &stream,
+        );
     }
+
+    let reference = svg_string(
+        renderer.sequence(&reference_label).characters(),
+        &SvgLocation { x: 0.0, y: 0.0 },
+    );
+    let query = svg_string(
+        renderer.sequence(&query_label).characters(),
+        &SvgLocation {
+            x: 0.0,
+            y: CHARACTER_HEIGHT,
+        },
+    );
+    let rq_group = Group::new()
+        .set("transform", SvgLocation { x: 10.0, y: 10.0 }.as_transform())
+        .add(reference)
+        .add(query);
 
     let mut view_box_width = offset_stream.len() as f32 * CHARACTER_WIDTH + 20.0;
     let mut view_box_height = 3.0 * CHARACTER_HEIGHT + 20.0;
@@ -198,12 +248,15 @@ pub fn create_ts_svg(
     }
 }
 
-fn render_inter_ts(
+fn render_inter_ts<SequenceName: Eq + Ord>(
+    renderer: &mut MultipairAlignmentRenderer<SequenceName>,
+    reference_render_offset_shift: isize,
+    reference_label: &SequenceName,
+    query_label: &SequenceName,
     reference: &str,
     query: &str,
     stream: &AlignmentStream,
-    offset_stream: &AlignmentStream,
-) -> Group {
+) {
     debug!(
         "Rendering inter-ts from RQ {}/{} to RQ {}/{}",
         stream.tail_coordinates().reference(),
@@ -211,47 +264,92 @@ fn render_inter_ts(
         stream.head_coordinates().reference(),
         stream.head_coordinates().query()
     );
+    debug!("Reference render offset shift: {reference_render_offset_shift}");
 
-    let head_len = offset_stream.len();
-    let tail_len = head_len - stream.len();
-
-    let reference_label = "r".to_string();
-    let query_label = "q".to_string();
     let reference =
         &reference[stream.tail_coordinates().reference()..stream.head_coordinates().reference()];
     let query = &query[stream.tail_coordinates().query()..stream.head_coordinates().query()];
 
-    let mut renderer = MultipairAlignmentRenderer::new(reference_label.clone(), reference);
-    renderer.add_aligned_sequence(
-        &reference_label,
-        0,
-        query_label.to_string(),
-        query,
+    renderer.extend_sequence(reference_label, reference);
+    renderer.extend_sequence_with_alignment(
+        reference_label,
+        query_label,
+        (stream.tail_coordinates().reference() as isize + reference_render_offset_shift)
+            .try_into()
+            .unwrap(),
+        query.chars(),
         stream.stream_iter(),
         true,
         false,
     );
+}
 
-    Group::new()
-        .set(
-            "transform",
-            SvgLocation {
-                x: tail_len as f32 * CHARACTER_WIDTH,
-                y: 0.0,
-            }
-            .as_transform(),
-        )
-        .add(svg_string(
-            renderer.sequence(&reference_label).characters(),
-            &SvgLocation { x: 0.0, y: 0.0 },
-        ))
-        .add(svg_string(
-            renderer.sequence(&query_label).characters(),
-            &SvgLocation {
-                x: 0.0,
-                y: CHARACTER_HEIGHT,
-            },
-        ))
+#[expect(clippy::too_many_arguments)]
+fn render_ts_base<SequenceName: Eq + Ord>(
+    renderer: &mut MultipairAlignmentRenderer<SequenceName>,
+    reference_render_offset_shift: &mut isize,
+    query_render_offset_shift: &mut isize,
+    reference_label: &SequenceName,
+    query_label: &SequenceName,
+    reference: &str,
+    query: &str,
+    stream: &AlignmentStream,
+) {
+    debug!(
+        "Rendering ts base from RQ {}/{} to RQ {}/{}",
+        stream.tail_coordinates().reference(),
+        stream.tail_coordinates().query(),
+        stream.head_coordinates().reference(),
+        stream.head_coordinates().query()
+    );
+    debug!("Render offset shifts RQ {reference_render_offset_shift}/{query_render_offset_shift}");
+
+    let reference =
+        &reference[stream.tail_coordinates().reference()..stream.head_coordinates().reference()];
+    let query = &query[stream.tail_coordinates().query()..stream.head_coordinates().query()];
+
+    let mut alignment = stream.stream_iter();
+    let (_, AlignmentType::TemplateSwitchEntrance { secondary, .. }) = alignment.next().unwrap()
+    else {
+        panic!("Wrong template switch entrance");
+    };
+    let (_, AlignmentType::TemplateSwitchExit { length_difference }) = alignment.last().unwrap()
+    else {
+        panic!("Wrong template switch exit")
+    };
+
+    match secondary {
+        TemplateSwitchSecondary::Reference => {
+            renderer.extend_sequence(reference_label, reference);
+            renderer.extend_sequence_with_alignment(
+                reference_label,
+                query_label,
+                (stream.tail_coordinates().reference() as isize + *reference_render_offset_shift)
+                    .try_into()
+                    .unwrap(),
+                iter::repeat_n(' ', reference.chars().count()),
+                [(reference.chars().count(), AlignmentType::PrimaryMatch)],
+                false,
+                false,
+            );
+            *query_render_offset_shift += length_difference;
+        }
+        TemplateSwitchSecondary::Query => {
+            renderer.extend_sequence(query_label, query);
+            renderer.extend_sequence_with_alignment(
+                query_label,
+                reference_label,
+                (stream.tail_coordinates().query() as isize + *query_render_offset_shift)
+                    .try_into()
+                    .unwrap(),
+                iter::repeat_n(' ', query.chars().count()),
+                [(query.chars().count(), AlignmentType::PrimaryMatch)],
+                false,
+                false,
+            );
+            *reference_render_offset_shift += length_difference;
+        }
+    }
 }
 
 fn make_png(output: impl AsRef<std::path::Path>) {
