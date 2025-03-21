@@ -1,6 +1,6 @@
 use std::iter;
 
-use font::{CHARACTER_HEIGHT, CHARACTER_WIDTH, svg_string};
+use font::{CHARACTER_HEIGHT, CHARACTER_WIDTH, CharacterData, svg_string};
 use lib_tsalign::{
     a_star_aligner::{
         alignment_result::AlignmentResult,
@@ -19,7 +19,8 @@ use svg::{
 };
 
 use crate::show::{
-    alignment_stream::AlignmentStream, mutlipair_alignment_renderer::MultipairAlignmentRenderer,
+    alignment_stream::AlignmentStream,
+    mutlipair_alignment_renderer::{Character, MultipairAlignmentRenderer},
 };
 
 use super::alignment_stream::AlignmentCoordinates;
@@ -146,13 +147,14 @@ pub fn create_ts_svg(
     let mut offset_stream = AlignmentStream::new();
     let mut template_switches = Vec::new();
 
-    let mut renderer = MultipairAlignmentRenderer::new(reference_label.clone(), "");
-    renderer.add_independent_sequence(query_label.clone(), "");
+    let mut renderer = MultipairAlignmentRenderer::new_empty();
+    renderer.add_empty_independent_sequence(reference_label.clone());
+    renderer.add_empty_independent_sequence(query_label.clone());
     if has_secondary_reference_ts {
-        renderer.add_independent_sequence(reference_c_label.clone(), "");
+        renderer.add_empty_independent_sequence(reference_c_label.clone());
     }
     if has_secondary_query_ts {
-        renderer.add_independent_sequence(query_c_label.clone(), "");
+        renderer.add_empty_independent_sequence(query_c_label.clone());
     }
 
     let mut reference_render_offset_shift = 0;
@@ -281,7 +283,11 @@ pub fn create_ts_svg(
                     query_c.label,
                     inner_offset,
                     label.clone(),
-                    &inner_sequence_r,
+                    inner_sequence_r
+                        .chars()
+                        .map(|c| Character::new_char(c, CharacterData::default())),
+                    CharacterData::default,
+                    CharacterData::default,
                     alignment[1..alignment.len() - 1].iter().copied(),
                     true,
                     false,
@@ -301,34 +307,34 @@ pub fn create_ts_svg(
 
     if has_secondary_reference_ts {
         rq_group = rq_group.add(svg_string(
-            renderer.sequence(&reference_c_label).characters(),
+            renderer.sequence(&reference_c_label).iter(),
             &SvgLocation { x: 0.0, y },
         ));
         y += CHARACTER_HEIGHT;
     }
 
     rq_group = rq_group.add(svg_string(
-        renderer.sequence(&reference_label).characters(),
+        renderer.sequence(&reference_label).iter(),
         &SvgLocation { x: 0.0, y },
     ));
     y += CHARACTER_HEIGHT;
 
     rq_group = rq_group.add(svg_string(
-        renderer.sequence(&query_label).characters(),
+        renderer.sequence(&query_label).iter(),
         &SvgLocation { x: 0.0, y },
     ));
     y += CHARACTER_HEIGHT;
 
     if has_secondary_query_ts {
         rq_group = rq_group.add(svg_string(
-            renderer.sequence(&query_c_label).characters(),
+            renderer.sequence(&query_c_label).iter(),
             &SvgLocation { x: 0.0, y },
         ));
         y += CHARACTER_HEIGHT;
 
         for ts_label in &ts_rq_labels {
             rq_group = rq_group.add(svg_string(
-                renderer.sequence(ts_label).characters(),
+                renderer.sequence(ts_label).iter(),
                 &SvgLocation { x: 0.0, y },
             ));
             y += CHARACTER_HEIGHT;
@@ -364,17 +370,17 @@ pub fn create_ts_svg(
         );
 
         debug!("Creating no-ts renderer");
-        let mut renderer = MultipairAlignmentRenderer::new(
+        let mut renderer = MultipairAlignmentRenderer::new_without_data(
             reference_label.clone(),
-            &no_ts_result.statistics().sequences.reference,
+            no_ts_result.statistics().sequences.reference.chars(),
         );
 
         debug!("Adding query");
-        renderer.add_aligned_sequence(
+        renderer.add_aligned_sequence_without_data(
             &reference_label,
             0,
             query_label.clone(),
-            &no_ts_result.statistics().sequences.query,
+            no_ts_result.statistics().sequences.query.chars(),
             no_ts_alignment.iter().copied(),
             true,
             false,
@@ -382,11 +388,11 @@ pub fn create_ts_svg(
 
         debug!("Rendering SVG");
         let reference = svg_string(
-            renderer.sequence(&reference_label).characters(),
+            renderer.sequence(&reference_label).iter(),
             &SvgLocation { x: 0.0, y: 0.0 },
         );
         let query = svg_string(
-            renderer.sequence(&query_label).characters(),
+            renderer.sequence(&query_label).iter(),
             &SvgLocation {
                 x: 0.0,
                 y: 1.0 * CHARACTER_HEIGHT,
@@ -428,7 +434,7 @@ pub fn create_ts_svg(
 
 #[expect(clippy::too_many_arguments)]
 fn render_inter_ts<SequenceName: Eq + Ord>(
-    renderer: &mut MultipairAlignmentRenderer<SequenceName>,
+    renderer: &mut MultipairAlignmentRenderer<SequenceName, CharacterData>,
     reference_render_offset_shift: isize,
     query_render_offset_shift: isize,
     reference: &LabelledSequence<&SequenceName>,
@@ -451,8 +457,8 @@ fn render_inter_ts<SequenceName: Eq + Ord>(
     let query_sequence =
         &query.sequence[stream.tail_coordinates().query()..stream.head_coordinates().query()];
 
-    renderer.extend_sequence(reference.label, reference_sequence);
-    renderer.extend_sequence_with_alignment(
+    renderer.extend_sequence_with_default_data(reference.label, reference_sequence.chars());
+    renderer.extend_sequence_with_alignment_and_default_data(
         reference.label,
         query.label,
         (stream.tail_coordinates().reference() as isize + reference_render_offset_shift)
@@ -467,7 +473,7 @@ fn render_inter_ts<SequenceName: Eq + Ord>(
     if let Some(reference_c) = reference_c {
         let reference_c_sequence = &reference_c.sequence
             [stream.tail_coordinates().reference()..stream.head_coordinates().reference()];
-        renderer.extend_sequence_with_alignment(
+        renderer.extend_sequence_with_alignment_and_default_data(
             reference.label,
             reference_c.label,
             (stream.tail_coordinates().reference() as isize + reference_render_offset_shift)
@@ -486,7 +492,7 @@ fn render_inter_ts<SequenceName: Eq + Ord>(
     if let Some(query_c) = query_c {
         let query_c_sequence =
             &query_c.sequence[stream.tail_coordinates().query()..stream.head_coordinates().query()];
-        renderer.extend_sequence_with_alignment(
+        renderer.extend_sequence_with_alignment_and_default_data(
             query.label,
             query_c.label,
             (stream.tail_coordinates().query() as isize + query_render_offset_shift)
@@ -505,7 +511,7 @@ fn render_inter_ts<SequenceName: Eq + Ord>(
 
 #[expect(clippy::too_many_arguments)]
 fn render_ts_base<SequenceName: Eq + Ord>(
-    renderer: &mut MultipairAlignmentRenderer<SequenceName>,
+    renderer: &mut MultipairAlignmentRenderer<SequenceName, CharacterData>,
     reference_render_offset_shift: &mut isize,
     query_render_offset_shift: &mut isize,
     reference: &LabelledSequence<&SequenceName>,
@@ -540,8 +546,8 @@ fn render_ts_base<SequenceName: Eq + Ord>(
 
     match secondary {
         TemplateSwitchSecondary::Reference => {
-            renderer.extend_sequence(reference.label, reference_sequence);
-            renderer.extend_sequence_with_alignment(
+            renderer.extend_sequence_with_default_data(reference.label, reference_sequence.chars());
+            renderer.extend_sequence_with_alignment_and_default_data(
                 reference.label,
                 query.label,
                 (stream.tail_coordinates().reference() as isize + *reference_render_offset_shift)
@@ -559,7 +565,7 @@ fn render_ts_base<SequenceName: Eq + Ord>(
             if let Some(reference_c) = reference_c {
                 let reference_c_sequence = &reference_c.sequence
                     [stream.tail_coordinates().reference()..stream.head_coordinates().reference()];
-                renderer.extend_sequence_with_alignment(
+                renderer.extend_sequence_with_alignment_and_default_data(
                     reference.label,
                     reference_c.label,
                     (stream.tail_coordinates().reference() as isize
@@ -576,7 +582,7 @@ fn render_ts_base<SequenceName: Eq + Ord>(
                 );
             }
             if let Some(query_c) = query_c {
-                renderer.extend_sequence_with_alignment(
+                renderer.extend_sequence_with_alignment_and_default_data(
                     query.label,
                     query_c.label,
                     (stream.tail_coordinates().query() as isize + *query_render_offset_shift)
@@ -595,8 +601,8 @@ fn render_ts_base<SequenceName: Eq + Ord>(
             *query_render_offset_shift += length_difference;
         }
         TemplateSwitchSecondary::Query => {
-            renderer.extend_sequence(query.label, query_sequence);
-            renderer.extend_sequence_with_alignment(
+            renderer.extend_sequence_with_default_data(query.label, query_sequence.chars());
+            renderer.extend_sequence_with_alignment_and_default_data(
                 query.label,
                 reference.label,
                 (stream.tail_coordinates().query() as isize + *query_render_offset_shift)
@@ -609,7 +615,7 @@ fn render_ts_base<SequenceName: Eq + Ord>(
             );
 
             if let Some(reference_c) = reference_c {
-                renderer.extend_sequence_with_alignment(
+                renderer.extend_sequence_with_alignment_and_default_data(
                     reference.label,
                     reference_c.label,
                     (stream.tail_coordinates().reference() as isize
@@ -625,7 +631,7 @@ fn render_ts_base<SequenceName: Eq + Ord>(
             if let Some(query_c) = query_c {
                 let query_c_sequence = &query_c.sequence
                     [stream.tail_coordinates().query()..stream.head_coordinates().query()];
-                renderer.extend_sequence_with_alignment(
+                renderer.extend_sequence_with_alignment_and_default_data(
                     query.label,
                     query_c.label,
                     (stream.tail_coordinates().query() as isize + *query_render_offset_shift)

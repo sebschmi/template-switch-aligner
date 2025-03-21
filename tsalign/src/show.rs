@@ -247,43 +247,43 @@ fn show_template_switch(
         debug!("Primary extended limit: {primary_extended_limit}");
 
         debug!("Creating outside renderer");
-        let mut outside_renderer = MultipairAlignmentRenderer::new(
+        let mut outside_renderer = MultipairAlignmentRenderer::new_without_data(
             anti_primary_forward_label.clone(),
-            &anti_primary[anti_primary_offset..anti_primary_limit],
+            anti_primary[anti_primary_offset..anti_primary_limit].chars(),
         );
 
         debug!("Adding F1");
-        outside_renderer.add_aligned_sequence(
+        outside_renderer.add_aligned_sequence_without_data(
             &anti_primary_forward_label,
             0,
             f1_label.clone(),
-            &primary[primary_offset..primary_coordinate_picker(&template_switch.sp1_offset)],
+            primary[primary_offset..primary_coordinate_picker(&template_switch.sp1_offset)].chars(),
             template_switch.upstream.iter().copied(),
             true,
             invert_alignment,
         );
         debug!("Adding F3");
-        outside_renderer.add_aligned_sequence(
+        outside_renderer.add_aligned_sequence_without_data(
             &anti_primary_forward_label,
             anti_primary_coordinate_picker(&template_switch.sp4_offset) - anti_primary_offset,
             f3_label.clone(),
-            &primary[primary_coordinate_picker(&template_switch.sp4_offset)..primary_limit],
+            primary[primary_coordinate_picker(&template_switch.sp4_offset)..primary_limit].chars(),
             template_switch.downstream.iter().copied(),
             true,
             invert_alignment,
         );
 
         debug!("Creating inside renderer");
-        let mut inside_renderer = MultipairAlignmentRenderer::new(
+        let mut inside_renderer = MultipairAlignmentRenderer::new_without_data(
             primary_reverse_label.clone(),
-            &primary_c[primary_extended_offset..primary_extended_limit],
+            primary_c[primary_extended_offset..primary_extended_limit].chars(),
         );
         debug!("Adding F2");
-        inside_renderer.add_aligned_sequence(
+        inside_renderer.add_aligned_sequence_without_data(
             &primary_reverse_label,
             template_switch.sp3_secondary_offset - primary_extended_offset,
             f2_label.clone(),
-            &ts_reverse,
+            ts_reverse.chars(),
             ts_reverse_alignment.iter().copied(),
             true,
             false,
@@ -322,16 +322,16 @@ fn show_template_switch(
         debug!("Anti-primary extended limit: {anti_primary_extended_limit}");
 
         debug!("Creating renderer");
-        let mut renderer = MultipairAlignmentRenderer::new(
+        let mut renderer = MultipairAlignmentRenderer::new_without_data(
             anti_primary_forward_label.clone(),
-            &anti_primary[anti_primary_extended_offset..anti_primary_extended_limit],
+            anti_primary[anti_primary_extended_offset..anti_primary_extended_limit].chars(),
         );
         debug!("Adding complement primary");
-        renderer.add_aligned_sequence(
+        renderer.add_aligned_sequence_without_data(
             &anti_primary_forward_label,
             0,
             anti_primary_reverse_label.clone(),
-            &anti_primary_c[anti_primary_extended_offset..anti_primary_extended_limit],
+            anti_primary_c[anti_primary_extended_offset..anti_primary_extended_limit].chars(),
             [(
                 anti_primary_extended_limit - anti_primary_extended_offset,
                 AlignmentType::PrimaryMatch,
@@ -341,33 +341,33 @@ fn show_template_switch(
         );
 
         debug!("Adding F1");
-        renderer.add_aligned_sequence(
+        renderer.add_aligned_sequence_without_data(
             &anti_primary_forward_label,
             anti_primary_offset - anti_primary_extended_offset,
             f1_label.clone(),
-            &primary[primary_offset..primary_coordinate_picker(&template_switch.sp1_offset)],
+            primary[primary_offset..primary_coordinate_picker(&template_switch.sp1_offset)].chars(),
             template_switch.upstream.iter().copied(),
             true,
             invert_alignment,
         );
         debug!("Adding F3");
-        renderer.add_aligned_sequence(
+        renderer.add_aligned_sequence_without_data(
             &anti_primary_forward_label,
             anti_primary_coordinate_picker(&template_switch.sp4_offset)
                 - anti_primary_extended_offset,
             f3_label.clone(),
-            &primary[primary_coordinate_picker(&template_switch.sp4_offset)..primary_limit],
+            primary[primary_coordinate_picker(&template_switch.sp4_offset)..primary_limit].chars(),
             template_switch.downstream.iter().copied(),
             true,
             invert_alignment,
         );
 
         debug!("Adding F2");
-        renderer.add_aligned_sequence(
+        renderer.add_aligned_sequence_without_data(
             &anti_primary_reverse_label,
             template_switch.sp3_secondary_offset - anti_primary_extended_offset,
             f2_label.clone(),
-            &ts_reverse,
+            ts_reverse.chars(),
             ts_reverse_alignment.iter().copied(),
             true,
             false,
@@ -438,18 +438,19 @@ fn show_template_switch(
         );
 
         debug!("Creating no-ts renderer");
-        let mut renderer = MultipairAlignmentRenderer::new(
+        let mut renderer = MultipairAlignmentRenderer::new_without_data(
             anti_primary_label.clone(),
-            &anti_primary[anti_primary_offset..anti_primary_limit],
+            anti_primary[anti_primary_offset..anti_primary_limit].chars(),
         );
 
         debug!("Adding primary");
-        renderer.add_aligned_sequence(
+        renderer.add_aligned_sequence_without_data(
             &anti_primary_label,
             0,
             primary_label.clone(),
-            &primary[primary_coordinate_picker(&stream.tail_coordinates())
-                ..primary_coordinate_picker(&stream.head_coordinates())],
+            primary[primary_coordinate_picker(&stream.tail_coordinates())
+                ..primary_coordinate_picker(&stream.head_coordinates())]
+                .chars(),
             stream.stream_iter(),
             true,
             invert_alignment,

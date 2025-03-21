@@ -1,6 +1,8 @@
-use std::{collections::HashMap, sync::LazyLock};
+use std::{collections::HashMap, fmt::Debug, sync::LazyLock};
 
 use svg::node::element::{Group, Path};
+
+use crate::show::mutlipair_alignment_renderer::{Character, NoCharacterData};
 
 use super::SvgLocation;
 
@@ -65,19 +67,34 @@ static SVG_FONT: LazyLock<HashMap<char, String>> = LazyLock::new(|| {
 pub const CHARACTER_WIDTH: f32 = 2.0;
 pub const CHARACTER_HEIGHT: f32 = 3.175;
 
-pub fn svg_character(character: char, location: &SvgLocation) -> Path {
+#[derive(Debug, Clone)]
+pub struct CharacterData {
+    pub color: String,
+}
+
+pub fn svg_character<Data: Debug>(character: &Character<Data>, location: &SvgLocation) -> Path
+where
+    CharacterData: for<'a> From<&'a Data>,
+{
     let character_path = SVG_FONT
-        .get(&character)
+        .get(&character.as_char())
         .unwrap_or_else(|| panic!("Unsupported character: {character:?}"));
+    let data: CharacterData = character.data().into();
     Path::new()
-        .set("fill", "black")
-        .set("stroke", "black")
+        .set("fill", data.color.clone())
+        .set("stroke", data.color.clone())
         .set("stroke-width", 0.1)
         .set("transform", location.as_transform())
         .set("d", character_path.as_str())
 }
 
-pub fn svg_string(string: impl IntoIterator<Item = char>, location: &SvgLocation) -> Group {
+pub fn svg_string<'character, Data: 'character + Debug>(
+    string: impl IntoIterator<Item = &'character Character<Data>>,
+    location: &SvgLocation,
+) -> Group
+where
+    CharacterData: for<'a> From<&'a Data>,
+{
     let mut group = Group::new();
     group = group.set("transform", location.as_transform());
 
@@ -91,4 +108,24 @@ pub fn svg_string(string: impl IntoIterator<Item = char>, location: &SvgLocation
         ));
     }
     group
+}
+
+impl Default for CharacterData {
+    fn default() -> Self {
+        Self {
+            color: "black".to_string(),
+        }
+    }
+}
+
+impl<'a> From<&'a NoCharacterData> for CharacterData {
+    fn from(_: &'a NoCharacterData) -> Self {
+        Self::default()
+    }
+}
+
+impl<'a> From<&'a CharacterData> for CharacterData {
+    fn from(value: &'a CharacterData) -> Self {
+        value.clone()
+    }
 }
