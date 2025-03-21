@@ -748,14 +748,7 @@ impl<CharacterData> Default for MultipairAlignmentSequence<CharacterData> {
 
 impl<CharacterData: Display> Display for MultipairAlignmentSequence<CharacterData> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut once = true;
         for character in &self.sequence {
-            if once {
-                once = false;
-            } else {
-                write!(f, "|")?;
-            }
-
             write!(f, "{}", character.as_char())?;
         }
 
@@ -787,7 +780,7 @@ impl<CharacterData> IndexMut<usize> for MultipairAlignmentSequence<CharacterData
 
 impl<Data: Display> Display for Character<Data> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}", self.kind, self.data)
+        write!(f, "({}, {})", self.kind, self.data)
     }
 }
 
