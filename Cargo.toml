@@ -9,7 +9,7 @@ members = [
     "tsalign",
 ]
 resolver = "2"
-package.rust-version = "1.85.0"
+package.rust-version = "1.85.1"
 package.repository = "https://github.com/sebschmi/template-switch-aligner"
 
 [workspace.dependencies]
