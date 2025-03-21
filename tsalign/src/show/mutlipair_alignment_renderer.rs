@@ -81,10 +81,12 @@ impl<SequenceName: Eq + Ord, CharacterData>
         debug!("Extending sequence");
 
         let sequence = self.sequences.get_mut(sequence_name).unwrap();
+        trace!("Length before: {}", sequence.len());
 
         // Extend
         sequence.extend_with(extension);
         let new_length = sequence.len();
+        trace!("Length after: {new_length}");
 
         // Add blanks to other sequences to make all sequences of the same length again
         for (other_sequence_name, other_sequence) in &mut self.sequences {
@@ -111,12 +113,47 @@ impl<SequenceName: Eq + Ord, CharacterData>
         debug!("Extending sequence with alignment");
         debug!("reference_sequence_offset: {reference_sequence_offset}");
 
-        let rendered_sequence_offset = self
-            .sequence(reference_sequence_name)
-            .translate_alignment_offset(reference_sequence_offset)
+        let rendered_reference_sequence = self.sequence(reference_sequence_name);
+        let rendered_query_sequence = self.sequence(query_sequence_name);
+
+        let mut rendered_sequence_offset = rendered_reference_sequence
+            .translate_extension_offset(reference_sequence_offset)
             .unwrap_or_else(|| {
-                panic!("sequence_offset {reference_sequence_offset} is out of bounds")
+                panic!(
+                    "sequence_offset {reference_sequence_offset} is out of bounds (character count: {})",
+                    rendered_reference_sequence.character_count()
+                )
             });
+
+        while rendered_sequence_offset > 0 {
+            if matches!(
+                rendered_reference_sequence
+                    .get(rendered_sequence_offset - 1)
+                    .map(|c| c.kind()),
+                Some(CharacterKind::Char(_))
+            ) || !matches!(
+                rendered_query_sequence
+                    .get(rendered_sequence_offset - 1)
+                    .map(|c| c.kind()),
+                Some(CharacterKind::Blank)
+            ) {
+                break;
+            }
+
+            rendered_sequence_offset -= 1;
+        }
+        trace!("rendered_sequence_offset: {rendered_sequence_offset}");
+        if let Some(reference_offset_character) =
+            rendered_reference_sequence.get(rendered_sequence_offset)
+        {
+            trace!(
+                "reference_offset_character: {:?}",
+                reference_offset_character.as_char()
+            );
+        } else {
+            trace!("reference_offset_character: offset is past the end of the reference");
+        }
+
         self.sequences
             .get_mut(query_sequence_name)
             .unwrap()
@@ -182,7 +219,7 @@ impl<SequenceName: Eq + Ord, CharacterData>
                 )
             })
         {
-            trace!("alignment_type: {alignment_type}");
+            //trace!("alignment_type: {alignment_type}");
 
             while matches!(
                 translated_reference_sequence
@@ -190,7 +227,7 @@ impl<SequenceName: Eq + Ord, CharacterData>
                     .map(Character::kind),
                 Some(CharacterKind::Blank)
             ) {
-                trace!("Skipping blank");
+                //trace!("Skipping blank");
                 translated_query_sequence.push(Character::new_blank(blank_data_generator()));
                 index += 1;
             }
@@ -218,7 +255,7 @@ impl<SequenceName: Eq + Ord, CharacterData>
                         translated_reference_sequence
                             .get(index)
                             .map(Character::kind),
-                        Some(CharacterKind::Gap)
+                        Some(CharacterKind::Gap | CharacterKind::Blank)
                     ) {
                         translated_query_sequence
                             .push(Character::new_blank(blank_data_generator()));
@@ -234,7 +271,7 @@ impl<SequenceName: Eq + Ord, CharacterData>
                         translated_reference_sequence
                             .get(index)
                             .map(Character::kind),
-                        Some(CharacterKind::Gap)
+                        Some(CharacterKind::Gap | CharacterKind::Blank)
                     ) {
                         translated_query_sequence
                             .push(Character::new_blank(blank_data_generator()));
@@ -258,9 +295,9 @@ impl<SequenceName: Eq + Ord, CharacterData>
                         translated_reference_sequence
                             .get(index)
                             .map(Character::kind),
-                        Some(CharacterKind::Gap)
+                        Some(CharacterKind::Gap | CharacterKind::Blank)
                     ) {
-                        trace!("Skipping blank before match");
+                        trace!("Skipping gap or blank before match");
                         translated_query_sequence
                             .push(Character::new_blank(blank_data_generator()));
                         index += 1;
@@ -404,6 +441,36 @@ impl<SequenceName: Eq + Ord, CharacterData: Default>
     }
 }
 
+impl<SequenceName: Eq + Ord + Clone, CharacterData: Default>
+    MultipairAlignmentRenderer<SequenceName, CharacterData>
+{
+    #[expect(clippy::too_many_arguments)]
+    pub fn add_aligned_sequence_with_default_data(
+        &mut self,
+        reference_sequence_name: &SequenceName,
+        reference_sequence_offset: usize,
+        query_sequence_name: SequenceName,
+        query_sequence: impl IntoIterator<Item = char>,
+        alignment: impl IntoIterator<Item = (usize, AlignmentType)>,
+        do_lowercasing: bool,
+        invert_alignment: bool,
+    ) {
+        self.add_aligned_sequence(
+            reference_sequence_name,
+            reference_sequence_offset,
+            query_sequence_name,
+            query_sequence
+                .into_iter()
+                .map(Character::new_char_with_default),
+            Default::default,
+            Default::default,
+            alignment,
+            do_lowercasing,
+            invert_alignment,
+        );
+    }
+}
+
 impl<SequenceName: Eq + Ord + Clone> MultipairAlignmentRenderer<SequenceName> {
     pub fn new_without_data(
         root_sequence_name: SequenceName,
@@ -444,7 +511,7 @@ impl<SequenceName: Eq + Ord + Clone> MultipairAlignmentRenderer<SequenceName> {
     }
 }
 
-impl<SequenceName: Eq + Ord + Display, CharacterData: Display>
+impl<SequenceName: Eq + Ord + Display, CharacterData>
     MultipairAlignmentRenderer<SequenceName, CharacterData>
 {
     pub fn render<'name>(
@@ -479,7 +546,7 @@ impl<SequenceName: Eq + Ord + Display, CharacterData: Display>
     }
 }
 
-impl<SequenceName: Eq + Ord, CharacterData: Display>
+impl<SequenceName: Eq + Ord, CharacterData>
     MultipairAlignmentRenderer<SequenceName, CharacterData>
 {
     #[allow(unused)]
@@ -540,7 +607,6 @@ impl<CharacterData> MultipairAlignmentSequence<CharacterData> {
     /// assert_eq!(sequence.translate_alignment_offset(1), 3);
     /// assert_eq!(sequence.translate_alignment_offset(2), 5);
     /// ```
-    #[expect(unused)]
     pub fn translate_extension_offset(&self, offset: usize) -> Option<usize> {
         self.translate_alignment_offset(offset).map(|offset| {
             self.sequence
@@ -548,14 +614,18 @@ impl<CharacterData> MultipairAlignmentSequence<CharacterData> {
                 .enumerate()
                 .skip(offset)
                 .take_while(|(_, character)| !matches!(character.kind(), CharacterKind::Char(_)))
-                .map(|(index, _)| index)
                 .last()
+                .map(|(index, _)| index + 1)
                 .unwrap_or(offset)
         })
     }
 
     pub fn len(&self) -> usize {
         self.sequence.len()
+    }
+
+    pub fn character_count(&self) -> usize {
+        self.iter().filter(|c| c.is_char()).count()
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Character<CharacterData>> {
@@ -738,6 +808,19 @@ impl<CharacterData> FromIterator<Character<CharacterData>>
     }
 }
 
+impl<CharacterData: Default> FromIterator<CharacterKind>
+    for MultipairAlignmentSequence<CharacterData>
+{
+    fn from_iter<T: IntoIterator<Item = CharacterKind>>(iter: T) -> Self {
+        Self {
+            sequence: iter
+                .into_iter()
+                .map(|kind| Character::new(kind, Default::default()))
+                .collect(),
+        }
+    }
+}
+
 impl<CharacterData> Default for MultipairAlignmentSequence<CharacterData> {
     fn default() -> Self {
         Self {
@@ -746,7 +829,7 @@ impl<CharacterData> Default for MultipairAlignmentSequence<CharacterData> {
     }
 }
 
-impl<CharacterData: Display> Display for MultipairAlignmentSequence<CharacterData> {
+impl<CharacterData> Display for MultipairAlignmentSequence<CharacterData> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for character in &self.sequence {
             write!(f, "{}", character.as_char())?;

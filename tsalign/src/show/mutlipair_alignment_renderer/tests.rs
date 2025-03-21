@@ -1,6 +1,8 @@
 use lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType;
 
-use crate::show::mutlipair_alignment_renderer::{Character, NoCharacterData};
+use crate::show::mutlipair_alignment_renderer::{
+    Character, CharacterKind, MultipairAlignmentSequence, NoCharacterData,
+};
 
 use super::MultipairAlignmentRenderer;
 
@@ -57,4 +59,42 @@ fn test_parallel_gaps() {
 
     let output = String::from_utf8(output).unwrap();
     assert_eq!(output.trim(), "A: GGGG\nB: GG-G\nC: GGGG");
+}
+
+#[test]
+fn translate_alignment_offset() {
+    let sequence = MultipairAlignmentSequence::<NoCharacterData>::from_iter([
+        CharacterKind::Blank,
+        CharacterKind::Char('A'),
+        CharacterKind::Gap,
+        CharacterKind::Char('C'),
+        CharacterKind::Gap,
+    ]);
+    assert_eq!(sequence.translate_alignment_offset(0), Some(0));
+    assert_eq!(sequence.translate_alignment_offset(1), Some(2));
+    assert_eq!(sequence.translate_alignment_offset(2), Some(4));
+}
+
+#[test]
+fn translate_extension_offset() {
+    let sequence = MultipairAlignmentSequence::<NoCharacterData>::from_iter([
+        CharacterKind::Blank,
+        CharacterKind::Char('A'),
+        CharacterKind::Gap,
+        CharacterKind::Char('C'),
+        CharacterKind::Gap,
+    ]);
+    assert_eq!(sequence.translate_extension_offset(0), Some(1));
+    assert_eq!(sequence.translate_extension_offset(1), Some(3));
+    assert_eq!(sequence.translate_extension_offset(2), Some(5));
+
+    let sequence = MultipairAlignmentSequence::<NoCharacterData>::from_iter([
+        CharacterKind::Blank,
+        CharacterKind::Char('A'),
+        CharacterKind::Gap,
+        CharacterKind::Char('C'),
+    ]);
+    assert_eq!(sequence.translate_extension_offset(0), Some(1));
+    assert_eq!(sequence.translate_extension_offset(1), Some(3));
+    assert_eq!(sequence.translate_extension_offset(2), Some(4));
 }
