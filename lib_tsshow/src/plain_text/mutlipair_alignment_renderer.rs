@@ -624,6 +624,10 @@ impl<CharacterData> MultipairAlignmentSequence<CharacterData> {
         self.sequence.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn character_count(&self) -> usize {
         self.iter().filter(|c| c.is_char()).count()
     }
@@ -632,8 +636,7 @@ impl<CharacterData> MultipairAlignmentSequence<CharacterData> {
         self.sequence.iter()
     }
 
-    #[expect(unused)]
-    pub fn iter_characters(&self) -> impl Iterator<Item = char> {
+    pub fn iter_characters(&self) -> impl use<'_, CharacterData> + Iterator<Item = char> {
         self.sequence.iter().map(Character::as_char)
     }
 

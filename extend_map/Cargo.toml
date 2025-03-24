@@ -2,7 +2,7 @@
 name = "extend_map"
 description = "A type to map values passed into an Extend type before extending."
 version = "0.7.1"
-edition = "2021"
+edition.workspace = true
 rust-version.workspace = true
 license = "BSD-2-Clause"
 repository.workspace = true

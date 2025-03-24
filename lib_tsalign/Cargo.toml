@@ -4,7 +4,7 @@ description = "A sequence-to-sequence aligner that accounts for template switche
 license = "BSD-2-Clause"
 authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
 version = "0.12.0"
-edition = "2021"
+edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 

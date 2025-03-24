@@ -1,6 +1,6 @@
 use std::{io::stdout, iter};
 
-use font::{CHARACTER_HEIGHT, CHARACTER_WIDTH, CharacterData, svg_string};
+use font::{svg_string, CharacterData, CHARACTER_HEIGHT, CHARACTER_WIDTH};
 use lib_tsalign::{
     a_star_aligner::{
         alignment_result::AlignmentResult,
@@ -14,16 +14,14 @@ use resvg::{
     usvg::{self, Transform},
 };
 use svg::{
-    Document,
     node::element::{Circle, Group},
+    Document,
 };
 
-use crate::show::{
-    alignment_stream::AlignmentStream,
+use crate::plain_text::{
+    alignment_stream::{AlignmentCoordinates, AlignmentStream},
     mutlipair_alignment_renderer::{Character, MultipairAlignmentRenderer},
 };
-
-use super::alignment_stream::AlignmentCoordinates;
 
 mod font;
 

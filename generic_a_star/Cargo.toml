@@ -2,7 +2,7 @@
 name = "generic_a_star"
 description = "A generic implementation of the A* algorithm"
 version = "0.9.4"
-edition = "2021"
+edition.workspace = true
 rust-version.workspace = true
 license = "BSD-2-Clause"
 repository.workspace = true

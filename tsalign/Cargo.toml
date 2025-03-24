@@ -4,7 +4,7 @@ description = "A sequence-to-sequence aligner that accounts for template switche
 license = "BSD-2-Clause"
 authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
 version = "0.8.9"
-edition = "2024"
+edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 
@@ -12,6 +12,7 @@ repository.workspace = true
 lib_tsalign = { version = "0.12.0", path = "../lib_tsalign", features = [
     "serde",
 ] }
+lib_tsshow = { version = "0.1.0", path = "../lib_tsshow" }
 clap = { version = "4.5.16", features = ["derive"] }
 compact-genome = { workspace = true, features = ["io"] }
 traitsequence.workspace = true
@@ -19,5 +20,3 @@ serde.workspace = true
 toml = "0.8.19"
 log.workspace = true
 simplelog = "0.12.2"
-svg = "0.18.0"
-resvg = "0.45.0"

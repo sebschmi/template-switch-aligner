@@ -450,6 +450,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "lib_tsshow"
+version = "0.1.0"
+dependencies = [
+ "lib_tsalign",
+ "log",
+ "resvg",
+ "svg",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.170"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1022,11 +1032,10 @@ dependencies = [
  "clap",
  "compact-genome",
  "lib_tsalign",
+ "lib_tsshow",
  "log",
- "resvg",
  "serde",
  "simplelog",
- "svg",
  "toml",
  "traitsequence",
 ]

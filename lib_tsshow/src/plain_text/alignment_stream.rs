@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use lib_tsalign::a_star_aligner::template_switch_distance::{AlignmentType, TemplateSwitchPrimary};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AlignmentStream {
     stream: VecDeque<(usize, AlignmentType)>,
     length: usize,
@@ -22,12 +22,7 @@ pub struct AlignmentCoordinates {
 
 impl AlignmentStream {
     pub fn new() -> Self {
-        Self {
-            stream: Default::default(),
-            length: 0,
-            head_coordinates: Default::default(),
-            tail_coordinates: Default::default(),
-        }
+        Default::default()
     }
 
     pub fn len(&self) -> usize {

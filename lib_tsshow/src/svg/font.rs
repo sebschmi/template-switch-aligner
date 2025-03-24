@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Debug, sync::LazyLock};
 
 use svg::node::element::{Group, Path};
 
-use crate::show::mutlipair_alignment_renderer::{Character, NoCharacterData};
+use crate::plain_text::mutlipair_alignment_renderer::{Character, NoCharacterData};
 
 use super::SvgLocation;
 

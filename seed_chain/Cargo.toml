@@ -4,7 +4,7 @@ description = "A seeding and generic chaining mechanism for sequence-to-sequence
 license = "BSD-2-Clause"
 authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>"]
 version = "0.9.0"
-edition = "2021"
+edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 

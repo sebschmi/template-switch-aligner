@@ -2,7 +2,7 @@
 name = "deterministic_default_hasher"
 description = "A deterministic initialisation of the stdlib default hasher"
 version = "0.7.1"
-edition = "2021"
+edition.workspace = true
 rust-version.workspace = true
 license = "BSD-2-Clause"
 repository.workspace = true
