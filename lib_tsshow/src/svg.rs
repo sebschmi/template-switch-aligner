@@ -1,6 +1,7 @@
 use core::str;
-use std::{io::Write, iter};
+use std::{collections::BTreeMap, io::Write, iter};
 
+use arrows::{Arrow, add_arrow_defs};
 use font::{CHARACTER_HEIGHT, CHARACTER_WIDTH, CharacterData, svg_string};
 use lib_tsalign::{
     a_star_aligner::{
@@ -20,6 +21,7 @@ use crate::plain_text::{
     mutlipair_alignment_renderer::{Character, MultipairAlignmentRenderer},
 };
 
+mod arrows;
 mod font;
 
 struct SvgLocation {
@@ -154,6 +156,7 @@ pub fn create_ts_svg(
     };
 
     debug!("Rendering reference and query");
+    let mut arrows = Vec::new();
     let mut stream = AlignmentStream::new();
     let mut offset_stream = AlignmentStream::new();
     let mut template_switches = Vec::new();
@@ -178,6 +181,7 @@ pub fn create_ts_svg(
             render_inter_ts(
                 &mut renderer,
                 &offset_shift,
+                &mut arrows,
                 &reference,
                 &query,
                 has_secondary_reference_ts.then_some(&reference_c),
@@ -208,6 +212,7 @@ pub fn create_ts_svg(
             render_ts_base(
                 &mut renderer,
                 &mut offset_shift,
+                &mut arrows,
                 &reference,
                 &query,
                 has_secondary_reference_ts.then_some(&reference_c),
@@ -227,6 +232,7 @@ pub fn create_ts_svg(
         render_inter_ts(
             &mut renderer,
             &offset_shift,
+            &mut arrows,
             &reference,
             &query,
             has_secondary_reference_ts.then_some(&reference_c),
@@ -312,10 +318,11 @@ pub fn create_ts_svg(
         label_vec.push(label);
     }
 
-    debug!("Rendering SVG");
+    debug!("Rendering SVG characters");
     let mut rq_group =
         Group::new().set("transform", SvgLocation { x: 10.0, y: 10.0 }.as_transform());
     let mut y = 0.0;
+    let mut rows = BTreeMap::new();
 
     if has_secondary_reference_ts {
         for ts_label in &ts_secondary_r_labels {
@@ -323,6 +330,7 @@ pub fn create_ts_svg(
                 renderer.sequence(ts_label).iter(),
                 &SvgLocation { x: 0.0, y },
             ));
+            rows.insert(ts_label.clone(), y);
             y += CHARACTER_HEIGHT;
         }
 
@@ -330,6 +338,7 @@ pub fn create_ts_svg(
             renderer.sequence(&reference_c_label).iter(),
             &SvgLocation { x: 0.0, y },
         ));
+        rows.insert(reference_c_label.clone(), y);
         y += CHARACTER_HEIGHT;
     }
 
@@ -337,12 +346,14 @@ pub fn create_ts_svg(
         renderer.sequence(&reference_label).iter(),
         &SvgLocation { x: 0.0, y },
     ));
+    rows.insert(reference_label.clone(), y);
     y += CHARACTER_HEIGHT;
 
     rq_group = rq_group.add(svg_string(
         renderer.sequence(&query_label).iter(),
         &SvgLocation { x: 0.0, y },
     ));
+    rows.insert(query_label.clone(), y);
     y += CHARACTER_HEIGHT;
 
     if has_secondary_query_ts {
@@ -350,6 +361,7 @@ pub fn create_ts_svg(
             renderer.sequence(&query_c_label).iter(),
             &SvgLocation { x: 0.0, y },
         ));
+        rows.insert(query_c_label.clone(), y);
         y += CHARACTER_HEIGHT;
 
         for ts_label in &ts_secondary_q_labels {
@@ -357,11 +369,18 @@ pub fn create_ts_svg(
                 renderer.sequence(ts_label).iter(),
                 &SvgLocation { x: 0.0, y },
             ));
+            rows.insert(ts_label.clone(), y);
             y += CHARACTER_HEIGHT;
         }
     }
 
     trace!("After ts y: {y}");
+
+    debug!("Rendering SVG arrows");
+
+    for arrow in &arrows {
+        rq_group = rq_group.add(arrow.render(&rows));
+    }
 
     let mut view_box_width = offset_stream.len() as f32 * CHARACTER_WIDTH + 20.0;
     let mut view_box_height = y + CHARACTER_HEIGHT + 20.0;
@@ -369,6 +388,7 @@ pub fn create_ts_svg(
     let mut svg = Document::new()
         .add(Circle::new().set("r", 1e5).set("fill", "white"))
         .add(rq_group);
+    svg = add_arrow_defs(svg);
 
     if let Some(no_ts_result) = no_ts_result {
         debug!("Rendering no-ts alignment");
@@ -450,13 +470,15 @@ pub fn create_ts_svg(
     svg::write(output, &svg).unwrap();
 }
 
-fn render_inter_ts<SequenceName: Eq + Ord>(
-    renderer: &mut MultipairAlignmentRenderer<SequenceName, CharacterData>,
+#[allow(clippy::too_many_arguments)]
+fn render_inter_ts(
+    renderer: &mut MultipairAlignmentRenderer<String, CharacterData>,
     offset_shift: &OffsetShift,
-    reference: &LabelledSequence<&SequenceName>,
-    query: &LabelledSequence<&SequenceName>,
-    reference_c: Option<&LabelledSequence<&SequenceName>>,
-    query_c: Option<&LabelledSequence<&SequenceName>>,
+    _arrows: &mut impl Extend<Arrow>,
+    reference: &LabelledSequence<&String>,
+    query: &LabelledSequence<&String>,
+    reference_c: Option<&LabelledSequence<&String>>,
+    query_c: Option<&LabelledSequence<&String>>,
     stream: &AlignmentStream,
 ) {
     debug!(
@@ -604,13 +626,15 @@ fn render_inter_ts<SequenceName: Eq + Ord>(
     }
 }
 
-fn render_ts_base<SequenceName: Eq + Ord + Clone>(
-    renderer: &mut MultipairAlignmentRenderer<SequenceName, CharacterData>,
+#[allow(clippy::too_many_arguments)]
+fn render_ts_base(
+    renderer: &mut MultipairAlignmentRenderer<String, CharacterData>,
     offset_shift: &mut OffsetShift,
-    reference: &LabelledSequence<&SequenceName>,
-    query: &LabelledSequence<&SequenceName>,
-    reference_c: Option<&LabelledSequence<&SequenceName>>,
-    query_c: Option<&LabelledSequence<&SequenceName>>,
+    arrows: &mut impl Extend<Arrow>,
+    reference: &LabelledSequence<&String>,
+    query: &LabelledSequence<&String>,
+    reference_c: Option<&LabelledSequence<&String>>,
+    query_c: Option<&LabelledSequence<&String>>,
     stream: &AlignmentStream,
 ) {
     debug!(
@@ -735,7 +759,7 @@ fn render_ts_base<SequenceName: Eq + Ord + Clone>(
         false,
     );
 
-    if let Some(secondary_c) = secondary_c {
+    if let Some(secondary_c) = &secondary_c {
         renderer.extend_sequence_with_alignment_and_default_data(
             secondary.label,
             secondary_c.label,
@@ -760,7 +784,12 @@ fn render_ts_base<SequenceName: Eq + Ord + Clone>(
             )
         });
         let extension_existing_length = secondary.sequence.chars().count();
+        let extension_additional_length = extension
+            .clone()
+            .count()
+            .saturating_sub(extension_existing_length);
         trace!("extension_existing_length: {extension_existing_length}");
+        trace!("extension_additional_length: {extension_existing_length}");
 
         trace!("Current renderer content:\n{}", {
             let mut out = Vec::new();
@@ -792,11 +821,24 @@ fn render_ts_base<SequenceName: Eq + Ord + Clone>(
             false,
             false,
         );
+        let left_extension_column = renderer.column_width();
         renderer.extend_sequence(
             anti_secondary_c.label,
             extension.skip(extension_existing_length),
             Default::default,
         );
+        let right_extension_column = renderer.column_width();
+
+        if extension_additional_length > 0 {
+            if let Some(secondary_c) = &secondary_c {
+                debug!("Adding extension arrow");
+                arrows.extend([Arrow::new_skip(
+                    left_extension_column,
+                    right_extension_column,
+                    secondary_c.label.clone(),
+                )]);
+            }
+        }
     }
 
     match (ts_primary, ts_secondary) {

@@ -68,6 +68,22 @@ impl<SequenceName: Eq + Ord, CharacterData>
         self.sequences.get(sequence_name).unwrap()
     }
 
+    pub fn column_width(&self) -> usize {
+        debug_assert!({
+            let mut column_width = None;
+            for sequence in self.sequences.values() {
+                if let Some(column_width) = &column_width {
+                    debug_assert_eq!(*column_width, sequence.len());
+                } else {
+                    column_width = Some(sequence.len());
+                }
+            }
+            true
+        });
+
+        self.sequences.values().next().unwrap().len()
+    }
+
     /// Append a sequence to the end of an existing rendered sequence.
     ///
     /// Existing gaps and blanks at the end of the existing rendered sequence will not be removed.
