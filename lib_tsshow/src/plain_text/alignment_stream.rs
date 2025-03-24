@@ -1,6 +1,9 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, iter};
 
-use lib_tsalign::a_star_aligner::template_switch_distance::{AlignmentType, TemplateSwitchPrimary};
+use lib_tsalign::a_star_aligner::{
+    alignment_result::alignment::Alignment,
+    template_switch_distance::{AlignmentType, TemplateSwitchPrimary},
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct AlignmentStream {
@@ -33,8 +36,17 @@ impl AlignmentStream {
         self.stream.iter().copied()
     }
 
-    pub fn stream_vec(&self) -> Vec<(usize, AlignmentType)> {
+    pub fn stream_iter_flat(&self) -> impl use<'_> + Iterator<Item = AlignmentType> {
+        self.stream_iter()
+            .flat_map(|(multiplicity, alignment_type)| iter::repeat_n(alignment_type, multiplicity))
+    }
+
+    fn stream_vec(&self) -> Vec<(usize, AlignmentType)> {
         self.stream_iter().collect()
+    }
+
+    pub fn stream_alignment(&self) -> Alignment<AlignmentType> {
+        self.stream_vec().into()
     }
 
     pub fn head_coordinates(&self) -> AlignmentCoordinates {

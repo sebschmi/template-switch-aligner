@@ -140,12 +140,7 @@ fn show_template_switch(
         .chars()
         .rev()
         .collect();
-    let ts_reverse_alignment: Vec<_> = template_switch
-        .template_switch
-        .iter()
-        .copied()
-        .rev()
-        .collect();
+    let ts_reverse_alignment = template_switch.template_switch.reverse();
 
     debug!("Primary offset: {primary_offset}");
     debug!("SP1 primary offset: {primary_sp1}");
@@ -194,7 +189,7 @@ fn show_template_switch(
             0,
             f1_label.clone(),
             primary[primary_offset..primary_coordinate_picker(&template_switch.sp1_offset)].chars(),
-            template_switch.upstream.iter().copied(),
+            template_switch.upstream.iter_flat_cloned(),
             true,
             invert_alignment,
         );
@@ -204,7 +199,7 @@ fn show_template_switch(
             anti_primary_coordinate_picker(&template_switch.sp4_offset) - anti_primary_offset,
             f3_label.clone(),
             primary[primary_coordinate_picker(&template_switch.sp4_offset)..primary_limit].chars(),
-            template_switch.downstream.iter().copied(),
+            template_switch.downstream.iter_flat_cloned(),
             true,
             invert_alignment,
         );
@@ -220,7 +215,7 @@ fn show_template_switch(
             template_switch.sp3_secondary_offset - primary_extended_offset,
             f2_label.clone(),
             ts_reverse.chars(),
-            ts_reverse_alignment.iter().copied(),
+            ts_reverse_alignment.iter_flat_cloned(),
             true,
             false,
         );
@@ -268,10 +263,10 @@ fn show_template_switch(
             0,
             anti_primary_reverse_label.clone(),
             anti_primary_c[anti_primary_extended_offset..anti_primary_extended_limit].chars(),
-            [(
-                anti_primary_extended_limit - anti_primary_extended_offset,
+            iter::repeat_n(
                 AlignmentType::PrimaryMatch,
-            )],
+                anti_primary_extended_limit - anti_primary_extended_offset,
+            ),
             false,
             false,
         );
@@ -282,7 +277,7 @@ fn show_template_switch(
             anti_primary_offset - anti_primary_extended_offset,
             f1_label.clone(),
             primary[primary_offset..primary_coordinate_picker(&template_switch.sp1_offset)].chars(),
-            template_switch.upstream.iter().copied(),
+            template_switch.upstream.iter_flat_cloned(),
             true,
             invert_alignment,
         );
@@ -293,7 +288,7 @@ fn show_template_switch(
                 - anti_primary_extended_offset,
             f3_label.clone(),
             primary[primary_coordinate_picker(&template_switch.sp4_offset)..primary_limit].chars(),
-            template_switch.downstream.iter().copied(),
+            template_switch.downstream.iter_flat_cloned(),
             true,
             invert_alignment,
         );
@@ -304,7 +299,7 @@ fn show_template_switch(
             template_switch.sp3_secondary_offset - anti_primary_extended_offset,
             f2_label.clone(),
             ts_reverse.chars(),
-            ts_reverse_alignment.iter().copied(),
+            ts_reverse_alignment.iter_flat_cloned(),
             true,
             false,
         );
@@ -340,20 +335,18 @@ fn show_template_switch(
         };
 
         assert!(
-            no_ts_alignment.iter().all(|(_, alignment_type)| !matches!(
-                alignment_type,
-                AlignmentType::TemplateSwitchEntrance { .. }
-            )),
+            no_ts_alignment
+                .iter_compact()
+                .all(|(_, alignment_type)| !matches!(
+                    alignment_type,
+                    AlignmentType::TemplateSwitchEntrance { .. }
+                )),
             "No-ts alignment must not contain template switches."
         );
 
         // Find subsequence of no-ts alignment that matches ts alignment interval.
         let mut stream = AlignmentStream::new();
-        for alignment_type in no_ts_alignment
-            .iter()
-            .copied()
-            .flat_map(|(multiplicity, alignment_type)| iter::repeat_n(alignment_type, multiplicity))
-        {
+        for alignment_type in no_ts_alignment.iter_flat_cloned() {
             if anti_primary_coordinate_picker(&stream.head_coordinates()) >= anti_primary_limit {
                 break;
             } else {
@@ -387,7 +380,7 @@ fn show_template_switch(
             primary[primary_coordinate_picker(&stream.tail_coordinates())
                 ..primary_coordinate_picker(&stream.head_coordinates())]
                 .chars(),
-            stream.stream_iter(),
+            stream.stream_iter_flat(),
             true,
             invert_alignment,
         );

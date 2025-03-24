@@ -4,7 +4,7 @@ use std::{io::Write, iter};
 use font::{svg_string, CharacterData, CHARACTER_HEIGHT, CHARACTER_WIDTH};
 use lib_tsalign::{
     a_star_aligner::{
-        alignment_result::AlignmentResult,
+        alignment_result::{alignment::Alignment, AlignmentResult},
         template_switch_distance::{AlignmentType, TemplateSwitchPrimary, TemplateSwitchSecondary},
     },
     costs::U64Cost,
@@ -36,7 +36,7 @@ struct LabelledSequence<'a, Label> {
 struct TemplateSwitch {
     tail: AlignmentCoordinates,
     head: AlignmentCoordinates,
-    alignment: Vec<(usize, AlignmentType)>,
+    alignment: Alignment<AlignmentType>,
 }
 
 #[derive(Debug, Default)]
@@ -79,7 +79,7 @@ pub fn create_ts_svg(
     let mut has_self_reference_ts = false;
     let mut has_self_query_ts = false;
 
-    for (primary, secondary) in alignment.iter().filter_map(|(_, alignment_type)| {
+    for (primary, secondary) in alignment.iter_compact().filter_map(|(_, alignment_type)| {
         if let AlignmentType::TemplateSwitchEntrance {
             primary, secondary, ..
         } = *alignment_type
@@ -169,24 +169,7 @@ pub fn create_ts_svg(
         renderer.add_empty_independent_sequence(query_c_label.clone());
     }
 
-    let mut alignment_iter = alignment
-        .iter()
-        .copied()
-        .flat_map(|(multiplicity, alignment_type)| {
-            iter::repeat_n(
-                alignment_type,
-                if matches!(
-                    alignment_type,
-                    AlignmentType::TemplateSwitchEntrance { .. }
-                        | AlignmentType::TemplateSwitchExit { .. }
-                ) {
-                    1
-                } else {
-                    multiplicity
-                },
-            )
-        })
-        .peekable();
+    let mut alignment_iter = alignment.iter_flat().copied().peekable();
 
     while let Some(alignment_type) = alignment_iter.peek().copied() {
         //trace!("Outer {alignment_type}");
@@ -219,7 +202,7 @@ pub fn create_ts_svg(
             template_switches.push(TemplateSwitch {
                 tail: stream.tail_coordinates(),
                 head: stream.head_coordinates(),
-                alignment: stream.stream_vec(),
+                alignment: stream.stream_alignment(),
             });
 
             render_ts_base(
@@ -264,14 +247,11 @@ pub fn create_ts_svg(
         },
     ) in template_switches.iter().enumerate()
     {
-        let (
-            _,
-            AlignmentType::TemplateSwitchEntrance {
-                primary,
-                secondary,
-                first_offset,
-            },
-        ) = alignment.first().copied().unwrap()
+        let AlignmentType::TemplateSwitchEntrance {
+            primary,
+            secondary,
+            first_offset,
+        } = alignment.iter_flat_cloned().next().unwrap()
         else {
             unreachable!();
         };
@@ -298,20 +278,17 @@ pub fn create_ts_svg(
         let inner_sequence_r: String = inner_sequence.chars().rev().collect();
         let inner_sequence_length = inner_sequence.chars().count();
         let inner_insertion_count = alignment
-            .iter()
+            .iter_compact()
             .map(|(multiplicity, alignment_type)| {
                 if matches!(alignment_type, AlignmentType::SecondaryInsertion) {
-                    *multiplicity
+                    multiplicity
                 } else {
                     0
                 }
             })
             .sum::<usize>();
 
-        trace!(
-            "Inner alignment: {:?}",
-            alignment.iter().copied().rev().collect::<Vec<_>>()
-        );
+        trace!("Inner alignment: {}", alignment.reverse().cigar());
         trace!("secondary_tail: {secondary_tail}");
         trace!("inner_insertion_count: {inner_insertion_count}");
         trace!("inner_sequence_length: {inner_sequence_length}");
@@ -327,7 +304,7 @@ pub fn create_ts_svg(
             inner_offset,
             label.clone(),
             inner_sequence_r.chars(),
-            alignment[1..alignment.len() - 1].iter().copied().rev(),
+            alignment.iter_flat_cloned().skip(1).rev().skip(1),
             true,
             false,
         );
@@ -405,10 +382,12 @@ pub fn create_ts_svg(
         };
 
         assert!(
-            no_ts_alignment.iter().all(|(_, alignment_type)| !matches!(
-                alignment_type,
-                AlignmentType::TemplateSwitchEntrance { .. }
-            )),
+            no_ts_alignment
+                .iter_compact()
+                .all(|(_, alignment_type)| !matches!(
+                    alignment_type,
+                    AlignmentType::TemplateSwitchEntrance { .. }
+                )),
             "No-ts alignment must not contain template switches."
         );
 
@@ -424,7 +403,7 @@ pub fn create_ts_svg(
             0,
             query_label.clone(),
             no_ts_result.statistics().sequences.query.chars(),
-            no_ts_alignment.iter().copied(),
+            no_ts_alignment.iter_flat_cloned(),
             true,
             false,
         );
@@ -517,7 +496,7 @@ fn render_inter_ts<SequenceName: Eq + Ord>(
         let mut out = Vec::new();
         renderer
             .render_without_names(
-                out.as_mut_slice(),
+                &mut out,
                 reference_c
                     .as_ref()
                     .map(|reference_c| reference_c.label)
@@ -554,7 +533,7 @@ fn render_inter_ts<SequenceName: Eq + Ord>(
             .try_into()
             .unwrap(),
         query.sequence.chars(),
-        stream.stream_iter(),
+        stream.stream_iter_flat(),
         true,
         false,
     );
@@ -583,10 +562,10 @@ fn render_inter_ts<SequenceName: Eq + Ord>(
                 .try_into()
                 .unwrap(),
             reference_c.sequence.chars(),
-            [(
-                reference_c.sequence.chars().count(),
+            iter::repeat_n(
                 AlignmentType::PrimaryMatch,
-            )],
+                reference_c.sequence.chars().count(),
+            ),
             false,
             false,
         );
@@ -615,10 +594,10 @@ fn render_inter_ts<SequenceName: Eq + Ord>(
                 .try_into()
                 .unwrap(),
             query_c.sequence.chars(),
-            [(
-                query_c.sequence.chars().count(),
+            iter::repeat_n(
                 AlignmentType::PrimaryMatch,
-            )],
+                query_c.sequence.chars().count(),
+            ),
             false,
             false,
         );
@@ -748,10 +727,10 @@ fn render_ts_base<SequenceName: Eq + Ord + Clone>(
         }),
         Default::default,
         || unreachable!(),
-        [(
-            secondary.sequence.chars().count(),
+        iter::repeat_n(
             AlignmentType::PrimaryMatch,
-        )],
+            secondary.sequence.chars().count(),
+        ),
         false,
         false,
     );
@@ -762,10 +741,10 @@ fn render_ts_base<SequenceName: Eq + Ord + Clone>(
             secondary_c.label,
             secondary_offset,
             secondary_c.sequence.chars(),
-            [(
-                secondary_c.sequence.chars().count(),
+            iter::repeat_n(
                 AlignmentType::PrimaryMatch,
-            )],
+                secondary_c.sequence.chars().count(),
+            ),
             false,
             false,
         );
@@ -806,10 +785,10 @@ fn render_ts_base<SequenceName: Eq + Ord + Clone>(
             extension.clone().take(extension_existing_length),
             Default::default,
             Default::default,
-            [(
-                extension_existing_length.min(extension.clone().count()),
+            iter::repeat_n(
                 AlignmentType::PrimaryMatch,
-            )],
+                extension_existing_length.min(extension.clone().count()),
+            ),
             false,
             false,
         );

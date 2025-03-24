@@ -1,12 +1,14 @@
 use std::fmt::{Display, Formatter, Result, Write};
 
 use a_star_sequences::SequencePair;
+use alignment::Alignment;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{cost::AStarCost, AStarResult};
 use noisy_float::types::{r64, R64};
 use num_traits::{Float, Zero};
 
 pub mod a_star_sequences;
+pub mod alignment;
 
 pub trait IAlignmentType {
     fn is_repeatable(&self) -> bool;
@@ -18,12 +20,13 @@ pub trait IAlignmentType {
     fn is_template_switch_exit(&self) -> bool;
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum AlignmentResult<AlignmentType, Cost> {
     WithTarget {
-        alignment: Vec<(usize, AlignmentType)>,
+        #[cfg_attr(feature = "serde", serde(flatten))]
+        alignment: Alignment<AlignmentType>,
 
         #[cfg_attr(feature = "serde", serde(flatten))]
         statistics: AlignmentStatistics<Cost>,
@@ -195,7 +198,7 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
 
         if let Some(alignment) = alignment {
             Self::WithTarget {
-                alignment,
+                alignment: alignment.into(),
                 statistics,
             }
         } else {
@@ -238,15 +241,7 @@ impl<AlignmentType: IAlignmentType, Cost> AlignmentResult<AlignmentType, Cost> {
             return Ok(());
         };
 
-        for (amount, alignment_type) in alignment {
-            if alignment_type.is_repeatable() {
-                write!(writer, "{amount}{alignment_type}")?;
-            } else {
-                write!(writer, "{alignment_type}")?;
-            }
-        }
-
-        Ok(())
+        alignment.write_cigar(writer)
     }
 }
 

@@ -106,7 +106,7 @@ impl<SequenceName: Eq + Ord, CharacterData>
         extension: impl IntoIterator<Item = Character<CharacterData>>,
         blank_data_generator: impl FnMut() -> CharacterData,
         gap_data_generator: impl FnMut() -> CharacterData,
-        alignment: impl IntoIterator<Item = (usize, AlignmentType)>,
+        alignment: impl IntoIterator<Item = AlignmentType>,
         do_lowercasing: bool,
         invert_alignment: bool,
     ) {
@@ -180,7 +180,7 @@ impl<SequenceName: Eq + Ord, CharacterData>
         extension: impl IntoIterator<Item = Character<CharacterData>>,
         mut blank_data_generator: impl FnMut() -> CharacterData,
         mut gap_data_generator: impl FnMut() -> CharacterData,
-        alignment: impl IntoIterator<Item = (usize, AlignmentType)>,
+        alignment: impl IntoIterator<Item = AlignmentType>,
         do_lowercasing: bool,
         invert_alignment: bool,
     ) {
@@ -206,19 +206,13 @@ impl<SequenceName: Eq + Ord, CharacterData>
         let mut index = rendered_sequence_offset;
         let mut extension = extension.into_iter();
 
-        for alignment_type in alignment
-            .into_iter()
-            .flat_map(|(multiplicity, alignment_type)| {
-                iter::repeat_n(
-                    if invert_alignment {
-                        alignment_type.inverted()
-                    } else {
-                        alignment_type
-                    },
-                    multiplicity,
-                )
-            })
-        {
+        for alignment_type in alignment.into_iter().map(|alignment_type| {
+            if invert_alignment {
+                alignment_type.inverted()
+            } else {
+                alignment_type
+            }
+        }) {
             //trace!("alignment_type: {alignment_type}");
 
             while matches!(
@@ -350,7 +344,7 @@ impl<SequenceName: Eq + Ord + Clone, CharacterData>
         query_sequence: impl IntoIterator<Item = Character<CharacterData>>,
         mut blank_data_generator: impl FnMut() -> CharacterData,
         gap_data_generator: impl FnMut() -> CharacterData,
-        alignment: impl IntoIterator<Item = (usize, AlignmentType)>,
+        alignment: impl IntoIterator<Item = AlignmentType>,
         do_lowercasing: bool,
         invert_alignment: bool,
     ) {
@@ -423,7 +417,7 @@ impl<SequenceName: Eq + Ord, CharacterData: Default>
         query_sequence_name: &SequenceName,
         reference_sequence_offset: usize,
         extension: impl IntoIterator<Item = char>,
-        alignment: impl IntoIterator<Item = (usize, AlignmentType)>,
+        alignment: impl IntoIterator<Item = AlignmentType>,
         do_lowercasing: bool,
         invert_alignment: bool,
     ) {
@@ -451,7 +445,7 @@ impl<SequenceName: Eq + Ord + Clone, CharacterData: Default>
         reference_sequence_offset: usize,
         query_sequence_name: SequenceName,
         query_sequence: impl IntoIterator<Item = char>,
-        alignment: impl IntoIterator<Item = (usize, AlignmentType)>,
+        alignment: impl IntoIterator<Item = AlignmentType>,
         do_lowercasing: bool,
         invert_alignment: bool,
     ) {
@@ -491,7 +485,7 @@ impl<SequenceName: Eq + Ord + Clone> MultipairAlignmentRenderer<SequenceName> {
         reference_sequence_offset: usize,
         query_sequence_name: SequenceName,
         query_sequence: impl IntoIterator<Item = char>,
-        alignment: impl IntoIterator<Item = (usize, AlignmentType)>,
+        alignment: impl IntoIterator<Item = AlignmentType>,
         do_lowercasing: bool,
         invert_alignment: bool,
     ) {
