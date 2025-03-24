@@ -1,4 +1,8 @@
-use std::{fs::File, io::Read, path::PathBuf};
+use std::{
+    fs::File,
+    io::{stdout, Read},
+    path::PathBuf,
+};
 
 use clap::Parser;
 
@@ -61,7 +65,7 @@ pub fn cli(cli: Cli) {
         toml::from_str(&buffer).unwrap_or_else(|error| panic!("Error parsing input file: {error}"))
     });
 
-    show_template_switches(&result, &no_ts_result);
+    show_template_switches(stdout(), &result, &no_ts_result);
 
     if let Some(svg) = cli.svg.as_ref() {
         create_ts_svg(svg, &result, &no_ts_result, cli.png);

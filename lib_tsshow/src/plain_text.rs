@@ -1,4 +1,4 @@
-use std::{io::stdout, iter};
+use std::{io::Write, iter};
 
 use alignment_stream::{AlignmentCoordinates, AlignmentStream};
 use lib_tsalign::{
@@ -17,6 +17,7 @@ pub mod mutlipair_alignment_renderer;
 mod parse_template_switches;
 
 pub fn show_template_switches(
+    mut output: impl Write,
     result: &AlignmentResult<AlignmentType, U64Cost>,
     no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
 ) {
@@ -44,11 +45,17 @@ pub fn show_template_switches(
 
     for (index, template_switch) in template_switches.iter().enumerate() {
         info!("Showing template switch {}", index + 1);
-        show_template_switch(template_switch, &statistics.sequences, no_ts_result);
+        show_template_switch(
+            &mut output,
+            template_switch,
+            &statistics.sequences,
+            no_ts_result,
+        );
     }
 }
 
 fn show_template_switch(
+    mut output: impl Write,
     template_switch: &TSShow<AlignmentType>,
     sequences: &SequencePair,
     no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
@@ -226,13 +233,13 @@ fn show_template_switch(
         debug!("Rendering");
         outside_renderer
             .render(
-                stdout(),
+                &mut output,
                 [&f1_label, &f3_label, &anti_primary_forward_label],
             )
             .unwrap();
         println!();
         inside_renderer
-            .render(stdout(), [&primary_reverse_label, &f2_label])
+            .render(&mut output, [&primary_reverse_label, &f2_label])
             .unwrap();
     } else {
         let anti_primary_extended_offset = anti_primary_offset.min(
@@ -310,7 +317,7 @@ fn show_template_switch(
         debug!("Rendering");
         renderer
             .render(
-                stdout(),
+                &mut output,
                 [
                     &f1_label,
                     &f3_label,
@@ -390,7 +397,7 @@ fn show_template_switch(
 
         debug!("Rendering");
         renderer
-            .render(stdout(), [&anti_primary_label, &primary_label])
+            .render(&mut output, [&anti_primary_label, &primary_label])
             .unwrap();
     } else {
         debug!("No no-ts alignment given, skipping");
