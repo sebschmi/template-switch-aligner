@@ -73,6 +73,7 @@ fn translate_alignment_offset() {
     assert_eq!(sequence.translate_alignment_offset(0), Some(0));
     assert_eq!(sequence.translate_alignment_offset(1), Some(2));
     assert_eq!(sequence.translate_alignment_offset(2), Some(4));
+    assert_eq!(sequence.translate_alignment_offset(3), None);
 }
 
 #[test]
@@ -87,6 +88,7 @@ fn translate_extension_offset() {
     assert_eq!(sequence.translate_extension_offset(0), Some(1));
     assert_eq!(sequence.translate_extension_offset(1), Some(3));
     assert_eq!(sequence.translate_extension_offset(2), Some(5));
+    assert_eq!(sequence.translate_alignment_offset(3), None);
 
     let sequence = MultipairAlignmentSequence::<NoCharacterData>::from_iter([
         CharacterKind::Blank,
@@ -97,4 +99,5 @@ fn translate_extension_offset() {
     assert_eq!(sequence.translate_extension_offset(0), Some(1));
     assert_eq!(sequence.translate_extension_offset(1), Some(3));
     assert_eq!(sequence.translate_extension_offset(2), Some(4));
+    assert_eq!(sequence.translate_alignment_offset(3), None);
 }

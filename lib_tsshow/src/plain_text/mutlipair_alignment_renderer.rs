@@ -577,10 +577,13 @@ impl<CharacterData> MultipairAlignmentSequence<CharacterData> {
     /// # Example
     ///
     /// ```rust
-    /// let sequence = MultipairAlignmentSequence::from(vec![Character::Blank, Character::Character('A'), Character::Gap, Character::Character('C'), Character::Gap]);
-    /// assert_eq!(sequence.translate_alignment_offset(0), 0);
-    /// assert_eq!(sequence.translate_alignment_offset(1), 2);
-    /// assert_eq!(sequence.translate_alignment_offset(2), 4);
+    /// use lib_tsshow::plain_text::mutlipair_alignment_renderer::{Character, CharacterKind, MultipairAlignmentSequence, NoCharacterData};
+    ///
+    /// let sequence = MultipairAlignmentSequence::<NoCharacterData>::from_iter([CharacterKind::Blank, CharacterKind::Char('A'), CharacterKind::Gap, CharacterKind::Char('C'), CharacterKind::Gap]);
+    /// assert_eq!(sequence.translate_alignment_offset(0), Some(0));
+    /// assert_eq!(sequence.translate_alignment_offset(1), Some(2));
+    /// assert_eq!(sequence.translate_alignment_offset(2), Some(4));
+    /// assert_eq!(sequence.translate_alignment_offset(3), None);
     /// ```
     pub fn translate_alignment_offset(&self, offset: usize) -> Option<usize> {
         if offset == 0 {
@@ -602,10 +605,13 @@ impl<CharacterData> MultipairAlignmentSequence<CharacterData> {
     /// # Example
     ///
     /// ```rust
-    /// let sequence = MultipairAlignmentSequence::from(vec![Character::Blank, Character::Character('A'), Character::Gap, Character::Character('C'), Character::Gap]);
-    /// assert_eq!(sequence.translate_alignment_offset(0), 1);
-    /// assert_eq!(sequence.translate_alignment_offset(1), 3);
-    /// assert_eq!(sequence.translate_alignment_offset(2), 5);
+    /// use lib_tsshow::plain_text::mutlipair_alignment_renderer::{Character, CharacterKind, MultipairAlignmentSequence, NoCharacterData};
+    ///
+    /// let sequence = MultipairAlignmentSequence::<NoCharacterData>::from_iter([CharacterKind::Blank, CharacterKind::Char('A'), CharacterKind::Gap, CharacterKind::Char('C'), CharacterKind::Gap]);
+    /// assert_eq!(sequence.translate_extension_offset(0), Some(1));
+    /// assert_eq!(sequence.translate_extension_offset(1), Some(3));
+    /// assert_eq!(sequence.translate_extension_offset(2), Some(5));
+    /// assert_eq!(sequence.translate_extension_offset(3), None);
     /// ```
     pub fn translate_extension_offset(&self, offset: usize) -> Option<usize> {
         self.translate_alignment_offset(offset).map(|offset| {
