@@ -5,6 +5,7 @@ use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use lib_tsalign::{
     a_star_aligner::{
         template_switch_distance::strategies::{
+            AlignmentStrategySelection,
             chaining::{
                 ChainingStrategy, LowerBoundChainingStrategy, NoChainingStrategy,
                 PrecomputeOnlyChainingStrategy,
@@ -21,7 +22,6 @@ use lib_tsalign::{
                 LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
                 TemplateSwitchMinLengthStrategy,
             },
-            AlignmentStrategySelection,
         },
         template_switch_distance_a_star_align,
     },

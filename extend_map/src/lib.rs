@@ -16,12 +16,12 @@ pub struct ExtendMap<
 }
 
 impl<
-        'extender,
-        InputElement,
-        ExtendElement,
-        Mapper: FnMut(InputElement) -> ExtendElement,
-        Extender: Extend<ExtendElement>,
-    > ExtendMap<'extender, InputElement, ExtendElement, Mapper, Extender>
+    'extender,
+    InputElement,
+    ExtendElement,
+    Mapper: FnMut(InputElement) -> ExtendElement,
+    Extender: Extend<ExtendElement>,
+> ExtendMap<'extender, InputElement, ExtendElement, Mapper, Extender>
 {
     pub fn new(extender: &'extender mut Extender, mapper: Mapper) -> Self {
         Self {
@@ -37,11 +37,11 @@ impl<
 }
 
 impl<
-        InputElement,
-        ExtendElement,
-        Mapper: FnMut(InputElement) -> ExtendElement,
-        Extender: Extend<ExtendElement>,
-    > Extend<InputElement> for ExtendMap<'_, InputElement, ExtendElement, Mapper, Extender>
+    InputElement,
+    ExtendElement,
+    Mapper: FnMut(InputElement) -> ExtendElement,
+    Extender: Extend<ExtendElement>,
+> Extend<InputElement> for ExtendMap<'_, InputElement, ExtendElement, Mapper, Extender>
 {
     fn extend<T: IntoIterator<Item = InputElement>>(&mut self, iter: T) {
         self.extender.extend(iter.into_iter().map(&mut self.mapper));

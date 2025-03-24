@@ -1,5 +1,5 @@
 use lib_tsalign::a_star_aligner::{
-    alignment_result::alignment::{iter::CompactAlignmentIterCloned, Alignment},
+    alignment_result::alignment::{Alignment, iter::CompactAlignmentIterCloned},
     template_switch_distance::{AlignmentType, TemplateSwitchPrimary, TemplateSwitchSecondary},
 };
 use log::{debug, trace};

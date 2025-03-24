@@ -1,11 +1,11 @@
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::cost::AStarCost;
 use index::{
+    AlignmentMatrixIndex,
     iterators::{
         AlignmentMatrixInnerIterator, AlignmentMatrixQueryIterator,
         AlignmentMatrixReferenceIterator,
     },
-    AlignmentMatrixIndex,
 };
 use ndarray::Array2;
 use num_traits::Bounded;

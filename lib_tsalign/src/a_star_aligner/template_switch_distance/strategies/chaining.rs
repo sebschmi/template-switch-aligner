@@ -10,17 +10,17 @@ use seed_chain::{
 
 use crate::{
     a_star_aligner::template_switch_distance::{
+        AlignmentType, Context, Identifier, Node,
         identifier::GapType,
         lower_bounds::{
             template_switch::TemplateSwitchLowerBoundMatrix,
             template_switch_alignment::TemplateSwitchAlignmentLowerBoundMatrix,
         },
-        AlignmentType, Context, Identifier, Node,
     },
     config::TemplateSwitchConfig,
 };
 
-use super::{primary_match::PrimaryMatchStrategy, AlignmentStrategy, AlignmentStrategySelector};
+use super::{AlignmentStrategy, AlignmentStrategySelector, primary_match::PrimaryMatchStrategy};
 
 pub trait ChainingStrategy<Cost>: AlignmentStrategy {
     type Memory;

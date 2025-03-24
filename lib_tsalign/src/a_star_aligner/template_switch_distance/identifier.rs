@@ -1,8 +1,8 @@
 use compact_genome::interface::sequence::GenomeSequence;
 
 use super::{
-    strategies::{primary_match::PrimaryMatchStrategy, AlignmentStrategySelector},
     AlignmentType, Context,
+    strategies::{AlignmentStrategySelector, primary_match::PrimaryMatchStrategy},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]

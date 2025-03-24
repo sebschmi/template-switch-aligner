@@ -1,13 +1,13 @@
 use std::fmt::Display;
 
 use compact_genome::interface::sequence::GenomeSequence;
-use generic_a_star::{cost::AStarCost, AStarNode};
+use generic_a_star::{AStarNode, cost::AStarCost};
 use identifier::GapType;
 use num_traits::{Bounded, Zero};
 use strategies::{
-    node_ord::NodeOrdStrategy, primary_match::PrimaryMatchStrategy,
-    template_switch_min_length::TemplateSwitchMinLengthStrategy, AlignmentStrategiesNodeMemory,
-    AlignmentStrategySelector,
+    AlignmentStrategiesNodeMemory, AlignmentStrategySelector, node_ord::NodeOrdStrategy,
+    primary_match::PrimaryMatchStrategy,
+    template_switch_min_length::TemplateSwitchMinLengthStrategy,
 };
 
 mod alignment_type;
@@ -301,7 +301,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         &'this self,
         context: &'context mut Context<'reference, 'query, SubsequenceType, Strategies>,
     ) -> impl use<'this, 'reference, 'query, 'context, SubsequenceType, Strategies>
-           + IntoIterator<Item = Self> {
+    + IntoIterator<Item = Self> {
         let Identifier::TemplateSwitchEntrance {
             entrance_reference_index,
             entrance_query_index,

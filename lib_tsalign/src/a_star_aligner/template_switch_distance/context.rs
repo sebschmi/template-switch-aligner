@@ -7,8 +7,8 @@ use generic_a_star::reset::Reset;
 use generic_a_star::{AStarBuffers, AStarContext};
 use num_traits::{Bounded, Zero};
 
-use crate::a_star_aligner::template_switch_distance::Node;
 use crate::a_star_aligner::AlignmentContext;
+use crate::a_star_aligner::template_switch_distance::Node;
 use crate::config::TemplateSwitchConfig;
 
 use super::identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
@@ -60,11 +60,11 @@ pub struct Memory<Strategies: AlignmentStrategySelector> {
 }
 
 impl<
-        'reference,
-        'query,
-        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector,
-    > Context<'reference, 'query, SubsequenceType, Strategies>
+    'reference,
+    'query,
+    SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    Strategies: AlignmentStrategySelector,
+> Context<'reference, 'query, SubsequenceType, Strategies>
 {
     #[expect(clippy::too_many_arguments)]
     pub fn new(
@@ -92,9 +92,9 @@ impl<
 }
 
 impl<
-        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector,
-    > AStarContext for Context<'_, '_, SubsequenceType, Strategies>
+    SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    Strategies: AlignmentStrategySelector,
+> AStarContext for Context<'_, '_, SubsequenceType, Strategies>
 {
     type Node = Node<Strategies>;
 
@@ -340,10 +340,11 @@ impl<
                 template_switch_first_offset,
                 ..
             } => {
-                debug_assert!(node
-                    .strategies
-                    .template_switch_count
-                    .can_start_another_template_switch(self));
+                debug_assert!(
+                    node.strategies
+                        .template_switch_count
+                        .can_start_another_template_switch(self)
+                );
 
                 let (secondary_entrance_index, secondary_length) = match template_switch_secondary {
                     TemplateSwitchSecondary::Reference => {
@@ -597,7 +598,7 @@ fn generate_output_mapper_function<
 >(
     context: &'context Context<'reference, 'query, SubsequenceType, Strategies>,
 ) -> impl use<'context, 'reference, 'query, SubsequenceType, Strategies>
-       + Fn(
++ Fn(
     <Context<'reference, 'query, SubsequenceType, Strategies> as AStarContext>::Node,
 ) -> <Context<'reference, 'query, SubsequenceType, Strategies> as AStarContext>::Node {
     move |node| {
@@ -606,9 +607,9 @@ fn generate_output_mapper_function<
 }
 
 impl<
-        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector,
-    > Reset for Context<'_, '_, SubsequenceType, Strategies>
+    SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    Strategies: AlignmentStrategySelector,
+> Reset for Context<'_, '_, SubsequenceType, Strategies>
 {
     fn reset(&mut self) {
         self.memory.reset();
@@ -622,9 +623,9 @@ impl<Strategies: AlignmentStrategySelector> Reset for Memory<Strategies> {
 }
 
 impl<
-        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector,
-    > AlignmentContext for Context<'_, '_, SubsequenceType, Strategies>
+    SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    Strategies: AlignmentStrategySelector,
+> AlignmentContext for Context<'_, '_, SubsequenceType, Strategies>
 {
     type AlphabetType = Strategies::Alphabet;
 

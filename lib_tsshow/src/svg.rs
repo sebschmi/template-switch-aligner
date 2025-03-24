@@ -1,18 +1,18 @@
 use core::str;
 use std::{io::Write, iter};
 
-use font::{svg_string, CharacterData, CHARACTER_HEIGHT, CHARACTER_WIDTH};
+use font::{CHARACTER_HEIGHT, CHARACTER_WIDTH, CharacterData, svg_string};
 use lib_tsalign::{
     a_star_aligner::{
-        alignment_result::{alignment::Alignment, AlignmentResult},
+        alignment_result::{AlignmentResult, alignment::Alignment},
         template_switch_distance::{AlignmentType, TemplateSwitchPrimary, TemplateSwitchSecondary},
     },
     costs::U64Cost,
 };
 use log::{debug, info, trace, warn};
 use svg::{
-    node::element::{Circle, Group},
     Document,
+    node::element::{Circle, Group},
 };
 
 use crate::plain_text::{

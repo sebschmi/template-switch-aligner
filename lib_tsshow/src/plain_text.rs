@@ -3,14 +3,14 @@ use std::{io::Write, iter};
 use alignment_stream::{AlignmentCoordinates, AlignmentStream};
 use lib_tsalign::{
     a_star_aligner::{
-        alignment_result::{a_star_sequences::SequencePair, AlignmentResult},
+        alignment_result::{AlignmentResult, a_star_sequences::SequencePair},
         template_switch_distance::{AlignmentType, TemplateSwitchPrimary, TemplateSwitchSecondary},
     },
     costs::U64Cost,
 };
 use log::{debug, info, warn};
 use mutlipair_alignment_renderer::MultipairAlignmentRenderer;
-use parse_template_switches::{TSShow, STREAM_PADDING};
+use parse_template_switches::{STREAM_PADDING, TSShow};
 
 pub mod alignment_stream;
 pub mod mutlipair_alignment_renderer;

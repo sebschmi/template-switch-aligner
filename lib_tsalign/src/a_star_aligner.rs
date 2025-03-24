@@ -2,13 +2,13 @@ use std::{fmt::Debug, time::Instant};
 
 use alignment_result::{AlignmentResult, IAlignmentType};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
-use generic_a_star::{cost::AStarCost, AStar, AStarContext, AStarNode, AStarResult};
+use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult, cost::AStarCost};
 use template_switch_distance::{
     context::Memory,
     strategies::{
-        chaining::ChainingStrategy, primary_match::AllowPrimaryMatchStrategy,
-        shortcut::NoShortcutStrategy, template_switch_count::TemplateSwitchCountStrategy,
-        AlignmentStrategySelector,
+        AlignmentStrategySelector, chaining::ChainingStrategy,
+        primary_match::AllowPrimaryMatchStrategy, shortcut::NoShortcutStrategy,
+        template_switch_count::TemplateSwitchCountStrategy,
     },
 };
 use traitsequence::interface::Sequence;
@@ -131,9 +131,9 @@ pub fn gap_affine_edit_distance_a_star_align<
 #[expect(clippy::too_many_arguments)]
 pub fn template_switch_distance_a_star_align<
     Strategies: AlignmentStrategySelector<
-        Shortcut = NoShortcutStrategy<<Strategies as AlignmentStrategySelector>::Cost>,
-        PrimaryMatch = AllowPrimaryMatchStrategy,
-    >,
+            Shortcut = NoShortcutStrategy<<Strategies as AlignmentStrategySelector>::Cost>,
+            PrimaryMatch = AllowPrimaryMatchStrategy,
+        >,
     SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
 >(
     reference: &SubsequenceType,

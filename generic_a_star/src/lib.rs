@@ -390,7 +390,7 @@ impl<Context: AStarContext> AStar<Context> {
     pub fn backtrack_with_costs(
         &self,
     ) -> impl use<'_, Context>
-           + Iterator<
+    + Iterator<
         Item = (
             <Context::Node as AStarNode>::EdgeType,
             <Context::Node as AStarNode>::Cost,
@@ -431,12 +431,12 @@ impl<Context: AStarContext> AStar<Context> {
         identifier: &<Context::Node as AStarNode>::Identifier,
     ) -> Option<
         impl use<'_, Context>
-            + Iterator<
-                Item = (
-                    <Context::Node as AStarNode>::EdgeType,
-                    <Context::Node as AStarNode>::Cost,
-                ),
-            >,
+        + Iterator<
+            Item = (
+                <Context::Node as AStarNode>::EdgeType,
+                <Context::Node as AStarNode>::Cost,
+            ),
+        >,
     > {
         if self.closed_list.contains_key(identifier) {
             Some(BacktrackingIteratorWithCost {

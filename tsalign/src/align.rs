@@ -8,13 +8,13 @@ use std::{
 use clap::{Args, Parser, ValueEnum};
 use compact_genome::{
     implementation::{
+        DefaultSequenceStore,
         alphabets::{
             dna_alphabet::DnaAlphabet, dna_alphabet_or_n::DnaAlphabetOrN,
             dna_iupac_nucleic_acid_alphabet::DnaIupacNucleicAcidAlphabet,
             rna_alphabet::RnaAlphabet, rna_alphabet_or_n::RnaAlphabetOrN,
             rna_iupac_nucleic_acid_alphabet::RnaIupacNucleicAcidAlphabet,
         },
-        DefaultSequenceStore,
     },
     interface::{alphabet::Alphabet, sequence::GenomeSequence, sequence_store::SequenceStore},
     io::fasta::read_fasta_file,
@@ -25,11 +25,11 @@ use lib_tsalign::{
     alignment_matrix::AlignmentMatrix,
     costs::U64Cost,
 };
-use log::{debug, info, LevelFilter};
+use log::{LevelFilter, debug, info};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 use template_switch_distance_type_selectors::{
-    align_a_star_template_switch_distance, TemplateSwitchChainingStrategySelector,
-    TemplateSwitchMinLengthStrategySelector, TemplateSwitchNodeOrdStrategySelector,
+    TemplateSwitchChainingStrategySelector, TemplateSwitchMinLengthStrategySelector,
+    TemplateSwitchNodeOrdStrategySelector, align_a_star_template_switch_distance,
 };
 
 mod template_switch_distance_type_selectors;

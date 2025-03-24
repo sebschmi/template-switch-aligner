@@ -3,7 +3,7 @@ use generic_a_star::cost::AStarCost;
 
 use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Identifier, Node};
 
-use super::{primary_match::PrimaryMatchStrategy, AlignmentStrategy, AlignmentStrategySelector};
+use super::{AlignmentStrategy, AlignmentStrategySelector, primary_match::PrimaryMatchStrategy};
 
 pub trait NodeOrdStrategy<Cost, PrimaryMatch: PrimaryMatchStrategy<Cost>>:
     AlignmentStrategy

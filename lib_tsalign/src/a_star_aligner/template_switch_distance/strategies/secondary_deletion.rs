@@ -2,7 +2,7 @@ use compact_genome::interface::sequence::GenomeSequence;
 
 use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Identifier};
 
-use super::{primary_match::PrimaryMatchStrategy, AlignmentStrategy, AlignmentStrategySelector};
+use super::{AlignmentStrategy, AlignmentStrategySelector, primary_match::PrimaryMatchStrategy};
 
 pub trait SecondaryDeletionStrategy: AlignmentStrategy {
     fn allow_secondary_deletions() -> bool;

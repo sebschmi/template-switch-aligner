@@ -140,16 +140,16 @@ pub struct AlignmentStrategySelection<
 }
 
 impl<
-        AlphabetType: Alphabet,
-        Cost: AStarCost,
-        NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
-        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
-        Chaining: ChainingStrategy<Cost>,
-        TemplateSwitchCount: TemplateSwitchCountStrategy,
-        SecondaryDeletion: SecondaryDeletionStrategy,
-        Shortcut: ShortcutStrategy<Cost>,
-        PrimaryMatch: PrimaryMatchStrategy<Cost>,
-    > AlignmentStrategySelector
+    AlphabetType: Alphabet,
+    Cost: AStarCost,
+    NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
+    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
+    Chaining: ChainingStrategy<Cost>,
+    TemplateSwitchCount: TemplateSwitchCountStrategy,
+    SecondaryDeletion: SecondaryDeletionStrategy,
+    Shortcut: ShortcutStrategy<Cost>,
+    PrimaryMatch: PrimaryMatchStrategy<Cost>,
+> AlignmentStrategySelector
     for AlignmentStrategySelection<
         AlphabetType,
         Cost,
@@ -174,16 +174,16 @@ impl<
 }
 
 impl<
-        AlphabetType: Alphabet,
-        Cost: AStarCost,
-        NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
-        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
-        Chaining: ChainingStrategy<Cost>,
-        TemplateSwitchCount: TemplateSwitchCountStrategy,
-        SecondaryDeletion: SecondaryDeletionStrategy,
-        Shortcut: ShortcutStrategy<Cost>,
-        PrimaryMatch: PrimaryMatchStrategy<Cost>,
-    > Debug
+    AlphabetType: Alphabet,
+    Cost: AStarCost,
+    NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
+    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
+    Chaining: ChainingStrategy<Cost>,
+    TemplateSwitchCount: TemplateSwitchCountStrategy,
+    SecondaryDeletion: SecondaryDeletionStrategy,
+    Shortcut: ShortcutStrategy<Cost>,
+    PrimaryMatch: PrimaryMatchStrategy<Cost>,
+> Debug
     for AlignmentStrategySelection<
         AlphabetType,
         Cost,
@@ -202,16 +202,16 @@ impl<
 }
 
 impl<
-        AlphabetType: Alphabet,
-        Cost: AStarCost,
-        NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
-        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
-        Chaining: ChainingStrategy<Cost>,
-        TemplateSwitchCount: TemplateSwitchCountStrategy,
-        SecondaryDeletion: SecondaryDeletionStrategy,
-        Shortcut: ShortcutStrategy<Cost>,
-        PrimaryMatch: PrimaryMatchStrategy<Cost>,
-    > Clone
+    AlphabetType: Alphabet,
+    Cost: AStarCost,
+    NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
+    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
+    Chaining: ChainingStrategy<Cost>,
+    TemplateSwitchCount: TemplateSwitchCountStrategy,
+    SecondaryDeletion: SecondaryDeletionStrategy,
+    Shortcut: ShortcutStrategy<Cost>,
+    PrimaryMatch: PrimaryMatchStrategy<Cost>,
+> Clone
     for AlignmentStrategySelection<
         AlphabetType,
         Cost,
@@ -232,16 +232,16 @@ impl<
 }
 
 impl<
-        AlphabetType: Alphabet,
-        Cost: AStarCost,
-        NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
-        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
-        Chaining: ChainingStrategy<Cost>,
-        TemplateSwitchCount: TemplateSwitchCountStrategy,
-        SecondaryDeletion: SecondaryDeletionStrategy,
-        Shortcut: ShortcutStrategy<Cost>,
-        PrimaryMatch: PrimaryMatchStrategy<Cost>,
-    > PartialEq
+    AlphabetType: Alphabet,
+    Cost: AStarCost,
+    NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
+    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
+    Chaining: ChainingStrategy<Cost>,
+    TemplateSwitchCount: TemplateSwitchCountStrategy,
+    SecondaryDeletion: SecondaryDeletionStrategy,
+    Shortcut: ShortcutStrategy<Cost>,
+    PrimaryMatch: PrimaryMatchStrategy<Cost>,
+> PartialEq
     for AlignmentStrategySelection<
         AlphabetType,
         Cost,
@@ -260,16 +260,16 @@ impl<
 }
 
 impl<
-        AlphabetType: Alphabet,
-        Cost: AStarCost,
-        NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
-        TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
-        Chaining: ChainingStrategy<Cost>,
-        TemplateSwitchCount: TemplateSwitchCountStrategy,
-        SecondaryDeletion: SecondaryDeletionStrategy,
-        Shortcut: ShortcutStrategy<Cost>,
-        PrimaryMatch: PrimaryMatchStrategy<Cost>,
-    > Eq
+    AlphabetType: Alphabet,
+    Cost: AStarCost,
+    NodeOrd: NodeOrdStrategy<Cost, PrimaryMatch>,
+    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<Cost>,
+    Chaining: ChainingStrategy<Cost>,
+    TemplateSwitchCount: TemplateSwitchCountStrategy,
+    SecondaryDeletion: SecondaryDeletionStrategy,
+    Shortcut: ShortcutStrategy<Cost>,
+    PrimaryMatch: PrimaryMatchStrategy<Cost>,
+> Eq
     for AlignmentStrategySelection<
         AlphabetType,
         Cost,

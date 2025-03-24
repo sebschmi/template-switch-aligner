@@ -60,9 +60,9 @@ impl<SourceType: Clone + Ord, Cost: Bounded + Copy + Ord> CostFunction<SourceTyp
 }
 
 impl<
-        SourceType: Clone + Ord + Bounded + One + Add<Output = SourceType> + Sub<Output = SourceType>,
-        Cost: Ord + Copy,
-    > CostFunction<SourceType, Cost>
+    SourceType: Clone + Ord + Bounded + One + Add<Output = SourceType> + Sub<Output = SourceType>,
+    Cost: Ord + Copy,
+> CostFunction<SourceType, Cost>
 {
     pub fn min(&self, range: impl RangeBounds<SourceType>) -> Option<Cost> {
         let is_not_empty = match (range.start_bound(), range.end_bound()) {
@@ -118,11 +118,7 @@ impl<
                             Bound::Unbounded => true,
                         };
 
-                        if first_left_of_end {
-                            Some(cost)
-                        } else {
-                            None
-                        }
+                        if first_left_of_end { Some(cost) } else { None }
                     }),
             )
             .min()
@@ -216,73 +212,79 @@ mod tests {
         assert_eq!(cost_function.min(22..33), Some(3u64.into()));
 
         assert_eq!(cost_function.min(..), Some(1u64.into()));
-        assert!([
-            (0.., Some(1u64)),
-            (1.., Some(1)),
-            (2.., Some(1)),
-            (3.., Some(1)),
-            (4.., Some(1)),
-            (5.., Some(1)),
-            (6.., Some(1)),
-            (7.., Some(1)),
-            (8.., Some(2)),
-            (9.., Some(2)),
-            (69.., Some(2)),
-            (70.., Some(2)),
-            (71.., Some(2)),
-            (72.., Some(2)),
-            (99.., Some(2)),
-            (100.., Some(100)),
-            (101.., Some(100)),
-        ]
-        .into_iter()
-        .map(|(range, cost)| (range, cost.map(U64Cost::from)))
-        .all(|(range, min)| cost_function.min(range) == min));
+        assert!(
+            [
+                (0.., Some(1u64)),
+                (1.., Some(1)),
+                (2.., Some(1)),
+                (3.., Some(1)),
+                (4.., Some(1)),
+                (5.., Some(1)),
+                (6.., Some(1)),
+                (7.., Some(1)),
+                (8.., Some(2)),
+                (9.., Some(2)),
+                (69.., Some(2)),
+                (70.., Some(2)),
+                (71.., Some(2)),
+                (72.., Some(2)),
+                (99.., Some(2)),
+                (100.., Some(100)),
+                (101.., Some(100)),
+            ]
+            .into_iter()
+            .map(|(range, cost)| (range, cost.map(U64Cost::from)))
+            .all(|(range, min)| cost_function.min(range) == min)
+        );
 
-        assert!([
-            (..0, None),
-            (..1, None),
-            (..2, None),
-            (..3, Some(100u64)),
-            (..4, Some(1)),
-            (..5, Some(1)),
-            (..6, Some(1)),
-            (..7, Some(1)),
-            (..8, Some(1)),
-            (..9, Some(1)),
-            (..69, Some(1)),
-            (..70, Some(1)),
-            (..71, Some(1)),
-            (..72, Some(1)),
-            (..99, Some(1)),
-            (..100, Some(1)),
-            (..101, Some(1)),
-        ]
-        .into_iter()
-        .map(|(range, cost)| (range, cost.map(U64Cost::from)))
-        .all(|(range, min)| cost_function.min(range) == min));
+        assert!(
+            [
+                (..0, None),
+                (..1, None),
+                (..2, None),
+                (..3, Some(100u64)),
+                (..4, Some(1)),
+                (..5, Some(1)),
+                (..6, Some(1)),
+                (..7, Some(1)),
+                (..8, Some(1)),
+                (..9, Some(1)),
+                (..69, Some(1)),
+                (..70, Some(1)),
+                (..71, Some(1)),
+                (..72, Some(1)),
+                (..99, Some(1)),
+                (..100, Some(1)),
+                (..101, Some(1)),
+            ]
+            .into_iter()
+            .map(|(range, cost)| (range, cost.map(U64Cost::from)))
+            .all(|(range, min)| cost_function.min(range) == min)
+        );
 
-        assert!([
-            (..=0, None),
-            (..=1, None),
-            (..=2, Some(100u64)),
-            (..=3, Some(1)),
-            (..=4, Some(1)),
-            (..=5, Some(1)),
-            (..=6, Some(1)),
-            (..=7, Some(1)),
-            (..=8, Some(1)),
-            (..=9, Some(1)),
-            (..=69, Some(1)),
-            (..=70, Some(1)),
-            (..=71, Some(1)),
-            (..=72, Some(1)),
-            (..=99, Some(1)),
-            (..=100, Some(1)),
-            (..=101, Some(1)),
-        ]
-        .into_iter()
-        .map(|(range, cost)| (range, cost.map(U64Cost::from)))
-        .all(|(range, min)| cost_function.min(range) == min));
+        assert!(
+            [
+                (..=0, None),
+                (..=1, None),
+                (..=2, Some(100u64)),
+                (..=3, Some(1)),
+                (..=4, Some(1)),
+                (..=5, Some(1)),
+                (..=6, Some(1)),
+                (..=7, Some(1)),
+                (..=8, Some(1)),
+                (..=9, Some(1)),
+                (..=69, Some(1)),
+                (..=70, Some(1)),
+                (..=71, Some(1)),
+                (..=72, Some(1)),
+                (..=99, Some(1)),
+                (..=100, Some(1)),
+                (..=101, Some(1)),
+            ]
+            .into_iter()
+            .map(|(range, cost)| (range, cost.map(U64Cost::from)))
+            .all(|(range, min)| cost_function.min(range) == min)
+        );
     }
 }

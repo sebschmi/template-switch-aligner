@@ -574,12 +574,8 @@ impl<AlignmentType: IAlignmentType + Clone> ExactSizeIterator
 // Peek multiplicities ///////////////////////
 //////////////////////////////////////////////
 
-impl<
-        'iter,
-        'alignment: 'iter,
-        AlignmentType: IAlignmentType,
-        LengthDecreaser: PeekLengthDecreaser,
-    > PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
+    PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
 {
     fn new(
         iter: &'iter mut CompactAlignmentIter<'alignment, AlignmentType>,
@@ -593,12 +589,8 @@ impl<
     }
 }
 
-impl<
-        'iter,
-        'alignment: 'iter,
-        AlignmentType: IAlignmentType,
-        LengthDecreaser: PeekLengthDecreaser,
-    > Deref for PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
+    Deref for PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
 {
     type Target = usize;
 
@@ -607,24 +599,16 @@ impl<
     }
 }
 
-impl<
-        'iter,
-        'alignment: 'iter,
-        AlignmentType: IAlignmentType,
-        LengthDecreaser: PeekLengthDecreaser,
-    > DerefMut for PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
+    DerefMut for PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.iter.front_multiplicity
     }
 }
 
-impl<
-        'iter,
-        'alignment: 'iter,
-        AlignmentType: IAlignmentType,
-        LengthDecreaser: PeekLengthDecreaser,
-    > Drop for PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
+    Drop for PeekFrontMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
 {
     fn drop(&mut self) {
         assert!(
@@ -637,12 +621,8 @@ impl<
     }
 }
 
-impl<
-        'iter,
-        'alignment: 'iter,
-        AlignmentType: IAlignmentType,
-        LengthDecreaser: PeekLengthDecreaser,
-    > PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
+    PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
 {
     fn new(
         iter: &'iter mut CompactAlignmentIter<'alignment, AlignmentType>,
@@ -656,12 +636,8 @@ impl<
     }
 }
 
-impl<
-        'iter,
-        'alignment: 'iter,
-        AlignmentType: IAlignmentType,
-        LengthDecreaser: PeekLengthDecreaser,
-    > Deref for PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
+    Deref for PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
 {
     type Target = usize;
 
@@ -670,24 +646,16 @@ impl<
     }
 }
 
-impl<
-        'iter,
-        'alignment: 'iter,
-        AlignmentType: IAlignmentType,
-        LengthDecreaser: PeekLengthDecreaser,
-    > DerefMut for PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
+    DerefMut for PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.iter.back_multiplicity
     }
 }
 
-impl<
-        'iter,
-        'alignment: 'iter,
-        AlignmentType: IAlignmentType,
-        LengthDecreaser: PeekLengthDecreaser,
-    > Drop for PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
+impl<'iter, 'alignment: 'iter, AlignmentType: IAlignmentType, LengthDecreaser: PeekLengthDecreaser>
+    Drop for PeekBackMultiplicityMut<'iter, 'alignment, AlignmentType, LengthDecreaser>
 {
     fn drop(&mut self) {
         assert!(

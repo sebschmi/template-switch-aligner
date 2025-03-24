@@ -1,8 +1,8 @@
 use nom::{
+    IResult,
     bytes::complete::take_till1,
     character::complete::{char, satisfy},
     multi::many0,
-    IResult,
 };
 
 use crate::error::Error;

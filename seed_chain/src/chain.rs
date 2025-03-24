@@ -1,5 +1,5 @@
 use context::Context;
-use generic_a_star::{cost::AStarCost, AStar};
+use generic_a_star::{AStar, cost::AStarCost};
 use log::info;
 use node::EdgeType;
 

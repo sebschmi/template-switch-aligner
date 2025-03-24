@@ -3,8 +3,8 @@ use std::fmt::{Display, Formatter, Result, Write};
 use a_star_sequences::SequencePair;
 use alignment::Alignment;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
-use generic_a_star::{cost::AStarCost, AStarResult};
-use noisy_float::types::{r64, R64};
+use generic_a_star::{AStarResult, cost::AStarCost};
+use noisy_float::types::{R64, r64};
 use num_traits::{Float, Zero};
 
 pub mod a_star_sequences;

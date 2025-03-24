@@ -1,4 +1,4 @@
-use generic_a_star::{cost::AStarCost, reset::Reset, AStarContext, AStarNode};
+use generic_a_star::{AStarContext, AStarNode, cost::AStarCost, reset::Reset};
 
 use crate::seed::ChainingAnchors;
 

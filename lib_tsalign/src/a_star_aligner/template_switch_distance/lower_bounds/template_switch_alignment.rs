@@ -8,7 +8,7 @@ use compact_genome::{
     implementation::vec_sequence::VectorGenome,
     interface::{alphabet::Alphabet, sequence::GenomeSequence},
 };
-use generic_a_star::{cost::AStarCost, AStar, AStarNode, AStarResult};
+use generic_a_star::{AStar, AStarNode, AStarResult, cost::AStarCost};
 use log::{debug, info, trace};
 use ndarray::Array2;
 
@@ -16,8 +16,10 @@ use crate::{
     a_star_aligner::{
         alignment_result::IAlignmentType,
         template_switch_distance::{
+            Context, Identifier,
             context::Memory,
             strategies::{
+                AlignmentStrategySelection,
                 chaining::NoChainingStrategy,
                 node_ord::CostOnlyNodeOrdStrategy,
                 primary_match::{
@@ -27,9 +29,7 @@ use crate::{
                 shortcut::TemplateSwitchLowerBoundShortcutStrategy,
                 template_switch_count::NoTemplateSwitchCountStrategy,
                 template_switch_min_length::NoTemplateSwitchMinLengthStrategy,
-                AlignmentStrategySelection,
             },
-            Context, Identifier,
         },
     },
     config::TemplateSwitchConfig,
@@ -74,7 +74,9 @@ impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
             max_consecutive_primary_matches - max_consecutive_primary_matches_at_start_and_end;
 
         debug!("Max consecutive primary matches: {max_consecutive_primary_matches}");
-        debug!("Max consecutive primary matches at start and end: {max_consecutive_primary_matches_at_start_and_end}");
+        debug!(
+            "Max consecutive primary matches at start and end: {max_consecutive_primary_matches_at_start_and_end}"
+        );
         debug!("Min available primary matches at target: {target_min_available_primary_matches}");
 
         debug!("Using genome length {genome_length}");

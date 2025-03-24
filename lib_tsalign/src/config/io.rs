@@ -4,10 +4,10 @@ use compact_genome::interface::alphabet::Alphabet;
 use generic_a_star::cost::AStarCost;
 use log::trace;
 use nom::{
+    IResult,
     bytes::complete::{tag, take_while1},
     character::complete::line_ending,
     sequence::tuple,
-    IResult,
 };
 use num_traits::{Bounded, PrimInt};
 

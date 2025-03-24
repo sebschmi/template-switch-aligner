@@ -10,7 +10,7 @@ members = [
     "lib_tsshow",
 ]
 resolver = "2"
-package.edition = "2021"
+package.edition = "2024"
 package.rust-version = "1.85.1"
 package.repository = "https://github.com/sebschmi/template-switch-aligner"
 

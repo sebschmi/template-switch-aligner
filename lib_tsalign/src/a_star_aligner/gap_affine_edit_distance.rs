@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
-use generic_a_star::{cost::AStarCost, reset::Reset, AStarContext, AStarNode};
+use generic_a_star::{AStarContext, AStarNode, cost::AStarCost, reset::Reset};
 
-use super::{alignment_result::IAlignmentType, AlignmentContext};
+use super::{AlignmentContext, alignment_result::IAlignmentType};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Node<Cost> {
@@ -94,10 +94,10 @@ impl<Cost: AStarCost> AStarNode for Node<Cost> {
 }
 
 impl<
-        AlphabetType: Alphabet,
-        Cost: AStarCost,
-        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    > AStarContext for Context<'_, '_, AlphabetType, Cost, SubsequenceType>
+    AlphabetType: Alphabet,
+    Cost: AStarCost,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+> AStarContext for Context<'_, '_, AlphabetType, Cost, SubsequenceType>
 {
     type Node = Node<Cost>;
 
@@ -185,19 +185,19 @@ impl<
 }
 
 impl<
-        AlphabetType: Alphabet,
-        Cost: AStarCost,
-        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    > Reset for Context<'_, '_, AlphabetType, Cost, SubsequenceType>
+    AlphabetType: Alphabet,
+    Cost: AStarCost,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+> Reset for Context<'_, '_, AlphabetType, Cost, SubsequenceType>
 {
     fn reset(&mut self) {}
 }
 
 impl<
-        AlphabetType: Alphabet,
-        Cost: AStarCost,
-        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    > AlignmentContext for Context<'_, '_, AlphabetType, Cost, SubsequenceType>
+    AlphabetType: Alphabet,
+    Cost: AStarCost,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+> AlignmentContext for Context<'_, '_, AlphabetType, Cost, SubsequenceType>
 {
     type AlphabetType = AlphabetType;
 
@@ -223,12 +223,12 @@ impl<
 }
 
 impl<
-        'reference,
-        'query,
-        AlphabetType: Alphabet,
-        Cost: AStarCost,
-        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    > Context<'reference, 'query, AlphabetType, Cost, SubsequenceType>
+    'reference,
+    'query,
+    AlphabetType: Alphabet,
+    Cost: AStarCost,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+> Context<'reference, 'query, AlphabetType, Cost, SubsequenceType>
 {
     pub fn new(
         reference: &'reference SubsequenceType,

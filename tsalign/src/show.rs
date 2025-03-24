@@ -1,13 +1,13 @@
 use std::{
     fs::File,
-    io::{stdout, Read, Write},
+    io::{Read, Write, stdout},
     path::PathBuf,
 };
 
 use clap::Parser;
 
 use lib_tsshow::{plain_text::show_template_switches, svg::create_ts_svg, svg_to_png};
-use log::{info, LevelFilter};
+use log::{LevelFilter, info};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 
 #[derive(Parser)]

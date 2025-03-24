@@ -1,17 +1,17 @@
 use std::marker::PhantomData;
 
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
-use generic_a_star::{cost::AStarCost, AStarContext, AStarNode};
+use generic_a_star::{AStarContext, AStarNode, cost::AStarCost};
 
 use crate::{
     a_star_aligner::template_switch_distance::{
-        lower_bounds::template_switch::TemplateSwitchLowerBoundMatrix, AlignmentType, Context,
-        Identifier,
+        AlignmentType, Context, Identifier,
+        lower_bounds::template_switch::TemplateSwitchLowerBoundMatrix,
     },
     config::TemplateSwitchConfig,
 };
 
-use super::{primary_match::PrimaryMatchStrategy, AlignmentStrategy, AlignmentStrategySelector};
+use super::{AlignmentStrategy, AlignmentStrategySelector, primary_match::PrimaryMatchStrategy};
 
 pub trait ShortcutStrategy<Cost>: AlignmentStrategy {
     type Memory;

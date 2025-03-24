@@ -1,6 +1,6 @@
 use std::{fmt::Display, io::Write, str::FromStr};
 
-use nom::{character::complete::digit1, IResult};
+use nom::{IResult, character::complete::digit1};
 use num_traits::{Bounded, PrimInt};
 
 use super::CostFunction;

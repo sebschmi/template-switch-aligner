@@ -103,7 +103,7 @@ impl Iterator for AlignmentMatrixInnerIterator {
 #[cfg(test)]
 mod tests {
     use crate::alignment_matrix::index::{
-        iterators::AlignmentMatrixInnerIterator, AlignmentMatrixIndex,
+        AlignmentMatrixIndex, iterators::AlignmentMatrixInnerIterator,
     };
 
     #[test]

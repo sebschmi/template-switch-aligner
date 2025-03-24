@@ -8,8 +8,8 @@ use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
 
 use crate::a_star_aligner::template_switch_distance::AlignmentType;
 use crate::a_star_aligner::template_switch_distance::{
-    identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary},
     Context, Identifier, Node,
+    identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary},
 };
 
 use super::primary_match::PrimaryMatchStrategy;
@@ -214,12 +214,12 @@ impl<Cost: AStarCost> AlignmentStrategy for LookaheadTemplateSwitchMinLengthStra
 }
 
 impl<
-        'reference,
-        'query,
-        'context,
-        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector,
-    > TemplateSwitchMinLengthContext<'reference, 'query, 'context, SubsequenceType, Strategies>
+    'reference,
+    'query,
+    'context,
+    SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    Strategies: AlignmentStrategySelector,
+> TemplateSwitchMinLengthContext<'reference, 'query, 'context, SubsequenceType, Strategies>
 {
     fn new(
         root_node: Node<Strategies>,
@@ -234,9 +234,9 @@ impl<
 }
 
 impl<
-        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector,
-    > AStarContext for TemplateSwitchMinLengthContext<'_, '_, '_, SubsequenceType, Strategies>
+    SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    Strategies: AlignmentStrategySelector,
+> AStarContext for TemplateSwitchMinLengthContext<'_, '_, '_, SubsequenceType, Strategies>
 {
     type Node = Node<Strategies>;
 
@@ -267,9 +267,9 @@ impl<
 }
 
 impl<
-        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
-        Strategies: AlignmentStrategySelector,
-    > Reset for TemplateSwitchMinLengthContext<'_, '_, '_, SubsequenceType, Strategies>
+    SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+    Strategies: AlignmentStrategySelector,
+> Reset for TemplateSwitchMinLengthContext<'_, '_, '_, SubsequenceType, Strategies>
 {
     fn reset(&mut self) {
         unimplemented!("Designed to be used only once.")

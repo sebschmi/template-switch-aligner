@@ -183,8 +183,8 @@ mod tests {
     };
 
     use super::{
-        find_all_substrings, nonoverlapping_block_ranges, ChainingAnchor, ChainingAnchors,
-        SubstringMatch,
+        ChainingAnchor, ChainingAnchors, SubstringMatch, find_all_substrings,
+        nonoverlapping_block_ranges,
     };
 
     #[test]

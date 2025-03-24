@@ -12,11 +12,11 @@ use compact_genome::interface::alphabet::{Alphabet, AlphabetCharacter};
 use generic_a_star::cost::AStarCost;
 use log::trace;
 use nom::{
+    IResult,
     bytes::complete::{tag, take},
     combinator::opt,
     multi::{count, many1},
     sequence::{preceded, tuple},
-    IResult,
 };
 
 use std::{
