@@ -1,12 +1,12 @@
 use std::{
     fs::File,
-    io::{stdout, Read},
+    io::{stdout, Read, Write},
     path::PathBuf,
 };
 
 use clap::Parser;
 
-use lib_tsshow::{plain_text::show_template_switches, svg::create_ts_svg};
+use lib_tsshow::{plain_text::show_template_switches, svg::create_ts_svg, svg_to_png};
 use log::{info, LevelFilter};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 
@@ -67,7 +67,20 @@ pub fn cli(cli: Cli) {
 
     show_template_switches(stdout(), &result, &no_ts_result);
 
-    if let Some(svg) = cli.svg.as_ref() {
-        create_ts_svg(svg, &result, &no_ts_result, cli.png);
+    if let Some(svg_out_path) = cli.svg.as_ref() {
+        let mut svg = Vec::new();
+        create_ts_svg(&mut svg, &result, &no_ts_result);
+        let svg = svg;
+
+        info!("Writing svg to {svg_out_path:?}");
+        File::create(svg_out_path).unwrap().write_all(&svg).unwrap();
+
+        if cli.png {
+            let png = svg_to_png(&svg, 20.0);
+
+            let png_out_path = svg_out_path.with_extension("png");
+            info!("Writing png to {png_out_path:?}");
+            File::create(png_out_path).unwrap().write_all(&png).unwrap();
+        }
     }
 }

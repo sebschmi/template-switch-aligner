@@ -1,4 +1,5 @@
-use std::{io::stdout, iter};
+use core::str;
+use std::{io::Write, iter};
 
 use font::{svg_string, CharacterData, CHARACTER_HEIGHT, CHARACTER_WIDTH};
 use lib_tsalign::{
@@ -9,10 +10,6 @@ use lib_tsalign::{
     costs::U64Cost,
 };
 use log::{debug, info, trace, warn};
-use resvg::{
-    tiny_skia,
-    usvg::{self, Transform},
-};
 use svg::{
     node::element::{Circle, Group},
     Document,
@@ -64,13 +61,11 @@ impl<Label: Clone> LabelledSequence<'_, Label> {
 }
 
 pub fn create_ts_svg(
-    output: impl AsRef<std::path::Path>,
+    output: impl Write,
     result: &AlignmentResult<AlignmentType, U64Cost>,
     no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
-    render_png: bool,
 ) {
-    let output = output.as_ref();
-    info!("Creating template switch SVG at {output:?}");
+    info!("Creating template switch SVG");
 
     debug!("Rendering ts alignment");
     let AlignmentResult::WithTarget { alignment, .. } = result else {
@@ -473,11 +468,7 @@ pub fn create_ts_svg(
     }
 
     svg = svg.set("viewBox", (0, 0, view_box_width, view_box_height));
-    svg::save(output, &svg).unwrap();
-
-    if render_png {
-        make_png(output);
-    }
+    svg::write(output, &svg).unwrap();
 }
 
 fn render_inter_ts<SequenceName: Eq + Ord>(
@@ -522,31 +513,39 @@ fn render_inter_ts<SequenceName: Eq + Ord>(
     debug!("Reference length: {}", reference.sequence.chars().count());
     debug!("Query length: {}", query.sequence.chars().count());
 
-    renderer
-        .render_without_names(
-            stdout(),
-            reference_c
-                .as_ref()
-                .map(|reference_c| reference_c.label)
-                .into_iter()
-                .chain([reference.label, query.label])
-                .chain(query_c.as_ref().map(|query_c| query_c.label)),
-        )
-        .unwrap();
+    trace!("Current renderer content:\n{}", {
+        let mut out = Vec::new();
+        renderer
+            .render_without_names(
+                out.as_mut_slice(),
+                reference_c
+                    .as_ref()
+                    .map(|reference_c| reference_c.label)
+                    .into_iter()
+                    .chain([reference.label, query.label])
+                    .chain(query_c.as_ref().map(|query_c| query_c.label)),
+            )
+            .unwrap();
+        String::from_utf8(out).unwrap()
+    });
 
     renderer.extend_sequence_with_default_data(reference.label, reference.sequence.chars());
 
-    renderer
-        .render_without_names(
-            stdout(),
-            reference_c
-                .as_ref()
-                .map(|reference_c| reference_c.label)
-                .into_iter()
-                .chain([reference.label, query.label])
-                .chain(query_c.as_ref().map(|query_c| query_c.label)),
-        )
-        .unwrap();
+    trace!("Current renderer content:\n{}", {
+        let mut out = Vec::new();
+        renderer
+            .render_without_names(
+                &mut out,
+                reference_c
+                    .as_ref()
+                    .map(|reference_c| reference_c.label)
+                    .into_iter()
+                    .chain([reference.label, query.label])
+                    .chain(query_c.as_ref().map(|query_c| query_c.label)),
+            )
+            .unwrap();
+        String::from_utf8(out).unwrap()
+    });
 
     renderer.extend_sequence_with_alignment_and_default_data(
         reference.label,
@@ -560,17 +559,21 @@ fn render_inter_ts<SequenceName: Eq + Ord>(
         false,
     );
 
-    renderer
-        .render_without_names(
-            stdout(),
-            reference_c
-                .as_ref()
-                .map(|reference_c| reference_c.label)
-                .into_iter()
-                .chain([reference.label, query.label])
-                .chain(query_c.as_ref().map(|query_c| query_c.label)),
-        )
-        .unwrap();
+    trace!("Current renderer content:\n{}", {
+        let mut out = Vec::new();
+        renderer
+            .render_without_names(
+                &mut out,
+                reference_c
+                    .as_ref()
+                    .map(|reference_c| reference_c.label)
+                    .into_iter()
+                    .chain([reference.label, query.label])
+                    .chain(query_c.as_ref().map(|query_c| query_c.label)),
+            )
+            .unwrap();
+        String::from_utf8(out).unwrap()
+    });
 
     if let Some(reference_c) = reference_c.as_ref() {
         renderer.extend_sequence_with_alignment_and_default_data(
@@ -590,16 +593,20 @@ fn render_inter_ts<SequenceName: Eq + Ord>(
     }
 
     if let Some(query_c) = query_c {
-        renderer
-            .render_without_names(
-                stdout(),
-                reference_c
-                    .as_ref()
-                    .map(|reference_c| reference_c.label)
-                    .into_iter()
-                    .chain([reference.label, query.label, query_c.label]),
-            )
-            .unwrap();
+        trace!("Current renderer content:\n{}", {
+            let mut out = Vec::new();
+            renderer
+                .render_without_names(
+                    &mut out,
+                    reference_c
+                        .as_ref()
+                        .map(|reference_c| reference_c.label)
+                        .into_iter()
+                        .chain([reference.label, query.label, query_c.label]),
+                )
+                .unwrap();
+            String::from_utf8(out).unwrap()
+        });
 
         renderer.extend_sequence_with_alignment_and_default_data(
             query.label,
@@ -711,17 +718,21 @@ fn render_ts_base<SequenceName: Eq + Ord + Clone>(
 
     renderer.extend_sequence_with_default_data(secondary.label, secondary.sequence.chars());
 
-    renderer
-        .render_without_names(
-            stdout(),
-            reference_c
-                .as_ref()
-                .map(|reference_c| reference_c.label)
-                .into_iter()
-                .chain([reference.label, query.label])
-                .chain(query_c.as_ref().map(|query_c| query_c.label)),
-        )
-        .unwrap();
+    trace!("Current renderer content:\n{}", {
+        let mut out = Vec::new();
+        renderer
+            .render_without_names(
+                &mut out,
+                reference_c
+                    .as_ref()
+                    .map(|reference_c| reference_c.label)
+                    .into_iter()
+                    .chain([reference.label, query.label])
+                    .chain(query_c.as_ref().map(|query_c| query_c.label)),
+            )
+            .unwrap();
+        String::from_utf8(out).unwrap()
+    });
 
     renderer.extend_sequence_with_alignment(
         secondary.label,
@@ -772,17 +783,21 @@ fn render_ts_base<SequenceName: Eq + Ord + Clone>(
         let extension_existing_length = secondary.sequence.chars().count();
         trace!("extension_existing_length: {extension_existing_length}");
 
-        renderer
-            .render_without_names(
-                stdout(),
-                reference_c
-                    .as_ref()
-                    .map(|reference_c| reference_c.label)
-                    .into_iter()
-                    .chain([reference.label, query.label])
-                    .chain(query_c.as_ref().map(|query_c| query_c.label)),
-            )
-            .unwrap();
+        trace!("Current renderer content:\n{}", {
+            let mut out = Vec::new();
+            renderer
+                .render_without_names(
+                    &mut out,
+                    reference_c
+                        .as_ref()
+                        .map(|reference_c| reference_c.label)
+                        .into_iter()
+                        .chain([reference.label, query.label])
+                        .chain(query_c.as_ref().map(|query_c| query_c.label)),
+                )
+                .unwrap();
+            String::from_utf8(out).unwrap()
+        });
 
         renderer.extend_sequence_with_alignment(
             anti_secondary.label,
@@ -819,29 +834,6 @@ fn render_ts_base<SequenceName: Eq + Ord + Clone>(
             offset_shift.reference -= length_difference
         }
     }
-}
-
-fn make_png(output: impl AsRef<std::path::Path>) {
-    let svg_in = output.as_ref();
-    let png_out = svg_in.with_extension("png");
-    info!("Converting SVG to PNG at {png_out:?}");
-
-    let svg = std::fs::read(svg_in).unwrap();
-    let svg = usvg::Tree::from_data(&svg, &Default::default()).unwrap();
-
-    let zoom = 20.0;
-    let raster_image_size = svg.size();
-    let raster_image_width = (raster_image_size.width().ceil() * zoom) as u32;
-    let raster_image_height = (raster_image_size.height().ceil() * zoom) as u32;
-    info!("PNG size: {raster_image_width}x{raster_image_height}",);
-
-    let mut raster_image = tiny_skia::Pixmap::new(raster_image_width, raster_image_height).unwrap();
-    resvg::render(
-        &svg,
-        Transform::from_scale(zoom, zoom),
-        &mut raster_image.as_mut(),
-    );
-    raster_image.save_png(png_out).unwrap();
 }
 
 fn char_substring(string: &str, offset: usize, limit: usize) -> &str {
