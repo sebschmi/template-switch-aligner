@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Display};
 
 use svg::node::element::{Group, Path};
 
@@ -16,16 +16,16 @@ pub struct Number {
     number: String,
     column: usize,
     row: String,
-    align: NumberAlign,
+    align: NumberAlignment,
 }
 
-pub enum NumberAlign {
+pub enum NumberAlignment {
     Left,
     Right,
 }
 
 impl Number {
-    pub fn new(number: impl ToString, column: usize, row: String, align: NumberAlign) -> Self {
+    pub fn new(number: impl ToString, column: usize, row: String, align: NumberAlignment) -> Self {
         Self {
             number: number.to_string(),
             column,
@@ -35,7 +35,11 @@ impl Number {
     }
 
     pub fn render(&self, rows: &BTreeMap<String, f32>) -> Group {
-        let x = self.column as f32 * sans_serif_mono::FONT.character_width;
+        let x = self.column as f32 * sans_serif_mono::FONT.character_width
+            - match self.align {
+                NumberAlignment::Left => 0.0,
+                NumberAlignment::Right => self.width(),
+            };
         let y = *rows.get(&self.row).unwrap();
         let label_width =
             self.number.chars().count() as f32 * sans_serif_mono::FONT.character_width;
@@ -54,7 +58,7 @@ impl Number {
                         a {BORDER_PADDING},{BORDER_PADDING} 90 0 0 -{BORDER_PADDING},-{BORDER_PADDING} h -{label_width}"))
             .add(svg_string(
                 self.number.chars().map(|c| Character::new_char(c, NoCharacterData)),
-                &SvgLocation { x: BORDER_PADDING, y: BORDER_PADDING }, 
+                &SvgLocation { x: BORDER_PADDING, y: BORDER_PADDING },
                 &sans_serif_mono::FONT
             )),
         )
@@ -64,5 +68,28 @@ impl Number {
         let label_width =
             self.number.chars().count() as f32 * sans_serif_mono::FONT.character_width;
         label_width + BORDER_STROKE_WIDTH + 2.0 * BORDER_PADDING
+    }
+}
+
+impl Display for Number {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} at {}/{}/{}",
+            self.number, self.column, self.row, self.align
+        )
+    }
+}
+
+impl Display for NumberAlignment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                NumberAlignment::Left => "L",
+                NumberAlignment::Right => "R",
+            }
+        )
     }
 }

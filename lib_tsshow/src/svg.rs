@@ -11,6 +11,7 @@ use lib_tsalign::{
     costs::U64Cost,
 };
 use log::{debug, info, trace, warn};
+use numbers::{Number, NumberAlignment};
 use svg::{
     Document,
     node::element::{Circle, Group},
@@ -326,9 +327,11 @@ pub fn create_ts_svg(
         label_vec.push(label);
     }
 
-    if render_arrows {
-        debug!("Creating TS arrows");
-        for TemplateSwitch {
+    debug!("Creating TS numbers and arrows");
+    let mut numbers = Vec::new();
+    for (
+        index,
+        TemplateSwitch {
             label,
             reference_non_blank_offset,
             reference_non_blank_limit,
@@ -337,58 +340,79 @@ pub fn create_ts_svg(
             inner_non_blank_length,
             alignment,
             ..
-        } in &template_switches
-        {
-            let label = label.as_ref().unwrap();
-            let inner_sequence = renderer.sequence(label);
-            let inner_non_blank_length = inner_non_blank_length.unwrap();
+        },
+    ) in template_switches.iter().enumerate()
+    {
+        let label = label.as_ref().unwrap();
+        let inner_sequence = renderer.sequence(label);
+        let inner_non_blank_length = inner_non_blank_length.unwrap();
 
-            trace!("inner_non_blank_length: {inner_non_blank_length}");
-            trace!("inner_sequence: {inner_sequence}");
+        trace!("inner_non_blank_length: {inner_non_blank_length}");
+        trace!("inner_sequence: {inner_sequence}");
 
-            let AlignmentType::TemplateSwitchEntrance { primary, .. } =
-                alignment.iter_flat_cloned().next().unwrap()
-            else {
-                unreachable!()
-            };
+        let AlignmentType::TemplateSwitchEntrance { primary, .. } =
+            alignment.iter_flat_cloned().next().unwrap()
+        else {
+            unreachable!()
+        };
 
-            let (primary_label, primary_non_blank_offset, primary_non_blank_limit) = match primary {
-                TemplateSwitchPrimary::Reference => (
-                    &reference_label,
-                    reference_non_blank_offset,
-                    reference_non_blank_limit,
-                ),
-                TemplateSwitchPrimary::Query => {
-                    (&query_label, query_non_blank_offset, query_non_blank_limit)
-                }
-            };
+        let (primary_label, primary_non_blank_offset, primary_non_blank_limit) = match primary {
+            TemplateSwitchPrimary::Reference => (
+                &reference_label,
+                reference_non_blank_offset,
+                reference_non_blank_limit,
+            ),
+            TemplateSwitchPrimary::Query => {
+                (&query_label, query_non_blank_offset, query_non_blank_limit)
+            }
+        };
 
-            let primary_tail = if *primary_non_blank_offset == 0 {
-                0
-            } else {
-                renderer
-                    .sequence(primary_label)
-                    .translate_offset_without_blanks(*primary_non_blank_offset - 1)
-                    .map(|offset| offset + 1)
-                    .unwrap_or_else(|| renderer.sequence(primary_label).len())
-            };
-            let primary_head = renderer
+        let primary_tail = if *primary_non_blank_offset == 0 {
+            0
+        } else {
+            renderer
                 .sequence(primary_label)
-                .translate_offset_without_blanks(*primary_non_blank_limit)
-                .unwrap_or_else(|| renderer.sequence(primary_label).len());
-            let inner_offset = inner_sequence.translate_offset_without_blanks(0);
-            let inner_limit = if inner_non_blank_length == 0 {
-                None
-            } else {
-                inner_sequence
-                    .translate_offset_without_blanks(inner_non_blank_length - 1)
-                    .map(|limit| limit + 1)
-            };
+                .translate_offset_without_blanks(*primary_non_blank_offset - 1)
+                .map(|offset| offset + 1)
+                .unwrap_or_else(|| renderer.sequence(primary_label).len())
+        };
+        let primary_head = renderer
+            .sequence(primary_label)
+            .translate_offset_without_blanks(*primary_non_blank_limit)
+            .unwrap_or_else(|| renderer.sequence(primary_label).len());
+        let inner_offset = inner_sequence.translate_offset_without_blanks(0);
+        let inner_limit = if inner_non_blank_length == 0 {
+            None
+        } else {
+            inner_sequence
+                .translate_offset_without_blanks(inner_non_blank_length - 1)
+                .map(|limit| limit + 1)
+        };
 
-            assert_eq!(inner_offset.is_some(), inner_limit.is_some());
-            let inner_offset = inner_offset.unwrap_or(0);
-            let inner_limit = inner_limit.unwrap_or(0);
+        assert_eq!(inner_offset.is_some(), inner_limit.is_some());
+        let inner_offset = inner_offset.unwrap_or(0);
+        let inner_limit = inner_limit.unwrap_or(0);
 
+        let letter = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().nth(index).unwrap();
+        let number = Number::new(
+            format!("{letter}1"),
+            primary_tail,
+            primary_label.clone(),
+            NumberAlignment::Left,
+        );
+        debug!("Adding number {number}");
+        numbers.push(number);
+
+        let number = Number::new(
+            format!("{letter}4"),
+            primary_head,
+            primary_label.clone(),
+            NumberAlignment::Right,
+        );
+        debug!("Adding number {number}");
+        numbers.push(number);
+
+        if render_arrows {
             // Arrow 1 -> 2
             let arrow = Arrow::new_curved(
                 primary_tail,
@@ -480,9 +504,13 @@ pub fn create_ts_svg(
     trace!("After ts y: {y}");
 
     debug!("Rendering SVG arrows");
-
     for arrow in &arrows {
         rq_group = rq_group.add(arrow.render(&rows));
+    }
+
+    debug!("Rendering numbers");
+    for number in &numbers {
+        rq_group = rq_group.add(number.render(&rows));
     }
 
     let mut view_box_width = offset_stream.len() as f32 * typewriter::FONT.character_width + 20.0;
