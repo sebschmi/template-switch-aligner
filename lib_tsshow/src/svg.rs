@@ -72,6 +72,7 @@ pub fn create_ts_svg(
     output: impl Write,
     result: &AlignmentResult<AlignmentType, U64Cost>,
     no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
+    render_arrows: bool,
 ) {
     info!("Creating template switch SVG");
 
@@ -324,91 +325,93 @@ pub fn create_ts_svg(
         label_vec.push(label);
     }
 
-    debug!("Creating TS arrows");
-    for TemplateSwitch {
-        label,
-        reference_non_blank_offset,
-        reference_non_blank_limit,
-        query_non_blank_offset,
-        query_non_blank_limit,
-        inner_non_blank_length,
-        alignment,
-        ..
-    } in &template_switches
-    {
-        let label = label.as_ref().unwrap();
-        let inner_sequence = renderer.sequence(label);
-        let inner_non_blank_length = inner_non_blank_length.unwrap();
+    if render_arrows {
+        debug!("Creating TS arrows");
+        for TemplateSwitch {
+            label,
+            reference_non_blank_offset,
+            reference_non_blank_limit,
+            query_non_blank_offset,
+            query_non_blank_limit,
+            inner_non_blank_length,
+            alignment,
+            ..
+        } in &template_switches
+        {
+            let label = label.as_ref().unwrap();
+            let inner_sequence = renderer.sequence(label);
+            let inner_non_blank_length = inner_non_blank_length.unwrap();
 
-        trace!("inner_non_blank_length: {inner_non_blank_length}");
-        trace!("inner_sequence: {inner_sequence}");
+            trace!("inner_non_blank_length: {inner_non_blank_length}");
+            trace!("inner_sequence: {inner_sequence}");
 
-        let AlignmentType::TemplateSwitchEntrance { primary, .. } =
-            alignment.iter_flat_cloned().next().unwrap()
-        else {
-            unreachable!()
-        };
+            let AlignmentType::TemplateSwitchEntrance { primary, .. } =
+                alignment.iter_flat_cloned().next().unwrap()
+            else {
+                unreachable!()
+            };
 
-        let (primary_label, primary_non_blank_offset, primary_non_blank_limit) = match primary {
-            TemplateSwitchPrimary::Reference => (
-                &reference_label,
-                reference_non_blank_offset,
-                reference_non_blank_limit,
-            ),
-            TemplateSwitchPrimary::Query => {
-                (&query_label, query_non_blank_offset, query_non_blank_limit)
-            }
-        };
+            let (primary_label, primary_non_blank_offset, primary_non_blank_limit) = match primary {
+                TemplateSwitchPrimary::Reference => (
+                    &reference_label,
+                    reference_non_blank_offset,
+                    reference_non_blank_limit,
+                ),
+                TemplateSwitchPrimary::Query => {
+                    (&query_label, query_non_blank_offset, query_non_blank_limit)
+                }
+            };
 
-        let primary_tail = if *primary_non_blank_offset == 0 {
-            0
-        } else {
-            renderer
+            let primary_tail = if *primary_non_blank_offset == 0 {
+                0
+            } else {
+                renderer
+                    .sequence(primary_label)
+                    .translate_offset_without_blanks(*primary_non_blank_offset - 1)
+                    .map(|offset| offset + 1)
+                    .unwrap_or_else(|| renderer.sequence(primary_label).len())
+            };
+            let primary_head = renderer
                 .sequence(primary_label)
-                .translate_offset_without_blanks(*primary_non_blank_offset - 1)
-                .map(|offset| offset + 1)
-                .unwrap_or_else(|| renderer.sequence(primary_label).len())
-        };
-        let primary_head = renderer
-            .sequence(primary_label)
-            .translate_offset_without_blanks(*primary_non_blank_limit)
-            .unwrap_or_else(|| renderer.sequence(primary_label).len());
-        let inner_offset = inner_sequence.translate_offset_without_blanks(0);
-        let inner_limit = if inner_non_blank_length == 0 {
-            None
-        } else {
-            inner_sequence
-                .translate_offset_without_blanks(inner_non_blank_length - 1)
-                .map(|limit| limit + 1)
-        };
+                .translate_offset_without_blanks(*primary_non_blank_limit)
+                .unwrap_or_else(|| renderer.sequence(primary_label).len());
+            let inner_offset = inner_sequence.translate_offset_without_blanks(0);
+            let inner_limit = if inner_non_blank_length == 0 {
+                None
+            } else {
+                inner_sequence
+                    .translate_offset_without_blanks(inner_non_blank_length - 1)
+                    .map(|limit| limit + 1)
+            };
 
-        assert_eq!(inner_offset.is_some(), inner_limit.is_some());
-        let inner_offset = inner_offset.unwrap_or(0);
-        let inner_limit = inner_limit.unwrap_or(0);
+            assert_eq!(inner_offset.is_some(), inner_limit.is_some());
+            let inner_offset = inner_offset.unwrap_or(0);
+            let inner_limit = inner_limit.unwrap_or(0);
 
-        // Arrow 1 -> 2
-        let arrow = Arrow::new_curved(
-            primary_tail,
-            primary_label.clone(),
-            ArrowEndpointDirection::Forward,
-            inner_limit,
-            label.clone(),
-            ArrowEndpointDirection::Forward,
-        );
-        debug!("Adding arrow {arrow}");
-        arrows.push(arrow);
+            // Arrow 1 -> 2
+            let arrow = Arrow::new_curved(
+                primary_tail,
+                primary_label.clone(),
+                ArrowEndpointDirection::Forward,
+                inner_limit,
+                label.clone(),
+                ArrowEndpointDirection::Forward,
+            );
+            debug!("Adding arrow {arrow}");
+            arrows.push(arrow);
 
-        // Arrow 3 -> 4
-        let arrow = Arrow::new_curved(
-            inner_offset,
-            label.clone(),
-            ArrowEndpointDirection::Backward,
-            primary_head,
-            primary_label.clone(),
-            ArrowEndpointDirection::Backward,
-        );
-        debug!("Adding arrow {arrow}");
-        arrows.push(arrow);
+            // Arrow 3 -> 4
+            let arrow = Arrow::new_curved(
+                inner_offset,
+                label.clone(),
+                ArrowEndpointDirection::Backward,
+                primary_head,
+                primary_label.clone(),
+                ArrowEndpointDirection::Backward,
+            );
+            debug!("Adding arrow {arrow}");
+            arrows.push(arrow);
+        }
     }
 
     debug!("Rendering SVG characters");

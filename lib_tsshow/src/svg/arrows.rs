@@ -8,12 +8,14 @@ use svg::{
 
 use super::font::{CHARACTER_HEIGHT, CHARACTER_WIDTH};
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct Arrow {
     pub from: ArrowEndpoint,
     pub to: ArrowEndpoint,
     pub style: ArrowStyle,
 }
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct ArrowEndpoint {
     /// The column the endpoint is at, which will be translated to an `x`-coordinate.
     ///
@@ -32,11 +34,13 @@ pub struct ArrowEndpoint {
     pub direction: ArrowEndpointDirection,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ArrowEndpointDirection {
     Forward,
     Backward,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ArrowStyle {
     Direct,
     Curved,
@@ -113,8 +117,26 @@ impl Arrow {
                 let to_x = self.to.column as f32 * CHARACTER_WIDTH - 2.0 * stroke_width;
                 let to_y = *rows.get(&self.to.row).unwrap() - CHARACTER_HEIGHT * 0.3;
 
-                let from_x_control = from_x + 5.0 * self.from.direction.sign();
-                let to_x_control = to_x + 5.0 * self.to.direction.sign();
+                let (from_x_control, to_x_control) =
+                    match (&self.from.direction, &self.to.direction) {
+                        (ArrowEndpointDirection::Forward, ArrowEndpointDirection::Forward) => {
+                            let x_control = from_x.max(to_x) + 2.0 * CHARACTER_WIDTH;
+                            (x_control, x_control)
+                        }
+                        (ArrowEndpointDirection::Backward, ArrowEndpointDirection::Backward) => {
+                            let x_control = from_x.min(to_x) - 2.0 * CHARACTER_WIDTH;
+                            (x_control, x_control)
+                        }
+                        (ArrowEndpointDirection::Forward, ArrowEndpointDirection::Backward)
+                        | (ArrowEndpointDirection::Backward, ArrowEndpointDirection::Forward) => {
+                            let x_control_delta =
+                                ((from_x - to_x).abs() * 0.1).max(2.0 * CHARACTER_WIDTH);
+                            (
+                                from_x + self.from.direction.sign() * x_control_delta,
+                                to_x + self.to.direction.sign() * x_control_delta,
+                            )
+                        }
+                    };
 
                 Group::new().add(
                     Path::new()
