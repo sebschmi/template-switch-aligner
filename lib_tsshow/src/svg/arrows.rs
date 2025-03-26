@@ -6,7 +6,7 @@ use svg::{
     node::element::{Definitions, Group, Marker, Path},
 };
 
-use super::font::{CHARACTER_HEIGHT, CHARACTER_WIDTH};
+use crate::svg::font::typewriter;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Arrow {
@@ -92,10 +92,13 @@ impl Arrow {
                 debug!("Drawing direct arrow from {} to {}", self.from, self.to);
 
                 let stroke_width = 0.15;
-                let from_x = self.from.column as f32 * CHARACTER_WIDTH;
-                let from_y = *rows.get(&self.from.row).unwrap() - CHARACTER_HEIGHT * 0.3;
-                let to_x = self.to.column as f32 * CHARACTER_WIDTH - 2.0 * stroke_width;
-                let to_y = *rows.get(&self.to.row).unwrap() - CHARACTER_HEIGHT * 0.3;
+                let from_x = self.from.column as f32 * typewriter::FONT.character_width;
+                let from_y =
+                    *rows.get(&self.from.row).unwrap() - typewriter::FONT.character_height * 0.3;
+                let to_x =
+                    self.to.column as f32 * typewriter::FONT.character_width - 2.0 * stroke_width;
+                let to_y =
+                    *rows.get(&self.to.row).unwrap() - typewriter::FONT.character_height * 0.3;
 
                 Group::new().add(
                     Path::new()
@@ -112,25 +115,30 @@ impl Arrow {
                 debug!("Drawing curved arrow from {} to {}", self.from, self.to);
 
                 let stroke_width = 0.15;
-                let from_x = self.from.column as f32 * CHARACTER_WIDTH;
-                let from_y = *rows.get(&self.from.row).unwrap() - CHARACTER_HEIGHT * 0.3;
-                let to_x = self.to.column as f32 * CHARACTER_WIDTH - 2.0 * stroke_width;
-                let to_y = *rows.get(&self.to.row).unwrap() - CHARACTER_HEIGHT * 0.3;
+                let from_x = self.from.column as f32 * typewriter::FONT.character_width;
+                let from_y =
+                    *rows.get(&self.from.row).unwrap() - typewriter::FONT.character_height * 0.3;
+                let to_x =
+                    self.to.column as f32 * typewriter::FONT.character_width - 2.0 * stroke_width;
+                let to_y =
+                    *rows.get(&self.to.row).unwrap() - typewriter::FONT.character_height * 0.3;
 
                 let (from_x_control, to_x_control) =
                     match (&self.from.direction, &self.to.direction) {
                         (ArrowEndpointDirection::Forward, ArrowEndpointDirection::Forward) => {
-                            let x_control = from_x.max(to_x) + 2.0 * CHARACTER_WIDTH;
+                            let x_control =
+                                from_x.max(to_x) + 2.0 * typewriter::FONT.character_width;
                             (x_control, x_control)
                         }
                         (ArrowEndpointDirection::Backward, ArrowEndpointDirection::Backward) => {
-                            let x_control = from_x.min(to_x) - 2.0 * CHARACTER_WIDTH;
+                            let x_control =
+                                from_x.min(to_x) - 2.0 * typewriter::FONT.character_width;
                             (x_control, x_control)
                         }
                         (ArrowEndpointDirection::Forward, ArrowEndpointDirection::Backward)
                         | (ArrowEndpointDirection::Backward, ArrowEndpointDirection::Forward) => {
-                            let x_control_delta =
-                                ((from_x - to_x).abs() * 0.1).max(2.0 * CHARACTER_WIDTH);
+                            let x_control_delta = ((from_x - to_x).abs() * 0.1)
+                                .max(2.0 * typewriter::FONT.character_width);
                             (
                                 from_x + self.from.direction.sign() * x_control_delta,
                                 to_x + self.to.direction.sign() * x_control_delta,

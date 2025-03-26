@@ -2,7 +2,7 @@ use core::str;
 use std::{collections::BTreeMap, io::Write, iter};
 
 use arrows::{Arrow, ArrowEndpointDirection, add_arrow_defs};
-use font::{CHARACTER_HEIGHT, CHARACTER_WIDTH, CharacterData, svg_string};
+use font::{CharacterData, svg_string, typewriter};
 use lib_tsalign::{
     a_star_aligner::{
         alignment_result::{AlignmentResult, alignment::Alignment},
@@ -426,48 +426,54 @@ pub fn create_ts_svg(
             rq_group = rq_group.add(svg_string(
                 renderer.sequence(ts_label).iter(),
                 &SvgLocation { x: 0.0, y },
+                &typewriter::FONT,
             ));
             rows.insert(ts_label.clone(), y);
-            y += CHARACTER_HEIGHT;
+            y += typewriter::FONT.character_height;
         }
 
         rq_group = rq_group.add(svg_string(
             renderer.sequence(&reference_c_label).iter(),
             &SvgLocation { x: 0.0, y },
+            &typewriter::FONT,
         ));
         rows.insert(reference_c_label.clone(), y);
-        y += CHARACTER_HEIGHT;
+        y += typewriter::FONT.character_height;
     }
 
     rq_group = rq_group.add(svg_string(
         renderer.sequence(&reference_label).iter(),
         &SvgLocation { x: 0.0, y },
+        &typewriter::FONT,
     ));
     rows.insert(reference_label.clone(), y);
-    y += CHARACTER_HEIGHT;
+    y += typewriter::FONT.character_height;
 
     rq_group = rq_group.add(svg_string(
         renderer.sequence(&query_label).iter(),
         &SvgLocation { x: 0.0, y },
+        &typewriter::FONT,
     ));
     rows.insert(query_label.clone(), y);
-    y += CHARACTER_HEIGHT;
+    y += typewriter::FONT.character_height;
 
     if has_secondary_query_ts {
         rq_group = rq_group.add(svg_string(
             renderer.sequence(&query_c_label).iter(),
             &SvgLocation { x: 0.0, y },
+            &typewriter::FONT,
         ));
         rows.insert(query_c_label.clone(), y);
-        y += CHARACTER_HEIGHT;
+        y += typewriter::FONT.character_height;
 
         for ts_label in &ts_secondary_q_labels {
             rq_group = rq_group.add(svg_string(
                 renderer.sequence(ts_label).iter(),
                 &SvgLocation { x: 0.0, y },
+                &typewriter::FONT,
             ));
             rows.insert(ts_label.clone(), y);
-            y += CHARACTER_HEIGHT;
+            y += typewriter::FONT.character_height;
         }
     }
 
@@ -479,8 +485,8 @@ pub fn create_ts_svg(
         rq_group = rq_group.add(arrow.render(&rows));
     }
 
-    let mut view_box_width = offset_stream.len() as f32 * CHARACTER_WIDTH + 20.0;
-    let mut view_box_height = y + CHARACTER_HEIGHT + 20.0;
+    let mut view_box_width = offset_stream.len() as f32 * typewriter::FONT.character_width + 20.0;
+    let mut view_box_height = y + typewriter::FONT.character_height + 20.0;
 
     let mut svg = Document::new()
         .add(Circle::new().set("r", 1e5).set("fill", "white"))
@@ -529,13 +535,15 @@ pub fn create_ts_svg(
         let reference = svg_string(
             renderer.sequence(&reference_label).iter(),
             &SvgLocation { x: 0.0, y: 0.0 },
+            &typewriter::FONT,
         );
         let query = svg_string(
             renderer.sequence(&query_label).iter(),
             &SvgLocation {
                 x: 0.0,
-                y: 1.0 * CHARACTER_HEIGHT,
+                y: 1.0 * typewriter::FONT.character_height,
             },
+            &typewriter::FONT,
         );
 
         let group = Group::new()
@@ -555,10 +563,10 @@ pub fn create_ts_svg(
                 .sequence(&reference_label)
                 .len()
                 .max(renderer.sequence(&query_label).len()) as f32
-                * CHARACTER_WIDTH
+                * typewriter::FONT.character_width
                 + 20.0,
         );
-        view_box_height += 3.0 * CHARACTER_HEIGHT;
+        view_box_height += 3.0 * typewriter::FONT.character_height;
     } else {
         debug!("No no-ts alignment given, skipping");
     }
