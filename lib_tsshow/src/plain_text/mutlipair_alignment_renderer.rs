@@ -37,6 +37,18 @@ pub enum CharacterKind {
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 pub struct NoCharacterData;
 
+pub enum AlignmentRenderResult {
+    Ok {
+        /// Column of the first inserted query character or gap.
+        query_offset_column: usize,
+        /// Column after the last inserted query character or gap.
+        query_limit_column: usize,
+    },
+
+    /// There was nothing to align.
+    Empty,
+}
+
 impl<SequenceName: Eq + Ord, CharacterData>
     MultipairAlignmentRenderer<SequenceName, CharacterData>
 {
@@ -199,7 +211,7 @@ impl<SequenceName: Eq + Ord, CharacterData>
         alignment: impl IntoIterator<Item = AlignmentType>,
         do_lowercasing: bool,
         invert_alignment: bool,
-    ) {
+    ) -> AlignmentRenderResult {
         let mut reference_gaps = Vec::new();
 
         let (reference_sequence_name, mut translated_reference_sequence) = self
@@ -221,6 +233,8 @@ impl<SequenceName: Eq + Ord, CharacterData>
 
         let mut index = rendered_sequence_offset;
         let mut extension = extension.into_iter();
+        let mut query_offset_column = None;
+        let mut query_limit_column = None;
 
         for alignment_type in alignment.into_iter().map(|alignment_type| {
             if invert_alignment {
@@ -246,6 +260,8 @@ impl<SequenceName: Eq + Ord, CharacterData>
                 AlignmentType::PrimaryInsertion
                 | AlignmentType::PrimaryFlankInsertion
                 | AlignmentType::SecondaryInsertion => {
+                    query_offset_column = query_offset_column.or(Some(index));
+
                     if matches!(
                         translated_reference_sequence
                             .get(index)
@@ -256,7 +272,9 @@ impl<SequenceName: Eq + Ord, CharacterData>
                     } else {
                         reference_gaps.push(index);
                     }
+
                     translated_query_sequence.push(extension.next().unwrap());
+                    query_limit_column = Some(index);
                 }
                 AlignmentType::PrimaryDeletion
                 | AlignmentType::PrimaryFlankDeletion
@@ -271,8 +289,11 @@ impl<SequenceName: Eq + Ord, CharacterData>
                             .push(Character::new_blank(blank_data_generator()));
                         index += 1;
                     }
+
+                    query_offset_column = query_offset_column.or(Some(index));
                     translated_query_sequence.push(Character::new_gap(gap_data_generator()));
                     index += 1;
+                    query_limit_column = Some(index);
                 }
                 AlignmentType::PrimarySubstitution
                 | AlignmentType::PrimaryFlankSubstitution
@@ -295,8 +316,10 @@ impl<SequenceName: Eq + Ord, CharacterData>
                         translated_reference_sequence[index].make_ascii_lowercase();
                     }
 
+                    query_offset_column = query_offset_column.or(Some(index));
                     translated_query_sequence.push(extension_character);
                     index += 1;
+                    query_limit_column = Some(index);
                 }
                 AlignmentType::PrimaryMatch
                 | AlignmentType::PrimaryFlankMatch
@@ -312,8 +335,11 @@ impl<SequenceName: Eq + Ord, CharacterData>
                             .push(Character::new_blank(blank_data_generator()));
                         index += 1;
                     }
+
+                    query_offset_column = query_offset_column.or(Some(index));
                     translated_query_sequence.push(extension.next().unwrap());
                     index += 1;
+                    query_limit_column = Some(index);
                 }
                 AlignmentType::Root
                 | AlignmentType::PrimaryReentry
@@ -329,6 +355,7 @@ impl<SequenceName: Eq + Ord, CharacterData>
         }
 
         assert!(extension.next().is_none());
+        assert_eq!(query_offset_column.is_some(), query_limit_column.is_some());
 
         translated_query_sequence.extend_with_blanks(
             &mut blank_data_generator,
@@ -345,6 +372,17 @@ impl<SequenceName: Eq + Ord, CharacterData>
             .insert(reference_sequence_name, translated_reference_sequence);
         self.sequences
             .insert(query_sequence_name, translated_query_sequence);
+
+        if let (Some(query_offset_column), Some(query_limit_column)) =
+            (query_offset_column, query_limit_column)
+        {
+            AlignmentRenderResult::Ok {
+                query_offset_column,
+                query_limit_column,
+            }
+        } else {
+            AlignmentRenderResult::Empty
+        }
     }
 }
 
@@ -363,7 +401,7 @@ impl<SequenceName: Eq + Ord + Clone, CharacterData>
         alignment: impl IntoIterator<Item = AlignmentType>,
         do_lowercasing: bool,
         invert_alignment: bool,
-    ) {
+    ) -> AlignmentRenderResult {
         debug!("Adding aligned sequence");
         debug!("reference_offset: {reference_sequence_offset}");
         debug!("invert_alignment: {invert_alignment}");
@@ -393,7 +431,7 @@ impl<SequenceName: Eq + Ord + Clone, CharacterData>
             alignment,
             do_lowercasing,
             invert_alignment,
-        );
+        )
     }
 
     pub fn add_independent_sequence(
@@ -464,7 +502,7 @@ impl<SequenceName: Eq + Ord + Clone, CharacterData: Default>
         alignment: impl IntoIterator<Item = AlignmentType>,
         do_lowercasing: bool,
         invert_alignment: bool,
-    ) {
+    ) -> AlignmentRenderResult {
         self.add_aligned_sequence(
             reference_sequence_name,
             reference_sequence_offset,
@@ -477,7 +515,7 @@ impl<SequenceName: Eq + Ord + Clone, CharacterData: Default>
             alignment,
             do_lowercasing,
             invert_alignment,
-        );
+        )
     }
 }
 
@@ -636,8 +674,43 @@ impl<CharacterData> MultipairAlignmentSequence<CharacterData> {
         })
     }
 
+    /// Returns the index of the first gap or character after skipping `offset` gaps and characters.
+    ///
+    /// Returns **`None`** if there are less than or equal to `offset` gaps and characters.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lib_tsshow::plain_text::mutlipair_alignment_renderer::{Character, CharacterKind, MultipairAlignmentSequence, NoCharacterData};
+    ///
+    /// let sequence = MultipairAlignmentSequence::<NoCharacterData>::from_iter([CharacterKind::Blank, CharacterKind::Char('A'), CharacterKind::Gap, CharacterKind::Char('C'), CharacterKind::Blank]);
+    /// assert_eq!(sequence.translate_offset_without_blanks(0), Some(1));
+    /// assert_eq!(sequence.translate_offset_without_blanks(1), Some(2));
+    /// assert_eq!(sequence.translate_offset_without_blanks(2), Some(3));
+    /// assert_eq!(sequence.translate_offset_without_blanks(3), None);
+    /// ```
+    pub fn translate_offset_without_blanks(&self, offset: usize) -> Option<usize> {
+        self.iter()
+            .enumerate()
+            .filter_map(|(index, character)| {
+                if matches!(character.kind, CharacterKind::Blank) {
+                    None
+                } else {
+                    Some(index)
+                }
+            })
+            .nth(offset)
+    }
+
     pub fn len(&self) -> usize {
         self.sequence.len()
+    }
+
+    pub fn len_without_blanks(&self) -> usize {
+        self.sequence
+            .iter()
+            .filter(|character| !matches!(character.kind, CharacterKind::Blank))
+            .count()
     }
 
     pub fn is_empty(&self) -> bool {

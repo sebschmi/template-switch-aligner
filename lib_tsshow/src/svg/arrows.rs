@@ -39,10 +39,11 @@ pub enum ArrowEndpointDirection {
 
 pub enum ArrowStyle {
     Direct,
+    Curved,
 }
 
 impl Arrow {
-    pub fn new_skip(from_column: usize, to_column: usize, row: String) -> Arrow {
+    pub fn new_skip(from_column: usize, to_column: usize, row: String) -> Self {
         Self {
             from: ArrowEndpoint {
                 column: from_column,
@@ -66,6 +67,21 @@ impl Arrow {
         }
     }
 
+    pub fn new_curved(
+        from_column: usize,
+        from_row: String,
+        from_direction: ArrowEndpointDirection,
+        to_column: usize,
+        to_row: String,
+        to_direction: ArrowEndpointDirection,
+    ) -> Self {
+        Self {
+            from: ArrowEndpoint::new(from_column, from_row, from_direction),
+            to: ArrowEndpoint::new(to_column, to_row, to_direction),
+            style: ArrowStyle::Curved,
+        }
+    }
+
     pub fn render(&self, rows: &BTreeMap<String, f32>) -> Group {
         match self.style {
             ArrowStyle::Direct => {
@@ -83,10 +99,53 @@ impl Arrow {
                         .set("stroke-width", stroke_width)
                         .set("stroke", "black")
                         .set("fill", "none")
-                        .set("stroke-dasharray", format!("{}", 1.0 / 1.5))
+                        .set("stroke-dasharray", stroke_width)
                         .set("d", format!("M {from_x},{from_y} L {to_x},{to_y}")),
                 )
             }
+
+            ArrowStyle::Curved => {
+                debug!("Drawing curved arrow from {} to {}", self.from, self.to);
+
+                let stroke_width = 0.15;
+                let from_x = self.from.column as f32 * CHARACTER_WIDTH;
+                let from_y = *rows.get(&self.from.row).unwrap() - CHARACTER_HEIGHT * 0.3;
+                let to_x = self.to.column as f32 * CHARACTER_WIDTH - 2.0 * stroke_width;
+                let to_y = *rows.get(&self.to.row).unwrap() - CHARACTER_HEIGHT * 0.3;
+
+                let from_x_control = from_x + 5.0 * self.from.direction.sign();
+                let to_x_control = to_x + 5.0 * self.to.direction.sign();
+
+                Group::new().add(
+                    Path::new()
+                        .set("marker-end", "url(#arrow_head)")
+                        .set("stroke-width", stroke_width)
+                        .set("stroke", "black")
+                        .set("fill", "none")
+                        .set("stroke-dasharray", stroke_width)
+                        .set("d", format!("M {from_x},{from_y} C {from_x_control},{from_y} {to_x_control},{to_y} {to_x},{to_y}")),
+                )
+            }
+        }
+    }
+}
+
+impl ArrowEndpoint {
+    pub fn new(column: usize, row: String, direction: ArrowEndpointDirection) -> Self {
+        Self {
+            column,
+            row,
+            direction,
+        }
+    }
+}
+
+impl ArrowEndpointDirection {
+    /// Returns `1.0` if the direction is forward, and `-1.0` if the direction is backward.
+    pub fn sign(&self) -> f32 {
+        match self {
+            ArrowEndpointDirection::Forward => 1.0,
+            ArrowEndpointDirection::Backward => -1.0,
         }
     }
 }
@@ -112,8 +171,36 @@ pub fn add_arrow_defs(svg: Document) -> Document {
     )
 }
 
+impl Display for Arrow {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}({} -> {})",
+            match self.style {
+                ArrowStyle::Direct => "D",
+                ArrowStyle::Curved => "C",
+            },
+            self.from,
+            self.to
+        )
+    }
+}
+
 impl Display for ArrowEndpoint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}/{}", self.column, self.row)
+        write!(f, "{}/{}/{}", self.column, self.row, self.direction)
+    }
+}
+
+impl Display for ArrowEndpointDirection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ArrowEndpointDirection::Forward => "+",
+                ArrowEndpointDirection::Backward => "-",
+            }
+        )
     }
 }

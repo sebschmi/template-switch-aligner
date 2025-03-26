@@ -1,7 +1,7 @@
 use core::str;
 use std::{collections::BTreeMap, io::Write, iter};
 
-use arrows::{Arrow, add_arrow_defs};
+use arrows::{Arrow, ArrowEndpointDirection, add_arrow_defs};
 use font::{CHARACTER_HEIGHT, CHARACTER_WIDTH, CharacterData, svg_string};
 use lib_tsalign::{
     a_star_aligner::{
@@ -36,8 +36,14 @@ struct LabelledSequence<'a, Label> {
 }
 
 struct TemplateSwitch {
+    label: Option<String>,
     tail: AlignmentCoordinates,
     head: AlignmentCoordinates,
+    reference_non_blank_offset: usize,
+    reference_non_blank_limit: usize,
+    query_non_blank_offset: usize,
+    query_non_blank_limit: usize,
+    inner_non_blank_length: Option<usize>,
     alignment: Alignment<AlignmentType>,
 }
 
@@ -203,13 +209,7 @@ pub fn create_ts_svg(
                 }
             }
 
-            template_switches.push(TemplateSwitch {
-                tail: stream.tail_coordinates(),
-                head: stream.head_coordinates(),
-                alignment: stream.stream_alignment(),
-            });
-
-            render_ts_base(
+            template_switches.push(render_ts_base(
                 &mut renderer,
                 &mut offset_shift,
                 &mut arrows,
@@ -218,7 +218,7 @@ pub fn create_ts_svg(
                 has_secondary_reference_ts.then_some(&reference_c),
                 has_secondary_query_ts.then_some(&query_c),
                 &stream,
-            );
+            ));
 
             stream.clear();
         } else {
@@ -247,11 +247,14 @@ pub fn create_ts_svg(
     for (
         index,
         TemplateSwitch {
+            label: ts_label,
             tail,
             head,
+            inner_non_blank_length,
             alignment,
+            ..
         },
-    ) in template_switches.iter().enumerate()
+    ) in template_switches.iter_mut().enumerate()
     {
         let AlignmentType::TemplateSwitchEntrance {
             primary,
@@ -299,8 +302,8 @@ pub fn create_ts_svg(
         trace!("inner_insertion_count: {inner_insertion_count}");
         trace!("inner_sequence_length: {inner_sequence_length}");
 
-        let inner_offset: usize = ((secondary_tail + inner_insertion_count) as isize
-            + first_offset
+        let inner_limit = secondary_tail as isize + first_offset;
+        let inner_offset: usize = (inner_limit + inner_insertion_count as isize
             - inner_sequence_length as isize)
             .try_into()
             .unwrap();
@@ -315,7 +318,97 @@ pub fn create_ts_svg(
             false,
         );
 
+        *inner_non_blank_length = Some(renderer.sequence(&label).len_without_blanks());
+        *ts_label = Some(label.clone());
+
         label_vec.push(label);
+    }
+
+    debug!("Creating TS arrows");
+    for TemplateSwitch {
+        label,
+        reference_non_blank_offset,
+        reference_non_blank_limit,
+        query_non_blank_offset,
+        query_non_blank_limit,
+        inner_non_blank_length,
+        alignment,
+        ..
+    } in &template_switches
+    {
+        let label = label.as_ref().unwrap();
+        let inner_sequence = renderer.sequence(label);
+        let inner_non_blank_length = inner_non_blank_length.unwrap();
+
+        trace!("inner_non_blank_length: {inner_non_blank_length}");
+        trace!("inner_sequence: {inner_sequence}");
+
+        let AlignmentType::TemplateSwitchEntrance { primary, .. } =
+            alignment.iter_flat_cloned().next().unwrap()
+        else {
+            unreachable!()
+        };
+
+        let (primary_label, primary_non_blank_offset, primary_non_blank_limit) = match primary {
+            TemplateSwitchPrimary::Reference => (
+                &reference_label,
+                reference_non_blank_offset,
+                reference_non_blank_limit,
+            ),
+            TemplateSwitchPrimary::Query => {
+                (&query_label, query_non_blank_offset, query_non_blank_limit)
+            }
+        };
+
+        let primary_tail = if *primary_non_blank_offset == 0 {
+            0
+        } else {
+            renderer
+                .sequence(primary_label)
+                .translate_offset_without_blanks(*primary_non_blank_offset - 1)
+                .map(|offset| offset + 1)
+                .unwrap_or_else(|| renderer.sequence(primary_label).len())
+        };
+        let primary_head = renderer
+            .sequence(primary_label)
+            .translate_offset_without_blanks(*primary_non_blank_limit)
+            .unwrap_or_else(|| renderer.sequence(primary_label).len());
+        let inner_offset = inner_sequence.translate_offset_without_blanks(0);
+        let inner_limit = if inner_non_blank_length == 0 {
+            None
+        } else {
+            inner_sequence
+                .translate_offset_without_blanks(inner_non_blank_length - 1)
+                .map(|limit| limit + 1)
+        };
+
+        assert_eq!(inner_offset.is_some(), inner_limit.is_some());
+        let inner_offset = inner_offset.unwrap_or(0);
+        let inner_limit = inner_limit.unwrap_or(0);
+
+        // Arrow 1 -> 2
+        let arrow = Arrow::new_curved(
+            primary_tail,
+            primary_label.clone(),
+            ArrowEndpointDirection::Forward,
+            inner_limit,
+            label.clone(),
+            ArrowEndpointDirection::Forward,
+        );
+        debug!("Adding arrow {arrow}");
+        arrows.push(arrow);
+
+        // Arrow 3 -> 4
+        let arrow = Arrow::new_curved(
+            inner_offset,
+            label.clone(),
+            ArrowEndpointDirection::Backward,
+            primary_head,
+            primary_label.clone(),
+            ArrowEndpointDirection::Backward,
+        );
+        debug!("Adding arrow {arrow}");
+        arrows.push(arrow);
     }
 
     debug!("Rendering SVG characters");
@@ -636,7 +729,7 @@ fn render_ts_base(
     reference_c: Option<&LabelledSequence<&String>>,
     query_c: Option<&LabelledSequence<&String>>,
     stream: &AlignmentStream,
-) {
+) -> TemplateSwitch {
     debug!(
         "Rendering ts base {} from RQ {}/{} to RQ {}/{}",
         stream.stream_iter().next().unwrap().1,
@@ -646,6 +739,9 @@ fn render_ts_base(
         stream.head_coordinates().query()
     );
     debug!("Offset shift: {offset_shift}");
+
+    let reference_non_blank_offset = renderer.sequence(reference.label).len_without_blanks();
+    let query_non_blank_offset = renderer.sequence(reference.label).len_without_blanks();
 
     let reference = reference.substring(
         stream.tail_coordinates().reference(),
@@ -854,6 +950,21 @@ fn render_ts_base(
         (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => {
             offset_shift.reference -= length_difference
         }
+    }
+
+    let reference_non_blank_limit = renderer.sequence(reference.label).len_without_blanks();
+    let query_non_blank_limit = renderer.sequence(reference.label).len_without_blanks();
+
+    TemplateSwitch {
+        label: None,
+        tail: stream.tail_coordinates(),
+        head: stream.head_coordinates(),
+        reference_non_blank_offset,
+        reference_non_blank_limit,
+        query_non_blank_offset,
+        query_non_blank_limit,
+        inner_non_blank_length: None,
+        alignment: stream.stream_alignment(),
     }
 }
 
