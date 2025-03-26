@@ -23,6 +23,7 @@ use crate::plain_text::{
 
 mod arrows;
 mod font;
+mod numbers;
 
 struct SvgLocation {
     pub x: f32,
