@@ -36,9 +36,9 @@ pub struct Cli {
     #[clap(long, short = 'p')]
     png: bool,
 
-    /// Draw the SVG image without (most) arrows. Ignored if --svg is not set.
+    /// Draw the SVG image with arrows connecting the switchpoints. Ignored if --svg is not set.
     #[clap(long, short = 'a')]
-    no_svg_arrows: bool,
+    svg_arrows: bool,
 }
 
 pub fn cli(cli: Cli) {
@@ -73,7 +73,7 @@ pub fn cli(cli: Cli) {
 
     if let Some(svg_out_path) = cli.svg.as_ref() {
         let mut svg = Vec::new();
-        create_ts_svg(&mut svg, &result, &no_ts_result, !cli.no_svg_arrows);
+        create_ts_svg(&mut svg, &result, &no_ts_result, cli.svg_arrows);
         let svg = svg;
 
         info!("Writing svg to {svg_out_path:?}");
