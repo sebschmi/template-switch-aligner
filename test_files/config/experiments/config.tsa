@@ -18,8 +18,8 @@ Length
  inf  0 inf
 
 LengthDifference
- -inf -100  101
-  inf   0 inf
+ -inf -100 -20 -10 11 21 101
+  inf    4   2   0  2  4 inf
 
 # Primary Edit Costs
 
