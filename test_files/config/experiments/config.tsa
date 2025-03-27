@@ -10,15 +10,15 @@ base_cost = 2
 # Jump Costs
 
 Offset
- -inf -100 101
+ -inf -300 301
   inf    0 inf
 
 Length
-   0 10 100
+   0 10 200
  inf  0 inf
 
 LengthDifference
- -inf -10  11
+ -inf -100  101
   inf   0 inf
 
 # Primary Edit Costs
