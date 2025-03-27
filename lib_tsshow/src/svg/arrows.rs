@@ -6,7 +6,9 @@ use svg::{
     node::element::{Definitions, Group, Marker, Path},
 };
 
-use crate::svg::font::typewriter;
+use crate::{
+    plain_text::mutlipair_alignment_renderer::MultipairAlignmentRenderer, svg::font::typewriter,
+};
 
 #[derive(Debug, PartialEq)]
 pub struct Arrow {
@@ -170,6 +172,16 @@ impl Arrow {
             }
         }
     }
+
+    pub fn translate_char_gap_columns_to_real_columns<CharacterData>(
+        mut self,
+        renderer: &MultipairAlignmentRenderer<String, CharacterData>,
+    ) -> Self {
+        self.from
+            .translate_char_gap_columns_to_real_columns(renderer);
+        self.to.translate_char_gap_columns_to_real_columns(renderer);
+        self
+    }
 }
 
 impl ArrowEndpoint {
@@ -185,6 +197,29 @@ impl ArrowEndpoint {
             direction,
             column_offset,
         }
+    }
+
+    pub fn translate_char_gap_columns_to_real_columns<CharacterData>(
+        &mut self,
+        renderer: &MultipairAlignmentRenderer<String, CharacterData>,
+    ) {
+        let sequence = renderer.sequence(&self.row);
+        self.column = match self.direction {
+            ArrowEndpointDirection::Forward => {
+                if self.column == 0 {
+                    0
+                } else {
+                    sequence
+                        .translate_offset_without_blanks(self.column - 1)
+                        .unwrap()
+                        + 1
+                }
+            }
+
+            ArrowEndpointDirection::Backward => sequence
+                .translate_offset_without_blanks(self.column)
+                .unwrap(),
+        };
     }
 }
 

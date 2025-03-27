@@ -165,7 +165,7 @@ pub fn create_ts_svg(
     };
 
     debug!("Rendering reference and query");
-    let mut arrows = Vec::new();
+    let mut raw_arrows = Vec::new();
     let mut stream = AlignmentStream::new();
     let mut offset_stream = AlignmentStream::new();
     let mut template_switches = Vec::new();
@@ -190,7 +190,7 @@ pub fn create_ts_svg(
             render_inter_ts(
                 &mut renderer,
                 &offset_shift,
-                &mut arrows,
+                &mut raw_arrows,
                 &reference,
                 &query,
                 has_secondary_reference_ts.then_some(&reference_c),
@@ -215,7 +215,7 @@ pub fn create_ts_svg(
             template_switches.push(render_ts_base(
                 &mut renderer,
                 &mut offset_shift,
-                &mut arrows,
+                &mut raw_arrows,
                 &reference,
                 &query,
                 has_secondary_reference_ts.then_some(&reference_c),
@@ -235,7 +235,7 @@ pub fn create_ts_svg(
         render_inter_ts(
             &mut renderer,
             &offset_shift,
-            &mut arrows,
+            &mut raw_arrows,
             &reference,
             &query,
             has_secondary_reference_ts.then_some(&reference_c),
@@ -243,6 +243,11 @@ pub fn create_ts_svg(
             &stream,
         );
     }
+
+    let mut arrows: Vec<_> = raw_arrows
+        .into_iter()
+        .map(|arrow| arrow.translate_char_gap_columns_to_real_columns(&renderer))
+        .collect();
 
     debug!("Rendering TSes");
     let mut ts_secondary_r_labels = Vec::new();
@@ -833,7 +838,6 @@ fn render_ts_base(
         _,
         AlignmentType::TemplateSwitchEntrance {
             primary: ts_primary,
-            secondary: ts_secondary,
             ..
         },
     ) = alignment.next().unwrap()
@@ -845,41 +849,36 @@ fn render_ts_base(
         panic!("Wrong template switch exit")
     };
 
-    let (
-        secondary,
-        anti_secondary,
-        secondary_c,
-        anti_secondary_c,
-        secondary_offset,
-        anti_secondary_offset,
-    ) = match ts_secondary {
-        TemplateSwitchSecondary::Reference => (
-            reference.clone(),
-            query.clone(),
-            reference_c.clone(),
-            query_c.clone(),
-            (stream.tail_coordinates().reference() as isize + offset_shift.reference)
-                .try_into()
+    let (primary, anti_primary, primary_c, anti_primary_c, primary_offset, anti_primary_offset) =
+        match ts_primary {
+            TemplateSwitchPrimary::Reference => (
+                &reference,
+                &query,
+                &reference_c,
+                &query_c,
+                usize::try_from(
+                    stream.tail_coordinates().reference() as isize + offset_shift.reference,
+                )
                 .unwrap(),
-            (stream.tail_coordinates().query() as isize + offset_shift.query)
-                .try_into()
-                .unwrap(),
-        ),
-        TemplateSwitchSecondary::Query => (
-            query.clone(),
-            reference.clone(),
-            query_c.clone(),
-            reference_c.clone(),
-            (stream.tail_coordinates().query() as isize + offset_shift.query)
-                .try_into()
-                .unwrap(),
-            (stream.tail_coordinates().reference() as isize + offset_shift.reference)
-                .try_into()
-                .unwrap(),
-        ),
-    };
+                (stream.tail_coordinates().query() as isize + offset_shift.query)
+                    .try_into()
+                    .unwrap(),
+            ),
+            TemplateSwitchPrimary::Query => (
+                &query,
+                &reference,
+                &query_c,
+                &reference_c,
+                (stream.tail_coordinates().query() as isize + offset_shift.query)
+                    .try_into()
+                    .unwrap(),
+                (stream.tail_coordinates().reference() as isize + offset_shift.reference)
+                    .try_into()
+                    .unwrap(),
+            ),
+        };
 
-    renderer.extend_sequence_with_default_data(secondary.label, secondary.sequence.chars());
+    renderer.extend_sequence_with_default_data(anti_primary.label, anti_primary.sequence.chars());
 
     trace!("Current renderer content:\n{}", {
         let mut out = Vec::new();
@@ -898,10 +897,10 @@ fn render_ts_base(
     });
 
     renderer.extend_sequence_with_alignment(
-        secondary.label,
-        anti_secondary.label,
-        secondary_offset,
-        secondary.sequence.chars().map(|c| {
+        anti_primary.label,
+        primary.label,
+        anti_primary_offset,
+        anti_primary.sequence.chars().map(|c| {
             Character::new_char(
                 c,
                 CharacterData {
@@ -913,29 +912,45 @@ fn render_ts_base(
         || unreachable!(),
         iter::repeat_n(
             AlignmentType::PrimaryMatch,
-            secondary.sequence.chars().count(),
+            anti_primary.sequence.chars().count(),
         ),
         false,
         false,
     );
 
-    if let Some(secondary_c) = &secondary_c {
+    if let Some(anti_primary_c) = anti_primary_c {
+        trace!("Current renderer content:\n{}", {
+            let mut out = Vec::new();
+            renderer
+                .render_without_names(
+                    &mut out,
+                    reference_c
+                        .as_ref()
+                        .map(|reference_c| reference_c.label)
+                        .into_iter()
+                        .chain([reference.label, query.label])
+                        .chain(query_c.as_ref().map(|query_c| query_c.label)),
+                )
+                .unwrap();
+            String::from_utf8(out).unwrap()
+        });
+
         renderer.extend_sequence_with_alignment_and_default_data(
-            secondary.label,
-            secondary_c.label,
-            secondary_offset,
-            secondary_c.sequence.chars(),
+            anti_primary.label,
+            anti_primary_c.label,
+            anti_primary_offset,
+            anti_primary_c.sequence.chars(),
             iter::repeat_n(
                 AlignmentType::PrimaryMatch,
-                secondary_c.sequence.chars().count(),
+                anti_primary.sequence.chars().count(),
             ),
             false,
             false,
         );
     }
 
-    if let Some(anti_secondary_c) = anti_secondary_c {
-        let extension = anti_secondary_c.sequence.chars().map(|c| {
+    if let Some(primary_c) = &primary_c {
+        let extension = primary_c.sequence.chars().map(|c| {
             Character::new_char(
                 c,
                 CharacterData {
@@ -943,13 +958,12 @@ fn render_ts_base(
                 },
             )
         });
-        let extension_existing_length = secondary.sequence.chars().count();
-        let extension_additional_length = extension
-            .clone()
-            .count()
-            .saturating_sub(extension_existing_length);
+        let extension_total_length = extension.clone().count();
+        let extension_existing_length = anti_primary.sequence.chars().count();
+        let extension_additional_length =
+            extension_total_length.saturating_sub(extension_existing_length);
         trace!("extension_existing_length: {extension_existing_length}");
-        trace!("extension_additional_length: {extension_existing_length}");
+        trace!("extension_additional_length: {extension_additional_length}");
 
         trace!("Current renderer content:\n{}", {
             let mut out = Vec::new();
@@ -968,9 +982,9 @@ fn render_ts_base(
         });
 
         renderer.extend_sequence_with_alignment(
-            anti_secondary.label,
-            anti_secondary_c.label,
-            anti_secondary_offset,
+            primary.label,
+            primary_c.label,
+            primary_offset,
             extension.clone().take(extension_existing_length),
             Default::default,
             Default::default,
@@ -981,39 +995,35 @@ fn render_ts_base(
             false,
             false,
         );
-        let left_extension_column = renderer.column_width();
         renderer.extend_sequence(
-            anti_secondary_c.label,
+            primary_c.label,
             extension.skip(extension_existing_length),
             Default::default,
         );
-        let right_extension_column = renderer.column_width();
 
         if extension_additional_length > 0 {
-            if let Some(secondary_c) = &secondary_c {
-                debug!("Adding extension arrow");
-                arrows.extend([Arrow::new_skip(
-                    left_extension_column,
-                    right_extension_column,
-                    secondary_c.label.clone(),
-                )]);
+            let column_a = renderer.sequence(anti_primary.label).len_without_blanks();
+            let arrow_a = Arrow::new_skip(column_a, column_a, anti_primary.label.clone());
+            debug!("Adding extension arrow {arrow_a}");
+            arrows.extend([arrow_a]);
+
+            if let Some(anti_primary_c) = &anti_primary_c {
+                let column_ac = renderer.sequence(anti_primary_c.label).len_without_blanks();
+                let arrow_ac = Arrow::new_skip(column_ac, column_ac, anti_primary_c.label.clone());
+                debug!("Adding extension arrow {arrow_ac}");
+                arrows.extend([arrow_ac]);
             }
+        } else if extension_total_length < extension_existing_length {
+            let column_c = renderer.sequence(primary_c.label).len_without_blanks();
+            let arrow_c = Arrow::new_skip(column_c, column_c, primary_c.label.clone());
+            debug!("Adding extension arrow {arrow_c}");
+            arrows.extend([arrow_c]);
         }
     }
 
-    match (ts_primary, ts_secondary) {
-        (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Reference) => {
-            offset_shift.query -= length_difference
-        }
-        (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Query) => {
-            offset_shift.reference += length_difference
-        }
-        (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Reference) => {
-            offset_shift.query += length_difference
-        }
-        (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => {
-            offset_shift.reference -= length_difference
-        }
+    match ts_primary {
+        TemplateSwitchPrimary::Reference => offset_shift.reference += length_difference,
+        TemplateSwitchPrimary::Query => offset_shift.query += length_difference,
     }
 
     let reference_non_blank_limit = renderer.sequence(reference.label).len_without_blanks();

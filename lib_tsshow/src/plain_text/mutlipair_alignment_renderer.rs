@@ -772,6 +772,10 @@ impl<CharacterData> MultipairAlignmentSequence<CharacterData> {
         self.sequence.get(index)
     }
 
+    pub fn last(&self) -> Option<&Character<CharacterData>> {
+        self.sequence.last()
+    }
+
     pub fn insert_gaps(
         &mut self,
         mut gap_data_generator: impl FnMut() -> CharacterData,
