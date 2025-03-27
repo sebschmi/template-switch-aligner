@@ -8,14 +8,14 @@ use svg::{
 
 use crate::svg::font::typewriter;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Arrow {
     pub from: ArrowEndpoint,
     pub to: ArrowEndpoint,
     pub style: ArrowStyle,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct ArrowEndpoint {
     /// The column the endpoint is at, which will be translated to an `x`-coordinate.
     ///
@@ -32,6 +32,11 @@ pub struct ArrowEndpoint {
     /// **Note:** this has nothing to do with where the head and tail of the arrow are,
     /// but it decides where the curve the arrow is made of goes.
     pub direction: ArrowEndpointDirection,
+
+    /// Extra offset affecting the `y`-coordinate of this endpoint.
+    ///
+    /// The offset is applied according to [`direction`](Self::direction).
+    pub column_offset: f32,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -57,6 +62,7 @@ impl Arrow {
                 } else {
                     ArrowEndpointDirection::Backward
                 },
+                column_offset: 0.0,
             },
             to: ArrowEndpoint {
                 column: to_column,
@@ -66,22 +72,26 @@ impl Arrow {
                 } else {
                     ArrowEndpointDirection::Forward
                 },
+                column_offset: 0.0,
             },
             style: ArrowStyle::Direct,
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new_curved(
         from_column: usize,
+        from_column_offset: f32,
         from_row: String,
         from_direction: ArrowEndpointDirection,
         to_column: usize,
+        to_column_offset: f32,
         to_row: String,
         to_direction: ArrowEndpointDirection,
     ) -> Self {
         Self {
-            from: ArrowEndpoint::new(from_column, from_row, from_direction),
-            to: ArrowEndpoint::new(to_column, to_row, to_direction),
+            from: ArrowEndpoint::new(from_column, from_row, from_direction, from_column_offset),
+            to: ArrowEndpoint::new(to_column, to_row, to_direction, to_column_offset),
             style: ArrowStyle::Curved,
         }
     }
@@ -92,11 +102,12 @@ impl Arrow {
                 debug!("Drawing direct arrow from {} to {}", self.from, self.to);
 
                 let stroke_width = 0.15;
-                let from_x = self.from.column as f32 * typewriter::FONT.character_width;
+                let from_x = self.from.column as f32 * typewriter::FONT.character_width
+                    + self.from.column_offset * self.from.direction.sign();
                 let from_y =
                     *rows.get(&self.from.row).unwrap() - typewriter::FONT.character_height * 0.3;
-                let to_x =
-                    self.to.column as f32 * typewriter::FONT.character_width - 2.0 * stroke_width;
+                let to_x = self.to.column as f32 * typewriter::FONT.character_width
+                    + self.to.column_offset * self.to.direction.sign();
                 let to_y =
                     *rows.get(&self.to.row).unwrap() - typewriter::FONT.character_height * 0.3;
 
@@ -115,11 +126,12 @@ impl Arrow {
                 debug!("Drawing curved arrow from {} to {}", self.from, self.to);
 
                 let stroke_width = 0.15;
-                let from_x = self.from.column as f32 * typewriter::FONT.character_width;
+                let from_x = self.from.column as f32 * typewriter::FONT.character_width
+                    + self.from.column_offset * self.from.direction.sign();
                 let from_y =
                     *rows.get(&self.from.row).unwrap() - typewriter::FONT.character_height * 0.3;
-                let to_x =
-                    self.to.column as f32 * typewriter::FONT.character_width - 2.0 * stroke_width;
+                let to_x = self.to.column as f32 * typewriter::FONT.character_width
+                    + self.to.column_offset * self.to.direction.sign();
                 let to_y =
                     *rows.get(&self.to.row).unwrap() - typewriter::FONT.character_height * 0.3;
 
@@ -148,9 +160,9 @@ impl Arrow {
 
                 Group::new().add(
                     Path::new()
-                        .set("marker-end", "url(#arrow_head)")
+                        .set("marker-end", "url(#arrow_head_red)")
                         .set("stroke-width", stroke_width)
-                        .set("stroke", "black")
+                        .set("stroke", "#CE2029")
                         .set("fill", "none")
                         .set("stroke-dasharray", stroke_width)
                         .set("d", format!("M {from_x},{from_y} C {from_x_control},{from_y} {to_x_control},{to_y} {to_x},{to_y}")),
@@ -161,11 +173,17 @@ impl Arrow {
 }
 
 impl ArrowEndpoint {
-    pub fn new(column: usize, row: String, direction: ArrowEndpointDirection) -> Self {
+    pub fn new(
+        column: usize,
+        row: String,
+        direction: ArrowEndpointDirection,
+        column_offset: f32,
+    ) -> Self {
         Self {
             column,
             row,
             direction,
+            column_offset,
         }
     }
 }
@@ -182,22 +200,39 @@ impl ArrowEndpointDirection {
 
 pub fn add_arrow_defs(svg: Document) -> Document {
     svg.add(
-        Definitions::new().add(
-            Marker::new()
-                .set("id", "arrow_head")
-                .set("viewBox", "0 0 10 10")
-                .set("orient", "auto-start-reverse")
-                .set("markerWidth", 10)
-                .set("markerHeight", 10)
-                .set("refX", 10)
-                .set("refY", 5)
-                .add(
-                    Path::new()
-                        .set("d", "M 1 1 L 10 5 L 1 9")
-                        .set("fill", "none")
-                        .set("stroke", "black"),
-                ),
-        ),
+        Definitions::new()
+            .add(
+                Marker::new()
+                    .set("id", "arrow_head")
+                    .set("viewBox", "0 0 10 10")
+                    .set("orient", "auto-start-reverse")
+                    .set("markerWidth", 10)
+                    .set("markerHeight", 10)
+                    .set("refX", 10)
+                    .set("refY", 5)
+                    .add(
+                        Path::new()
+                            .set("d", "M 1 1 L 10 5 L 1 9")
+                            .set("fill", "none")
+                            .set("stroke", "black"),
+                    ),
+            )
+            .add(
+                Marker::new()
+                    .set("id", "arrow_head_red")
+                    .set("viewBox", "0 0 10 10")
+                    .set("orient", "auto-start-reverse")
+                    .set("markerWidth", 10)
+                    .set("markerHeight", 10)
+                    .set("refX", 10)
+                    .set("refY", 5)
+                    .add(
+                        Path::new()
+                            .set("d", "M 1 1 L 10 5 L 1 9")
+                            .set("fill", "none")
+                            .set("stroke", "#CE2029"),
+                    ),
+            ),
     )
 }
 

@@ -14,6 +14,7 @@ pub struct Font {
     characters: HashMap<char, String>,
     pub character_width: f32,
     pub character_height: f32,
+    pub stroke_width: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -37,7 +38,7 @@ where
     Path::new()
         .set("fill", data.color.clone())
         .set("stroke", data.color.clone())
-        .set("stroke-width", 0.1)
+        .set("stroke-width", font.stroke_width)
         .set("transform", location.as_transform())
         .set("d", character_path.as_str())
 }

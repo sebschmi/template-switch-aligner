@@ -75,5 +75,6 @@ pub static FONT: LazyLock<Font> = LazyLock::new(|| {
             .collect(),
         character_width: 2.0,
         character_height: 3.175,
+        stroke_width:0.0,
     }
 });

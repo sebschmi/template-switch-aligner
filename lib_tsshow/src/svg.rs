@@ -394,31 +394,44 @@ pub fn create_ts_svg(
         let inner_limit = inner_limit.unwrap_or(0);
 
         let letter = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().nth(index).unwrap();
-        let number = Number::new(
+        let number_1 = Number::new(
             format!("{letter}1"),
             primary_tail,
             primary_label.clone(),
             NumberAlignment::Left,
+            0.5,
         );
-        debug!("Adding number {number}");
-        numbers.push(number);
-
-        let number = Number::new(
+        let number_2 = Number::new(
+            format!("{letter}2"),
+            inner_limit,
+            label.clone(),
+            NumberAlignment::Left,
+            0.5,
+        );
+        let number_3 = Number::new(
+            format!("{letter}3"),
+            inner_offset,
+            label.clone(),
+            NumberAlignment::Right,
+            0.5,
+        );
+        let number_4 = Number::new(
             format!("{letter}4"),
             primary_head,
             primary_label.clone(),
             NumberAlignment::Right,
+            0.5,
         );
-        debug!("Adding number {number}");
-        numbers.push(number);
 
         if render_arrows {
             // Arrow 1 -> 2
             let arrow = Arrow::new_curved(
                 primary_tail,
+                number_1.width(),
                 primary_label.clone(),
                 ArrowEndpointDirection::Forward,
                 inner_limit,
+                number_2.width(),
                 label.clone(),
                 ArrowEndpointDirection::Forward,
             );
@@ -428,15 +441,26 @@ pub fn create_ts_svg(
             // Arrow 3 -> 4
             let arrow = Arrow::new_curved(
                 inner_offset,
+                number_3.width(),
                 label.clone(),
                 ArrowEndpointDirection::Backward,
                 primary_head,
+                number_4.width(),
                 primary_label.clone(),
                 ArrowEndpointDirection::Backward,
             );
             debug!("Adding arrow {arrow}");
             arrows.push(arrow);
         }
+
+        debug!("Adding number {number_1}");
+        numbers.push(number_1);
+        debug!("Adding number {number_2}");
+        numbers.push(number_2);
+        debug!("Adding number {number_3}");
+        numbers.push(number_3);
+        debug!("Adding number {number_4}");
+        numbers.push(number_4);
     }
 
     debug!("Rendering SVG characters");
