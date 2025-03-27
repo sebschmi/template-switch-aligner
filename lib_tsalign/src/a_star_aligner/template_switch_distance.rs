@@ -222,6 +222,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         ) {
             unreachable!("This method is only called on primary nodes.")
         }
+        debug_assert!(cost_increment < Strategies::Cost::max_value());
 
         self.node_data
             .identifier
@@ -253,7 +254,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 (base_cost != Strategies::Cost::max_value()).then(|| {
                     self.generate_successor(
                         identifier,
-                        cost_increment,
+                        cost_increment + base_cost,
                         AlignmentType::TemplateSwitchEntrance {
                             primary: *template_switch_primary,
                             secondary: *template_switch_secondary,
