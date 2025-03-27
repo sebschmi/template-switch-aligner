@@ -1,5 +1,5 @@
 use nom::{
-    IResult,
+    IResult, Parser,
     bytes::complete::take_till1,
     character::complete::{char, satisfy},
     multi::many0,
@@ -10,7 +10,7 @@ use crate::error::Error;
 pub fn parse_title(input: &str) -> IResult<&str, &str> {
     let input = skip_any_whitespace(input)?;
     let input = char('#')(input)?.0;
-    let input = many0(satisfy(is_whitespace))(input)?.0;
+    let input = many0(satisfy(is_whitespace)).parse(input)?.0;
     let (input, result) = take_till1(is_any_line_break)(input)?;
     Ok((input, result.trim()))
 }
@@ -26,13 +26,17 @@ pub fn parse_any_whitespace(input: &str) -> IResult<&str, ()> {
 pub fn skip_whitespace(
     input: &str,
 ) -> std::result::Result<&str, nom::Err<nom::error::Error<&str>>> {
-    many0(satisfy(is_whitespace))(input).map(|(input, _)| input)
+    many0(satisfy(is_whitespace))
+        .parse(input)
+        .map(|(input, _)| input)
 }
 
 pub fn skip_any_whitespace(
     input: &str,
 ) -> std::result::Result<&str, nom::Err<nom::error::Error<&str>>> {
-    many0(satisfy(is_any_whitespace))(input).map(|(input, _)| input)
+    many0(satisfy(is_any_whitespace))
+        .parse(input)
+        .map(|(input, _)| input)
 }
 
 pub fn is_any_whitespace(c: char) -> bool {

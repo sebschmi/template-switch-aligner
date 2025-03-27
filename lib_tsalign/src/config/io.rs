@@ -4,10 +4,9 @@ use compact_genome::interface::alphabet::Alphabet;
 use generic_a_star::cost::AStarCost;
 use log::trace;
 use nom::{
-    IResult,
+    IResult, Parser,
     bytes::complete::{tag, take_while1},
     character::complete::line_ending,
-    sequence::tuple,
 };
 use num_traits::{Bounded, PrimInt};
 
@@ -89,7 +88,7 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
 
 fn parse_specific_name(name: &str) -> impl '_ + FnMut(&str) -> IResult<&str, ()> {
     move |input| {
-        tuple((
+        (
             parse_any_whitespace,
             tag("#"),
             parse_whitespace,
@@ -97,8 +96,9 @@ fn parse_specific_name(name: &str) -> impl '_ + FnMut(&str) -> IResult<&str, ()>
             parse_whitespace,
             line_ending,
             parse_any_whitespace,
-        ))(input)
-        .map(|(input, _)| (input, ()))
+        )
+            .parse(input)
+            .map(|(input, _)| (input, ()))
     }
 }
 
@@ -121,7 +121,7 @@ fn parse_specific_equals_value<Value: FromStr>(
 fn parse_equals_value<Value: FromStr>(input: &str) -> IResult<&str, (&str, Value)> {
     let input = skip_any_whitespace(input)?;
     let (input, identifier) = take_while1(|c: char| c.is_alphanumeric() || c == '_')(input)?;
-    let (input, _) = tuple((parse_whitespace, tag("="), parse_whitespace))(input)?;
+    let (input, _) = (parse_whitespace, tag("="), parse_whitespace).parse(input)?;
     let (input, value) = take_while1(|c: char| !c.is_whitespace())(input)?;
 
     let value = Value::from_str(value).map_err(|_| {

@@ -12,11 +12,11 @@ use compact_genome::interface::alphabet::{Alphabet, AlphabetCharacter};
 use generic_a_star::cost::AStarCost;
 use log::trace;
 use nom::{
-    IResult,
+    IResult, Parser,
     bytes::complete::{tag, take},
     combinator::opt,
     multi::{count, many1},
-    sequence::{preceded, tuple},
+    sequence::preceded,
 };
 
 use std::{
@@ -155,7 +155,7 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> GapAffineAlignmentCostTable<Alphab
     }
 
     pub(crate) fn parse_plain(input: &str) -> IResult<&str, Self> {
-        let (input, name) = opt(parse_title)(input)?;
+        let (input, name) = opt(parse_title).parse(input)?;
         let (input, substitution_cost_table) =
             parse_substitution_cost_table::<AlphabetType, _>(input)?;
         let (input, gap_open_cost_vector) = parse_gap_open_cost_vector::<AlphabetType, _>(input)?;
@@ -188,19 +188,21 @@ fn parse_substitution_cost_table<AlphabetType: Alphabet, Cost: AStarCost>(
         parse_substitution_cost_table_first_row::<AlphabetType>(input)?;
 
     // Next is a fancy separator line
-    let input = tuple((
+    let input = (
         parse_any_whitespace,
         many1(tag("-")),
         tag("+"),
         many1(tag("-")),
-    ))(input)?
-    .0;
+    )
+        .parse(input)?
+        .0;
 
     // Then we have the rows
     let (input, mut rows) = count(
         parse_substitution_cost_table_row::<AlphabetType, _>,
         AlphabetType::SIZE.into(),
-    )(input)?;
+    )
+    .parse(input)?;
     rows.sort_unstable_by_key(|(character, _)| character.index());
 
     // And finally we can write everything into a matrix, ensuring that everything is in the correct order
@@ -235,7 +237,8 @@ fn parse_substitution_cost_table_first_row<AlphabetType: Alphabet>(
             parse_alphabet_character::<AlphabetType::CharacterType>,
         ),
         AlphabetType::SIZE.into(),
-    )(input)?;
+    )
+    .parse(input)?;
 
     let mut sorted_characters = characters.clone();
     sorted_characters.sort();
@@ -263,7 +266,8 @@ fn parse_substitution_cost_table_row<AlphabetType: Alphabet, Cost: AStarCost>(
     let (input, cost_vector) = count(
         preceded(parse_whitespace, parse_inf_value),
         AlphabetType::SIZE.into(),
-    )(input)?;
+    )
+    .parse(input)?;
     let cost_vector = cost_vector.into_iter().collect();
     Ok((input, (character, cost_vector)))
 }
@@ -310,7 +314,8 @@ fn parse_cost_vector_index_row<AlphabetType: Alphabet>(
             parse_alphabet_character::<AlphabetType::CharacterType>,
         ),
         AlphabetType::SIZE.into(),
-    )(input)?;
+    )
+    .parse(input)?;
 
     let mut sorted_characters = characters.clone();
     sorted_characters.sort();
@@ -335,7 +340,8 @@ fn parse_cost_vector_value_row<AlphabetType: Alphabet, Cost: AStarCost>(
     let (input, cost_vector) = count(
         preceded(parse_whitespace, parse_inf_value),
         AlphabetType::SIZE.into(),
-    )(input)?;
+    )
+    .parse(input)?;
     let cost_vector = cost_vector.into_iter().collect();
     Ok((input, cost_vector))
 }
