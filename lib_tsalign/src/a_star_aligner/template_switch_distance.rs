@@ -21,6 +21,8 @@ pub use alignment_type::AlignmentType;
 pub use context::Context;
 pub use identifier::{Identifier, TemplateSwitchPrimary, TemplateSwitchSecondary};
 
+use crate::config::BaseCost;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node<Strategies: AlignmentStrategySelector> {
     node_data: NodeData<
@@ -211,6 +213,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
     >(
         &'result self,
         cost_increment: Strategies::Cost,
+        base_cost: &'result BaseCost<Strategies::Cost>,
         context: &'result Context<SubsequenceType, Strategies>,
     ) -> impl 'result + Iterator<Item = Self> {
         if !matches!(
@@ -223,7 +226,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
         self.node_data
             .identifier
             .generate_initial_template_switch_entrance_successors()
-            .map(move |identifier| {
+            .filter_map(move |identifier| {
                 let Identifier::TemplateSwitchEntrance {
                     template_switch_primary,
                     template_switch_secondary,
@@ -234,16 +237,31 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                     unreachable!("This closure is only called on template switch entrances.")
                 };
 
-                self.generate_successor(
-                    identifier,
-                    cost_increment,
-                    AlignmentType::TemplateSwitchEntrance {
-                        primary: *template_switch_primary,
-                        secondary: *template_switch_secondary,
-                        first_offset: *template_switch_first_offset,
-                    },
-                    context,
-                )
+                let base_cost = match (template_switch_primary, template_switch_secondary) {
+                    (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Reference) => {
+                        base_cost.rr
+                    }
+                    (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Query) => {
+                        base_cost.rq
+                    }
+                    (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Reference) => {
+                        base_cost.qr
+                    }
+                    (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => base_cost.qq,
+                };
+
+                (base_cost != Strategies::Cost::max_value()).then(|| {
+                    self.generate_successor(
+                        identifier,
+                        cost_increment,
+                        AlignmentType::TemplateSwitchEntrance {
+                            primary: *template_switch_primary,
+                            secondary: *template_switch_secondary,
+                            first_offset: *template_switch_first_offset,
+                        },
+                        context,
+                    )
+                })
             })
     }
 

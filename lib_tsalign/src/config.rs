@@ -1,4 +1,5 @@
 use compact_genome::interface::alphabet::Alphabet;
+use num_traits::bounds::UpperBounded;
 
 use crate::costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable};
 
@@ -12,7 +13,7 @@ pub struct TemplateSwitchConfig<AlphabetType, Cost> {
     pub min_length: usize,
 
     // Base cost
-    pub base_cost: Cost,
+    pub base_cost: BaseCost<Cost>,
 
     // Edit costs
     pub primary_edit_costs: GapAffineAlignmentCostTable<AlphabetType, Cost>,
@@ -24,6 +25,25 @@ pub struct TemplateSwitchConfig<AlphabetType, Cost> {
     pub offset_costs: CostFunction<isize, Cost>,
     pub length_costs: CostFunction<usize, Cost>,
     pub length_difference_costs: CostFunction<isize, Cost>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct BaseCost<Cost> {
+    pub rr: Cost,
+    pub rq: Cost,
+    pub qr: Cost,
+    pub qq: Cost,
+}
+
+impl<Cost: UpperBounded> BaseCost<Cost> {
+    pub fn new_max() -> Self {
+        Self {
+            rr: Cost::max_value(),
+            rq: Cost::max_value(),
+            qr: Cost::max_value(),
+            qq: Cost::max_value(),
+        }
+    }
 }
 
 impl<AlphabetType: Alphabet, Cost: Clone> Clone for TemplateSwitchConfig<AlphabetType, Cost> {

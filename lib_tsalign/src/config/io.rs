@@ -12,6 +12,7 @@ use nom::{
 use num_traits::{Bounded, PrimInt};
 
 use crate::{
+    config::BaseCost,
     costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable},
     io::{parse_any_whitespace, parse_whitespace, skip_any_whitespace, translate_nom_error},
 };
@@ -36,7 +37,10 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
 
         trace!("Parsing base costs");
         let (input, ()) = parse_specific_name("Base Cost")(input)?;
-        let (input, base_cost) = parse_specific_equals_value("base_cost")(input)?;
+        let (input, rr_cost) = parse_specific_equals_value("rr_cost")(input)?;
+        let (input, rq_cost) = parse_specific_equals_value("rq_cost")(input)?;
+        let (input, qr_cost) = parse_specific_equals_value("qr_cost")(input)?;
+        let (input, qq_cost) = parse_specific_equals_value("qq_cost")(input)?;
 
         trace!("Parsing jump costs");
         let (input, ()) = parse_specific_name("Jump Costs")(input)?;
@@ -63,7 +67,12 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
                 right_flank_length,
                 min_length: length_costs.minimum_finite_input().unwrap_or(usize::MAX),
 
-                base_cost,
+                base_cost: BaseCost {
+                    rr: rr_cost,
+                    rq: rq_cost,
+                    qr: qr_cost,
+                    qq: qq_cost,
+                },
 
                 primary_edit_costs,
                 secondary_edit_costs,

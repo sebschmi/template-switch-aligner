@@ -304,7 +304,7 @@ fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet, Cost: ASt
         right_flank_length: 0,
         min_length: config.min_length,
 
-        base_cost: config.base_cost,
+        base_cost: config.base_cost.clone(),
 
         primary_edit_costs: GapAffineAlignmentCostTable::new_max(),
         secondary_edit_costs: config

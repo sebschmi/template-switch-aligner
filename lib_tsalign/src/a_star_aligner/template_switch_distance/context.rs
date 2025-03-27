@@ -320,12 +320,11 @@ impl<
                 if flank_index == config.left_flank_length && can_start_another_template_switch {
                     let offset_costs = config.offset_costs.evaluate(&0);
 
-                    if offset_costs != Strategies::Cost::max_value()
-                        && config.base_cost != Strategies::Cost::max_value()
-                    {
+                    if offset_costs != Strategies::Cost::max_value() {
                         opened_nodes_output.extend(
                             node.generate_initial_template_switch_entrance_successors(
-                                config.offset_costs.evaluate(&0) + config.base_cost,
+                                config.offset_costs.evaluate(&0),
+                                &config.base_cost,
                                 self,
                             ),
                         );

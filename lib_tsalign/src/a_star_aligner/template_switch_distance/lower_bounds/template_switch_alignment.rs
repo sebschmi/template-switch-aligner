@@ -32,7 +32,7 @@ use crate::{
             },
         },
     },
-    config::TemplateSwitchConfig,
+    config::{BaseCost, TemplateSwitchConfig},
     costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable},
 };
 
@@ -240,7 +240,7 @@ fn generate_template_switch_alignment_lower_bound_config<
         right_flank_length: config.right_flank_length,
         min_length: usize::MAX,
 
-        base_cost: Cost::max_value(),
+        base_cost: BaseCost::new_max(),
 
         primary_edit_costs: config.primary_edit_costs.clone(),
         secondary_edit_costs: GapAffineAlignmentCostTable::new_max(),
