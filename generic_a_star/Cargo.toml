@@ -4,7 +4,7 @@ description = "A generic implementation of the A* algorithm"
 version = "0.9.4"
 edition.workspace = true
 rust-version.workspace = true
-license = "BSD-2-Clause"
+license.workspace = true
 repository.workspace = true
 
 [features]

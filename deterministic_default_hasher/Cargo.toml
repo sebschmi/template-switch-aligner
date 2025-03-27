@@ -4,7 +4,7 @@ description = "A deterministic initialisation of the stdlib default hasher"
 version = "0.7.1"
 edition.workspace = true
 rust-version.workspace = true
-license = "BSD-2-Clause"
+license.workspace = true
 repository.workspace = true
 
 [dependencies]

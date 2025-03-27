@@ -10,6 +10,8 @@ members = [
     "lib_tsshow",
 ]
 resolver = "2"
+
+package.license = "BSD-2-Clause"
 package.edition = "2024"
 package.rust-version = "1.85.1"
 package.repository = "https://github.com/sebschmi/template-switch-aligner"
