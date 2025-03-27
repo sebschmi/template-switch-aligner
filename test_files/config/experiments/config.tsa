@@ -48,15 +48,15 @@ GapExtendCostVector
 SubstitutionCostTable
   |  A  C  G  T  N
 --+---------------
-A |  0  8  8  8  0
-C |  8  0  8  8  0
-G |  8  8  0  8  0
-T |  8  8  8  0  0
+A |  0  4  4  4  0
+C |  4  0  4  4  0
+G |  4  4  0  4  0
+T |  4  4  4  0  0
 N |  0  0  0  0  0
 
 GapOpenCostVector
  A C G T N
- 9 9 9 9 9
+ 3 3 3 3 3
 
 GapExtendCostVector
  A C G T N
