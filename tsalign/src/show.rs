@@ -7,7 +7,7 @@ use std::{
 use clap::Parser;
 
 use lib_tsshow::{plain_text::show_template_switches, svg::create_ts_svg, svg_to_png};
-use log::{LevelFilter, info};
+use log::{LevelFilter, info, warn};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 
 #[derive(Parser)]
@@ -83,6 +83,12 @@ pub fn cli(cli: Cli) {
             let png = svg_to_png(&svg, 20.0);
 
             let png_out_path = svg_out_path.with_extension("png");
+            if &png_out_path == svg_out_path {
+                warn!(
+                    "SVG and PNG filenames are the same ({png_out_path:?}). Do not use '.png' as the extension for your SVG file. Overwriting SVG file..."
+                );
+            }
+
             info!("Writing png to {png_out_path:?}");
             File::create(png_out_path).unwrap().write_all(&png).unwrap();
         }
