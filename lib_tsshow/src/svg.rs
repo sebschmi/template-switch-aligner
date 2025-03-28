@@ -813,7 +813,7 @@ fn render_ts_base(
     else {
         panic!("Wrong template switch entrance");
     };
-    let (_, AlignmentType::TemplateSwitchExit { length_difference }) = alignment.last().unwrap()
+    let (_, AlignmentType::TemplateSwitchExit { anti_primary_gap }) = alignment.last().unwrap()
     else {
         panic!("Wrong template switch exit")
     };
@@ -847,8 +847,20 @@ fn render_ts_base(
             ),
         };
 
-    renderer
-        .extend_sequence_with_default_data(anti_primary.label(), anti_primary.sequence().chars());
+    renderer.extend_sequence(
+        anti_primary.label(),
+        anti_primary.sequence().chars().map(|c| {
+            Character::new_char(
+                c,
+                if anti_primary.is_negative_substring() {
+                    CharacterData::new_colored("darkblue")
+                } else {
+                    Default::default()
+                },
+            )
+        }),
+        Default::default,
+    );
 
     trace!("Current renderer content:\n{}", {
         let mut out = Vec::new();
@@ -994,9 +1006,20 @@ fn render_ts_base(
         }
     }
 
+    let length_difference = anti_primary_gap - isize::try_from(primary.sequence().len()).unwrap();
     match ts_primary {
-        TemplateSwitchPrimary::Reference => offset_shift.reference += length_difference,
-        TemplateSwitchPrimary::Query => offset_shift.query += length_difference,
+        TemplateSwitchPrimary::Reference => {
+            offset_shift.reference += length_difference;
+            if query.is_negative_substring() {
+                offset_shift.query -= isize::try_from(query.sequence().len()).unwrap();
+            }
+        }
+        TemplateSwitchPrimary::Query => {
+            offset_shift.query += length_difference;
+            if reference.is_negative_substring() {
+                offset_shift.reference -= isize::try_from(reference.sequence().len()).unwrap();
+            }
+        }
     }
 
     let reference_non_blank_limit = renderer.sequence(reference.label()).len_without_blanks();

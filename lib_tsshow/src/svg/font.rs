@@ -72,6 +72,16 @@ where
     group
 }
 
+impl CharacterData {
+    pub fn new_colored(color: impl ToString) -> Self {
+        #[allow(clippy::needless_update)]
+        Self {
+            color: color.to_string(),
+            ..Default::default()
+        }
+    }
+}
+
 impl Default for CharacterData {
     fn default() -> Self {
         Self {

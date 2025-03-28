@@ -3,6 +3,8 @@ pub struct LabelledSequence<'a> {
     label_base: String,
     labels: Vec<String>,
     sequence: &'a str,
+    /// True if this sequence was created by taking a substring from another sequence with `limit < offset`.
+    negative_substring: bool,
 }
 impl<'a> LabelledSequence<'a> {
     pub fn new(label_base: impl ToString, sequence: &'a str) -> Self {
@@ -13,6 +15,7 @@ impl<'a> LabelledSequence<'a> {
             label_base,
             labels,
             sequence,
+            negative_substring: false,
         }
     }
 
@@ -30,6 +33,10 @@ impl<'a> LabelledSequence<'a> {
 
     pub fn sequence(&self) -> &'a str {
         self.sequence
+    }
+
+    pub fn is_negative_substring(&self) -> bool {
+        self.negative_substring
     }
 
     /// Adds a new label created with the same base.
@@ -50,11 +57,27 @@ impl<'a> LabelledSequence<'a> {
         result
     }
 
+    /// Creates a substring from this string.
+    ///
+    /// If `offset > limit`, then the substring `limit..offset` is returned,
+    /// and [`is_negative_substring()`](Self::is_negative_substring) will return `true` for the returned string.
     pub fn substring(&self, offset: usize, limit: usize) -> Self {
-        Self {
-            label_base: self.label_base.clone(),
-            labels: self.labels.clone(),
-            sequence: char_substring(self.sequence, offset, limit),
+        assert!(!self.negative_substring);
+
+        if offset <= limit {
+            Self {
+                label_base: self.label_base.clone(),
+                labels: self.labels.clone(),
+                sequence: char_substring(self.sequence, offset, limit),
+                negative_substring: false,
+            }
+        } else {
+            Self {
+                label_base: self.label_base.clone(),
+                labels: self.labels.clone(),
+                sequence: char_substring(self.sequence, limit, offset),
+                negative_substring: true,
+            }
         }
     }
 }

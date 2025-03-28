@@ -172,10 +172,7 @@ impl AlignmentCoordinates {
             AlignmentType::PrimarySubstitution
             | AlignmentType::PrimaryMatch
             | AlignmentType::PrimaryFlankSubstitution
-            | AlignmentType::PrimaryFlankMatch
-            | AlignmentType::SecondaryInsertion
-            | AlignmentType::SecondarySubstitution
-            | AlignmentType::SecondaryMatch => (1, 1),
+            | AlignmentType::PrimaryFlankMatch => (1, 1),
             AlignmentType::TemplateSwitchEntrance { primary, .. } => {
                 assert!(
                     self.template_switch_primary.is_none(),
@@ -184,7 +181,13 @@ impl AlignmentCoordinates {
                 self.template_switch_primary = Some(primary);
                 (0, 0)
             }
-            AlignmentType::TemplateSwitchExit { length_difference } => {
+            AlignmentType::SecondaryInsertion
+            | AlignmentType::SecondarySubstitution
+            | AlignmentType::SecondaryMatch => match self.template_switch_primary.unwrap() {
+                TemplateSwitchPrimary::Reference => (1, 0),
+                TemplateSwitchPrimary::Query => (0, 1),
+            },
+            AlignmentType::TemplateSwitchExit { anti_primary_gap } => {
                 let Some(template_switch_primary) = self.template_switch_primary.take() else {
                     panic!(
                         "Encountered template switch exit without first encountering a template switch entrance"
@@ -193,11 +196,11 @@ impl AlignmentCoordinates {
                 match template_switch_primary {
                     TemplateSwitchPrimary::Reference => {
                         self.query =
-                            usize::try_from(self.query as isize + length_difference).unwrap()
+                            usize::try_from(self.query as isize + anti_primary_gap).unwrap()
                     }
                     TemplateSwitchPrimary::Query => {
                         self.reference =
-                            usize::try_from(self.reference as isize + length_difference).unwrap()
+                            usize::try_from(self.reference as isize + anti_primary_gap).unwrap()
                     }
                 }
                 (0, 0)

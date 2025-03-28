@@ -49,7 +49,7 @@ pub enum Identifier<PrimaryExtraData> {
         template_switch_secondary: TemplateSwitchSecondary,
         /// The index that does not jump.
         primary_index: usize,
-        length_difference: isize,
+        anti_primary_gap: isize,
     },
 }
 

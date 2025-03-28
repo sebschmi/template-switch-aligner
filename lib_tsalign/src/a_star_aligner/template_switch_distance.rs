@@ -469,6 +469,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             template_switch_primary,
             template_switch_secondary,
             primary_index,
+            length,
             ..
         } = self.node_data.identifier
         else {
@@ -482,11 +483,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 template_switch_primary,
                 template_switch_secondary,
                 primary_index,
-                length_difference: 0,
+                anti_primary_gap: length.try_into().unwrap(),
             },
             cost_increment,
             AlignmentType::TemplateSwitchExit {
-                length_difference: 0,
+                anti_primary_gap: length.try_into().unwrap(),
             },
             context,
         ))
@@ -497,7 +498,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
     >(
         &self,
         cost_increment: Strategies::Cost,
-        successor_length_difference: isize,
+        successor_anti_primary_gap: isize,
         context: &Context<SubsequenceType, Strategies>,
     ) -> Option<Self> {
         if cost_increment == Strategies::Cost::max_value() {
@@ -523,11 +524,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 template_switch_primary,
                 template_switch_secondary,
                 primary_index,
-                length_difference: successor_length_difference,
+                anti_primary_gap: successor_anti_primary_gap,
             },
             cost_increment,
             AlignmentType::TemplateSwitchExit {
-                length_difference: successor_length_difference,
+                anti_primary_gap: successor_anti_primary_gap,
             },
             context,
         ))
@@ -544,7 +545,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             entrance_query_index,
             template_switch_primary,
             primary_index,
-            length_difference,
+            anti_primary_gap,
             ..
         } = self.node_data.identifier
         else {
@@ -553,9 +554,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
 
         let (reference_index, query_index) = match template_switch_primary {
             TemplateSwitchPrimary::Reference => {
-                let primary_length = primary_index - entrance_reference_index;
-                let anti_primary_length = primary_length as isize + length_difference;
-                let query_index = entrance_query_index as isize + anti_primary_length;
+                let query_index = entrance_query_index as isize + anti_primary_gap;
 
                 if query_index < 0 {
                     return None;
@@ -564,9 +563,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 (primary_index, query_index as usize)
             }
             TemplateSwitchPrimary::Query => {
-                let primary_length = primary_index - entrance_query_index;
-                let anti_primary_length = primary_length as isize + length_difference;
-                let reference_index = entrance_reference_index as isize + anti_primary_length;
+                let reference_index = entrance_reference_index as isize + anti_primary_gap;
 
                 if reference_index < 0 {
                     return None;

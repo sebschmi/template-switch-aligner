@@ -44,7 +44,15 @@ pub enum AlignmentType {
         first_offset: isize,
     },
     /// A template switch exit.
-    TemplateSwitchExit { length_difference: isize },
+    TemplateSwitchExit {
+        /// The number of characters that are skipped on the anti-primary sequence.
+        /// If negative, it is the number of characters that are repeated on the anti-primary sequence.
+        ///
+        /// In terms of switchpoints, this is the difference `SP4 - SP1`.
+        ///
+        /// Note that the anti-primary sequence is not necessarily equal to the secondary sequence.
+        anti_primary_gap: isize,
+    },
     /// This node is the root node, hence it was not generated via alignment.
     Root,
     /// The root node of a secondary graph.
@@ -154,9 +162,6 @@ impl AlignmentType {
                 secondary: secondary.inverted(),
                 first_offset: *first_offset,
             },
-            Self::TemplateSwitchExit { length_difference } => Self::TemplateSwitchExit {
-                length_difference: -*length_difference,
-            },
             Self::PrimaryShortcut {
                 delta_reference,
                 delta_query,
@@ -171,6 +176,7 @@ impl AlignmentType {
             | Self::PrimaryFlankMatch
             | Self::SecondarySubstitution
             | Self::SecondaryMatch
+            | Self::TemplateSwitchExit { .. }
             | Self::Root
             | Self::SecondaryRoot
             | Self::PrimaryReentry) => *symmetric,

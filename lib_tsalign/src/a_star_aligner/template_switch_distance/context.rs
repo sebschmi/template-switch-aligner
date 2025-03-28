@@ -505,15 +505,25 @@ impl<
             }
 
             Identifier::TemplateSwitchExit {
+                entrance_reference_index,
+                entrance_query_index,
                 template_switch_primary,
                 primary_index,
-                length_difference,
+                anti_primary_gap,
                 ..
             } => {
                 let anti_primary_length = match template_switch_primary {
                     TemplateSwitchPrimary::Reference => self.query.len(),
                     TemplateSwitchPrimary::Query => self.reference.len(),
                 };
+                let entrance_primary_index = match template_switch_primary {
+                    TemplateSwitchPrimary::Reference => entrance_reference_index,
+                    TemplateSwitchPrimary::Query => entrance_query_index,
+                };
+
+                let primary_inner_length = primary_index - entrance_primary_index;
+                let length_difference =
+                    anti_primary_gap - isize::try_from(primary_inner_length).unwrap();
 
                 if length_difference >= 0
                     && primary_index as isize + length_difference < anti_primary_length as isize
@@ -529,7 +539,7 @@ impl<
 
                         opened_nodes_output.extend(node.generate_template_switch_exit_successor(
                             cost_increment,
-                            length_difference + 1,
+                            anti_primary_gap + 1,
                             self,
                         ))
                     }
@@ -547,7 +557,7 @@ impl<
 
                         opened_nodes_output.extend(node.generate_template_switch_exit_successor(
                             cost_increment,
-                            length_difference - 1,
+                            anti_primary_gap - 1,
                             self,
                         ))
                     }
