@@ -10,7 +10,7 @@ use lib_tsalign::{
     },
     costs::U64Cost,
 };
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use numbers::{Number, NumberAlignment};
 use svg::{
     Document,
@@ -75,17 +75,24 @@ pub fn create_ts_svg(
     let mut has_secondary_query_ts = false;
     let mut has_self_reference_ts = false;
     let mut has_self_query_ts = false;
+    let mut has_negative_anti_primary_gap = false;
 
-    for (primary, secondary) in alignment.iter_compact().filter_map(|(_, alignment_type)| {
-        if let AlignmentType::TemplateSwitchEntrance {
-            primary, secondary, ..
-        } = *alignment_type
-        {
-            Some((primary, secondary))
-        } else {
-            None
-        }
-    }) {
+    for (primary, secondary) in
+        alignment
+            .iter_compact()
+            .filter_map(|(_, alignment_type)| match alignment_type {
+                AlignmentType::TemplateSwitchEntrance {
+                    primary, secondary, ..
+                } => Some((primary, secondary)),
+                AlignmentType::TemplateSwitchExit { anti_primary_gap } => {
+                    if *anti_primary_gap < 0 {
+                        has_negative_anti_primary_gap = true;
+                    }
+                    None
+                }
+                _ => None,
+            })
+    {
         match (primary, secondary) {
             (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Reference) => {
                 has_self_reference_ts = true;
@@ -102,6 +109,11 @@ pub fn create_ts_svg(
                 has_secondary_query_ts = true;
             }
         }
+    }
+
+    if has_negative_anti_primary_gap {
+        error!("Negative anti-primary gap not supported for SVG generation. Aborting.");
+        return;
     }
 
     if !has_secondary_reference_ts
