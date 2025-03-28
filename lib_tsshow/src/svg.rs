@@ -213,11 +213,6 @@ pub fn create_ts_svg(
         );
     }
 
-    let mut arrows: Vec<_> = raw_arrows
-        .into_iter()
-        .map(|arrow| arrow.translate_char_gap_columns_to_real_columns(&renderer))
-        .collect();
-
     debug!("Rendering TSes");
     let mut ts_secondary_r_labels = Vec::new();
     let mut ts_secondary_q_labels = Vec::new();
@@ -300,6 +295,12 @@ pub fn create_ts_svg(
 
         label_vec.push(label);
     }
+
+    debug!("Translating TS base arrows");
+    let mut arrows: Vec<_> = raw_arrows
+        .into_iter()
+        .map(|arrow| arrow.translate_char_gap_columns_to_real_columns(&renderer))
+        .collect();
 
     debug!("Creating TS numbers and arrows");
     let mut numbers = Vec::new();
