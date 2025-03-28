@@ -8,7 +8,7 @@ use lib_tsalign::{
     },
     costs::U64Cost,
 };
-use log::{debug, info, warn};
+use log::{debug, info, trace, warn};
 use mutlipair_alignment_renderer::MultipairAlignmentRenderer;
 use parse_template_switches::{STREAM_PADDING, TSShow};
 
@@ -60,7 +60,7 @@ fn show_template_switch(
     sequences: &SequencePair,
     no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
 ) {
-    // println!("Showing template switch\n{template_switch:?}");
+    trace!("Showing template switch\n{template_switch:?}");
 
     let reference = &sequences.reference;
     let reference_c: String = sequences.reference_rc.chars().rev().collect();
@@ -127,8 +127,13 @@ fn show_template_switch(
 
     let primary_offset = primary_coordinate_picker(&template_switch.upstream_offset);
     let primary_limit = primary_coordinate_picker(&template_switch.downstream_limit);
-    let anti_primary_offset = anti_primary_coordinate_picker(&template_switch.upstream_offset);
-    let anti_primary_limit = anti_primary_coordinate_picker(&template_switch.downstream_limit);
+
+    let anti_primary_f1_offset = anti_primary_coordinate_picker(&template_switch.upstream_offset);
+    let anti_primary_f3_offset = anti_primary_coordinate_picker(&template_switch.sp4_offset);
+    let anti_primary_offset = anti_primary_f1_offset.min(anti_primary_f3_offset);
+    let anti_primary_f1_limit = anti_primary_coordinate_picker(&template_switch.sp1_offset);
+    let anti_primary_f3_limit = anti_primary_coordinate_picker(&template_switch.downstream_limit);
+    let anti_primary_limit = anti_primary_f1_limit.max(anti_primary_f3_limit);
 
     let primary_sp1 = primary_coordinate_picker(&template_switch.sp1_offset);
     let anti_primary_sp1 = anti_primary_coordinate_picker(&template_switch.sp1_offset);
@@ -150,7 +155,7 @@ fn show_template_switch(
     debug!("Anti-primary offset: {anti_primary_offset}");
     debug!("SP1 anti-primary offset: {anti_primary_sp1}");
     debug!("SP4 anti-primary offset: {anti_primary_sp4}");
-    debug!("Anti-primary limit: {anti_primary_limit}");
+    debug!("Anti-primary limit: {anti_primary_f3_limit}");
     debug!("Anti-primary len: {}", anti_primary.len());
     debug!(
         "SP2 primary offset: {}",
@@ -184,11 +189,29 @@ fn show_template_switch(
         );
 
         debug!("Adding F1");
+        let f1_sequence =
+            &primary[primary_offset..primary_coordinate_picker(&template_switch.sp1_offset)];
+        trace!("Current renderer content:\n{}", {
+            let mut out = Vec::new();
+            outside_renderer
+                .render_without_names(&mut out, [&anti_primary_forward_label])
+                .unwrap();
+            String::from_utf8(out).unwrap()
+        });
+        trace!("f1_sequence: {f1_sequence}");
+        trace!(
+            "f1_alignment: {} ({:?})",
+            template_switch.upstream.cigar(),
+            template_switch.upstream
+        );
+
         outside_renderer.add_aligned_sequence_without_data(
             &anti_primary_forward_label,
-            0,
+            anti_primary_f1_offset
+                .checked_sub(anti_primary_offset)
+                .unwrap(),
             f1_label.clone(),
-            primary[primary_offset..primary_coordinate_picker(&template_switch.sp1_offset)].chars(),
+            f1_sequence.chars(),
             template_switch.upstream.iter_flat_cloned(),
             true,
             invert_alignment,
@@ -196,7 +219,9 @@ fn show_template_switch(
         debug!("Adding F3");
         outside_renderer.add_aligned_sequence_without_data(
             &anti_primary_forward_label,
-            anti_primary_coordinate_picker(&template_switch.sp4_offset) - anti_primary_offset,
+            anti_primary_f3_offset
+                .checked_sub(anti_primary_offset)
+                .unwrap(),
             f3_label.clone(),
             primary[primary_coordinate_picker(&template_switch.sp4_offset)..primary_limit].chars(),
             template_switch.downstream.iter_flat_cloned(),
@@ -242,7 +267,7 @@ fn show_template_switch(
                 .sp3_secondary_offset
                 .saturating_sub(STREAM_PADDING),
         );
-        let anti_primary_extended_limit = anti_primary_limit.max(
+        let anti_primary_extended_limit = anti_primary_f3_limit.max(
             anti_primary
                 .chars()
                 .count()
@@ -347,7 +372,7 @@ fn show_template_switch(
         // Find subsequence of no-ts alignment that matches ts alignment interval.
         let mut stream = AlignmentStream::new();
         for alignment_type in no_ts_alignment.iter_flat_cloned() {
-            if anti_primary_coordinate_picker(&stream.head_coordinates()) >= anti_primary_limit {
+            if anti_primary_coordinate_picker(&stream.head_coordinates()) >= anti_primary_f3_limit {
                 break;
             } else {
                 stream.push(1, alignment_type);
@@ -355,7 +380,7 @@ fn show_template_switch(
         }
         assert_eq!(
             anti_primary_coordinate_picker(&stream.head_coordinates()),
-            anti_primary_limit
+            anti_primary_f3_limit
         );
 
         while anti_primary_coordinate_picker(&stream.tail_coordinates()) < anti_primary_offset {
@@ -369,7 +394,7 @@ fn show_template_switch(
         debug!("Creating no-ts renderer");
         let mut renderer = MultipairAlignmentRenderer::new_without_data(
             anti_primary_label.clone(),
-            anti_primary[anti_primary_offset..anti_primary_limit].chars(),
+            anti_primary[anti_primary_offset..anti_primary_f3_limit].chars(),
         );
 
         debug!("Adding primary");
