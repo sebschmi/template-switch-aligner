@@ -1,8 +1,8 @@
-use core::str;
 use std::{collections::BTreeMap, io::Write, iter};
 
 use arrows::{Arrow, ArrowEndpointDirection, add_arrow_defs};
 use font::{CharacterData, svg_string, typewriter};
+use labelled_sequence::LabelledSequence;
 use lib_tsalign::{
     a_star_aligner::{
         alignment_result::{AlignmentResult, alignment::Alignment},
@@ -24,17 +24,12 @@ use crate::plain_text::{
 
 mod arrows;
 mod font;
+pub mod labelled_sequence;
 mod numbers;
 
 struct SvgLocation {
     pub x: f32,
     pub y: f32,
-}
-
-#[derive(Debug, Clone)]
-struct LabelledSequence<'a, Label> {
-    label: Label,
-    sequence: &'a str,
 }
 
 struct TemplateSwitch {
@@ -58,15 +53,6 @@ struct OffsetShift {
 impl SvgLocation {
     pub fn as_transform(&self) -> String {
         format!("translate({} {})", self.x, self.y)
-    }
-}
-
-impl<Label: Clone> LabelledSequence<'_, Label> {
-    fn substring(&self, offset: usize, limit: usize) -> Self {
-        Self {
-            label: self.label.clone(),
-            sequence: char_substring(self.sequence, offset, limit),
-        }
     }
 }
 
@@ -126,11 +112,6 @@ pub fn create_ts_svg(
         warn!("No template switches found");
     }
 
-    let reference_label = "Reference".to_string();
-    let query_label = "Query".to_string();
-    let reference_c_label = "Reference Complement".to_string();
-    let query_c_label = "Query Complement".to_string();
-
     let reference = &result.statistics().sequences.reference;
     let query = &result.statistics().sequences.query;
     let reference_c: String = result
@@ -147,22 +128,10 @@ pub fn create_ts_svg(
         .chars()
         .rev()
         .collect();
-    let reference = LabelledSequence {
-        label: &reference_label,
-        sequence: reference,
-    };
-    let query = LabelledSequence {
-        label: &query_label,
-        sequence: query,
-    };
-    let reference_c = LabelledSequence {
-        label: &reference_c_label,
-        sequence: &reference_c,
-    };
-    let query_c = LabelledSequence {
-        label: &query_c_label,
-        sequence: &query_c,
-    };
+    let reference = LabelledSequence::new("Reference", reference);
+    let query = LabelledSequence::new("Query", query);
+    let reference_c = LabelledSequence::new("Reference Complement", &reference_c);
+    let query_c = LabelledSequence::new("Query Complement", &query_c);
 
     debug!("Rendering reference and query");
     let mut raw_arrows = Vec::new();
@@ -172,13 +141,13 @@ pub fn create_ts_svg(
     let mut offset_shift = OffsetShift::default();
 
     let mut renderer = MultipairAlignmentRenderer::new_empty();
-    renderer.add_empty_independent_sequence(reference_label.clone());
-    renderer.add_empty_independent_sequence(query_label.clone());
+    renderer.add_empty_independent_sequence(reference.label_cloned());
+    renderer.add_empty_independent_sequence(query.label_cloned());
     if has_secondary_reference_ts {
-        renderer.add_empty_independent_sequence(reference_c_label.clone());
+        renderer.add_empty_independent_sequence(reference_c.label_cloned());
     }
     if has_secondary_query_ts {
-        renderer.add_empty_independent_sequence(query_c_label.clone());
+        renderer.add_empty_independent_sequence(query_c.label_cloned());
     }
 
     let mut alignment_iter = alignment.iter_flat().copied().peekable();
@@ -281,17 +250,17 @@ pub fn create_ts_svg(
         };
         let (secondary_c_label, secondary_tail, label_vec) = match secondary {
             TemplateSwitchSecondary::Reference => (
-                reference_c.label,
+                reference_c.label(),
                 tail.reference(),
                 &mut ts_secondary_r_labels,
             ),
             TemplateSwitchSecondary::Query => {
-                (query_c.label, tail.query(), &mut ts_secondary_q_labels)
+                (query_c.label(), tail.query(), &mut ts_secondary_q_labels)
             }
         };
 
-        let label = format!("{} TS{}", primary.label, index + 1);
-        let inner_sequence = primary.sequence;
+        let label = format!("{} TS{}", primary.label(), index + 1);
+        let inner_sequence = primary.sequence();
         let inner_sequence_r: String = inner_sequence.chars().rev().collect();
         let inner_sequence_length = inner_sequence.chars().count();
         let inner_insertion_count = alignment
@@ -363,12 +332,12 @@ pub fn create_ts_svg(
 
         let (primary_label, primary_non_blank_offset, primary_non_blank_limit) = match primary {
             TemplateSwitchPrimary::Reference => (
-                &reference_label,
+                reference.label(),
                 reference_non_blank_offset,
                 reference_non_blank_limit,
             ),
             TemplateSwitchPrimary::Query => {
-                (&query_label, query_non_blank_offset, query_non_blank_limit)
+                (query.label(), query_non_blank_offset, query_non_blank_limit)
             }
         };
 
@@ -486,37 +455,37 @@ pub fn create_ts_svg(
         }
 
         rq_group = rq_group.add(svg_string(
-            renderer.sequence(&reference_c_label).iter(),
+            renderer.sequence(reference_c.label()).iter(),
             &SvgLocation { x: 0.0, y },
             &typewriter::FONT,
         ));
-        rows.insert(reference_c_label.clone(), y);
+        rows.insert(reference_c.label_cloned(), y);
         y += typewriter::FONT.character_height;
     }
 
     rq_group = rq_group.add(svg_string(
-        renderer.sequence(&reference_label).iter(),
+        renderer.sequence(reference.label()).iter(),
         &SvgLocation { x: 0.0, y },
         &typewriter::FONT,
     ));
-    rows.insert(reference_label.clone(), y);
+    rows.insert(reference.label_cloned(), y);
     y += typewriter::FONT.character_height;
 
     rq_group = rq_group.add(svg_string(
-        renderer.sequence(&query_label).iter(),
+        renderer.sequence(query.label()).iter(),
         &SvgLocation { x: 0.0, y },
         &typewriter::FONT,
     ));
-    rows.insert(query_label.clone(), y);
+    rows.insert(query.label_cloned(), y);
     y += typewriter::FONT.character_height;
 
     if has_secondary_query_ts {
         rq_group = rq_group.add(svg_string(
-            renderer.sequence(&query_c_label).iter(),
+            renderer.sequence(query_c.label()).iter(),
             &SvgLocation { x: 0.0, y },
             &typewriter::FONT,
         ));
-        rows.insert(query_c_label.clone(), y);
+        rows.insert(query_c.label_cloned(), y);
         y += typewriter::FONT.character_height;
 
         for ts_label in &ts_secondary_q_labels {
@@ -573,15 +542,15 @@ pub fn create_ts_svg(
 
         debug!("Creating no-ts renderer");
         let mut renderer = MultipairAlignmentRenderer::new_without_data(
-            reference_label.clone(),
+            reference.label_cloned(),
             no_ts_result.statistics().sequences.reference.chars(),
         );
 
         debug!("Adding query");
         renderer.add_aligned_sequence_without_data(
-            &reference_label,
+            reference.label(),
             0,
-            query_label.clone(),
+            query.label_cloned(),
             no_ts_result.statistics().sequences.query.chars(),
             no_ts_alignment.iter_flat_cloned(),
             true,
@@ -589,13 +558,13 @@ pub fn create_ts_svg(
         );
 
         debug!("Rendering SVG");
-        let reference = svg_string(
-            renderer.sequence(&reference_label).iter(),
+        let reference_svg = svg_string(
+            renderer.sequence(reference.label()).iter(),
             &SvgLocation { x: 0.0, y: 0.0 },
             &typewriter::FONT,
         );
-        let query = svg_string(
-            renderer.sequence(&query_label).iter(),
+        let query_svg = svg_string(
+            renderer.sequence(query.label()).iter(),
             &SvgLocation {
                 x: 0.0,
                 y: 1.0 * typewriter::FONT.character_height,
@@ -612,14 +581,14 @@ pub fn create_ts_svg(
                 }
                 .as_transform(),
             )
-            .add(reference)
-            .add(query);
+            .add(reference_svg)
+            .add(query_svg);
         svg = svg.add(group);
         view_box_width = view_box_width.max(
             renderer
-                .sequence(&reference_label)
+                .sequence(reference.label())
                 .len()
-                .max(renderer.sequence(&query_label).len()) as f32
+                .max(renderer.sequence(query.label()).len()) as f32
                 * typewriter::FONT.character_width
                 + 20.0,
         );
@@ -637,10 +606,10 @@ fn render_inter_ts(
     renderer: &mut MultipairAlignmentRenderer<String, CharacterData>,
     offset_shift: &OffsetShift,
     _arrows: &mut impl Extend<Arrow>,
-    reference: &LabelledSequence<&String>,
-    query: &LabelledSequence<&String>,
-    reference_c: Option<&LabelledSequence<&String>>,
-    query_c: Option<&LabelledSequence<&String>>,
+    reference: &LabelledSequence,
+    query: &LabelledSequence,
+    reference_c: Option<&LabelledSequence>,
+    query_c: Option<&LabelledSequence>,
     stream: &AlignmentStream,
 ) {
     debug!(
@@ -673,8 +642,8 @@ fn render_inter_ts(
         )
     });
 
-    debug!("Reference length: {}", reference.sequence.chars().count());
-    debug!("Query length: {}", query.sequence.chars().count());
+    debug!("Reference length: {}", reference.sequence().chars().count());
+    debug!("Query length: {}", query.sequence().chars().count());
 
     trace!("Current renderer content:\n{}", {
         let mut out = Vec::new();
@@ -683,16 +652,16 @@ fn render_inter_ts(
                 &mut out,
                 reference_c
                     .as_ref()
-                    .map(|reference_c| reference_c.label)
+                    .map(|reference_c| reference_c.label())
                     .into_iter()
-                    .chain([reference.label, query.label])
-                    .chain(query_c.as_ref().map(|query_c| query_c.label)),
+                    .chain([reference.label(), query.label()])
+                    .chain(query_c.as_ref().map(|query_c| query_c.label())),
             )
             .unwrap();
         String::from_utf8(out).unwrap()
     });
 
-    renderer.extend_sequence_with_default_data(reference.label, reference.sequence.chars());
+    renderer.extend_sequence_with_default_data(reference.label(), reference.sequence().chars());
 
     trace!("Current renderer content:\n{}", {
         let mut out = Vec::new();
@@ -701,22 +670,22 @@ fn render_inter_ts(
                 &mut out,
                 reference_c
                     .as_ref()
-                    .map(|reference_c| reference_c.label)
+                    .map(|reference_c| reference_c.label())
                     .into_iter()
-                    .chain([reference.label, query.label])
-                    .chain(query_c.as_ref().map(|query_c| query_c.label)),
+                    .chain([reference.label(), query.label()])
+                    .chain(query_c.as_ref().map(|query_c| query_c.label())),
             )
             .unwrap();
         String::from_utf8(out).unwrap()
     });
 
     renderer.extend_sequence_with_alignment_and_default_data(
-        reference.label,
-        query.label,
+        reference.label(),
+        query.label(),
         (stream.tail_coordinates().reference() as isize + offset_shift.reference)
             .try_into()
             .unwrap(),
-        query.sequence.chars(),
+        query.sequence().chars(),
         stream.stream_iter_flat(),
         true,
         false,
@@ -729,10 +698,10 @@ fn render_inter_ts(
                 &mut out,
                 reference_c
                     .as_ref()
-                    .map(|reference_c| reference_c.label)
+                    .map(|reference_c| reference_c.label())
                     .into_iter()
-                    .chain([reference.label, query.label])
-                    .chain(query_c.as_ref().map(|query_c| query_c.label)),
+                    .chain([reference.label(), query.label()])
+                    .chain(query_c.as_ref().map(|query_c| query_c.label())),
             )
             .unwrap();
         String::from_utf8(out).unwrap()
@@ -740,15 +709,15 @@ fn render_inter_ts(
 
     if let Some(reference_c) = reference_c.as_ref() {
         renderer.extend_sequence_with_alignment_and_default_data(
-            reference.label,
-            reference_c.label,
+            reference.label(),
+            reference_c.label(),
             (stream.tail_coordinates().reference() as isize + offset_shift.reference)
                 .try_into()
                 .unwrap(),
-            reference_c.sequence.chars(),
+            reference_c.sequence().chars(),
             iter::repeat_n(
                 AlignmentType::PrimaryMatch,
-                reference_c.sequence.chars().count(),
+                reference_c.sequence().chars().count(),
             ),
             false,
             false,
@@ -763,24 +732,24 @@ fn render_inter_ts(
                     &mut out,
                     reference_c
                         .as_ref()
-                        .map(|reference_c| reference_c.label)
+                        .map(|reference_c| reference_c.label())
                         .into_iter()
-                        .chain([reference.label, query.label, query_c.label]),
+                        .chain([reference.label(), query.label(), query_c.label()]),
                 )
                 .unwrap();
             String::from_utf8(out).unwrap()
         });
 
         renderer.extend_sequence_with_alignment_and_default_data(
-            query.label,
-            query_c.label,
+            query.label(),
+            query_c.label(),
             (stream.tail_coordinates().query() as isize + offset_shift.query)
                 .try_into()
                 .unwrap(),
-            query_c.sequence.chars(),
+            query_c.sequence().chars(),
             iter::repeat_n(
                 AlignmentType::PrimaryMatch,
-                query_c.sequence.chars().count(),
+                query_c.sequence().chars().count(),
             ),
             false,
             false,
@@ -793,10 +762,10 @@ fn render_ts_base(
     renderer: &mut MultipairAlignmentRenderer<String, CharacterData>,
     offset_shift: &mut OffsetShift,
     arrows: &mut impl Extend<Arrow>,
-    reference: &LabelledSequence<&String>,
-    query: &LabelledSequence<&String>,
-    reference_c: Option<&LabelledSequence<&String>>,
-    query_c: Option<&LabelledSequence<&String>>,
+    reference: &LabelledSequence,
+    query: &LabelledSequence,
+    reference_c: Option<&LabelledSequence>,
+    query_c: Option<&LabelledSequence>,
     stream: &AlignmentStream,
 ) -> TemplateSwitch {
     debug!(
@@ -809,8 +778,8 @@ fn render_ts_base(
     );
     debug!("Offset shift: {offset_shift}");
 
-    let reference_non_blank_offset = renderer.sequence(reference.label).len_without_blanks();
-    let query_non_blank_offset = renderer.sequence(reference.label).len_without_blanks();
+    let reference_non_blank_offset = renderer.sequence(reference.label()).len_without_blanks();
+    let query_non_blank_offset = renderer.sequence(reference.label()).len_without_blanks();
 
     let reference = reference.substring(
         stream.tail_coordinates().reference(),
@@ -878,7 +847,8 @@ fn render_ts_base(
             ),
         };
 
-    renderer.extend_sequence_with_default_data(anti_primary.label, anti_primary.sequence.chars());
+    renderer
+        .extend_sequence_with_default_data(anti_primary.label(), anti_primary.sequence().chars());
 
     trace!("Current renderer content:\n{}", {
         let mut out = Vec::new();
@@ -887,20 +857,20 @@ fn render_ts_base(
                 &mut out,
                 reference_c
                     .as_ref()
-                    .map(|reference_c| reference_c.label)
+                    .map(|reference_c| reference_c.label())
                     .into_iter()
-                    .chain([reference.label, query.label])
-                    .chain(query_c.as_ref().map(|query_c| query_c.label)),
+                    .chain([reference.label(), query.label()])
+                    .chain(query_c.as_ref().map(|query_c| query_c.label())),
             )
             .unwrap();
         String::from_utf8(out).unwrap()
     });
 
     renderer.extend_sequence_with_alignment(
-        anti_primary.label,
-        primary.label,
+        anti_primary.label(),
+        primary.label(),
         anti_primary_offset,
-        anti_primary.sequence.chars().map(|c| {
+        anti_primary.sequence().chars().map(|c| {
             Character::new_char(
                 c,
                 CharacterData {
@@ -912,7 +882,7 @@ fn render_ts_base(
         || unreachable!(),
         iter::repeat_n(
             AlignmentType::PrimaryMatch,
-            anti_primary.sequence.chars().count(),
+            anti_primary.sequence().chars().count(),
         ),
         false,
         false,
@@ -926,23 +896,23 @@ fn render_ts_base(
                     &mut out,
                     reference_c
                         .as_ref()
-                        .map(|reference_c| reference_c.label)
+                        .map(|reference_c| reference_c.label())
                         .into_iter()
-                        .chain([reference.label, query.label])
-                        .chain(query_c.as_ref().map(|query_c| query_c.label)),
+                        .chain([reference.label(), query.label()])
+                        .chain(query_c.as_ref().map(|query_c| query_c.label())),
                 )
                 .unwrap();
             String::from_utf8(out).unwrap()
         });
 
         renderer.extend_sequence_with_alignment_and_default_data(
-            anti_primary.label,
-            anti_primary_c.label,
+            anti_primary.label(),
+            anti_primary_c.label(),
             anti_primary_offset,
-            anti_primary_c.sequence.chars(),
+            anti_primary_c.sequence().chars(),
             iter::repeat_n(
                 AlignmentType::PrimaryMatch,
-                anti_primary.sequence.chars().count(),
+                anti_primary.sequence().chars().count(),
             ),
             false,
             false,
@@ -950,7 +920,7 @@ fn render_ts_base(
     }
 
     if let Some(primary_c) = &primary_c {
-        let extension = primary_c.sequence.chars().map(|c| {
+        let extension = primary_c.sequence().chars().map(|c| {
             Character::new_char(
                 c,
                 CharacterData {
@@ -959,7 +929,7 @@ fn render_ts_base(
             )
         });
         let extension_total_length = extension.clone().count();
-        let extension_existing_length = anti_primary.sequence.chars().count();
+        let extension_existing_length = anti_primary.sequence().chars().count();
         let extension_additional_length =
             extension_total_length.saturating_sub(extension_existing_length);
         trace!("extension_existing_length: {extension_existing_length}");
@@ -972,18 +942,18 @@ fn render_ts_base(
                     &mut out,
                     reference_c
                         .as_ref()
-                        .map(|reference_c| reference_c.label)
+                        .map(|reference_c| reference_c.label())
                         .into_iter()
-                        .chain([reference.label, query.label])
-                        .chain(query_c.as_ref().map(|query_c| query_c.label)),
+                        .chain([reference.label(), query.label()])
+                        .chain(query_c.as_ref().map(|query_c| query_c.label())),
                 )
                 .unwrap();
             String::from_utf8(out).unwrap()
         });
 
         renderer.extend_sequence_with_alignment(
-            primary.label,
-            primary_c.label,
+            primary.label(),
+            primary_c.label(),
             primary_offset,
             extension.clone().take(extension_existing_length),
             Default::default,
@@ -996,26 +966,29 @@ fn render_ts_base(
             false,
         );
         renderer.extend_sequence(
-            primary_c.label,
+            primary_c.label(),
             extension.skip(extension_existing_length),
             Default::default,
         );
 
         if extension_additional_length > 0 {
-            let column_a = renderer.sequence(anti_primary.label).len_without_blanks();
-            let arrow_a = Arrow::new_skip(column_a, column_a, anti_primary.label.clone());
+            let column_a = renderer.sequence(anti_primary.label()).len_without_blanks();
+            let arrow_a = Arrow::new_skip(column_a, column_a, anti_primary.label().clone());
             debug!("Adding extension arrow {arrow_a}");
             arrows.extend([arrow_a]);
 
             if let Some(anti_primary_c) = &anti_primary_c {
-                let column_ac = renderer.sequence(anti_primary_c.label).len_without_blanks();
-                let arrow_ac = Arrow::new_skip(column_ac, column_ac, anti_primary_c.label.clone());
+                let column_ac = renderer
+                    .sequence(anti_primary_c.label())
+                    .len_without_blanks();
+                let arrow_ac =
+                    Arrow::new_skip(column_ac, column_ac, anti_primary_c.label().clone());
                 debug!("Adding extension arrow {arrow_ac}");
                 arrows.extend([arrow_ac]);
             }
         } else if extension_total_length < extension_existing_length {
-            let column_c = renderer.sequence(primary_c.label).len_without_blanks();
-            let arrow_c = Arrow::new_skip(column_c, column_c, primary_c.label.clone());
+            let column_c = renderer.sequence(primary_c.label()).len_without_blanks();
+            let arrow_c = Arrow::new_skip(column_c, column_c, primary_c.label().clone());
             debug!("Adding extension arrow {arrow_c}");
             arrows.extend([arrow_c]);
         }
@@ -1026,8 +999,8 @@ fn render_ts_base(
         TemplateSwitchPrimary::Query => offset_shift.query += length_difference,
     }
 
-    let reference_non_blank_limit = renderer.sequence(reference.label).len_without_blanks();
-    let query_non_blank_limit = renderer.sequence(reference.label).len_without_blanks();
+    let reference_non_blank_limit = renderer.sequence(reference.label()).len_without_blanks();
+    let query_non_blank_limit = renderer.sequence(reference.label()).len_without_blanks();
 
     TemplateSwitch {
         label: None,
@@ -1039,33 +1012,6 @@ fn render_ts_base(
         query_non_blank_limit,
         inner_non_blank_length: None,
         alignment: stream.stream_alignment(),
-    }
-}
-
-fn char_substring(string: &str, offset: usize, limit: usize) -> &str {
-    //trace!("Taking substring {offset}..{limit} of {string}");
-
-    let mut indices = string
-        .char_indices()
-        .map(|(index, _)| index)
-        .chain(Some(string.len()));
-    let byte_offset = indices.by_ref().nth(offset).unwrap_or_else(|| {
-        panic!(
-            "The string contains {} characters, but the offset is {offset}",
-            string.chars().count()
-        )
-    });
-
-    if offset == limit {
-        &string[byte_offset..byte_offset]
-    } else {
-        let byte_limit = indices.nth(limit - offset - 1).unwrap_or_else(|| {
-            panic!(
-                "The string contains {} characters, but the limit is {limit}",
-                string.chars().count()
-            )
-        });
-        &string[byte_offset..byte_limit]
     }
 }
 
