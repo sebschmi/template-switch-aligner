@@ -12,6 +12,7 @@ use lib_tsalign::{
 };
 use log::{debug, info, trace, warn};
 use numbers::{Number, NumberAlignment};
+use offset_shift::{CharacterIsCopy, OffsetShift};
 use svg::{
     Document,
     node::element::{Circle, Group, Text},
@@ -29,6 +30,9 @@ mod arrows;
 mod font;
 pub mod labelled_sequence;
 mod numbers;
+mod offset_shift;
+
+const COPY_COLORS: &[&str] = &["#003300", "#006600", "#009900", "#00CC00"];
 
 struct SvgLocation {
     pub x: f32,
@@ -44,13 +48,8 @@ struct TemplateSwitch {
     query_non_blank_offset: usize,
     query_non_blank_limit: usize,
     inner_non_blank_length: Option<usize>,
+    inner_copy_depths: Vec<CharacterIsCopy>,
     alignment: Alignment<AlignmentType>,
-}
-
-#[derive(Debug, Default)]
-struct OffsetShift {
-    reference: isize,
-    query: isize,
 }
 
 impl SvgLocation {
@@ -114,7 +113,7 @@ pub fn create_ts_svg(
     }
 
     if has_negative_anti_primary_gap {
-        return Err(Error::SvgNegativeAntiPrimaryGap);
+        warn!("Template switch with negative anti-primary gap found, this may be buggy");
     }
 
     if !has_secondary_reference_ts
@@ -171,7 +170,7 @@ pub fn create_ts_svg(
         if matches!(alignment_type, AlignmentType::TemplateSwitchEntrance { .. }) {
             render_inter_ts(
                 &mut renderer,
-                &offset_shift,
+                &mut offset_shift,
                 &mut raw_arrows,
                 &reference,
                 &query,
@@ -216,7 +215,7 @@ pub fn create_ts_svg(
     if !stream.is_empty() {
         render_inter_ts(
             &mut renderer,
-            &offset_shift,
+            &mut offset_shift,
             &mut raw_arrows,
             &reference,
             &query,
@@ -236,6 +235,7 @@ pub fn create_ts_svg(
             tail,
             head,
             inner_non_blank_length,
+            inner_copy_depths,
             alignment,
             ..
         },
@@ -293,11 +293,26 @@ pub fn create_ts_svg(
             .try_into()
             .unwrap();
 
-        renderer.add_aligned_sequence_with_default_data(
+        renderer.add_aligned_sequence(
             secondary_c_label,
             inner_offset,
             label.clone(),
-            inner_sequence_r.chars(),
+            inner_sequence_r
+                .chars()
+                .zip(inner_copy_depths.iter().rev())
+                .map(|(c, cic)| {
+                    Character::new_char(
+                        c,
+                        match cic {
+                            CharacterIsCopy::Yes { depth } => {
+                                CharacterData::new_colored(COPY_COLORS[*depth % COPY_COLORS.len()])
+                            }
+                            CharacterIsCopy::No => Default::default(),
+                        },
+                    )
+                }),
+            Default::default,
+            Default::default,
             alignment.iter_flat_cloned().skip(1).rev().skip(1),
             true,
             false,
@@ -620,7 +635,7 @@ pub fn create_ts_svg(
 #[allow(clippy::too_many_arguments)]
 fn render_inter_ts(
     renderer: &mut MultipairAlignmentRenderer<String, CharacterData>,
-    offset_shift: &OffsetShift,
+    offset_shift: &mut OffsetShift,
     _arrows: &mut impl Extend<Arrow>,
     reference: &LabelledSequence,
     query: &LabelledSequence,
@@ -658,6 +673,14 @@ fn render_inter_ts(
         )
     });
 
+    assert!(
+        !reference.is_negative_substring(),
+        "inter-ts does not do any jumps"
+    );
+    assert!(
+        !query.is_negative_substring(),
+        "inter-ts does not do any jumps"
+    );
     debug!("Reference length: {}", reference.sequence().chars().count());
     debug!("Query length: {}", query.sequence().chars().count());
 
@@ -677,7 +700,24 @@ fn render_inter_ts(
         String::from_utf8(out).unwrap()
     });
 
-    renderer.extend_sequence_with_default_data(reference.label(), reference.sequence().chars());
+    let mut reference_copy_char_count = 0;
+    renderer.extend_sequence(
+        reference.label(),
+        reference.sequence().chars().map(|c| {
+            Character::new_char(
+                c,
+                match offset_shift.next_reference() {
+                    CharacterIsCopy::Yes { depth } => {
+                        reference_copy_char_count += 1;
+                        CharacterData::new_colored(COPY_COLORS[depth % COPY_COLORS.len()])
+                    }
+                    CharacterIsCopy::No => Default::default(),
+                },
+            )
+        }),
+        Default::default,
+    );
+    let reference_copy_char_count = reference_copy_char_count;
 
     trace!("Current renderer content:\n{}", {
         let mut out = Vec::new();
@@ -695,81 +735,104 @@ fn render_inter_ts(
         String::from_utf8(out).unwrap()
     });
 
-    renderer.extend_sequence_with_alignment_and_default_data(
+    let mut query_copy_char_count = 0;
+    renderer.extend_sequence_with_alignment(
         reference.label(),
         query.label(),
         (stream.tail_coordinates().reference() as isize + offset_shift.reference)
             .try_into()
             .unwrap(),
-        query.sequence().chars(),
+        query.sequence().chars().map(|c| {
+            Character::new_char(
+                c,
+                match offset_shift.next_query() {
+                    CharacterIsCopy::Yes { depth } => {
+                        query_copy_char_count += 1;
+                        CharacterData::new_colored(COPY_COLORS[depth % COPY_COLORS.len()])
+                    }
+                    CharacterIsCopy::No => Default::default(),
+                },
+            )
+        }),
+        Default::default,
+        Default::default,
         stream.stream_iter_flat(),
         true,
         false,
     );
-
-    trace!("Current renderer content:\n{}", {
-        let mut out = Vec::new();
-        renderer
-            .render_without_names(
-                &mut out,
-                reference_c
-                    .as_ref()
-                    .map(|reference_c| reference_c.label())
-                    .into_iter()
-                    .chain([reference.label(), query.label()])
-                    .chain(query_c.as_ref().map(|query_c| query_c.label())),
-            )
-            .unwrap();
-        String::from_utf8(out).unwrap()
-    });
+    let query_copy_char_count = query_copy_char_count;
 
     if let Some(reference_c) = reference_c.as_ref() {
-        renderer.extend_sequence_with_alignment_and_default_data(
-            reference.label(),
-            reference_c.label(),
-            (stream.tail_coordinates().reference() as isize + offset_shift.reference)
-                .try_into()
-                .unwrap(),
-            reference_c.sequence().chars(),
-            iter::repeat_n(
-                AlignmentType::PrimaryMatch,
-                reference_c.sequence().chars().count(),
-            ),
-            false,
-            false,
-        );
+        if reference_copy_char_count < reference_c.sequence().chars().count() {
+            trace!("Current renderer content:\n{}", {
+                let mut out = Vec::new();
+                renderer
+                    .render_without_names(
+                        &mut out,
+                        [reference_c.label(), reference.label(), query.label()]
+                            .into_iter()
+                            .chain(query_c.as_ref().map(|query_c| query_c.label())),
+                    )
+                    .unwrap();
+                String::from_utf8(out).unwrap()
+            });
+
+            renderer.extend_sequence_with_alignment_and_default_data(
+                reference.label(),
+                reference_c.label(),
+                usize::try_from(
+                    stream.tail_coordinates().reference() as isize + offset_shift.reference,
+                )
+                .unwrap()
+                    + reference_copy_char_count,
+                reference_c
+                    .sequence()
+                    .chars()
+                    .skip(reference_copy_char_count),
+                iter::repeat_n(
+                    AlignmentType::PrimaryMatch,
+                    reference_c.sequence().chars().count(),
+                )
+                .skip(reference_copy_char_count),
+                false,
+                false,
+            );
+        }
     }
 
     if let Some(query_c) = query_c {
-        trace!("Current renderer content:\n{}", {
-            let mut out = Vec::new();
-            renderer
-                .render_without_names(
-                    &mut out,
-                    reference_c
-                        .as_ref()
-                        .map(|reference_c| reference_c.label())
-                        .into_iter()
-                        .chain([reference.label(), query.label(), query_c.label()]),
-                )
-                .unwrap();
-            String::from_utf8(out).unwrap()
-        });
+        if query_copy_char_count < query_c.sequence().chars().count() {
+            trace!("Current renderer content:\n{}", {
+                let mut out = Vec::new();
+                renderer
+                    .render_without_names(
+                        &mut out,
+                        reference_c
+                            .as_ref()
+                            .map(|reference_c| reference_c.label())
+                            .into_iter()
+                            .chain([reference.label(), query.label(), query_c.label()]),
+                    )
+                    .unwrap();
+                String::from_utf8(out).unwrap()
+            });
 
-        renderer.extend_sequence_with_alignment_and_default_data(
-            query.label(),
-            query_c.label(),
-            (stream.tail_coordinates().query() as isize + offset_shift.query)
-                .try_into()
-                .unwrap(),
-            query_c.sequence().chars(),
-            iter::repeat_n(
-                AlignmentType::PrimaryMatch,
-                query_c.sequence().chars().count(),
-            ),
-            false,
-            false,
-        );
+            renderer.extend_sequence_with_alignment_and_default_data(
+                query.label(),
+                query_c.label(),
+                usize::try_from(stream.tail_coordinates().query() as isize + offset_shift.query)
+                    .unwrap()
+                    + query_copy_char_count,
+                query_c.sequence().chars().skip(query_copy_char_count),
+                iter::repeat_n(
+                    AlignmentType::PrimaryMatch,
+                    query_c.sequence().chars().count(),
+                )
+                .skip(query_copy_char_count),
+                false,
+                false,
+            );
+        }
     }
 }
 
@@ -863,105 +926,35 @@ fn render_ts_base(
             ),
         };
 
-    renderer.extend_sequence(
-        anti_primary.label(),
-        anti_primary.sequence().chars().map(|c| {
-            Character::new_char(
-                c,
-                if anti_primary.is_negative_substring() {
-                    CharacterData::new_colored("darkblue")
-                } else {
-                    Default::default()
-                },
-            )
-        }),
-        Default::default,
-    );
+    assert!(!primary.is_negative_substring());
+    let primary_copy_depths: Vec<_> = primary
+        .sequence()
+        .chars()
+        .map(|_| offset_shift.next_primary(ts_primary))
+        .collect();
+    let primary_copied_char_count = primary_copy_depths
+        .iter()
+        .filter(|cic| matches!(cic, CharacterIsCopy::Yes { .. }))
+        .count();
 
-    trace!("Current renderer content:\n{}", {
-        let mut out = Vec::new();
-        renderer
-            .render_without_names(
-                &mut out,
-                reference_c
-                    .as_ref()
-                    .map(|reference_c| reference_c.label())
-                    .into_iter()
-                    .chain([reference.label(), query.label()])
-                    .chain(query_c.as_ref().map(|query_c| query_c.label())),
-            )
-            .unwrap();
-        String::from_utf8(out).unwrap()
-    });
-
-    renderer.extend_sequence_with_alignment(
-        anti_primary.label(),
-        primary.label(),
-        anti_primary_offset,
-        anti_primary.sequence().chars().map(|c| {
-            Character::new_char(
-                c,
-                CharacterData {
-                    color: "white".to_string(),
-                },
-            )
-        }),
-        Default::default,
-        || unreachable!(),
-        iter::repeat_n(
-            AlignmentType::PrimaryMatch,
-            anti_primary.sequence().chars().count(),
-        ),
-        false,
-        false,
-    );
-
-    if let Some(anti_primary_c) = anti_primary_c {
-        trace!("Current renderer content:\n{}", {
-            let mut out = Vec::new();
-            renderer
-                .render_without_names(
-                    &mut out,
-                    reference_c
-                        .as_ref()
-                        .map(|reference_c| reference_c.label())
-                        .into_iter()
-                        .chain([reference.label(), query.label()])
-                        .chain(query_c.as_ref().map(|query_c| query_c.label())),
-                )
-                .unwrap();
-            String::from_utf8(out).unwrap()
-        });
-
-        renderer.extend_sequence_with_alignment_and_default_data(
+    if !anti_primary.is_negative_substring() {
+        let mut anti_primary_copied_count = 0;
+        renderer.extend_sequence(
             anti_primary.label(),
-            anti_primary_c.label(),
-            anti_primary_offset,
-            anti_primary_c.sequence().chars(),
-            iter::repeat_n(
-                AlignmentType::PrimaryMatch,
-                anti_primary.sequence().chars().count(),
-            ),
-            false,
-            false,
+            anti_primary.sequence().chars().map(|c| {
+                Character::new_char(c, {
+                    match offset_shift.next_anti_primary(ts_primary) {
+                        CharacterIsCopy::Yes { depth } => {
+                            anti_primary_copied_count += 1;
+                            CharacterData::new_colored(COPY_COLORS[depth % COPY_COLORS.len()])
+                        }
+                        CharacterIsCopy::No => Default::default(),
+                    }
+                })
+            }),
+            Default::default,
         );
-    }
-
-    if let Some(primary_c) = &primary_c {
-        let extension = primary_c.sequence().chars().map(|c| {
-            Character::new_char(
-                c,
-                CharacterData {
-                    color: "grey".to_string(),
-                },
-            )
-        });
-        let extension_total_length = extension.clone().count();
-        let extension_existing_length = anti_primary.sequence().chars().count();
-        let extension_additional_length =
-            extension_total_length.saturating_sub(extension_existing_length);
-        trace!("extension_existing_length: {extension_existing_length}");
-        trace!("extension_additional_length: {extension_additional_length}");
+        let anti_primary_copied_char_count = anti_primary_copied_count;
 
         trace!("Current renderer content:\n{}", {
             let mut out = Vec::new();
@@ -980,60 +973,178 @@ fn render_ts_base(
         });
 
         renderer.extend_sequence_with_alignment(
+            anti_primary.label(),
             primary.label(),
-            primary_c.label(),
-            primary_offset,
-            extension.clone().take(extension_existing_length),
+            anti_primary_offset,
+            anti_primary.sequence().chars().map(|c| {
+                Character::new_char(
+                    c,
+                    CharacterData {
+                        color: "white".to_string(),
+                    },
+                )
+            }),
             Default::default,
-            Default::default,
+            || unreachable!(),
             iter::repeat_n(
                 AlignmentType::PrimaryMatch,
-                extension_existing_length.min(extension.clone().count()),
+                anti_primary.sequence().chars().count(),
             ),
             false,
             false,
         );
-        renderer.extend_sequence(
-            primary_c.label(),
-            extension.skip(extension_existing_length),
-            Default::default,
-        );
 
-        if extension_additional_length > 0 {
-            let column_a = renderer.sequence(anti_primary.label()).len_without_blanks();
-            let arrow_a = Arrow::new_skip(column_a, column_a, anti_primary.label().clone());
-            debug!("Adding extension arrow {arrow_a}");
-            arrows.extend([arrow_a]);
+        if let Some(anti_primary_c) = anti_primary_c {
+            trace!("Current renderer content:\n{}", {
+                let mut out = Vec::new();
+                renderer
+                    .render_without_names(
+                        &mut out,
+                        reference_c
+                            .as_ref()
+                            .map(|reference_c| reference_c.label())
+                            .into_iter()
+                            .chain([reference.label(), query.label()])
+                            .chain(query_c.as_ref().map(|query_c| query_c.label())),
+                    )
+                    .unwrap();
+                String::from_utf8(out).unwrap()
+            });
 
-            if let Some(anti_primary_c) = &anti_primary_c {
-                let column_ac = renderer
-                    .sequence(anti_primary_c.label())
-                    .len_without_blanks();
-                let arrow_ac =
-                    Arrow::new_skip(column_ac, column_ac, anti_primary_c.label().clone());
-                debug!("Adding extension arrow {arrow_ac}");
-                arrows.extend([arrow_ac]);
+            for (offset, character) in anti_primary_c
+                .sequence()
+                .char_indices()
+                .skip(anti_primary_copied_char_count)
+            {
+                renderer.extend_sequence_with_alignment_and_default_data(
+                    anti_primary.label(),
+                    anti_primary_c.label(),
+                    offset_shift.anti_primary_source_character_to_rendered_character_index(
+                        ts_primary,
+                        anti_primary_offset + offset,
+                    ),
+                    iter::once(character),
+                    iter::once(AlignmentType::PrimaryMatch),
+                    false,
+                    false,
+                );
             }
-        } else if extension_total_length < extension_existing_length {
-            let column_c = renderer.sequence(primary_c.label()).len_without_blanks();
-            let arrow_c = Arrow::new_skip(column_c, column_c, primary_c.label().clone());
-            debug!("Adding extension arrow {arrow_c}");
-            arrows.extend([arrow_c]);
         }
+
+        if let Some(primary_c) = &primary_c {
+            let extension = primary_c
+                .sequence()
+                .chars()
+                .map(|c| Character::new_char(c, CharacterData::new_colored("grey")));
+
+            let extension_total_length = extension.clone().count();
+            let extension_existing_length = anti_primary.sequence().chars().count();
+            let extension_additional_length =
+                extension_total_length.saturating_sub(extension_existing_length);
+            trace!("extension_existing_length: {extension_existing_length}");
+            trace!("extension_additional_length: {extension_additional_length}");
+
+            trace!("Current renderer content:\n{}", {
+                let mut out = Vec::new();
+                renderer
+                    .render_without_names(
+                        &mut out,
+                        reference_c
+                            .as_ref()
+                            .map(|reference_c| reference_c.label())
+                            .into_iter()
+                            .chain([reference.label(), query.label()])
+                            .chain(query_c.as_ref().map(|query_c| query_c.label())),
+                    )
+                    .unwrap();
+                String::from_utf8(out).unwrap()
+            });
+
+            for (offset, character) in extension
+                .clone()
+                .enumerate()
+                .take(extension_existing_length)
+                .skip(primary_copied_char_count)
+            {
+                renderer.extend_sequence_with_alignment(
+                    primary.label(),
+                    primary_c.label(),
+                    offset_shift.primary_source_character_to_rendered_character_index(
+                        ts_primary,
+                        primary_offset + offset,
+                    ),
+                    iter::once(character),
+                    Default::default,
+                    Default::default,
+                    iter::once(AlignmentType::PrimaryMatch),
+                    false,
+                    false,
+                );
+            }
+
+            for (offset, character) in extension
+                .clone()
+                .enumerate()
+                .skip(extension_existing_length.max(primary_copied_char_count))
+            {
+                renderer.extend_sequence_with_alignment(
+                    primary.label(),
+                    primary_c.label(),
+                    offset_shift.primary_source_character_to_rendered_character_index(
+                        ts_primary,
+                        primary_offset + offset,
+                    ),
+                    iter::once(character),
+                    Default::default,
+                    Default::default,
+                    iter::once(AlignmentType::PrimaryMatch),
+                    false,
+                    false,
+                );
+            }
+
+            if extension_additional_length > 0 {
+                let column_a = renderer.sequence(anti_primary.label()).len_without_blanks();
+                let arrow_a = Arrow::new_skip(column_a, column_a, anti_primary.label().clone());
+                debug!("Adding extension arrow {arrow_a}");
+                arrows.extend([arrow_a]);
+
+                if let Some(anti_primary_c) = &anti_primary_c {
+                    let column_ac = renderer
+                        .sequence(anti_primary_c.label())
+                        .len_without_blanks();
+                    let arrow_ac =
+                        Arrow::new_skip(column_ac, column_ac, anti_primary_c.label().clone());
+                    debug!("Adding extension arrow {arrow_ac}");
+                    arrows.extend([arrow_ac]);
+                }
+            } else if extension_total_length < extension_existing_length {
+                let column_c = renderer.sequence(primary_c.label()).len_without_blanks();
+                let arrow_c = Arrow::new_skip(column_c, column_c, primary_c.label().clone());
+                debug!("Adding extension arrow {arrow_c}");
+                arrows.extend([arrow_c]);
+            }
+        }
+    } else {
+        trace!("Anti-primary is negative substring, no need to render anything");
     }
 
-    let length_difference = anti_primary_gap - isize::try_from(primary.sequence().len()).unwrap();
+    let length_difference =
+        anti_primary_gap - isize::try_from(primary.sequence().chars().count()).unwrap();
     match ts_primary {
         TemplateSwitchPrimary::Reference => {
             offset_shift.reference += length_difference;
             if query.is_negative_substring() {
-                offset_shift.query -= isize::try_from(query.sequence().len()).unwrap();
+                offset_shift.query -= isize::try_from(query.sequence().chars().count()).unwrap();
+                offset_shift.push_query_copy(query.sequence().chars().count());
             }
         }
         TemplateSwitchPrimary::Query => {
             offset_shift.query += length_difference;
             if reference.is_negative_substring() {
-                offset_shift.reference -= isize::try_from(reference.sequence().len()).unwrap();
+                offset_shift.reference -=
+                    isize::try_from(reference.sequence().chars().count()).unwrap();
+                offset_shift.push_reference_copy(reference.sequence().chars().count());
             }
         }
     }
@@ -1050,6 +1161,7 @@ fn render_ts_base(
         query_non_blank_offset,
         query_non_blank_limit,
         inner_non_blank_length: None,
+        inner_copy_depths: primary_copy_depths,
         alignment: stream.stream_alignment(),
     }
 }
@@ -1066,10 +1178,4 @@ pub fn create_error_svg(output: impl Write, error: Error) -> Result<()> {
 
     svg::write(output, &svg)?;
     Ok(())
-}
-
-impl std::fmt::Display for OffsetShift {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RQ {}/{}", self.reference, self.query)
-    }
 }
