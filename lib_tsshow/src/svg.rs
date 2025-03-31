@@ -14,7 +14,7 @@ use log::{debug, info, trace, warn};
 use numbers::{Number, NumberAlignment};
 use svg::{
     Document,
-    node::element::{Circle, Group},
+    node::element::{Circle, Group, Text},
 };
 
 use crate::{
@@ -1052,6 +1052,20 @@ fn render_ts_base(
         inner_non_blank_length: None,
         alignment: stream.stream_alignment(),
     }
+}
+
+pub fn create_error_svg(output: impl Write, error: Error) -> Result<()> {
+    let svg = Document::new()
+        .set("viewBox", (0, 0, 1920, 1080))
+        .add(Circle::new().set("r", 1e5).set("fill", "white"))
+        .add(
+            Text::new(error.to_string())
+                .set("transform", SvgLocation { x: 10.0, y: 10.0 }.as_transform())
+                .set("font", "Sans serif"),
+        );
+
+    svg::write(output, &svg)?;
+    Ok(())
 }
 
 impl std::fmt::Display for OffsetShift {

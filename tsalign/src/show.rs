@@ -6,7 +6,11 @@ use std::{
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use lib_tsshow::{plain_text::show_template_switches, svg::create_ts_svg, svg_to_png};
+use lib_tsshow::{
+    plain_text::show_template_switches,
+    svg::{create_error_svg, create_ts_svg},
+    svg_to_png,
+};
 use log::{LevelFilter, info, warn};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 
@@ -39,6 +43,10 @@ pub struct Cli {
     /// Draw the SVG image with arrows connecting the switchpoints. Ignored if --svg is not set.
     #[clap(long, short = 'a')]
     svg_arrows: bool,
+
+    /// Always render the SVG (and optionally PNG), even if an error occurs. In the case of an error, the SVG simply contains the error message.
+    #[clap(long, short = 'r')]
+    render_always: bool,
 }
 
 pub fn cli(cli: Cli) -> Result<()> {
@@ -73,8 +81,13 @@ pub fn cli(cli: Cli) -> Result<()> {
 
     if let Some(svg_out_path) = cli.svg.as_ref() {
         let mut svg = Vec::new();
-        create_ts_svg(&mut svg, &result, &no_ts_result, cli.svg_arrows)
-            .with_context(|| "Error creating SVG.")?;
+        if let Err(error) = create_ts_svg(&mut svg, &result, &no_ts_result, cli.svg_arrows) {
+            if cli.render_always {
+                create_error_svg(&mut svg, error).with_context(|| "Error creating error SVG")?;
+            } else {
+                return Err(error).with_context(|| "Error creating SVG.");
+            }
+        }
         let svg = svg;
 
         info!("Writing svg to {svg_out_path:?}");
