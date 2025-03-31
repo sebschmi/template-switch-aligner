@@ -1,5 +1,6 @@
 #![deny(clippy::mod_module_files)]
 
+use anyhow::Result;
 use clap::Parser;
 
 mod align;
@@ -18,7 +19,7 @@ enum Subcommand {
     Show(show::Cli),
 }
 
-fn main() {
+fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.subcommand {

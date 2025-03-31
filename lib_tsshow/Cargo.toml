@@ -13,3 +13,4 @@ lib_tsalign = { version = "0.14.0", path = "../lib_tsalign" }
 log.workspace = true
 svg = "0.18.0"
 resvg = "0.45.0"
+thiserror = "2.0.12"

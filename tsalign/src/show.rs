@@ -4,8 +4,8 @@ use std::{
     path::PathBuf,
 };
 
+use anyhow::{Context, Result};
 use clap::Parser;
-
 use lib_tsshow::{plain_text::show_template_switches, svg::create_ts_svg, svg_to_png};
 use log::{LevelFilter, info, warn};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
@@ -41,7 +41,7 @@ pub struct Cli {
     svg_arrows: bool,
 }
 
-pub fn cli(cli: Cli) {
+pub fn cli(cli: Cli) -> Result<()> {
     TermLogger::init(
         cli.log_level,
         Default::default(),
@@ -73,7 +73,8 @@ pub fn cli(cli: Cli) {
 
     if let Some(svg_out_path) = cli.svg.as_ref() {
         let mut svg = Vec::new();
-        create_ts_svg(&mut svg, &result, &no_ts_result, cli.svg_arrows);
+        create_ts_svg(&mut svg, &result, &no_ts_result, cli.svg_arrows)
+            .with_context(|| "Error creating SVG.")?;
         let svg = svg;
 
         info!("Writing svg to {svg_out_path:?}");
@@ -93,4 +94,6 @@ pub fn cli(cli: Cli) {
             File::create(png_out_path).unwrap().write_all(&png).unwrap();
         }
     }
+
+    Ok(())
 }

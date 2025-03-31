@@ -5,6 +5,7 @@ use std::{
     path::PathBuf,
 };
 
+use anyhow::Result;
 use clap::{Args, Parser, ValueEnum};
 use compact_genome::{
     implementation::{
@@ -128,7 +129,7 @@ enum InputAlphabet {
     RnaIupac,
 }
 
-pub fn cli(cli: Cli) {
+pub fn cli(cli: Cli) -> Result<()> {
     TermLogger::init(
         cli.log_level,
         Default::default(),
@@ -151,6 +152,8 @@ pub fn cli(cli: Cli) {
         InputAlphabet::DnaIupac => execute_with_alphabet::<DnaIupacNucleicAcidAlphabet>(cli),
         InputAlphabet::RnaIupac => execute_with_alphabet::<RnaIupacNucleicAcidAlphabet>(cli),
     }
+
+    Ok(())
 }
 
 fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(cli: Cli) {

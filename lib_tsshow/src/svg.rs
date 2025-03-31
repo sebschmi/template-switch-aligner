@@ -10,16 +10,19 @@ use lib_tsalign::{
     },
     costs::U64Cost,
 };
-use log::{debug, error, info, trace, warn};
+use log::{debug, info, trace, warn};
 use numbers::{Number, NumberAlignment};
 use svg::{
     Document,
     node::element::{Circle, Group},
 };
 
-use crate::plain_text::{
-    alignment_stream::{AlignmentCoordinates, AlignmentStream},
-    mutlipair_alignment_renderer::{Character, MultipairAlignmentRenderer},
+use crate::{
+    error::{Error, Result},
+    plain_text::{
+        alignment_stream::{AlignmentCoordinates, AlignmentStream},
+        mutlipair_alignment_renderer::{Character, MultipairAlignmentRenderer},
+    },
 };
 
 mod arrows;
@@ -61,13 +64,12 @@ pub fn create_ts_svg(
     result: &AlignmentResult<AlignmentType, U64Cost>,
     no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
     render_arrows: bool,
-) {
+) -> Result<()> {
     info!("Creating template switch SVG");
 
     debug!("Rendering ts alignment");
     let AlignmentResult::WithTarget { alignment, .. } = result else {
-        warn!("Alignment was aborted early, unable to render");
-        return;
+        return Err(Error::AlignmentHasNoTarget);
     };
     debug!("Alignment: {alignment:?}");
 
@@ -112,8 +114,7 @@ pub fn create_ts_svg(
     }
 
     if has_negative_anti_primary_gap {
-        error!("Negative anti-primary gap not supported for SVG generation. Aborting.");
-        return;
+        return Err(Error::SvgNegativeAntiPrimaryGap);
     }
 
     if !has_secondary_reference_ts
@@ -540,7 +541,7 @@ pub fn create_ts_svg(
         } = no_ts_result
         else {
             warn!("No-ts alignment was aborted early, unable to render");
-            return;
+            return Err(Error::NoTsAlignmentHasNoTarget);
         };
 
         assert!(
@@ -611,7 +612,9 @@ pub fn create_ts_svg(
     }
 
     svg = svg.set("viewBox", (0, 0, view_box_width, view_box_height));
-    svg::write(output, &svg).unwrap();
+    svg::write(output, &svg)?;
+
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
