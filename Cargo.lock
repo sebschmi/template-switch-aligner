@@ -462,7 +462,9 @@ dependencies = [
  "lib_tsalign",
  "log",
  "resvg",
+ "strong-type",
  "svg",
+ "tagged-vec",
  "thiserror",
 ]
 
@@ -844,6 +846,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "strong-type"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed7d7139f5f4d5ceae0e71b68cb12ddf1e9a33fc621e14cc8c8e77c091e91649"
+dependencies = [
+ "strong-type-derive",
+]
+
+[[package]]
+name = "strong-type-derive"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4905d64a6277be7989ce451864b65de38c665e465f519278a89d3ae867cf018"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -875,6 +897,12 @@ dependencies = [
  "quote",
  "unicode-ident",
 ]
+
+[[package]]
+name = "tagged-vec"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fae225afec2a0fdcb47d9c82b3dfd7787f02ea726ad167da7f43e261fa5dea1"
 
 [[package]]
 name = "tap"

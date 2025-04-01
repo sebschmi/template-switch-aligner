@@ -1,4 +1,5 @@
 pub mod error;
+pub mod multipair_alignment_arrangement;
 pub mod plain_text;
 pub mod svg;
 
