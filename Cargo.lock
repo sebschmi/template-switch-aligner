@@ -257,6 +257,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
+name = "ena"
+version = "0.14.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d248bdd43ce613d87415282f69b9bb99d947d290b10962dd6c56233312c2ad5"
+dependencies = [
+ "log",
+]
+
+[[package]]
 name = "enum-iterator"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -459,6 +468,7 @@ dependencies = [
 name = "lib_tsshow"
 version = "0.14.0"
 dependencies = [
+ "ena",
  "lib_tsalign",
  "log",
  "resvg",
@@ -900,9 +910,9 @@ dependencies = [
 
 [[package]]
 name = "tagged-vec"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fae225afec2a0fdcb47d9c82b3dfd7787f02ea726ad167da7f43e261fa5dea1"
+checksum = "453e7b04c95fca5ebadede390d8aefd00e26bba756726b7dc4093ccd6061ae6c"
 
 [[package]]
 name = "tap"

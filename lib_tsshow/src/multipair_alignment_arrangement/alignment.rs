@@ -2,7 +2,10 @@ use std::ops::Range;
 
 use tagged_vec::TaggedVec;
 
-use super::coordinates::{AlignmentIndex, SourceColumn, SourceRow};
+use super::{
+    coordinates::{AlignmentIndex, SourceColumn, SourceRow},
+    sequence::{CharacterKind, CopiedCharactersIterator},
+};
 
 pub struct Alignment {
     alignment: Vec<AlignmentType>,
@@ -37,6 +40,19 @@ pub enum AlignmentType {
     ///
     /// The next character in sequence `B` is consumed, but not printed.
     SkipB,
+
+    /// The start of a copied suffix in sequence `A`.
+    CopyA { length: usize },
+    /// The start of a copied suffix in sequence `B`.
+    CopyB { length: usize },
+}
+
+pub struct AlignmentStep {
+    alignment_type: AlignmentType,
+    sequence_a: SourceRow,
+    sequence_b: SourceRow,
+    character_a: CharacterKind,
+    character_b: CharacterKind,
 }
 
 pub struct AlignmentIterator {
@@ -83,16 +99,96 @@ impl Alignment {
     }
 }
 
+impl AlignmentStep {
+    pub fn new(
+        alignment_type: AlignmentType,
+        sequence_a: SourceRow,
+        sequence_b: SourceRow,
+        character_a: CharacterKind,
+        character_b: CharacterKind,
+    ) -> Self {
+        Self {
+            alignment_type,
+            sequence_a,
+            sequence_b,
+            character_a,
+            character_b,
+        }
+    }
+
+    pub fn is_dominated_by(&self, other: &Self) -> bool {
+        assert!(!matches!(
+            self.alignment_type,
+            AlignmentType::CopyA { .. } | AlignmentType::CopyB { .. }
+        ));
+
+        let (self_is_gap, other_is_gap) = match (
+            self.sequence_a == other.sequence_a,
+            self.sequence_b == other.sequence_b,
+            self.sequence_a == other.sequence_b,
+            self.sequence_b == other.sequence_a,
+        ) {
+            (true, _, true, _) | (_, true, _, true) | (true, _, _, true) | (_, true, true, _) => {
+                unreachable!("sequence_a and sequence_b cannot be equal within one alignment step")
+            }
+            (true, true, false, false) | (false, false, true, true) => unreachable!(
+                "there is at most one alignment active for each pair of sequences at any point",
+            ),
+            (true, false, false, false) => (
+                matches!(self.alignment_type, AlignmentType::GapA),
+                matches!(other.alignment_type, AlignmentType::GapA),
+            ),
+            (false, true, false, false) => (
+                matches!(self.alignment_type, AlignmentType::GapB),
+                matches!(other.alignment_type, AlignmentType::GapB),
+            ),
+            (false, false, true, false) => (
+                matches!(self.alignment_type, AlignmentType::GapA),
+                matches!(other.alignment_type, AlignmentType::GapB),
+            ),
+            (false, false, false, true) => (
+                matches!(self.alignment_type, AlignmentType::GapB),
+                matches!(other.alignment_type, AlignmentType::GapA),
+            ),
+            (false, false, false, false) => return false,
+        };
+
+        if self_is_gap != other_is_gap {
+            other_is_gap
+        } else {
+            false
+        }
+    }
+}
+
 impl AlignmentIterator {
     pub fn new(index: AlignmentIndex) -> Self {
         Self { index, current: 0 }
     }
 
-    pub fn get<'alignments>(
-        &self,
-        alignments: &'alignments TaggedVec<AlignmentIndex, Alignment>,
-    ) -> Option<AlignmentType> {
+    pub fn alignment_index(&self) -> AlignmentIndex {
+        self.index
+    }
+
+    pub fn get(&self, alignments: &TaggedVec<AlignmentIndex, Alignment>) -> Option<AlignmentType> {
         alignments[self.index].alignment.get(self.current).copied()
+    }
+
+    pub fn get_alignment_step(
+        &self,
+        alignments: &TaggedVec<AlignmentIndex, Alignment>,
+        next_characters: &TaggedVec<SourceRow, CopiedCharactersIterator>,
+    ) -> Option<AlignmentStep> {
+        let alignment = &alignments[self.index];
+        self.get(alignments).map(|alignment_type| {
+            AlignmentStep::new(
+                alignment_type,
+                alignment.sequence_a,
+                alignment.sequence_b,
+                next_characters[alignment.sequence_a].current().unwrap(),
+                next_characters[alignment.sequence_b].current().unwrap(),
+            )
+        })
     }
 
     pub fn advance(&mut self) {
