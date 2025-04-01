@@ -5,7 +5,10 @@ right_flank_length = 5
 
 # Base Cost
 
-base_cost = 2
+rr_cost = 2
+rq_cost = 2
+qr_cost = 2
+qq_cost = 2
 
 # Jump Costs
 
