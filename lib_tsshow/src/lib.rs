@@ -2,6 +2,7 @@ pub mod error;
 pub mod multipair_alignment_arrangement;
 pub mod plain_text;
 pub mod svg;
+pub mod ts_arrangement;
 
 pub fn svg_to_png(svg_in: &[u8], zoom: f32) -> Vec<u8> {
     log::info!("Converting SVG to PNG");
