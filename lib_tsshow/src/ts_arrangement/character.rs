@@ -14,4 +14,10 @@ pub trait Char {
     }
 
     fn is_source_char(&self) -> bool;
+
+    fn is_hidden(&self) -> bool;
+
+    fn is_blank_or_hidden(&self) -> bool {
+        self.is_blank() || self.is_hidden()
+    }
 }

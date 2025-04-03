@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, io::Write, iter};
 
 use arrows::{Arrow, ArrowEndpointDirection, add_arrow_defs};
 use font::{CharacterData, svg_string, typewriter};
+use indexed_str::IndexedStr;
 use labelled_sequence::LabelledSequence;
 use lib_tsalign::{
     a_star_aligner::{
@@ -24,15 +25,20 @@ use crate::{
         alignment_stream::{AlignmentCoordinates, AlignmentStream},
         mutlipair_alignment_renderer::{Character, MultipairAlignmentRenderer},
     },
+    ts_arrangement::{
+        TsArrangement, complement::ComplementChar, inner::InnerChar, source::SourceChar,
+    },
 };
 
 mod arrows;
 mod font;
+mod indexed_str;
 pub mod labelled_sequence;
 mod numbers;
 mod offset_shift;
 
 const COPY_COLORS: &[&str] = &["#003300", "#006600", "#009900", "#00CC00"];
+const COMPLEMENT_SOURCE_HIDDEN_COLOR: &str = "grey";
 
 struct SvgLocation {
     pub x: f32,
@@ -55,6 +61,226 @@ struct TemplateSwitch {
 impl SvgLocation {
     pub fn as_transform(&self) -> String {
         format!("translate({} {})", self.x, self.y)
+    }
+}
+
+pub fn create_ts_svg_new(
+    output: impl Write,
+    result: &AlignmentResult<AlignmentType, U64Cost>,
+    no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
+    render_arrows: bool,
+) -> Result<()> {
+    info!("Creating template switch SVG");
+
+    let AlignmentResult::WithTarget {
+        alignment,
+        statistics,
+    } = result
+    else {
+        return Err(Error::AlignmentHasNoTarget);
+    };
+    debug!("Alignment: {alignment:?}");
+
+    let reference = &statistics.sequences.reference;
+    let query = &statistics.sequences.query;
+    let reference_c: String = statistics.sequences.reference_rc.chars().rev().collect();
+    let query_c: String = statistics.sequences.query_rc.chars().rev().collect();
+
+    debug!("Computing TS arrangement");
+    let mut template_switches = Vec::new();
+    let mut ts_arrangement = TsArrangement::new(
+        reference.len(),
+        query.len(),
+        alignment.iter_flat_cloned(),
+        &mut template_switches,
+    );
+    ts_arrangement.remove_empty_columns();
+    let ts_arrangement = ts_arrangement;
+
+    let mut ts_group =
+        Group::new().set("transform", SvgLocation { x: 10.0, y: 10.0 }.as_transform());
+
+    let reference = IndexedStr::new(reference);
+    let query = IndexedStr::new(query);
+    let reference_c = IndexedStr::new(&reference_c);
+    let query_c = IndexedStr::new(&query_c);
+
+    let mut y = 0.0;
+    for reference_inner in ts_arrangement.reference_inners().iter().rev() {
+        ts_group = ts_group.add(svg_string(
+            reference_inner.1.iter_values().map(render_inner_char(
+                match reference_inner.0.primary {
+                    TemplateSwitchPrimary::Reference => &reference,
+                    TemplateSwitchPrimary::Query => &query,
+                },
+            )),
+            &SvgLocation { x: 0.0, y },
+            &typewriter::FONT,
+        ));
+        y += typewriter::FONT.character_height;
+    }
+
+    ts_group = ts_group.add(svg_string(
+        ts_arrangement
+            .reference_complement()
+            .iter_values()
+            .map(render_complement_char(&reference_c)),
+        &SvgLocation { x: 0.0, y },
+        &typewriter::FONT,
+    ));
+    y += typewriter::FONT.character_height;
+
+    ts_group = ts_group.add(svg_string(
+        ts_arrangement
+            .reference()
+            .iter_values()
+            .map(render_source_char(&reference)),
+        &SvgLocation { x: 0.0, y },
+        &typewriter::FONT,
+    ));
+    y += typewriter::FONT.character_height;
+
+    ts_group = ts_group.add(svg_string(
+        ts_arrangement
+            .query()
+            .iter_values()
+            .map(render_source_char(&query)),
+        &SvgLocation { x: 0.0, y },
+        &typewriter::FONT,
+    ));
+    y += typewriter::FONT.character_height;
+
+    ts_group = ts_group.add(svg_string(
+        ts_arrangement
+            .query_complement()
+            .iter_values()
+            .map(render_complement_char(&query_c)),
+        &SvgLocation { x: 0.0, y },
+        &typewriter::FONT,
+    ));
+    y += typewriter::FONT.character_height;
+
+    for query_inner in ts_arrangement.query_inners() {
+        ts_group = ts_group.add(svg_string(
+            query_inner
+                .1
+                .iter_values()
+                .map(render_inner_char(match query_inner.0.primary {
+                    TemplateSwitchPrimary::Reference => &reference,
+                    TemplateSwitchPrimary::Query => &query,
+                })),
+            &SvgLocation { x: 0.0, y },
+            &typewriter::FONT,
+        ));
+        y += typewriter::FONT.character_height;
+    }
+
+    let view_box_width = 20.0 + ts_arrangement.width() as f32 * typewriter::FONT.character_width;
+    let view_box_height = 20.0 + y;
+
+    let mut svg = Document::new()
+        .add(Circle::new().set("r", 1e5).set("fill", "white"))
+        .add(ts_group);
+
+    svg = svg.set("viewBox", (0, 0, view_box_width, view_box_height));
+    svg::write(output, &svg)?;
+
+    Ok(())
+}
+
+fn render_source_char(
+    source_sequence: &IndexedStr,
+) -> impl Fn(&SourceChar) -> Character<CharacterData> {
+    |source_char| match source_char {
+        SourceChar::Source {
+            column,
+            lower_case,
+            copy_depth,
+        } => {
+            let c = source_sequence.char_at(column.into());
+            let c = if *lower_case {
+                c.to_ascii_lowercase()
+            } else {
+                c
+            };
+
+            Character::new_char(c, CharacterData::new_colored(copy_color(copy_depth)))
+        }
+        SourceChar::Gap { copy_depth } => {
+            Character::new_char('-', CharacterData::new_colored(copy_color(copy_depth)))
+        }
+        SourceChar::Hidden { .. } | SourceChar::Blank => Character::new_char_with_default(' '),
+    }
+}
+
+fn render_complement_char(
+    source_sequence: &IndexedStr,
+) -> impl Fn(&ComplementChar) -> Character<CharacterData> {
+    |complement_char| match complement_char {
+        ComplementChar::Complement {
+            column,
+            lower_case,
+            source_hidden,
+        } => {
+            let c = source_sequence.char_at(column.into());
+            let c = if *lower_case {
+                c.to_ascii_lowercase()
+            } else {
+                c
+            };
+
+            Character::new_char(
+                c,
+                if *source_hidden {
+                    CharacterData::new_colored(COMPLEMENT_SOURCE_HIDDEN_COLOR)
+                } else {
+                    Default::default()
+                },
+            )
+        }
+        ComplementChar::Gap { source_hidden } => Character::new_char(
+            '-',
+            if *source_hidden {
+                CharacterData::new_colored(COMPLEMENT_SOURCE_HIDDEN_COLOR)
+            } else {
+                Default::default()
+            },
+        ),
+        ComplementChar::Hidden { .. } | ComplementChar::Blank => {
+            Character::new_char(' ', Default::default())
+        }
+    }
+}
+
+fn render_inner_char(
+    source_sequence: &IndexedStr,
+) -> impl Fn(&InnerChar) -> Character<CharacterData> {
+    |inner_char| match inner_char {
+        InnerChar::Inner {
+            column,
+            lower_case,
+            copy_depth,
+        } => {
+            let c = source_sequence.char_at(column.into());
+            let c = if *lower_case {
+                c.to_ascii_lowercase()
+            } else {
+                c
+            };
+            Character::new_char(c, CharacterData::new_colored(copy_color(copy_depth)))
+        }
+        InnerChar::Gap { copy_depth } => {
+            Character::new_char('-', CharacterData::new_colored(copy_color(copy_depth)))
+        }
+        InnerChar::Blank => Character::new_char(' ', Default::default()),
+    }
+}
+
+fn copy_color(copy_depth: &Option<usize>) -> impl ToString {
+    if let Some(copy_depth) = copy_depth {
+        COPY_COLORS[copy_depth % COPY_COLORS.len()]
+    } else {
+        "black"
     }
 }
 

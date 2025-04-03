@@ -3,6 +3,7 @@ use std::iter;
 use lib_tsalign::a_star_aligner::template_switch_distance::{
     AlignmentType, TemplateSwitchSecondary,
 };
+use log::trace;
 use tagged_vec::TaggedVec;
 
 use crate::ts_arrangement::character::Char;
@@ -15,8 +16,8 @@ use super::{
 };
 
 pub struct TsInnerArrangement {
-    reference_inners: Vec<TaggedVec<ArrangementColumn, InnerChar>>,
-    query_inners: Vec<TaggedVec<ArrangementColumn, InnerChar>>,
+    reference_inners: Vec<(TemplateSwitch, TaggedVec<ArrangementColumn, InnerChar>)>,
+    query_inners: Vec<(TemplateSwitch, TaggedVec<ArrangementColumn, InnerChar>)>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -24,8 +25,11 @@ pub enum InnerChar {
     Inner {
         column: SourceColumn,
         lower_case: bool,
+        copy_depth: Option<usize>,
     },
-    Gap,
+    Gap {
+        copy_depth: Option<usize>,
+    },
     Blank,
 }
 
@@ -40,7 +44,7 @@ impl TsInnerArrangement {
             query_inners: Default::default(),
         };
 
-        for TemplateSwitch {
+        for ts @ TemplateSwitch {
             secondary,
             sp2_secondary,
             sp3_secondary,
@@ -49,6 +53,8 @@ impl TsInnerArrangement {
             ..
         } in template_switches
         {
+            trace!("source_inner: {source_inner:?}");
+
             let (mut sp2_secondary, sp3_secondary) = match secondary {
                 TemplateSwitchSecondary::Reference => (
                     source_arrangement.reference_source_to_arrangement_column(*sp2_secondary),
@@ -68,20 +74,6 @@ impl TsInnerArrangement {
             for alignment_type in inner_alignment.iter_flat_cloned().rev() {
                 match alignment_type {
                     AlignmentType::SecondaryInsertion => {
-                        while !complement_arrangement.secondary_complement(*secondary)
-                            [current_arrangement_column]
-                            .is_source_char()
-                        {
-                            inner.push(InnerChar::Blank);
-                            current_arrangement_column += 1;
-                        }
-
-                        complement_arrangement
-                            .show_secondary_character(*secondary, current_arrangement_column);
-                        inner.push(InnerChar::Gap);
-                        current_arrangement_column += 1;
-                    }
-                    AlignmentType::SecondaryDeletion => {
                         loop {
                             let c = complement_arrangement.secondary_complement(*secondary)
                                 [current_arrangement_column];
@@ -109,13 +101,33 @@ impl TsInnerArrangement {
                                 .iter_mut()
                                 .chain(&mut result.query_inners)
                             {
-                                existing_inner.insert(current_arrangement_column, InnerChar::Blank);
+                                existing_inner
+                                    .1
+                                    .insert(current_arrangement_column, InnerChar::Blank);
                             }
 
                             sp2_secondary += 1;
                         }
 
                         inner.push(source_inner.next().unwrap().into());
+                        current_arrangement_column += 1;
+                    }
+                    AlignmentType::SecondaryDeletion => {
+                        while !complement_arrangement.secondary_complement(*secondary)
+                            [current_arrangement_column]
+                            .is_source_char()
+                        {
+                            inner.push(InnerChar::Blank);
+                            current_arrangement_column += 1;
+                        }
+
+                        complement_arrangement
+                            .show_secondary_character(*secondary, current_arrangement_column);
+                        inner.push(InnerChar::Gap {
+                            copy_depth: source_arrangement.secondary(*secondary)
+                                [current_arrangement_column]
+                                .copy_depth(),
+                        });
                         current_arrangement_column += 1;
                     }
                     AlignmentType::SecondarySubstitution | AlignmentType::SecondaryMatch => {
@@ -157,12 +169,34 @@ impl TsInnerArrangement {
             inner.extend(suffix_blanks);
 
             match secondary {
-                TemplateSwitchSecondary::Reference => result.reference_inners.push(inner),
-                TemplateSwitchSecondary::Query => result.query_inners.push(inner),
+                TemplateSwitchSecondary::Reference => {
+                    result.reference_inners.push((ts.clone(), inner))
+                }
+                TemplateSwitchSecondary::Query => result.query_inners.push((ts.clone(), inner)),
             }
         }
 
         result
+    }
+
+    pub fn remove_columns(&mut self, columns: impl IntoIterator<Item = ArrangementColumn> + Clone) {
+        for inner in self
+            .reference_inners
+            .iter_mut()
+            .chain(&mut self.query_inners)
+        {
+            inner.1.remove_multi(columns.clone());
+        }
+    }
+
+    pub fn reference_inners(
+        &self,
+    ) -> &Vec<(TemplateSwitch, TaggedVec<ArrangementColumn, InnerChar>)> {
+        &self.reference_inners
+    }
+
+    pub fn query_inners(&self) -> &Vec<(TemplateSwitch, TaggedVec<ArrangementColumn, InnerChar>)> {
+        &self.query_inners
     }
 }
 
@@ -170,7 +204,7 @@ impl InnerChar {
     pub fn to_lower_case(&mut self) {
         match self {
             InnerChar::Inner { lower_case, .. } => *lower_case = true,
-            InnerChar::Gap | InnerChar::Blank => panic!("Not lowercasable"),
+            InnerChar::Gap { .. } | InnerChar::Blank => panic!("Not lowercasable"),
         }
     }
 }
@@ -178,12 +212,49 @@ impl InnerChar {
 impl From<SourceChar> for InnerChar {
     fn from(value: SourceChar) -> Self {
         match value {
-            SourceChar::Source { column, lower_case } => Self::Inner { column, lower_case },
-            SourceChar::Copy { .. } | SourceChar::Hidden { .. } => {
+            SourceChar::Source {
+                column,
+                lower_case,
+                copy_depth,
+            } => Self::Inner {
+                column,
+                lower_case,
+                copy_depth,
+            },
+            SourceChar::Hidden { .. } => {
                 panic!("Cannot be translated into InnerChar")
             }
-            SourceChar::Gap => Self::Gap,
+            SourceChar::Gap { copy_depth } => Self::Gap { copy_depth },
             SourceChar::Blank => Self::Blank,
         }
+    }
+}
+
+impl Char for InnerChar {
+    fn source_column(&self) -> SourceColumn {
+        match self {
+            InnerChar::Inner { column, .. } => *column,
+            InnerChar::Gap { .. } | InnerChar::Blank => panic!("Has no source column"),
+        }
+    }
+
+    fn is_char(&self) -> bool {
+        matches!(self, Self::Inner { .. })
+    }
+
+    fn is_gap(&self) -> bool {
+        matches!(self, Self::Gap { .. })
+    }
+
+    fn is_blank(&self) -> bool {
+        matches!(self, Self::Blank)
+    }
+
+    fn is_source_char(&self) -> bool {
+        self.is_char()
+    }
+
+    fn is_hidden(&self) -> bool {
+        false
     }
 }

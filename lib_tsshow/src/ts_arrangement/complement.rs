@@ -42,13 +42,29 @@ impl TsComplementArrangement {
         ] {
             for source_character in sequence.iter_values() {
                 match source_character {
-                    SourceChar::Source { column, .. } => {
+                    SourceChar::Source {
+                        column,
+                        copy_depth: None,
+                        ..
+                    } => {
                         sequence_c.push(ComplementChar::new_hidden(*column, false));
                     }
-                    SourceChar::Hidden { column } => {
+                    SourceChar::Hidden {
+                        column,
+                        copy_depth: None,
+                    } => {
                         sequence_c.push(ComplementChar::new_hidden(*column, true));
                     }
-                    SourceChar::Copy { .. } | SourceChar::Gap | SourceChar::Blank => {
+                    SourceChar::Source {
+                        copy_depth: Some(_),
+                        ..
+                    }
+                    | SourceChar::Hidden {
+                        copy_depth: Some(_),
+                        ..
+                    }
+                    | SourceChar::Gap { .. }
+                    | SourceChar::Blank => {
                         sequence_c.push(ComplementChar::Blank);
                     }
                 }
@@ -157,6 +173,11 @@ impl TsComplementArrangement {
                 .next()
                 .unwrap_or(true)
     }
+
+    pub fn remove_columns(&mut self, columns: impl IntoIterator<Item = ArrangementColumn> + Clone) {
+        self.reference_c.remove_multi(columns.clone());
+        self.query_c.remove_multi(columns);
+    }
 }
 
 impl ComplementChar {
@@ -225,5 +246,9 @@ impl Char for ComplementChar {
 
     fn is_source_char(&self) -> bool {
         self.is_char()
+    }
+
+    fn is_hidden(&self) -> bool {
+        matches!(self, Self::Hidden { .. })
     }
 }

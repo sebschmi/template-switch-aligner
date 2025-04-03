@@ -7,6 +7,7 @@ use lib_tsalign::a_star_aligner::{
     template_switch_distance::{AlignmentType, TemplateSwitchPrimary, TemplateSwitchSecondary},
 };
 
+#[derive(Debug, Clone)]
 pub struct TemplateSwitch {
     pub primary: TemplateSwitchPrimary,
     pub secondary: TemplateSwitchSecondary,

@@ -29,9 +29,9 @@ pub enum AlignmentType {
     ///
     /// This happens inside a TS flank.
     PrimaryFlankMatch,
-    /// The TS secondary contains a base that is missing from the TS primary.
-    SecondaryInsertion,
     /// The TS secondary is missing a base present in the TS primary.
+    SecondaryInsertion,
+    /// The TS secondary contains a base that is missing from the TS primary.
     SecondaryDeletion,
     /// The TS secondary contains a different base than the TS primary.
     SecondarySubstitution,
