@@ -469,6 +469,7 @@ name = "lib_tsshow"
 version = "0.14.0"
 dependencies = [
  "ena",
+ "itertools",
  "lib_tsalign",
  "log",
  "resvg",
@@ -910,9 +911,9 @@ dependencies = [
 
 [[package]]
 name = "tagged-vec"
-version = "0.3.1"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "453e7b04c95fca5ebadede390d8aefd00e26bba756726b7dc4093ccd6061ae6c"
+checksum = "c5bde163157ba512f9b70c51530030e87d1f905fc02b5203f90a7f29a1bc1758"
 
 [[package]]
 name = "tap"
