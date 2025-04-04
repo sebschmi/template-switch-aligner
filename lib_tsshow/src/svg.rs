@@ -26,7 +26,10 @@ use crate::{
         mutlipair_alignment_renderer::{Character, MultipairAlignmentRenderer},
     },
     ts_arrangement::{
-        TsArrangement, complement::ComplementChar, inner::InnerChar, source::SourceChar,
+        TsArrangement,
+        complement::ComplementChar,
+        inner::InnerChar,
+        source::{SourceChar, TsSourceArrangement},
     },
 };
 
@@ -102,6 +105,33 @@ pub fn create_ts_svg(
     ts_arrangement.remove_empty_columns();
     let ts_arrangement = ts_arrangement;
 
+    let no_ts_arrangement = no_ts_result
+        .as_ref()
+        .map(|no_ts_result| {
+            debug!("Computing no-TS arrangement");
+            let AlignmentResult::WithTarget {
+                alignment,
+                statistics,
+            } = no_ts_result
+            else {
+                return Err(Error::NoTsAlignmentHasNoTarget);
+            };
+
+            let reference = &statistics.sequences.reference;
+            let query = &statistics.sequences.query;
+            Ok(TsSourceArrangement::new(
+                reference.len(),
+                query.len(),
+                alignment.iter_flat_cloned(),
+                &mut Vec::new(),
+            ))
+        })
+        .transpose()?;
+
+    debug!("Creating SVG root with white background");
+    let mut svg = Document::new().add(Circle::new().set("r", 1e5).set("fill", "white"));
+
+    debug!("Rendering TS arrangement");
     let mut ts_group =
         Group::new().set("transform", SvgLocation { x: 10.0, y: 10.0 }.as_transform());
 
@@ -180,12 +210,57 @@ pub fn create_ts_svg(
         y += typewriter::FONT.character_height;
     }
 
-    let view_box_width = 20.0 + ts_arrangement.width() as f32 * typewriter::FONT.character_width;
-    let view_box_height = 20.0 + y;
+    let ts_group_width = ts_arrangement.width() as f32 * typewriter::FONT.character_width;
+    let ts_group_height = y;
 
-    let mut svg = Document::new()
-        .add(Circle::new().set("r", 1e5).set("fill", "white"))
-        .add(ts_group);
+    svg = svg.add(ts_group);
+
+    let (view_box_width, view_box_height) = if let Some(no_ts_arrangement) = no_ts_arrangement {
+        debug!("Rendering no-TS arrangement");
+
+        let vertical_spacer_height = typewriter::FONT.character_height;
+        let mut no_ts_group = Group::new().set(
+            "transform",
+            SvgLocation {
+                x: 10.0,
+                y: 10.0 + ts_group_height + vertical_spacer_height,
+            }
+            .as_transform(),
+        );
+        let mut y = 0.0;
+
+        no_ts_group = no_ts_group.add(svg_string(
+            no_ts_arrangement
+                .reference()
+                .iter_values()
+                .map(render_source_char(&reference)),
+            &SvgLocation { x: 0.0, y },
+            &typewriter::FONT,
+        ));
+        y += typewriter::FONT.character_height;
+
+        no_ts_group = no_ts_group.add(svg_string(
+            no_ts_arrangement
+                .query()
+                .iter_values()
+                .map(render_source_char(&query)),
+            &SvgLocation { x: 0.0, y },
+            &typewriter::FONT,
+        ));
+        y += typewriter::FONT.character_height;
+
+        let no_ts_group_width = no_ts_arrangement.width() as f32 * typewriter::FONT.character_width;
+        let no_ts_group_height = y;
+
+        svg = svg.add(no_ts_group);
+
+        (
+            ts_group_width.max(no_ts_group_width) + 20.0,
+            ts_group_height + vertical_spacer_height + no_ts_group_height + 20.0,
+        )
+    } else {
+        (ts_group_width + 20.0, ts_group_height + 20.0)
+    };
 
     svg = svg.set("viewBox", (0, 0, view_box_width, view_box_height));
     svg::write(output, &svg)?;
@@ -214,7 +289,9 @@ fn render_source_char(
         SourceChar::Gap { copy_depth } => {
             Character::new_char('-', CharacterData::new_colored(copy_color(copy_depth)))
         }
-        SourceChar::Hidden { .. } | SourceChar::Blank => Character::new_char_with_default(' '),
+        SourceChar::Hidden { .. } | SourceChar::Spacer | SourceChar::Blank => {
+            Character::new_char_with_default(' ')
+        }
     }
 }
 

@@ -31,6 +31,8 @@ pub enum SourceChar {
     Gap {
         copy_depth: Option<usize>,
     },
+    /// Like a blank, but not treated as an empty column.
+    Spacer,
     Blank,
 }
 
@@ -216,6 +218,9 @@ impl TsSourceArrangement {
             usize::try_from(anti_primary_gap).unwrap()
         };
 
+        // Insert spacers.
+        let mut required_spacer_count = 4usize.saturating_sub(anti_primary_inner_length);
+
         match primary_inner_length.cmp(&anti_primary_inner_length) {
             Ordering::Less => {
                 let delta = anti_primary_inner_length
@@ -234,11 +239,25 @@ impl TsSourceArrangement {
                     .unwrap();
                 anti_primary.splice(
                     *current_anti_primary_index..*current_anti_primary_index,
-                    iter::repeat_n(SourceChar::Blank, delta),
+                    iter::repeat_n(SourceChar::Spacer, required_spacer_count)
+                        .chain(iter::repeat(SourceChar::Blank))
+                        .take(delta),
                 );
+                required_spacer_count = required_spacer_count.saturating_sub(delta);
                 *current_anti_primary_index += delta;
             }
         }
+
+        primary.splice(
+            *current_primary_index..*current_primary_index,
+            iter::repeat_n(SourceChar::Blank, required_spacer_count),
+        );
+        anti_primary.splice(
+            *current_anti_primary_index..*current_anti_primary_index,
+            iter::repeat_n(SourceChar::Spacer, required_spacer_count),
+        );
+        *current_primary_index += required_spacer_count;
+        *current_anti_primary_index += required_spacer_count;
 
         let (current_reference_index, current_query_index) = match ts_primary {
             TemplateSwitchPrimary::Reference => (current_primary_index, current_anti_primary_index),
@@ -279,6 +298,10 @@ impl TsSourceArrangement {
 
     pub fn query(&self) -> &TaggedVec<ArrangementColumn, SourceChar> {
         &self.query
+    }
+
+    pub fn width(&self) -> usize {
+        self.reference.len()
     }
 
     pub fn insert_secondary_gap(
@@ -411,27 +434,25 @@ impl SourceChar {
 
     pub fn is_copy(&self) -> bool {
         match self {
-            SourceChar::Source { copy_depth, .. }
-            | SourceChar::Hidden { copy_depth, .. }
-            | SourceChar::Gap { copy_depth } => copy_depth.is_some(),
-            SourceChar::Blank => panic!("Blank has no copy property"),
+            Self::Source { copy_depth, .. }
+            | Self::Hidden { copy_depth, .. }
+            | Self::Gap { copy_depth } => copy_depth.is_some(),
+            Self::Spacer | Self::Blank => panic!("Blank has no copy property"),
         }
     }
 
     pub fn copy_depth(&self) -> Option<usize> {
         match self {
-            SourceChar::Source { copy_depth, .. } | SourceChar::Hidden { copy_depth, .. } => {
-                *copy_depth
-            }
-            SourceChar::Gap { copy_depth } => *copy_depth,
-            SourceChar::Blank => panic!("Blank has no copy property"),
+            Self::Source { copy_depth, .. } | Self::Hidden { copy_depth, .. } => *copy_depth,
+            Self::Gap { copy_depth } => *copy_depth,
+            Self::Spacer | Self::Blank => panic!("Blank has no copy property"),
         }
     }
 
     pub fn to_lower_case(&mut self) {
         match self {
             Self::Source { lower_case, .. } => *lower_case = true,
-            Self::Hidden { .. } | Self::Gap { .. } | Self::Blank => {
+            Self::Hidden { .. } | Self::Gap { .. } | Self::Spacer | Self::Blank => {
                 panic!("Not lowercasable: {self:?}")
             }
         }
@@ -440,7 +461,7 @@ impl SourceChar {
     pub fn to_upper_case(&mut self) {
         match self {
             Self::Source { lower_case, .. } => *lower_case = false,
-            Self::Hidden { .. } | Self::Gap { .. } | Self::Blank => {
+            Self::Hidden { .. } | Self::Gap { .. } | Self::Spacer | Self::Blank => {
                 panic!("Not uppercasable: {self:?}")
             }
         }
@@ -460,7 +481,9 @@ impl SourceChar {
                 };
             }
             Self::Hidden { .. } => unreachable!("Already hidden"),
-            Self::Gap { .. } | Self::Blank => unreachable!("Cannot be hidden: {self:?}"),
+            Self::Gap { .. } | Self::Spacer | Self::Blank => {
+                unreachable!("Cannot be hidden: {self:?}")
+            }
         }
     }
 
@@ -479,7 +502,7 @@ impl SourceChar {
                 column: *column,
                 copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
             },
-            Self::Gap { .. } | Self::Blank => {
+            Self::Gap { .. } | Self::Spacer | Self::Blank => {
                 panic!("Should never be copied: {self:?}")
             }
         }
@@ -490,7 +513,7 @@ impl Char for SourceChar {
     fn source_column(&self) -> SourceColumn {
         match self {
             Self::Source { column, .. } | Self::Hidden { column, .. } => *column,
-            Self::Gap { .. } | Self::Blank => panic!("Not a char"),
+            Self::Gap { .. } | Self::Spacer | Self::Blank => panic!("Not a char"),
         }
     }
 
@@ -500,6 +523,10 @@ impl Char for SourceChar {
 
     fn is_gap(&self) -> bool {
         matches!(self, Self::Gap { .. })
+    }
+
+    fn is_spacer(&self) -> bool {
+        matches!(self, Self::Spacer)
     }
 
     fn is_blank(&self) -> bool {

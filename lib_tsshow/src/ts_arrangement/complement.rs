@@ -64,6 +64,7 @@ impl TsComplementArrangement {
                         ..
                     }
                     | SourceChar::Gap { .. }
+                    | SourceChar::Spacer
                     | SourceChar::Blank => {
                         sequence_c.push(ComplementChar::Blank);
                     }
@@ -238,6 +239,10 @@ impl Char for ComplementChar {
 
     fn is_gap(&self) -> bool {
         matches!(self, Self::Gap { .. })
+    }
+
+    fn is_spacer(&self) -> bool {
+        false
     }
 
     fn is_blank(&self) -> bool {

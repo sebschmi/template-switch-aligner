@@ -225,7 +225,7 @@ impl From<SourceChar> for InnerChar {
                 panic!("Cannot be translated into InnerChar")
             }
             SourceChar::Gap { copy_depth } => Self::Gap { copy_depth },
-            SourceChar::Blank => Self::Blank,
+            SourceChar::Spacer | SourceChar::Blank => Self::Blank,
         }
     }
 }
@@ -244,6 +244,10 @@ impl Char for InnerChar {
 
     fn is_gap(&self) -> bool {
         matches!(self, Self::Gap { .. })
+    }
+
+    fn is_spacer(&self) -> bool {
+        false
     }
 
     fn is_blank(&self) -> bool {
