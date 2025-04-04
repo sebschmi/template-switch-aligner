@@ -64,7 +64,7 @@ impl SvgLocation {
     }
 }
 
-pub fn create_ts_svg_new(
+pub fn create_ts_svg(
     output: impl Write,
     result: &AlignmentResult<AlignmentType, U64Cost>,
     no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
@@ -284,7 +284,7 @@ fn copy_color(copy_depth: &Option<usize>) -> impl ToString {
     }
 }
 
-pub fn create_ts_svg(
+pub fn create_ts_svg_old(
     output: impl Write,
     result: &AlignmentResult<AlignmentType, U64Cost>,
     no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
