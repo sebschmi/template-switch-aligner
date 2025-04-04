@@ -1,5 +1,5 @@
 use super::{
-    index_types::{ArrangementCharColumn, SourceColumn, TsInnerIdentifier},
+    index_types::{ArrangementCharColumn, SourceColumn},
     source::{RemovedHiddenChars, SourceChar},
 };
 use lib_tsalign::a_star_aligner::{

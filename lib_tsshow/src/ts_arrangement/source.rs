@@ -121,6 +121,7 @@ impl TsSourceArrangement {
         result
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn align_ts(
         &mut self,
         ts_index: usize,

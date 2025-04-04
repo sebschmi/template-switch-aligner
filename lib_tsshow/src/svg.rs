@@ -36,7 +36,6 @@ mod font;
 mod indexed_str;
 pub mod labelled_sequence;
 mod numbers;
-mod offset_shift;
 
 const COPY_COLORS: &[&str] = &["#00CC00", "#009900", "#006600", "#003300"];
 const COMPLEMENT_SOURCE_HIDDEN_COLOR: &str = "grey";
