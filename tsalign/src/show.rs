@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use lib_tsshow::{
     plain_text::show_template_switches,
-    svg::{create_error_svg, create_ts_svg},
+    svg::{SvgConfig, create_error_svg, create_ts_svg},
     svg_to_png,
 };
 use log::{LevelFilter, info, warn};
@@ -40,13 +40,17 @@ pub struct Cli {
     #[clap(long, short = 'p')]
     png: bool,
 
+    /// Always render the SVG (and optionally PNG), even if an error occurs. In the case of an error, the SVG simply contains the error message.
+    #[clap(long, short = 'r')]
+    render_always: bool,
+
     /// Draw the SVG image with arrows connecting the switchpoints. Ignored if --svg is not set.
     #[clap(long, short = 'a')]
     svg_arrows: bool,
 
-    /// Always render the SVG (and optionally PNG), even if an error occurs. In the case of an error, the SVG simply contains the error message.
-    #[clap(long, short = 'r')]
-    render_always: bool,
+    /// Draw the SVG image with more complement characters than just the bare minimum needed to visualise the template switch.
+    #[clap(long, short = 'c')]
+    more_svg_complement: bool,
 }
 
 pub fn cli(cli: Cli) -> Result<()> {
@@ -81,7 +85,15 @@ pub fn cli(cli: Cli) -> Result<()> {
 
     if let Some(svg_out_path) = cli.svg.as_ref() {
         let mut svg = Vec::new();
-        if let Err(error) = create_ts_svg(&mut svg, &result, &no_ts_result, cli.svg_arrows) {
+        if let Err(error) = create_ts_svg(
+            &mut svg,
+            &result,
+            &no_ts_result,
+            &SvgConfig {
+                render_arrows: cli.svg_arrows,
+                render_more_complement: cli.more_svg_complement,
+            },
+        ) {
             if cli.render_always {
                 create_error_svg(&mut svg, error).with_context(|| "Error creating error SVG")?;
             } else {

@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Display};
+use std::fmt::Display;
 
 use log::debug;
 use svg::{
@@ -6,28 +6,26 @@ use svg::{
     node::element::{Definitions, Group, Marker, Path},
 };
 
-use crate::{
-    plain_text::mutlipair_alignment_renderer::MultipairAlignmentRenderer, svg::font::typewriter,
-};
+use crate::{svg::font::typewriter, ts_arrangement::index_types::ArrangementColumn};
 
 #[derive(Debug, PartialEq)]
-pub struct Arrow {
-    pub from: ArrowEndpoint,
-    pub to: ArrowEndpoint,
+pub struct Arrow<Row> {
+    pub from: ArrowEndpoint<Row>,
+    pub to: ArrowEndpoint<Row>,
     pub style: ArrowStyle,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ArrowEndpoint {
+pub struct ArrowEndpoint<Row> {
     /// The column the endpoint is at, which will be translated to an `x`-coordinate.
     ///
     /// The column is interpreted as the left side of the bounding box of a character.
-    pub column: usize,
+    pub column: ArrangementColumn,
 
     /// The row the endpoint is at, which will be translated to a `y`-coordinate.
     ///
     /// The row is interpreted as the horizontal center of the bounding box of a character.
-    pub row: String,
+    pub row: Row,
 
     /// The direction from which the arrow travels to this endpoint.
     ///
@@ -53,8 +51,11 @@ pub enum ArrowStyle {
     Curved,
 }
 
-impl Arrow {
-    pub fn new_skip(from_column: usize, to_column: usize, row: String) -> Self {
+impl<Row> Arrow<Row> {
+    pub fn new_skip(from_column: ArrangementColumn, to_column: ArrangementColumn, row: Row) -> Self
+    where
+        Row: Clone,
+    {
         Self {
             from: ArrowEndpoint {
                 column: from_column,
@@ -82,13 +83,13 @@ impl Arrow {
 
     #[allow(clippy::too_many_arguments)]
     pub fn new_curved(
-        from_column: usize,
+        from_column: ArrangementColumn,
         from_column_offset: f32,
-        from_row: String,
+        from_row: Row,
         from_direction: ArrowEndpointDirection,
-        to_column: usize,
+        to_column: ArrangementColumn,
         to_column_offset: f32,
-        to_row: String,
+        to_row: Row,
         to_direction: ArrowEndpointDirection,
     ) -> Self {
         Self {
@@ -98,20 +99,21 @@ impl Arrow {
         }
     }
 
-    pub fn render(&self, rows: &BTreeMap<String, f32>) -> Group {
+    pub fn render(&self, mut rows: impl FnMut(&Row) -> f32) -> Group
+    where
+        Row: Display,
+    {
         match self.style {
             ArrowStyle::Direct => {
                 debug!("Drawing direct arrow from {} to {}", self.from, self.to);
 
                 let stroke_width = 0.15;
-                let from_x = self.from.column as f32 * typewriter::FONT.character_width
+                let from_x = self.from.column.primitive() as f32 * typewriter::FONT.character_width
                     + self.from.column_offset * self.from.direction.sign();
-                let from_y =
-                    *rows.get(&self.from.row).unwrap() - typewriter::FONT.character_height * 0.3;
-                let to_x = self.to.column as f32 * typewriter::FONT.character_width
+                let from_y = rows(&self.from.row) - typewriter::FONT.character_height * 0.3;
+                let to_x = self.to.column.primitive() as f32 * typewriter::FONT.character_width
                     + self.to.column_offset * self.to.direction.sign();
-                let to_y =
-                    *rows.get(&self.to.row).unwrap() - typewriter::FONT.character_height * 0.3;
+                let to_y = rows(&self.to.row) - typewriter::FONT.character_height * 0.3;
 
                 Group::new().add(
                     Path::new()
@@ -128,14 +130,12 @@ impl Arrow {
                 debug!("Drawing curved arrow from {} to {}", self.from, self.to);
 
                 let stroke_width = 0.15;
-                let from_x = self.from.column as f32 * typewriter::FONT.character_width
+                let from_x = self.from.column.primitive() as f32 * typewriter::FONT.character_width
                     + self.from.column_offset * self.from.direction.sign();
-                let from_y =
-                    *rows.get(&self.from.row).unwrap() - typewriter::FONT.character_height * 0.3;
-                let to_x = self.to.column as f32 * typewriter::FONT.character_width
+                let from_y = rows(&self.from.row) - typewriter::FONT.character_height * 0.3;
+                let to_x = self.to.column.primitive() as f32 * typewriter::FONT.character_width
                     + self.to.column_offset * self.to.direction.sign();
-                let to_y =
-                    *rows.get(&self.to.row).unwrap() - typewriter::FONT.character_height * 0.3;
+                let to_y = rows(&self.to.row) - typewriter::FONT.character_height * 0.3;
 
                 let (from_x_control, to_x_control) =
                     match (&self.from.direction, &self.to.direction) {
@@ -172,22 +172,12 @@ impl Arrow {
             }
         }
     }
-
-    pub fn translate_char_gap_columns_to_real_columns<CharacterData>(
-        mut self,
-        renderer: &MultipairAlignmentRenderer<String, CharacterData>,
-    ) -> Self {
-        self.from
-            .translate_char_gap_columns_to_real_columns(renderer);
-        self.to.translate_char_gap_columns_to_real_columns(renderer);
-        self
-    }
 }
 
-impl ArrowEndpoint {
+impl<Row> ArrowEndpoint<Row> {
     pub fn new(
-        column: usize,
-        row: String,
+        column: ArrangementColumn,
+        row: Row,
         direction: ArrowEndpointDirection,
         column_offset: f32,
     ) -> Self {
@@ -197,29 +187,6 @@ impl ArrowEndpoint {
             direction,
             column_offset,
         }
-    }
-
-    pub fn translate_char_gap_columns_to_real_columns<CharacterData>(
-        &mut self,
-        renderer: &MultipairAlignmentRenderer<String, CharacterData>,
-    ) {
-        let sequence = renderer.sequence(&self.row);
-        self.column = match self.direction {
-            ArrowEndpointDirection::Forward => {
-                if self.column == 0 {
-                    0
-                } else {
-                    sequence
-                        .translate_offset_without_blanks(self.column - 1)
-                        .unwrap()
-                        + 1
-                }
-            }
-
-            ArrowEndpointDirection::Backward => sequence
-                .translate_offset_without_blanks(self.column)
-                .unwrap(),
-        };
     }
 }
 
@@ -271,7 +238,7 @@ pub fn add_arrow_defs(svg: Document) -> Document {
     )
 }
 
-impl Display for Arrow {
+impl<Row: Display> Display for Arrow<Row> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -286,7 +253,7 @@ impl Display for Arrow {
     }
 }
 
-impl Display for ArrowEndpoint {
+impl<Row: Display> Display for ArrowEndpoint<Row> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}/{}/{}", self.column, self.row, self.direction)
     }

@@ -64,6 +64,7 @@ impl TsComplementArrangement {
                         ..
                     }
                     | SourceChar::Gap { .. }
+                    | SourceChar::Spacer
                     | SourceChar::Blank => {
                         sequence_c.push(ComplementChar::Blank);
                     }
@@ -90,6 +91,16 @@ impl TsComplementArrangement {
 
     pub fn query_complement(&self) -> &TaggedVec<ArrangementColumn, ComplementChar> {
         &self.query_c
+    }
+
+    pub fn reference_complement_mut(
+        &mut self,
+    ) -> &mut TaggedVec<ArrangementColumn, ComplementChar> {
+        &mut self.reference_c
+    }
+
+    pub fn query_complement_mut(&mut self) -> &mut TaggedVec<ArrangementColumn, ComplementChar> {
+        &mut self.query_c
     }
 
     pub fn show_secondary_character(
@@ -238,6 +249,10 @@ impl Char for ComplementChar {
 
     fn is_gap(&self) -> bool {
         matches!(self, Self::Gap { .. })
+    }
+
+    fn is_spacer(&self) -> bool {
+        false
     }
 
     fn is_blank(&self) -> bool {

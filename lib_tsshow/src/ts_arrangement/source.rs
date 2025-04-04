@@ -17,6 +17,11 @@ pub struct TsSourceArrangement {
     query: TaggedVec<ArrangementColumn, SourceChar>,
 }
 
+pub struct RemovedHiddenChars {
+    reference: Vec<ArrangementCharColumn>,
+    query: Vec<ArrangementCharColumn>,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum SourceChar {
     Source {
@@ -31,6 +36,8 @@ pub enum SourceChar {
     Gap {
         copy_depth: Option<usize>,
     },
+    /// Like a blank, but not treated as an empty column.
+    Spacer,
     Blank,
 }
 
@@ -41,6 +48,7 @@ impl TsSourceArrangement {
         alignment: impl IntoIterator<Item = AlignmentType>,
         template_switches_out: &mut impl Extend<TemplateSwitch>,
     ) -> Self {
+        let mut ts_index = 0;
         let mut alignment = alignment.into_iter();
         let mut result = Self {
             reference: FromIterator::from_iter((0..reference_length).map(SourceChar::new_source)),
@@ -86,14 +94,18 @@ impl TsSourceArrangement {
                     primary,
                     secondary,
                     first_offset,
-                } => template_switches_out.extend([result.align_ts(
-                    primary,
-                    secondary,
-                    first_offset,
-                    &mut alignment,
-                    &mut current_reference_index,
-                    &mut current_query_index,
-                )]),
+                } => {
+                    template_switches_out.extend([result.align_ts(
+                        ts_index,
+                        primary,
+                        secondary,
+                        first_offset,
+                        &mut alignment,
+                        &mut current_reference_index,
+                        &mut current_query_index,
+                    )]);
+                    ts_index += 1;
+                }
 
                 AlignmentType::Root | AlignmentType::PrimaryReentry => { /* Do nothing */ }
                 AlignmentType::TemplateSwitchExit { .. }
@@ -109,8 +121,10 @@ impl TsSourceArrangement {
         result
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn align_ts(
         &mut self,
+        ts_index: usize,
         ts_primary: TemplateSwitchPrimary,
         ts_secondary: TemplateSwitchSecondary,
         first_offset: isize,
@@ -119,17 +133,16 @@ impl TsSourceArrangement {
         current_query_index: &mut ArrangementColumn,
     ) -> TemplateSwitch {
         let sp1_reference =
-            self.reference_arrangement_to_char_arrangement_column(*current_reference_index);
-        let sp1_query = self.query_arrangement_to_char_arrangement_column(*current_query_index);
-        let sp2_secondary = usize::try_from(
-            match ts_secondary {
-                TemplateSwitchSecondary::Reference => current_reference_index.primitive(),
-                TemplateSwitchSecondary::Query => current_query_index.primitive(),
-            } as isize
-                + first_offset,
-        )
-        .unwrap()
-        .into();
+            self.reference_arrangement_to_arrangement_char_column(*current_reference_index);
+        let sp1_query = self.query_arrangement_to_arrangement_char_column(*current_query_index);
+        let sp2_secondary = match ts_secondary {
+            TemplateSwitchSecondary::Reference => {
+                self.reference_arrangement_to_source_column(*current_reference_index)
+            }
+            TemplateSwitchSecondary::Query => {
+                self.query_arrangement_to_source_column(*current_query_index)
+            }
+        } + first_offset;
 
         let mut sp3_secondary = sp2_secondary;
         let mut primary_inner_length = 0;
@@ -217,6 +230,9 @@ impl TsSourceArrangement {
             usize::try_from(anti_primary_gap).unwrap()
         };
 
+        // Insert spacers.
+        let mut required_spacer_count = 4usize.saturating_sub(anti_primary_inner_length);
+
         match primary_inner_length.cmp(&anti_primary_inner_length) {
             Ordering::Less => {
                 let delta = anti_primary_inner_length
@@ -235,11 +251,25 @@ impl TsSourceArrangement {
                     .unwrap();
                 anti_primary.splice(
                     *current_anti_primary_index..*current_anti_primary_index,
-                    iter::repeat_n(SourceChar::Blank, delta),
+                    iter::repeat_n(SourceChar::Spacer, required_spacer_count)
+                        .chain(iter::repeat(SourceChar::Blank))
+                        .take(delta),
                 );
+                required_spacer_count = required_spacer_count.saturating_sub(delta);
                 *current_anti_primary_index += delta;
             }
         }
+
+        primary.splice(
+            *current_primary_index..*current_primary_index,
+            iter::repeat_n(SourceChar::Blank, required_spacer_count),
+        );
+        anti_primary.splice(
+            *current_anti_primary_index..*current_anti_primary_index,
+            iter::repeat_n(SourceChar::Spacer, required_spacer_count),
+        );
+        *current_primary_index += required_spacer_count;
+        *current_anti_primary_index += required_spacer_count;
 
         let (current_reference_index, current_query_index) = match ts_primary {
             TemplateSwitchPrimary::Reference => (current_primary_index, current_anti_primary_index),
@@ -247,10 +277,11 @@ impl TsSourceArrangement {
         };
 
         let sp4_reference =
-            self.reference_arrangement_to_char_arrangement_column(*current_reference_index);
-        let sp4_query = self.query_arrangement_to_char_arrangement_column(*current_query_index);
+            self.reference_arrangement_to_arrangement_char_column(*current_reference_index);
+        let sp4_query = self.query_arrangement_to_arrangement_char_column(*current_query_index);
 
         TemplateSwitch {
+            index: ts_index,
             primary: ts_primary,
             secondary: ts_secondary,
             sp1_reference,
@@ -282,6 +313,10 @@ impl TsSourceArrangement {
         &self.query
     }
 
+    pub fn width(&self) -> usize {
+        self.reference.len()
+    }
+
     pub fn insert_secondary_gap(
         &mut self,
         secondary: TemplateSwitchSecondary,
@@ -310,9 +345,38 @@ impl TsSourceArrangement {
         self.query.insert(column, SourceChar::Blank);
     }
 
-    pub fn remove_columns(&mut self, columns: impl IntoIterator<Item = ArrangementColumn> + Clone) {
+    pub fn remove_columns(
+        &mut self,
+        columns: impl IntoIterator<Item = ArrangementColumn> + Clone,
+    ) -> RemovedHiddenChars {
+        let result = RemovedHiddenChars {
+            reference: columns
+                .clone()
+                .into_iter()
+                .filter_map(|c| {
+                    if self.reference[c].is_char() {
+                        Some(self.reference_arrangement_to_arrangement_char_column(c))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            query: columns
+                .clone()
+                .into_iter()
+                .filter_map(|c| {
+                    if self.query[c].is_char() {
+                        Some(self.query_arrangement_to_arrangement_char_column(c))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        };
+
         self.reference.remove_multi(columns.clone());
         self.query.remove_multi(columns);
+        result
     }
 
     pub fn reference_source_to_arrangement_column(
@@ -331,13 +395,12 @@ impl TsSourceArrangement {
         source_column: SourceColumn,
     ) -> ArrangementColumn {
         sequence
-            .iter_values()
-            .enumerate()
+            .iter()
             .filter_map(|(i, c)| match c {
                 SourceChar::Source { column, .. } | SourceChar::Hidden { column, .. }
                     if *column == source_column =>
                 {
-                    Some(ArrangementColumn::from(i))
+                    Some(i)
                 }
                 _ => None,
             })
@@ -345,31 +408,84 @@ impl TsSourceArrangement {
             .unwrap()
     }
 
-    pub fn reference_arrangement_to_char_arrangement_column(
+    pub fn reference_arrangement_to_arrangement_char_column(
         &self,
         arrangement_column: ArrangementColumn,
     ) -> ArrangementCharColumn {
-        Self::arrangement_to_char_arrangement_column(&self.reference, arrangement_column)
+        Self::arrangement_to_arrangement_char_column(&self.reference, arrangement_column)
     }
 
-    pub fn query_arrangement_to_char_arrangement_column(
+    pub fn query_arrangement_to_arrangement_char_column(
         &self,
         arrangement_column: ArrangementColumn,
     ) -> ArrangementCharColumn {
-        Self::arrangement_to_char_arrangement_column(&self.query, arrangement_column)
+        Self::arrangement_to_arrangement_char_column(&self.query, arrangement_column)
     }
 
-    fn arrangement_to_char_arrangement_column(
+    fn arrangement_to_arrangement_char_column(
         sequence: &TaggedVec<ArrangementColumn, SourceChar>,
         arrangement_column: ArrangementColumn,
     ) -> ArrangementCharColumn {
         assert!(sequence[arrangement_column].is_char());
         sequence
             .iter_values()
-            .take(arrangement_column.into())
+            .take(arrangement_column.primitive())
             .filter(|c| c.is_char())
             .count()
             .into()
+    }
+
+    pub fn reference_arrangement_to_source_column(
+        &self,
+        arrangement_column: ArrangementColumn,
+    ) -> SourceColumn {
+        Self::arrangement_to_source_column(&self.reference, arrangement_column)
+    }
+
+    pub fn query_arrangement_to_source_column(
+        &self,
+        arrangement_column: ArrangementColumn,
+    ) -> SourceColumn {
+        Self::arrangement_to_source_column(&self.query, arrangement_column)
+    }
+
+    fn arrangement_to_source_column(
+        sequence: &TaggedVec<ArrangementColumn, SourceChar>,
+        arrangement_column: ArrangementColumn,
+    ) -> SourceColumn {
+        // This may also be called on a non-source char.
+        assert!(sequence[arrangement_column].is_char());
+        sequence
+            .iter_values()
+            .take(arrangement_column.into())
+            .filter(|c| c.is_source_char())
+            .count()
+            .into()
+    }
+
+    pub fn reference_arrangement_char_to_arrangement_column(
+        &self,
+        column: ArrangementCharColumn,
+    ) -> ArrangementColumn {
+        Self::arrangement_char_to_arrangement_column(&self.reference, column)
+    }
+
+    pub fn query_arrangement_char_to_arrangement_column(
+        &self,
+        column: ArrangementCharColumn,
+    ) -> ArrangementColumn {
+        Self::arrangement_char_to_arrangement_column(&self.query, column)
+    }
+
+    fn arrangement_char_to_arrangement_column(
+        sequence: &TaggedVec<ArrangementColumn, SourceChar>,
+        column: ArrangementCharColumn,
+    ) -> ArrangementColumn {
+        sequence
+            .iter()
+            .filter_map(|(i, c)| if c.is_char() { Some(i) } else { None })
+            .nth(column.primitive())
+            .unwrap()
     }
 }
 
@@ -384,27 +500,25 @@ impl SourceChar {
 
     pub fn is_copy(&self) -> bool {
         match self {
-            SourceChar::Source { copy_depth, .. }
-            | SourceChar::Hidden { copy_depth, .. }
-            | SourceChar::Gap { copy_depth } => copy_depth.is_some(),
-            SourceChar::Blank => panic!("Blank has no copy property"),
+            Self::Source { copy_depth, .. }
+            | Self::Hidden { copy_depth, .. }
+            | Self::Gap { copy_depth } => copy_depth.is_some(),
+            Self::Spacer | Self::Blank => panic!("Blank has no copy property"),
         }
     }
 
     pub fn copy_depth(&self) -> Option<usize> {
         match self {
-            SourceChar::Source { copy_depth, .. } | SourceChar::Hidden { copy_depth, .. } => {
-                *copy_depth
-            }
-            SourceChar::Gap { copy_depth } => *copy_depth,
-            SourceChar::Blank => panic!("Blank has no copy property"),
+            Self::Source { copy_depth, .. } | Self::Hidden { copy_depth, .. } => *copy_depth,
+            Self::Gap { copy_depth } => *copy_depth,
+            Self::Spacer | Self::Blank => panic!("Blank has no copy property"),
         }
     }
 
     pub fn to_lower_case(&mut self) {
         match self {
             Self::Source { lower_case, .. } => *lower_case = true,
-            Self::Hidden { .. } | Self::Gap { .. } | Self::Blank => {
+            Self::Hidden { .. } | Self::Gap { .. } | Self::Spacer | Self::Blank => {
                 panic!("Not lowercasable: {self:?}")
             }
         }
@@ -413,7 +527,7 @@ impl SourceChar {
     pub fn to_upper_case(&mut self) {
         match self {
             Self::Source { lower_case, .. } => *lower_case = false,
-            Self::Hidden { .. } | Self::Gap { .. } | Self::Blank => {
+            Self::Hidden { .. } | Self::Gap { .. } | Self::Spacer | Self::Blank => {
                 panic!("Not uppercasable: {self:?}")
             }
         }
@@ -433,7 +547,9 @@ impl SourceChar {
                 };
             }
             Self::Hidden { .. } => unreachable!("Already hidden"),
-            Self::Gap { .. } | Self::Blank => unreachable!("Cannot be hidden: {self:?}"),
+            Self::Gap { .. } | Self::Spacer | Self::Blank => {
+                unreachable!("Cannot be hidden: {self:?}")
+            }
         }
     }
 
@@ -452,7 +568,7 @@ impl SourceChar {
                 column: *column,
                 copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
             },
-            Self::Gap { .. } | Self::Blank => {
+            Self::Gap { .. } | Self::Spacer | Self::Blank => {
                 panic!("Should never be copied: {self:?}")
             }
         }
@@ -463,7 +579,7 @@ impl Char for SourceChar {
     fn source_column(&self) -> SourceColumn {
         match self {
             Self::Source { column, .. } | Self::Hidden { column, .. } => *column,
-            Self::Gap { .. } | Self::Blank => panic!("Not a char"),
+            Self::Gap { .. } | Self::Spacer | Self::Blank => panic!("Not a char"),
         }
     }
 
@@ -475,15 +591,38 @@ impl Char for SourceChar {
         matches!(self, Self::Gap { .. })
     }
 
+    fn is_spacer(&self) -> bool {
+        matches!(self, Self::Spacer)
+    }
+
     fn is_blank(&self) -> bool {
         matches!(self, Self::Blank)
     }
 
     fn is_source_char(&self) -> bool {
-        matches!(self, Self::Source { .. } | Self::Hidden { .. })
+        matches!(
+            self,
+            Self::Source {
+                copy_depth: None,
+                ..
+            } | Self::Hidden {
+                copy_depth: None,
+                ..
+            }
+        )
     }
 
     fn is_hidden(&self) -> bool {
         matches!(self, Self::Hidden { .. })
+    }
+}
+
+impl RemovedHiddenChars {
+    pub fn reference(&self) -> &[ArrangementCharColumn] {
+        &self.reference
+    }
+
+    pub fn query(&self) -> &[ArrangementCharColumn] {
+        &self.query
     }
 }

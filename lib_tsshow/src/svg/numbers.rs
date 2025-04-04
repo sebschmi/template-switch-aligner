@@ -1,10 +1,11 @@
-use std::{collections::BTreeMap, fmt::Display};
+use std::fmt::Display;
 
 use svg::node::element::{Group, Path};
 
 use crate::{
     plain_text::mutlipair_alignment_renderer::{Character, NoCharacterData},
     svg::font::sans_serif_mono,
+    ts_arrangement::index_types::ArrangementColumn,
 };
 
 use super::{
@@ -16,10 +17,10 @@ const BORDER_STROKE_WIDTH: f32 = 0.2;
 const BORDER_PADDING: f32 = 0.4;
 const BORDER_RADIUS: f32 = 1.2;
 
-pub struct Number {
+pub struct Number<Row> {
     number: String,
-    column: usize,
-    row: String,
+    column: ArrangementColumn,
+    row: Row,
     align: NumberAlignment,
     scale: f32,
 }
@@ -29,11 +30,11 @@ pub enum NumberAlignment {
     Right,
 }
 
-impl Number {
+impl<Row> Number<Row> {
     pub fn new(
         number: impl ToString,
-        column: usize,
-        row: String,
+        column: ArrangementColumn,
+        row: Row,
         align: NumberAlignment,
         scale: f32,
     ) -> Self {
@@ -46,14 +47,14 @@ impl Number {
         }
     }
 
-    pub fn render(&self, rows: &BTreeMap<String, f32>) -> Group {
-        let x = self.column as f32 * typewriter::FONT.character_width
+    pub fn render(&self, mut rows: impl FnMut(&Row) -> f32) -> Group {
+        let x = self.column.primitive() as f32 * typewriter::FONT.character_width
             + (BORDER_PADDING + 0.5 * BORDER_STROKE_WIDTH) * self.scale
             - match self.align {
                 NumberAlignment::Left => 0.0,
                 NumberAlignment::Right => self.width(),
             };
-        let y = *rows.get(&self.row).unwrap();
+        let y = rows(&self.row);
         let label_width =
             self.number.chars().count() as f32 * sans_serif_mono::FONT.character_width;
         let label_height = sans_serif_mono::FONT.character_height;
@@ -103,7 +104,7 @@ impl Number {
     }
 }
 
-impl Display for Number {
+impl<Row: Display> Display for Number<Row> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
