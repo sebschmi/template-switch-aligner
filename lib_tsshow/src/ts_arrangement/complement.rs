@@ -93,6 +93,16 @@ impl TsComplementArrangement {
         &self.query_c
     }
 
+    pub fn reference_complement_mut(
+        &mut self,
+    ) -> &mut TaggedVec<ArrangementColumn, ComplementChar> {
+        &mut self.reference_c
+    }
+
+    pub fn query_complement_mut(&mut self) -> &mut TaggedVec<ArrangementColumn, ComplementChar> {
+        &mut self.query_c
+    }
+
     pub fn show_secondary_character(
         &mut self,
         secondary: TemplateSwitchSecondary,

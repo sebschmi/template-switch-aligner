@@ -2,25 +2,36 @@ use strong_type::StrongType;
 
 /// A column index in a source string.
 #[derive(StrongType)]
-#[strong_type(conversion)]
+#[strong_type(conversion, addable)]
 pub struct SourceColumn(usize);
 
 /// A column index over the characters in an arrangement.
 ///
 /// This includes copies and hidden characters, but not gaps and blanks.
 #[derive(StrongType)]
-#[strong_type(conversion)]
+#[strong_type(conversion, addable)]
 pub struct ArrangementCharColumn(usize);
 
 /// A column index in an arrangement.
 ///
 /// This is the index that represents where the character will actually be rendered.
 #[derive(StrongType)]
-#[strong_type(conversion)]
+#[strong_type(conversion, addable)]
 pub struct ArrangementColumn(usize);
+
+/// Identifier of a template switch inner sequence.
+#[derive(StrongType)]
+#[strong_type(conversion, addable)]
+pub struct TsInnerIdentifier(usize);
 
 macro_rules! index_type_ops {
     ($name:ty, $inner:ty, $signed_inner:ty) => {
+        impl $name {
+            pub fn checked_sub(&self, other: $inner) -> Option<Self> {
+                self.0.checked_sub(other).map(Self)
+            }
+        }
+
         impl std::ops::Add<$inner> for $name {
             type Output = Self;
 
@@ -86,3 +97,4 @@ macro_rules! index_type_ops {
 index_type_ops!(SourceColumn, usize, isize);
 index_type_ops!(ArrangementCharColumn, usize, isize);
 index_type_ops!(ArrangementColumn, usize, isize);
+index_type_ops!(TsInnerIdentifier, usize, isize);

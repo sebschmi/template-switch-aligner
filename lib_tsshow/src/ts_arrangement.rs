@@ -1,7 +1,7 @@
 use character::Char;
 use complement::{ComplementChar, TsComplementArrangement};
-use index_types::ArrangementColumn;
-use inner::{InnerChar, TsInnerArrangement};
+use index_types::{ArrangementCharColumn, ArrangementColumn, SourceColumn, TsInnerIdentifier};
+use inner::{TsInner, TsInnerArrangement};
 use lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType;
 use source::{SourceChar, TsSourceArrangement};
 use tagged_vec::TaggedVec;
@@ -11,6 +11,7 @@ pub mod character;
 pub mod complement;
 pub mod index_types;
 pub mod inner;
+pub mod row;
 pub mod source;
 pub mod template_switch;
 
@@ -25,17 +26,16 @@ impl TsArrangement {
         reference_length: usize,
         query_length: usize,
         alignment: impl IntoIterator<Item = AlignmentType>,
-        template_switches_out: &mut Vec<TemplateSwitch>,
     ) -> Self {
-        template_switches_out.clear();
+        let mut template_switches = Vec::new();
         let mut source = TsSourceArrangement::new(
             reference_length,
             query_length,
             alignment,
-            template_switches_out,
+            &mut template_switches,
         );
         let mut complement = TsComplementArrangement::new(&source);
-        let inner = TsInnerArrangement::new(&mut source, &mut complement, template_switches_out);
+        let inner = TsInnerArrangement::new(&mut source, &mut complement, template_switches);
 
         Self {
             source,
@@ -61,8 +61,12 @@ impl TsArrangement {
             if !self.query_complement()[column].is_blank_or_hidden() {
                 continue;
             }
-            for inner in self.reference_inners().iter().chain(self.query_inners()) {
-                if !inner.1[column].is_blank_or_hidden() {
+            for inner in self
+                .reference_inners()
+                .iter_values()
+                .chain(self.query_inners())
+            {
+                if !inner.sequence()[column].is_blank_or_hidden() {
                     continue 'column_iter;
                 }
             }
@@ -70,10 +74,27 @@ impl TsArrangement {
             remove_columns.push(column);
         }
 
-        self.source.remove_columns(remove_columns.iter().copied());
+        let removed_hidden_chars = self.source.remove_columns(remove_columns.iter().copied());
         self.complement
             .remove_columns(remove_columns.iter().copied());
-        self.inner.remove_columns(remove_columns.iter().copied());
+        self.inner
+            .remove_columns(remove_columns.iter().copied(), &removed_hidden_chars);
+    }
+
+    /// Unhides all characters of a complement, if any character of the complement is visible.
+    pub fn show_complete_complements_if_used(&mut self) {
+        let show = |sequence: &mut TaggedVec<ArrangementColumn, ComplementChar>| {
+            if sequence.iter_values().any(Char::is_visible_char) {
+                sequence.iter_values_mut().for_each(|c| {
+                    if c.is_char() {
+                        c.show()
+                    }
+                })
+            }
+        };
+
+        show(self.complement.reference_complement_mut());
+        show(self.complement.query_complement_mut());
     }
 
     pub fn reference(&self) -> &TaggedVec<ArrangementColumn, SourceChar> {
@@ -92,17 +113,49 @@ impl TsArrangement {
         self.complement.query_complement()
     }
 
-    pub fn reference_inners(
-        &self,
-    ) -> &Vec<(TemplateSwitch, TaggedVec<ArrangementColumn, InnerChar>)> {
+    pub fn reference_inners(&self) -> &TaggedVec<TsInnerIdentifier, TsInner> {
         self.inner.reference_inners()
     }
 
-    pub fn query_inners(&self) -> &Vec<(TemplateSwitch, TaggedVec<ArrangementColumn, InnerChar>)> {
+    pub fn query_inners(&self) -> &TaggedVec<TsInnerIdentifier, TsInner> {
         self.inner.query_inners()
+    }
+
+    pub fn template_switches(&self) -> impl Iterator<Item = (TsInnerIdentifier, &TemplateSwitch)> {
+        self.reference_inners()
+            .iter()
+            .chain(self.query_inners().iter())
+            .map(|(identifier, inner)| (identifier, inner.template_switch()))
     }
 
     pub fn width(&self) -> usize {
         self.source.reference().len()
+    }
+
+    pub fn reference_arrangement_char_to_arrangement_column(
+        &self,
+        column: ArrangementCharColumn,
+    ) -> ArrangementColumn {
+        self.source
+            .reference_arrangement_char_to_arrangement_column(column)
+    }
+
+    pub fn query_arrangement_char_to_arrangement_column(
+        &self,
+        column: ArrangementCharColumn,
+    ) -> ArrangementColumn {
+        self.source
+            .query_arrangement_char_to_arrangement_column(column)
+    }
+
+    pub fn reference_source_to_arrangement_column(
+        &self,
+        column: SourceColumn,
+    ) -> ArrangementColumn {
+        self.source.reference_source_to_arrangement_column(column)
+    }
+
+    pub fn query_source_to_arrangement_column(&self, column: SourceColumn) -> ArrangementColumn {
+        self.source.query_source_to_arrangement_column(column)
     }
 }
