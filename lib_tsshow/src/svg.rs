@@ -37,7 +37,7 @@ pub mod labelled_sequence;
 mod numbers;
 mod offset_shift;
 
-const COPY_COLORS: &[&str] = &["#003300", "#006600", "#009900", "#00CC00"];
+const COPY_COLORS: &[&str] = &["#00CC00", "#009900", "#006600", "#003300"];
 const COMPLEMENT_SOURCE_HIDDEN_COLOR: &str = "grey";
 
 struct SvgLocation {
@@ -64,11 +64,16 @@ impl SvgLocation {
     }
 }
 
+pub struct SvgConfig {
+    pub render_arrows: bool,
+    pub render_more_complement: bool,
+}
+
 pub fn create_ts_svg(
     output: impl Write,
     result: &AlignmentResult<AlignmentType, U64Cost>,
     no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
-    render_arrows: bool,
+    config: &SvgConfig,
 ) -> Result<()> {
     info!("Creating template switch SVG");
 

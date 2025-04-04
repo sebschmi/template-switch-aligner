@@ -20,7 +20,7 @@ pub struct ArrangementCharColumn(usize);
 pub struct ArrangementColumn(usize);
 
 macro_rules! index_type_ops {
-    ($name:ty, $inner:ty) => {
+    ($name:ty, $inner:ty, $signed_inner:ty) => {
         impl std::ops::Add<$inner> for $name {
             type Output = Self;
 
@@ -53,6 +53,16 @@ macro_rules! index_type_ops {
             }
         }
 
+        impl std::ops::Add<$signed_inner> for $name {
+            type Output = Self;
+
+            fn add(self, other: $signed_inner) -> Self::Output {
+                Self(
+                    <$inner>::try_from(<$signed_inner>::try_from(self.0).unwrap() + other).unwrap(),
+                )
+            }
+        }
+
         impl std::ops::AddAssign<$inner> for $name {
             fn add_assign(&mut self, other: $inner) {
                 self.0 += other
@@ -73,6 +83,6 @@ macro_rules! index_type_ops {
     };
 }
 
-index_type_ops!(SourceColumn, usize);
-index_type_ops!(ArrangementCharColumn, usize);
-index_type_ops!(ArrangementColumn, usize);
+index_type_ops!(SourceColumn, usize, isize);
+index_type_ops!(ArrangementCharColumn, usize, isize);
+index_type_ops!(ArrangementColumn, usize, isize);

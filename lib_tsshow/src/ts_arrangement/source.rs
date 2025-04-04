@@ -121,15 +121,14 @@ impl TsSourceArrangement {
         let sp1_reference =
             self.reference_arrangement_to_char_arrangement_column(*current_reference_index);
         let sp1_query = self.query_arrangement_to_char_arrangement_column(*current_query_index);
-        let sp2_secondary = usize::try_from(
-            match ts_secondary {
-                TemplateSwitchSecondary::Reference => current_reference_index.primitive(),
-                TemplateSwitchSecondary::Query => current_query_index.primitive(),
-            } as isize
-                + first_offset,
-        )
-        .unwrap()
-        .into();
+        let sp2_secondary = match ts_secondary {
+            TemplateSwitchSecondary::Reference => {
+                self.reference_arrangement_to_source_column(*current_reference_index)
+            }
+            TemplateSwitchSecondary::Query => {
+                self.query_arrangement_to_source_column(*current_query_index)
+            }
+        } + first_offset;
 
         let mut sp3_secondary = sp2_secondary;
         let mut primary_inner_length = 0;
@@ -371,6 +370,34 @@ impl TsSourceArrangement {
             .count()
             .into()
     }
+
+    pub fn reference_arrangement_to_source_column(
+        &self,
+        arrangement_column: ArrangementColumn,
+    ) -> SourceColumn {
+        Self::arrangement_to_source_column(&self.reference, arrangement_column)
+    }
+
+    pub fn query_arrangement_to_source_column(
+        &self,
+        arrangement_column: ArrangementColumn,
+    ) -> SourceColumn {
+        Self::arrangement_to_source_column(&self.query, arrangement_column)
+    }
+
+    fn arrangement_to_source_column(
+        sequence: &TaggedVec<ArrangementColumn, SourceChar>,
+        arrangement_column: ArrangementColumn,
+    ) -> SourceColumn {
+        // This may also be called on a non-source char.
+        assert!(sequence[arrangement_column].is_char());
+        sequence
+            .iter_values()
+            .take(arrangement_column.into())
+            .filter(|c| c.is_source_char())
+            .count()
+            .into()
+    }
 }
 
 impl SourceChar {
@@ -480,7 +507,16 @@ impl Char for SourceChar {
     }
 
     fn is_source_char(&self) -> bool {
-        matches!(self, Self::Source { .. } | Self::Hidden { .. })
+        matches!(
+            self,
+            Self::Source {
+                copy_depth: None,
+                ..
+            } | Self::Hidden {
+                copy_depth: None,
+                ..
+            }
+        )
     }
 
     fn is_hidden(&self) -> bool {
