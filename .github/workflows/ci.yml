@@ -96,3 +96,22 @@ jobs:
 
       - name: cargo doc
         run: cargo doc --all-features
+
+  rust_check_os_compatiblity:
+    name: Rust check
+    runs-on: ${{ matrix.runner }}
+    needs: ["rust_check", "rust_format"]
+
+    strategy:
+      fail-fast: true
+      matrix:
+        runner: [windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: cargo check
+        run: cargo check --bins --tests --all-features
