@@ -27,8 +27,8 @@
      inkscape:zoom="34.5503"
      inkscape:cx="9.4065753"
      inkscape:cy="0.47756459"
-     inkscape:window-width="1982"
-     inkscape:window-height="1083"
+     inkscape:window-width="1854"
+     inkscape:window-height="1011"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
@@ -547,5 +547,53 @@
        aria-label=" "
        id="text655"
        style="font-size:3.175px;font-family:monospace;-inkscape-font-specification:monospace;stroke-width:0.264583" />
+    <g
+       aria-label=":"
+       id="text291"
+       style="font-size:3.175px;font-family:monospace;-inkscape-font-specification:monospace;stroke-width:0.264583">
+      <path
+         d="M 0.75809325,-1.6479614 H 1.1487671 v 0.4697388 H 0.75809325 Z m 0,1.17512205 H 1.1487671 V 0 H 0.75809325 Z"
+         id="path480" />
+    </g>
+    <g
+       aria-label="&lt;"
+       id="text293"
+       style="font-size:3.175px;font-family:monospace;-inkscape-font-specification:monospace;stroke-width:0.264583">
+      <path
+         d="m 1.7750854,-1.4898315 -1.31774898,0.49609372 1.31774898,0.49144287 v 0.2837036 L 0.13642578,-0.86661376 V -1.1239624 L 1.7750854,-1.7719848 Z"
+         id="path380" />
+    </g>
+    <g
+       aria-label="&gt;"
+       id="text297"
+       style="font-size:3.175px;font-family:monospace;-inkscape-font-specification:monospace;stroke-width:0.264583">
+      <path
+         d="m 0.13642578,-1.4898315 v -0.2821533 l 1.63865962,0.6480224 v 0.25734864 l -1.63865962,0.64802245 v -0.2837036 L 1.4541748,-0.99373778 Z"
+         id="path383" />
+    </g>
+    <g
+       aria-label="."
+       id="text301"
+       style="font-size:3.175px;font-family:monospace;-inkscape-font-specification:monospace;stroke-width:0.264583">
+      <path
+         d="M 0.75809325,-0.47283935 H 1.1487671 V 0 H 0.75809325 Z"
+         id="path386" />
+    </g>
+    <g
+       aria-label=","
+       id="text305"
+       style="font-size:3.175px;font-family:monospace;-inkscape-font-specification:monospace;stroke-width:0.264583">
+      <path
+         d="M 0.77824706,-0.46973876 H 1.1689209 v 0.32091064 L 0.86351317,0.44493408 H 0.62476806 l 0.153479,-0.5937622 z"
+         id="path389" />
+    </g>
+    <g
+       aria-label=";"
+       id="text309"
+       style="font-size:3.175px;font-family:monospace;-inkscape-font-specification:monospace;stroke-width:0.264583">
+      <path
+         d="M 0.77824706,-0.46973876 H 1.1689209 v 0.32091064 L 0.86351317,0.44493408 H 0.62476806 l 0.153479,-0.5937622 z M 0.75809325,-1.6479614 H 1.1487671 v 0.4697388 H 0.75809325 Z"
+         id="path392" />
+    </g>
   </g>
 </svg>
