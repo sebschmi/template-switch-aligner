@@ -97,19 +97,31 @@ pub struct Cli {
 }
 
 #[derive(Args)]
-#[group(required = true)]
 struct CliInput {
+    #[clap(flatten)]
+    separate_input: Option<CliSeparateInput>,
+
+    #[clap(flatten)]
+    pair_input: Option<CliPairInput>,
+}
+
+#[derive(Args)]
+#[group(multiple = true)]
+struct CliSeparateInput {
     /// The path to the reference fasta file.
-    #[clap(long, short = 'r', requires = "query", group = "input")]
-    reference: Option<PathBuf>,
+    #[clap(long, short = 'r', required = false, requires = "query")]
+    reference: PathBuf,
 
     /// The path to the query fasta file.
-    #[clap(long, short = 'q', requires = "reference", group = "input")]
-    query: Option<PathBuf>,
+    #[clap(long, short = 'q', required = false, requires = "reference")]
+    query: PathBuf,
+}
 
+#[derive(Args)]
+struct CliPairInput {
     /// The path to a fasta file containing both the reference and the query.
-    #[clap(long, short = 'p', conflicts_with_all = ["reference", "query"], group = "input")]
-    pair_fasta: Option<PathBuf>,
+    #[clap(long, short = 'p', required = false, conflicts_with_all = ["reference", "query"])]
+    pair_fasta: PathBuf,
 }
 
 #[derive(Clone, PartialEq, Eq, ValueEnum)]
@@ -167,7 +179,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
     let skip_characters = skip_characters;
 
     let mut sequence_store = DefaultSequenceStore::<AlphabetType>::new();
-    let sequences = if let Some(pair_fasta) = &cli.input.pair_fasta {
+    let sequences = if let Some(CliPairInput { pair_fasta }) = &cli.input.pair_input {
         info!("Loading pair file {pair_fasta:?}");
         let sequences = read_fasta_file(
             pair_fasta,
@@ -185,7 +197,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
         );
 
         sequences
-    } else if let (Some(reference), Some(query)) = (&cli.input.reference, &cli.input.query) {
+    } else if let Some(CliSeparateInput { reference, query }) = &cli.input.separate_input {
         info!("Loading reference file {reference:?}");
         let mut sequences = read_fasta_file(
             reference,
@@ -198,7 +210,8 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
         assert_eq!(
             sequences.len(),
             1,
-            "Reference sequence file contains not exactly one record"
+            "Reference sequence file contains not exactly one record, but {}",
+            sequences.len()
         );
 
         info!("Loading query file {query:?}");
@@ -207,8 +220,9 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
         );
         assert_eq!(
             sequences.len(),
-            1,
-            "Query sequence file contains not exactly one record"
+            2,
+            "Query sequence file contains not exactly one record, but {}",
+            sequences.len() - 1,
         );
 
         sequences
