@@ -1,7 +1,7 @@
 use std::{collections::HashMap, io::Write};
 
 use arrows::{Arrow, ArrowEndpointDirection, add_arrow_defs};
-use font::{CharacterData, svg_string, typewriter};
+use font::{CharacterData, sans_serif_mono, svg_string, typewriter};
 use indexed_str::IndexedStr;
 use lib_tsalign::{
     a_star_aligner::{
@@ -37,6 +37,7 @@ mod indexed_str;
 pub mod labelled_sequence;
 mod numbers;
 
+const SVG_PADDING: f32 = 10.0;
 const COPY_COLORS: &[&str] = &["#00CC00", "#009900", "#006600", "#003300"];
 const COMPLEMENT_SOURCE_HIDDEN_COLOR: &str = "grey";
 const TS_RUNNING_NUMBER: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -247,14 +248,9 @@ pub fn create_ts_svg(
         numbers.extend([number1, number2, number3, number4]);
     }
 
-    debug!("Creating SVG root");
-    let mut svg = Document::new();
-    svg = add_arrow_defs(svg);
-    svg = svg.add(Circle::new().set("r", 1e5).set("fill", "white"));
-
     debug!("Rendering TS arrangement");
-    let mut ts_group =
-        Group::new().set("transform", SvgLocation { x: 10.0, y: 10.0 }.as_transform());
+    let mut ts_group = Group::new();
+    let mut label_group = Group::new();
 
     let reference = IndexedStr::new(reference);
     let query = IndexedStr::new(query);
@@ -263,6 +259,9 @@ pub fn create_ts_svg(
 
     let mut rows = HashMap::new();
     let mut y = 0.0;
+    let mut ts_label_group_width = 0.0f32;
+
+    // Reference inners.
     for (identifier, reference_inner) in ts_arrangement.reference_inners().iter().rev() {
         ts_group = ts_group.add(svg_string(
             reference_inner
@@ -277,10 +276,21 @@ pub fn create_ts_svg(
             &SvgLocation { x: 0.0, y },
             &typewriter::FONT,
         ));
+
+        let label = format!("TS-{} inner:", reference_inner.template_switch().index);
+        ts_label_group_width = ts_label_group_width
+            .max(label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+        label_group = label_group.add(svg_string(
+            label.chars().map(render_label_char),
+            &SvgLocation { x: 0.0, y },
+            &sans_serif_mono::FONT,
+        ));
+
         rows.insert(TsArrangementRow::ReferenceInner { index: identifier }, y);
         y += typewriter::FONT.character_height;
     }
 
+    // Reference complement.
     ts_group = ts_group.add(svg_string(
         ts_arrangement
             .reference_complement()
@@ -289,9 +299,20 @@ pub fn create_ts_svg(
         &SvgLocation { x: 0.0, y },
         &typewriter::FONT,
     ));
+
+    let label = "Reference complement:";
+    ts_label_group_width = ts_label_group_width
+        .max(label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+    label_group = label_group.add(svg_string(
+        label.chars().map(render_label_char),
+        &SvgLocation { x: 0.0, y },
+        &sans_serif_mono::FONT,
+    ));
+
     rows.insert(TsArrangementRow::ReferenceComplement, y);
     y += typewriter::FONT.character_height;
 
+    // Reference.
     ts_group = ts_group.add(svg_string(
         ts_arrangement
             .reference()
@@ -300,9 +321,20 @@ pub fn create_ts_svg(
         &SvgLocation { x: 0.0, y },
         &typewriter::FONT,
     ));
+
+    let label = "Reference:";
+    ts_label_group_width = ts_label_group_width
+        .max(label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+    label_group = label_group.add(svg_string(
+        label.chars().map(render_label_char),
+        &SvgLocation { x: 0.0, y },
+        &sans_serif_mono::FONT,
+    ));
+
     rows.insert(TsArrangementRow::Reference, y);
     y += typewriter::FONT.character_height;
 
+    // Query.
     ts_group = ts_group.add(svg_string(
         ts_arrangement
             .query()
@@ -311,9 +343,20 @@ pub fn create_ts_svg(
         &SvgLocation { x: 0.0, y },
         &typewriter::FONT,
     ));
+
+    let label = "Query:";
+    ts_label_group_width = ts_label_group_width
+        .max(label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+    label_group = label_group.add(svg_string(
+        label.chars().map(render_label_char),
+        &SvgLocation { x: 0.0, y },
+        &sans_serif_mono::FONT,
+    ));
+
     rows.insert(TsArrangementRow::Query, y);
     y += typewriter::FONT.character_height;
 
+    // Query complement.
     ts_group = ts_group.add(svg_string(
         ts_arrangement
             .query_complement()
@@ -322,9 +365,20 @@ pub fn create_ts_svg(
         &SvgLocation { x: 0.0, y },
         &typewriter::FONT,
     ));
+
+    let label = "Query complement:";
+    ts_label_group_width = ts_label_group_width
+        .max(label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+    label_group = label_group.add(svg_string(
+        label.chars().map(render_label_char),
+        &SvgLocation { x: 0.0, y },
+        &sans_serif_mono::FONT,
+    ));
+
     rows.insert(TsArrangementRow::QueryComplement, y);
     y += typewriter::FONT.character_height;
 
+    // Query inners.
     for (identifier, query_inner) in ts_arrangement.query_inners().iter() {
         ts_group = ts_group.add(svg_string(
             query_inner.sequence().iter_values().map(render_inner_char(
@@ -336,6 +390,16 @@ pub fn create_ts_svg(
             &SvgLocation { x: 0.0, y },
             &typewriter::FONT,
         ));
+
+        let label = format!("TS-{} inner:", query_inner.template_switch().index);
+        ts_label_group_width = ts_label_group_width
+            .max(label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+        label_group = label_group.add(svg_string(
+            label.chars().map(render_label_char),
+            &SvgLocation { x: 0.0, y },
+            &sans_serif_mono::FONT,
+        ));
+
         rows.insert(TsArrangementRow::QueryInner { index: identifier }, y);
         y += typewriter::FONT.character_height;
     }
@@ -350,24 +414,34 @@ pub fn create_ts_svg(
         ts_group = ts_group.add(number.render(|row| *rows.get(row).unwrap()));
     }
 
+    let ts_label_group_width = ts_label_group_width + sans_serif_mono::FONT.character_width;
+    let ts_label_group =
+        label_group.set("transform", SvgLocation { x: 0.0, y: 0.0 }.as_transform());
+
     let ts_group_width = ts_arrangement.width() as f32 * typewriter::FONT.character_width;
     let ts_group_height = y;
 
-    svg = svg.add(ts_group);
+    let mut body_group = Group::new().set(
+        "transform",
+        SvgLocation {
+            x: SVG_PADDING,
+            y: SVG_PADDING,
+        }
+        .as_transform(),
+    );
+    body_group = body_group.add(ts_label_group);
 
-    let (view_box_width, view_box_height) = if let Some(no_ts_arrangement) = no_ts_arrangement {
+    let (body_group_width, body_group_height, label_group_width) = if let Some(no_ts_arrangement) =
+        no_ts_arrangement
+    {
         debug!("Rendering no-TS arrangement");
 
         let vertical_spacer_height = typewriter::FONT.character_height;
-        let mut no_ts_group = Group::new().set(
-            "transform",
-            SvgLocation {
-                x: 10.0,
-                y: 10.0 + ts_group_height + vertical_spacer_height,
-            }
-            .as_transform(),
-        );
+        let mut no_ts_group = Group::new();
+        let mut no_ts_label_group = Group::new();
+
         let mut y = 0.0;
+        let mut no_ts_label_group_width = 0.0f32;
 
         no_ts_group = no_ts_group.add(svg_string(
             no_ts_arrangement
@@ -376,6 +450,14 @@ pub fn create_ts_svg(
                 .map(render_source_char(&reference)),
             &SvgLocation { x: 0.0, y },
             &typewriter::FONT,
+        ));
+        let label = "Reference:";
+        no_ts_label_group_width = no_ts_label_group_width
+            .max(label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+        no_ts_label_group = no_ts_label_group.add(svg_string(
+            label.chars().map(render_label_char),
+            &SvgLocation { x: 0.0, y },
+            &sans_serif_mono::FONT,
         ));
         y += typewriter::FONT.character_height;
 
@@ -387,22 +469,95 @@ pub fn create_ts_svg(
             &SvgLocation { x: 0.0, y },
             &typewriter::FONT,
         ));
+        let label = "Query:";
+        no_ts_label_group_width = no_ts_label_group_width
+            .max(label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+        no_ts_label_group = no_ts_label_group.add(svg_string(
+            label.chars().map(render_label_char),
+            &SvgLocation { x: 0.0, y },
+            &sans_serif_mono::FONT,
+        ));
         y += typewriter::FONT.character_height;
 
+        let no_ts_label_group_width =
+            no_ts_label_group_width + sans_serif_mono::FONT.character_width;
         let no_ts_group_width = no_ts_arrangement.width() as f32 * typewriter::FONT.character_width;
         let no_ts_group_height = y;
+        let label_group_width = (ts_label_group_width).max(no_ts_label_group_width);
 
-        svg = svg.add(no_ts_group);
+        let label_group = no_ts_label_group.set(
+            "transform",
+            SvgLocation {
+                x: 0.0,
+                y: ts_group_height + vertical_spacer_height,
+            }
+            .as_transform(),
+        );
+        let no_ts_group = no_ts_group.set(
+            "transform",
+            SvgLocation {
+                x: label_group_width,
+                y: ts_group_height + vertical_spacer_height,
+            }
+            .as_transform(),
+        );
+
+        body_group = body_group.add(label_group).add(no_ts_group);
 
         (
-            ts_group_width.max(no_ts_group_width) + 20.0,
-            ts_group_height + vertical_spacer_height + no_ts_group_height + 20.0,
+            label_group_width + ts_group_width.max(no_ts_group_width),
+            ts_group_height + vertical_spacer_height + no_ts_group_height,
+            label_group_width,
         )
     } else {
-        (ts_group_width + 20.0, ts_group_height + 20.0)
+        (
+            ts_label_group_width + ts_group_width,
+            ts_group_height,
+            ts_group_width + ts_label_group_width,
+        )
     };
 
-    svg = svg.set("viewBox", (0, 0, view_box_width, view_box_height));
+    let ts_group = ts_group.set(
+        "transform",
+        SvgLocation {
+            x: label_group_width,
+            y: 0.0,
+        }
+        .as_transform(),
+    );
+    body_group = body_group.add(ts_group);
+
+    let (legend_group, legend_width, legend_height) = legend(0.6);
+    let vertical_spacer_height = typewriter::FONT.character_height;
+    body_group = body_group.add(
+        legend_group.set(
+            "transform",
+            SvgLocation {
+                x: 0.0,
+                y: body_group_height + vertical_spacer_height,
+            }
+            .as_transform(),
+        ),
+    );
+    let body_group_width = body_group_width.max(legend_width);
+    let body_group_height = body_group_height + vertical_spacer_height + legend_height;
+
+    debug!("Creating SVG root");
+    let mut svg = Document::new();
+    svg = add_arrow_defs(svg);
+    svg = svg.add(Circle::new().set("r", 1e5).set("fill", "white"));
+    svg = svg.set(
+        "viewBox",
+        (
+            0,
+            0,
+            body_group_width + 2.0 * SVG_PADDING,
+            body_group_height + 2.0 * SVG_PADDING,
+        ),
+    );
+    svg = svg.add(body_group);
+
+    debug!("Storing SVG");
     svg::write(output, &svg)?;
 
     Ok(())
@@ -498,12 +653,72 @@ fn render_inner_char(
     }
 }
 
+fn render_label_char(c: char) -> Character<CharacterData> {
+    Character::new_char(c, CharacterData::new_colored("#555555"))
+}
+
 fn copy_color(copy_depth: &Option<usize>) -> impl ToString {
     if let Some(copy_depth) = copy_depth {
         COPY_COLORS[copy_depth % COPY_COLORS.len()]
     } else {
         "black"
     }
+}
+
+/// Returns the SVG legend along with its width and height.
+fn legend(scale: f32) -> (Group, f32, f32) {
+    let mut result = Group::new();
+
+    let headline = "Legend:";
+    result = result.add(svg_string(
+        headline
+            .chars()
+            .map(Character::<CharacterData>::new_char_with_default),
+        &SvgLocation { x: 0.0, y: 0.0 },
+        &sans_serif_mono::FONT,
+    ));
+    let headline_width = headline.chars().count() as f32 * sans_serif_mono::FONT.character_width;
+    let headline_height = sans_serif_mono::FONT.character_height * 1.2;
+
+    let mut label_width = 0.0f32;
+    let mut explanation_width = 0.0f32;
+    let mut y = headline_height;
+
+    // Labels.
+    let copy_label = "GREEN CHARACTERS";
+    result = result.add(svg_string(
+        copy_label
+            .chars()
+            .map(|c| Character::new_char(c, CharacterData::new_colored(COPY_COLORS[0]))),
+        &SvgLocation { x: 0.0, y },
+        &typewriter::FONT,
+    ));
+    label_width =
+        label_width.max(copy_label.chars().count() as f32 * typewriter::FONT.character_width);
+
+    // Explanations.
+    let label_width = label_width + typewriter::FONT.character_width;
+    y = headline_height;
+
+    let copy_explanation = "Repeated characters due to a TS with SP4 < SP1";
+    result = result.add(svg_string(
+        copy_explanation
+            .chars()
+            .map(Character::<CharacterData>::new_char_with_default),
+        &SvgLocation { x: label_width, y },
+        &sans_serif_mono::FONT,
+    ));
+    explanation_width = explanation_width
+        .max(copy_explanation.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+    y += typewriter::FONT
+        .character_height
+        .max(sans_serif_mono::FONT.character_height);
+
+    result = result.set("transform", format!("scale({scale})"));
+    let legend_width = headline_width.max(label_width + explanation_width) * scale;
+    let legend_height = y * scale;
+
+    (Group::new().add(result), legend_width, legend_height)
 }
 
 pub fn create_error_svg(output: impl Write, error: Error) -> Result<()> {

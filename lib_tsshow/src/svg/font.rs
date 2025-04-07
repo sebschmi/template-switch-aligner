@@ -14,12 +14,31 @@ pub struct Font {
     characters: HashMap<char, String>,
     pub character_width: f32,
     pub character_height: f32,
-    pub stroke_width: f32,
+    stroke_width: f32,
+    scale: f32,
 }
 
 #[derive(Debug, Clone)]
 pub struct CharacterData {
     pub color: String,
+}
+
+impl Font {
+    pub fn new(
+        characters: HashMap<char, String>,
+        character_width: f32,
+        character_height: f32,
+        stroke_width: f32,
+        scale: f32,
+    ) -> Self {
+        Self {
+            characters,
+            character_width: character_width * scale,
+            character_height: character_height * scale,
+            stroke_width,
+            scale,
+        }
+    }
 }
 
 pub fn svg_character<Data: Debug>(
@@ -39,7 +58,10 @@ where
         .set("fill", data.color.clone())
         .set("stroke", data.color.clone())
         .set("stroke-width", font.stroke_width)
-        .set("transform", location.as_transform())
+        .set(
+            "transform",
+            format!("{} scale({})", location.as_transform(), font.scale),
+        )
         .set("d", character_path.as_str())
 }
 
