@@ -527,7 +527,11 @@ pub fn create_ts_svg(
     );
     body_group = body_group.add(ts_group);
 
-    let (legend_group, legend_width, legend_height) = legend(0.6);
+    let (legend_group, legend_width, legend_height) = legend(
+        &statistics.sequences.reference_name,
+        &statistics.sequences.query_name,
+        0.6,
+    );
     let vertical_spacer_height = typewriter::FONT.character_height;
     body_group = body_group.add(
         legend_group.set(
@@ -666,7 +670,7 @@ fn copy_color(copy_depth: &Option<usize>) -> impl ToString {
 }
 
 /// Returns the SVG legend along with its width and height.
-fn legend(scale: f32) -> (Group, f32, f32) {
+fn legend(reference_name: &str, query_name: &str, scale: f32) -> (Group, f32, f32) {
     let mut result = Group::new();
 
     let headline = "Legend:";
@@ -678,13 +682,41 @@ fn legend(scale: f32) -> (Group, f32, f32) {
         &sans_serif_mono::FONT,
     ));
     let headline_width = headline.chars().count() as f32 * sans_serif_mono::FONT.character_width;
-    let headline_height = sans_serif_mono::FONT.character_height * 1.2;
+    let headline_height = sans_serif_mono::FONT.character_height * 1.4;
 
     let mut label_width = 0.0f32;
     let mut explanation_width = 0.0f32;
     let mut y = headline_height;
 
     // Labels.
+    let reference_label = "Reference";
+    result = result.add(svg_string(
+        reference_label
+            .chars()
+            .map(Character::<CharacterData>::new_char_with_default),
+        &SvgLocation { x: 0.0, y },
+        &sans_serif_mono::FONT,
+    ));
+    label_width = label_width
+        .max(reference_label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+    y += typewriter::FONT
+        .character_height
+        .max(sans_serif_mono::FONT.character_height);
+
+    let query_label = "Query";
+    result = result.add(svg_string(
+        query_label
+            .chars()
+            .map(Character::<CharacterData>::new_char_with_default),
+        &SvgLocation { x: 0.0, y },
+        &sans_serif_mono::FONT,
+    ));
+    label_width =
+        label_width.max(query_label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+    y += typewriter::FONT
+        .character_height
+        .max(sans_serif_mono::FONT.character_height);
+
     let copy_label = "GREEN CHARACTERS";
     result = result.add(svg_string(
         copy_label
@@ -699,6 +731,32 @@ fn legend(scale: f32) -> (Group, f32, f32) {
     // Explanations.
     let label_width = label_width + typewriter::FONT.character_width;
     y = headline_height;
+
+    result = result.add(svg_string(
+        reference_name
+            .chars()
+            .map(Character::<CharacterData>::new_char_with_default),
+        &SvgLocation { x: label_width, y },
+        &sans_serif_mono::FONT,
+    ));
+    explanation_width = explanation_width
+        .max(reference_name.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+    y += typewriter::FONT
+        .character_height
+        .max(sans_serif_mono::FONT.character_height);
+
+    result = result.add(svg_string(
+        query_name
+            .chars()
+            .map(Character::<CharacterData>::new_char_with_default),
+        &SvgLocation { x: label_width, y },
+        &sans_serif_mono::FONT,
+    ));
+    explanation_width = explanation_width
+        .max(query_name.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+    y += typewriter::FONT
+        .character_height
+        .max(sans_serif_mono::FONT.character_height);
 
     let copy_explanation = "Repeated characters due to a TS with SP4 < SP1";
     result = result.add(svg_string(
