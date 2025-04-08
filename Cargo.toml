@@ -2,7 +2,6 @@
 
 members = [
     "extend_map",
-    "deterministic_default_hasher",
     "generic_a_star",
     "seed_chain",
     "lib_tsalign",
@@ -10,7 +9,7 @@ members = [
     "lib_tsshow",
 
     # Internal
-    "tsalign-tests"
+    "tsalign-tests",
 ]
 resolver = "2"
 
