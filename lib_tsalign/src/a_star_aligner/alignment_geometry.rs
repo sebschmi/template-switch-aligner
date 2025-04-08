@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, ops::Range};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct AlignmentRange {
@@ -38,6 +38,14 @@ impl AlignmentRange {
 
     pub fn query_limit(&self) -> usize {
         self.limit.query
+    }
+
+    pub fn reference_range(&self) -> Range<usize> {
+        self.offset.reference..self.limit.reference
+    }
+
+    pub fn query_range(&self) -> Range<usize> {
+        self.offset.query..self.limit.query
     }
 }
 

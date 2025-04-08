@@ -13,6 +13,7 @@ use lib_tsalign::{
             },
             node_ord::{AntiDiagonalNodeOrdStrategy, CostOnlyNodeOrdStrategy, NodeOrdStrategy},
             primary_match::AllowPrimaryMatchStrategy,
+            primary_range::NoPrunePrimaryRangeStrategy,
             secondary_deletion::AllowSecondaryDeletionStrategy,
             shortcut::NoShortcutStrategy,
             template_switch_count::{
@@ -247,6 +248,7 @@ fn align_a_star_template_switch_distance_call<
             AllowSecondaryDeletionStrategy,
             NoShortcutStrategy<U64Cost>,
             AllowPrimaryMatchStrategy,
+            NoPrunePrimaryRangeStrategy,
         >,
         _,
     >(

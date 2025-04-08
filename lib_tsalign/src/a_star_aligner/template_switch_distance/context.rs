@@ -8,6 +8,7 @@ use generic_a_star::{AStarBuffers, AStarContext};
 use num_traits::{Bounded, Zero};
 
 use crate::a_star_aligner::template_switch_distance::Node;
+use crate::a_star_aligner::template_switch_distance::strategies::primary_range::PrimaryRangeStrategy;
 use crate::a_star_aligner::{AlignmentContext, AlignmentRange};
 use crate::config::TemplateSwitchConfig;
 
@@ -150,8 +151,10 @@ impl<
                     .template_switch_count
                     .can_start_another_template_switch(self);
 
-                if reference_index < self.range.reference_limit()
-                    && query_index < self.range.query_limit()
+                if <Strategies::PrimaryRange as PrimaryRangeStrategy>::reference_range(self)
+                    .contains(&reference_index)
+                    && <Strategies::PrimaryRange as PrimaryRangeStrategy>::query_range(self)
+                        .contains(&query_index)
                 {
                     // Diagonal characters
                     let r = self.reference[reference_index].clone();
@@ -239,7 +242,9 @@ impl<
                     }
                 }
 
-                if reference_index < self.range.reference_limit() {
+                if <Strategies::PrimaryRange as PrimaryRangeStrategy>::reference_range(self)
+                    .contains(&reference_index)
+                {
                     // Deleted character
                     let r = self.reference[reference_index].clone();
 
@@ -281,7 +286,9 @@ impl<
                     }
                 }
 
-                if query_index < self.range.query_limit() {
+                if <Strategies::PrimaryRange as PrimaryRangeStrategy>::query_range(self)
+                    .contains(&query_index)
+                {
                     // Inserted character
                     let q = self.query[query_index].clone();
 
@@ -519,12 +526,12 @@ impl<
                 anti_primary_gap,
                 ..
             } => {
-                let (anti_primary_offset, anti_primary_limit) = match template_switch_primary {
+                let anti_primary_range = match template_switch_primary {
                     TemplateSwitchPrimary::Reference => {
-                        (self.range.query_offset(), self.range.query_limit())
+                        <Strategies::PrimaryRange as PrimaryRangeStrategy>::query_range(self)
                     }
                     TemplateSwitchPrimary::Query => {
-                        (self.range.reference_offset(), self.range.reference_limit())
+                        <Strategies::PrimaryRange as PrimaryRangeStrategy>::reference_range(self)
                     }
                 };
                 let entrance_primary_index = match template_switch_primary {
@@ -537,7 +544,7 @@ impl<
                     anti_primary_gap - isize::try_from(primary_inner_length).unwrap();
 
                 if length_difference >= 0
-                    && primary_index as isize + length_difference < anti_primary_limit as isize
+                    && primary_index as isize + length_difference < anti_primary_range.end as isize
                 {
                     let new_cost = config
                         .length_difference_costs
@@ -557,7 +564,8 @@ impl<
                 }
 
                 if length_difference <= 0
-                    && primary_index as isize + length_difference > anti_primary_offset as isize
+                    && primary_index as isize + length_difference
+                        > anti_primary_range.start as isize
                 {
                     let new_cost = config
                         .length_difference_costs
