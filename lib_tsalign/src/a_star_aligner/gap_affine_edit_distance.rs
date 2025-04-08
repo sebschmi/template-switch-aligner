@@ -3,7 +3,9 @@ use std::marker::PhantomData;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStarContext, AStarNode, cost::AStarCost, reset::Reset};
 
-use super::{AlignmentContext, alignment_result::IAlignmentType};
+use super::{
+    AlignmentContext, alignment_geometry::AlignmentRange, alignment_result::IAlignmentType,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Node<Cost> {
@@ -60,6 +62,7 @@ pub struct Context<
 > {
     reference: &'reference SubsequenceType,
     query: &'query SubsequenceType,
+    range: AlignmentRange,
 
     scoring_table: ScoringTable<Cost>,
     phantom_data: PhantomData<AlphabetType>,
@@ -220,6 +223,10 @@ impl<
     fn query_name(&self) -> &str {
         ""
     }
+
+    fn range(&self) -> &AlignmentRange {
+        &self.range
+    }
 }
 
 impl<
@@ -238,6 +245,7 @@ impl<
         Self {
             reference,
             query,
+            range: AlignmentRange::new_complete(reference.len(), query.len()),
             scoring_table,
             phantom_data: PhantomData,
         }

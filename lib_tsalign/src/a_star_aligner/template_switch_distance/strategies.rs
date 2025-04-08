@@ -5,6 +5,7 @@ use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::cost::AStarCost;
 use node_ord::NodeOrdStrategy;
 use primary_match::PrimaryMatchStrategy;
+use primary_range::PrimaryRangeStrategy;
 use secondary_deletion::SecondaryDeletionStrategy;
 use shortcut::ShortcutStrategy;
 use template_switch_count::TemplateSwitchCountStrategy;
@@ -15,6 +16,7 @@ use super::{AlignmentType, Context, Identifier};
 pub mod chaining;
 pub mod node_ord;
 pub mod primary_match;
+pub mod primary_range;
 pub mod secondary_deletion;
 pub mod shortcut;
 pub mod template_switch_count;
@@ -30,6 +32,7 @@ pub trait AlignmentStrategySelector: Eq + Clone + std::fmt::Debug {
     type SecondaryDeletion: SecondaryDeletionStrategy;
     type Shortcut: ShortcutStrategy<Self::Cost>;
     type PrimaryMatch: PrimaryMatchStrategy<Self::Cost>;
+    type PrimaryRange: PrimaryRangeStrategy;
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -124,6 +127,7 @@ pub struct AlignmentStrategySelection<
     SecondaryDeletion: SecondaryDeletionStrategy,
     Shortcut: ShortcutStrategy<Cost>,
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
+    PrimaryRange: PrimaryRangeStrategy,
 > {
     #[allow(clippy::type_complexity)]
     phantom_data: PhantomData<(
@@ -136,6 +140,7 @@ pub struct AlignmentStrategySelection<
         SecondaryDeletion,
         Shortcut,
         PrimaryMatch,
+        PrimaryRange,
     )>,
 }
 
@@ -149,6 +154,7 @@ impl<
     SecondaryDeletion: SecondaryDeletionStrategy,
     Shortcut: ShortcutStrategy<Cost>,
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
+    PrimaryRange: PrimaryRangeStrategy,
 > AlignmentStrategySelector
     for AlignmentStrategySelection<
         AlphabetType,
@@ -160,6 +166,7 @@ impl<
         SecondaryDeletion,
         Shortcut,
         PrimaryMatch,
+        PrimaryRange,
     >
 {
     type Alphabet = AlphabetType;
@@ -171,6 +178,7 @@ impl<
     type SecondaryDeletion = SecondaryDeletion;
     type Shortcut = Shortcut;
     type PrimaryMatch = PrimaryMatch;
+    type PrimaryRange = PrimaryRange;
 }
 
 impl<
@@ -183,6 +191,7 @@ impl<
     SecondaryDeletion: SecondaryDeletionStrategy,
     Shortcut: ShortcutStrategy<Cost>,
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
+    PrimaryRange: PrimaryRangeStrategy,
 > Debug
     for AlignmentStrategySelection<
         AlphabetType,
@@ -194,6 +203,7 @@ impl<
         SecondaryDeletion,
         Shortcut,
         PrimaryMatch,
+        PrimaryRange,
     >
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -211,6 +221,7 @@ impl<
     SecondaryDeletion: SecondaryDeletionStrategy,
     Shortcut: ShortcutStrategy<Cost>,
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
+    PrimaryRange: PrimaryRangeStrategy,
 > Clone
     for AlignmentStrategySelection<
         AlphabetType,
@@ -222,6 +233,7 @@ impl<
         SecondaryDeletion,
         Shortcut,
         PrimaryMatch,
+        PrimaryRange,
     >
 {
     fn clone(&self) -> Self {
@@ -241,6 +253,7 @@ impl<
     SecondaryDeletion: SecondaryDeletionStrategy,
     Shortcut: ShortcutStrategy<Cost>,
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
+    PrimaryRange: PrimaryRangeStrategy,
 > PartialEq
     for AlignmentStrategySelection<
         AlphabetType,
@@ -252,6 +265,7 @@ impl<
         SecondaryDeletion,
         Shortcut,
         PrimaryMatch,
+        PrimaryRange,
     >
 {
     fn eq(&self, other: &Self) -> bool {
@@ -269,6 +283,7 @@ impl<
     SecondaryDeletion: SecondaryDeletionStrategy,
     Shortcut: ShortcutStrategy<Cost>,
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
+    PrimaryRange: PrimaryRangeStrategy,
 > Eq
     for AlignmentStrategySelection<
         AlphabetType,
@@ -280,6 +295,7 @@ impl<
         SecondaryDeletion,
         Shortcut,
         PrimaryMatch,
+        PrimaryRange,
     >
 {
 }

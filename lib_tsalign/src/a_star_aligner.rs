@@ -1,8 +1,10 @@
 use std::{fmt::Debug, time::Instant};
 
+use alignment_geometry::AlignmentRange;
 use alignment_result::{AlignmentResult, IAlignmentType};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult, cost::AStarCost};
+use log::info;
 use template_switch_distance::{
     context::Memory,
     strategies::{
@@ -15,6 +17,7 @@ use traitsequence::interface::Sequence;
 
 use crate::config;
 
+pub mod alignment_geometry;
 pub mod alignment_result;
 pub mod gap_affine_edit_distance;
 pub mod template_switch_distance;
@@ -37,6 +40,8 @@ pub trait AlignmentContext: AStarContext {
     fn reference_name(&self) -> &str;
 
     fn query_name(&self) -> &str;
+
+    fn range(&self) -> &AlignmentRange;
 }
 
 fn a_star_align<Context: AStarContext + AlignmentContext>(
@@ -45,6 +50,8 @@ fn a_star_align<Context: AStarContext + AlignmentContext>(
 where
     <Context::Node as AStarNode>::EdgeType: IAlignmentType,
 {
+    info!("Aligning on subsequence {}", context.range());
+
     let start_time = Instant::now();
 
     // Perform forwards search.
@@ -140,6 +147,7 @@ pub fn template_switch_distance_a_star_align<
     query: &SubsequenceType,
     reference_name: &str,
     query_name: &str,
+    range: Option<AlignmentRange>,
     config: config::TemplateSwitchConfig<
         Strategies::Alphabet,
         <Strategies as AlignmentStrategySelector>::Cost,
@@ -166,6 +174,7 @@ pub fn template_switch_distance_a_star_align<
         query,
         reference_name,
         query_name,
+        range,
         config,
         memory,
         cost_limit,

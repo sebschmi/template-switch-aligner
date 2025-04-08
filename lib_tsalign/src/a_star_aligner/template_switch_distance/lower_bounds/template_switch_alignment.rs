@@ -25,6 +25,7 @@ use crate::{
                 primary_match::{
                     MaxConsecutivePrimaryMatchMemory, MaxConsecutivePrimaryMatchStrategy,
                 },
+                primary_range::NoPrunePrimaryRangeStrategy,
                 secondary_deletion::AllowSecondaryDeletionStrategy,
                 shortcut::TemplateSwitchLowerBoundShortcutStrategy,
                 template_switch_count::NoTemplateSwitchCountStrategy,
@@ -54,6 +55,7 @@ type TSALBAlignmentStrategies<AlphabetType, Cost> = AlignmentStrategySelection<
     AllowSecondaryDeletionStrategy,
     TemplateSwitchLowerBoundShortcutStrategy<Cost>,
     MaxConsecutivePrimaryMatchStrategy,
+    NoPrunePrimaryRangeStrategy,
 >;
 
 impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
@@ -91,6 +93,7 @@ impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
                 genome.as_genome_subsequence(),
                 "",
                 "",
+                None,
                 lower_bound_config.clone(),
                 Memory {
                     template_switch_min_length: (),

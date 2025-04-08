@@ -7,8 +7,9 @@ use generic_a_star::reset::Reset;
 use generic_a_star::{AStarBuffers, AStarContext};
 use num_traits::{Bounded, Zero};
 
-use crate::a_star_aligner::AlignmentContext;
 use crate::a_star_aligner::template_switch_distance::Node;
+use crate::a_star_aligner::template_switch_distance::strategies::primary_range::PrimaryRangeStrategy;
+use crate::a_star_aligner::{AlignmentContext, AlignmentRange};
 use crate::config::TemplateSwitchConfig;
 
 use super::identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
@@ -31,6 +32,8 @@ pub struct Context<
     pub query: &'query SubsequenceType,
     pub reference_name: String,
     pub query_name: String,
+
+    pub range: AlignmentRange,
 
     pub config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
 
@@ -72,6 +75,7 @@ impl<
         query: &'query SubsequenceType,
         reference_name: &str,
         query_name: &str,
+        range: Option<AlignmentRange>,
         config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
         memory: Memory<Strategies>,
         cost_limit: Option<Strategies::Cost>,
@@ -82,6 +86,8 @@ impl<
             query,
             reference_name: reference_name.to_owned(),
             query_name: query_name.to_owned(),
+            range: range
+                .unwrap_or_else(|| AlignmentRange::new_complete(reference.len(), query.len())),
             config,
             a_star_buffers: Default::default(),
             memory,
@@ -101,7 +107,7 @@ impl<
     fn create_root(&self) -> Self::Node {
         Self::Node {
             node_data: NodeData {
-                identifier: Identifier::new_primary(0, 0, 0, GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::create_root_identifier_primary_extra_data(self)),
+                identifier: Identifier::new_primary(self.range.reference_offset(), self.range.query_offset(), 0, GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::create_root_identifier_primary_extra_data(self)),
                 predecessor: None,
                 predecessor_edge_type: AlignmentType::Root,
                 cost: Strategies::Cost::zero(),
@@ -145,7 +151,11 @@ impl<
                     .template_switch_count
                     .can_start_another_template_switch(self);
 
-                if reference_index < self.reference.len() && query_index < self.query.len() {
+                if <Strategies::PrimaryRange as PrimaryRangeStrategy>::reference_range(self)
+                    .contains(&reference_index)
+                    && <Strategies::PrimaryRange as PrimaryRangeStrategy>::query_range(self)
+                        .contains(&query_index)
+                {
                     // Diagonal characters
                     let r = self.reference[reference_index].clone();
                     let q = self.query[query_index].clone();
@@ -232,7 +242,9 @@ impl<
                     }
                 }
 
-                if reference_index < self.reference.len() {
+                if <Strategies::PrimaryRange as PrimaryRangeStrategy>::reference_range(self)
+                    .contains(&reference_index)
+                {
                     // Deleted character
                     let r = self.reference[reference_index].clone();
 
@@ -274,7 +286,9 @@ impl<
                     }
                 }
 
-                if query_index < self.query.len() {
+                if <Strategies::PrimaryRange as PrimaryRangeStrategy>::query_range(self)
+                    .contains(&query_index)
+                {
                     // Inserted character
                     let q = self.query[query_index].clone();
 
@@ -512,9 +526,13 @@ impl<
                 anti_primary_gap,
                 ..
             } => {
-                let anti_primary_length = match template_switch_primary {
-                    TemplateSwitchPrimary::Reference => self.query.len(),
-                    TemplateSwitchPrimary::Query => self.reference.len(),
+                let anti_primary_range = match template_switch_primary {
+                    TemplateSwitchPrimary::Reference => {
+                        <Strategies::PrimaryRange as PrimaryRangeStrategy>::query_range(self)
+                    }
+                    TemplateSwitchPrimary::Query => {
+                        <Strategies::PrimaryRange as PrimaryRangeStrategy>::reference_range(self)
+                    }
                 };
                 let entrance_primary_index = match template_switch_primary {
                     TemplateSwitchPrimary::Reference => entrance_reference_index,
@@ -526,7 +544,7 @@ impl<
                     anti_primary_gap - isize::try_from(primary_inner_length).unwrap();
 
                 if length_difference >= 0
-                    && primary_index as isize + length_difference < anti_primary_length as isize
+                    && primary_index as isize + length_difference < anti_primary_range.end as isize
                 {
                     let new_cost = config
                         .length_difference_costs
@@ -545,7 +563,10 @@ impl<
                     }
                 }
 
-                if length_difference <= 0 && primary_index as isize + length_difference > 0 {
+                if length_difference <= 0
+                    && primary_index as isize + length_difference
+                        > anti_primary_range.start as isize
+                {
                     let new_cost = config
                         .length_difference_costs
                         .evaluate(&(&length_difference - 1));
@@ -584,7 +605,10 @@ impl<
                 reference_index,
                 query_index,
                 ..
-            } => reference_index == self.reference.len() && query_index == self.query.len(),
+            } => {
+                reference_index == self.range.reference_limit()
+                    && query_index == self.range.query_limit()
+            }
             _ => false,
         }
     }
@@ -656,6 +680,10 @@ impl<
 
     fn query_name(&self) -> &str {
         &self.query_name
+    }
+
+    fn range(&self) -> &AlignmentRange {
+        &self.range
     }
 }
 
