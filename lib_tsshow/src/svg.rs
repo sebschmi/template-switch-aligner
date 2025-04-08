@@ -277,7 +277,13 @@ pub fn create_ts_svg(
             &typewriter::FONT,
         ));
 
-        let label = format!("TS-{} inner:", reference_inner.template_switch().index);
+        let label = format!(
+            "TS-{} inner:",
+            TS_RUNNING_NUMBER
+                .chars()
+                .nth(reference_inner.template_switch().index)
+                .unwrap()
+        );
         ts_label_group_width = ts_label_group_width
             .max(label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
         label_group = label_group.add(svg_string(
@@ -391,7 +397,13 @@ pub fn create_ts_svg(
             &typewriter::FONT,
         ));
 
-        let label = format!("TS-{} inner:", query_inner.template_switch().index);
+        let label = format!(
+            "TS-{} inner:",
+            TS_RUNNING_NUMBER
+                .chars()
+                .nth(query_inner.template_switch().index)
+                .unwrap()
+        );
         ts_label_group_width = ts_label_group_width
             .max(label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
         label_group = label_group.add(svg_string(
