@@ -1,7 +1,6 @@
 [workspace]
 
 members = [
-    "extend_map",
     "generic_a_star",
     "seed_chain",
     "lib_tsalign",

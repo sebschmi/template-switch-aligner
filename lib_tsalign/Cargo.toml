@@ -30,4 +30,4 @@ generic_a_star = { version = "0.14.1", path = "../generic_a_star" }
 log.workspace = true
 seed_chain = { version = "0.14.1", path = "../seed_chain" }
 deterministic_default_hasher = "0.14.2"
-extend_map = { version = "0.14.1", path = "../extend_map" }
+extend_map = "0.14.3"
