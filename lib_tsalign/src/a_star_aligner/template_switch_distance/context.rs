@@ -32,6 +32,9 @@ pub struct Context<
     pub reference_name: String,
     pub query_name: String,
 
+    pub offset: AlignmentCoordinates,
+    pub limit: AlignmentCoordinates,
+
     pub config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
 
     #[allow(clippy::type_complexity)]
@@ -59,6 +62,11 @@ pub struct Memory<Strategies: AlignmentStrategySelector> {
 >>::Memory,
 }
 
+pub struct AlignmentCoordinates {
+    pub reference: usize,
+    pub query: usize,
+}
+
 impl<
     'reference,
     'query,
@@ -82,6 +90,8 @@ impl<
             query,
             reference_name: reference_name.to_owned(),
             query_name: query_name.to_owned(),
+            offset: AlignmentCoordinates::new_zero(),
+            limit: AlignmentCoordinates::new(reference.len(), query.len()),
             config,
             a_star_buffers: Default::default(),
             memory,
@@ -101,7 +111,7 @@ impl<
     fn create_root(&self) -> Self::Node {
         Self::Node {
             node_data: NodeData {
-                identifier: Identifier::new_primary(0, 0, 0, GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::create_root_identifier_primary_extra_data(self)),
+                identifier: Identifier::new_primary(self.offset.reference, self.offset.query, 0, GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::create_root_identifier_primary_extra_data(self)),
                 predecessor: None,
                 predecessor_edge_type: AlignmentType::Root,
                 cost: Strategies::Cost::zero(),
@@ -584,7 +594,7 @@ impl<
                 reference_index,
                 query_index,
                 ..
-            } => reference_index == self.reference.len() && query_index == self.query.len(),
+            } => reference_index == self.limit.reference && query_index == self.limit.query,
             _ => false,
         }
     }
@@ -656,6 +666,16 @@ impl<
 
     fn query_name(&self) -> &str {
         &self.query_name
+    }
+}
+
+impl AlignmentCoordinates {
+    pub fn new(reference: usize, query: usize) -> Self {
+        Self { reference, query }
+    }
+
+    pub fn new_zero() -> Self {
+        Self::new(0, 0)
     }
 }
 
