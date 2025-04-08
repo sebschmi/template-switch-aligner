@@ -122,6 +122,13 @@ pub struct Cli {
     /// Template switch inners can still align to the full sequence.
     #[clap(long)]
     query_limit: Option<usize>,
+
+    /// Ranges for computing the alignment.
+    ///
+    /// Skipped characters are ignored for the range indices.
+    /// Template switch inners can still align to the full sequence.
+    #[clap(long)]
+    rq_ranges: Option<String>,
 }
 
 #[derive(Args)]

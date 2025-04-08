@@ -233,16 +233,7 @@ fn align_a_star_template_switch_distance_call<
     let costs = TemplateSwitchConfig::read_plain(config_file)
         .unwrap_or_else(|error| panic!("Error parsing template switch config:\n{error}"));
 
-    let range = Some(AlignmentRange::new_offset_limit(
-        AlignmentCoordinates::new(
-            cli.reference_offset.unwrap_or(0),
-            cli.query_offset.unwrap_or(0),
-        ),
-        AlignmentCoordinates::new(
-            cli.reference_limit.unwrap_or(reference.len()),
-            cli.query_limit.unwrap_or(query.len()),
-        ),
-    ));
+    let range = Some(parse_range(&cli, reference.len(), query.len()));
 
     info!("Calling aligner...");
     let alignment = template_switch_distance_a_star_align::<
@@ -279,4 +270,89 @@ fn align_a_star_template_switch_distance_call<
     }
 
     println!("{}", alignment);
+}
+
+fn parse_range(cli: &Cli, reference_length: usize, query_length: usize) -> AlignmentRange {
+    let complete_reference_range = 0..reference_length;
+    let complete_query_range = 0..query_length;
+
+    let (reference_range, query_range) = if let Some(rq_ranges) = cli.rq_ranges.as_ref() {
+        let mut rq_ranges = rq_ranges.chars().peekable();
+
+        let mut reference_range = None;
+        let mut query_range = None;
+
+        while rq_ranges.peek().is_some() {
+            let rq = rq_ranges.next().unwrap();
+
+            while let Some(c) = rq_ranges.peek() {
+                if c.is_whitespace() {
+                    rq_ranges.next().unwrap();
+                } else {
+                    break;
+                }
+            }
+
+            let mut offset = String::new();
+            while let Some(c) = rq_ranges.peek() {
+                if c.is_numeric() {
+                    offset.push(rq_ranges.next().unwrap());
+                } else {
+                    break;
+                }
+            }
+
+            // Parse ..
+            assert_eq!(rq_ranges.next(), Some('.'));
+            assert_eq!(rq_ranges.next(), Some('.'));
+
+            let mut limit = String::new();
+            while let Some(c) = rq_ranges.peek() {
+                if c.is_numeric() {
+                    limit.push(rq_ranges.next().unwrap());
+                } else {
+                    break;
+                }
+            }
+
+            let offset = offset.parse().unwrap();
+            let limit = limit.parse().unwrap();
+
+            match rq {
+                'R' => {
+                    assert!(reference_range.is_none());
+                    reference_range = Some(offset..limit)
+                }
+                'Q' => {
+                    assert!(query_range.is_none());
+                    query_range = Some(offset..limit)
+                }
+                _ => panic!(),
+            }
+        }
+
+        assert!(
+            reference_range.is_none()
+                || (cli.reference_offset.is_none() && cli.reference_limit.is_none())
+        );
+        assert!(query_range.is_none() || (cli.query_offset.is_none() && cli.query_limit.is_none()));
+
+        (
+            reference_range.unwrap_or(complete_reference_range),
+            query_range.unwrap_or(complete_query_range),
+        )
+    } else {
+        (complete_reference_range, complete_query_range)
+    };
+
+    AlignmentRange::new_offset_limit(
+        AlignmentCoordinates::new(
+            cli.reference_offset.unwrap_or(reference_range.start),
+            cli.query_offset.unwrap_or(query_range.start),
+        ),
+        AlignmentCoordinates::new(
+            cli.reference_limit.unwrap_or(reference_range.end),
+            cli.query_limit.unwrap_or(query_range.end),
+        ),
+    )
 }
