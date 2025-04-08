@@ -91,6 +91,7 @@ impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
                 genome.as_genome_subsequence(),
                 "",
                 "",
+                None,
                 lower_bound_config.clone(),
                 Memory {
                     template_switch_min_length: (),

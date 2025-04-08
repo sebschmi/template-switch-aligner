@@ -7,8 +7,8 @@ use generic_a_star::reset::Reset;
 use generic_a_star::{AStarBuffers, AStarContext};
 use num_traits::{Bounded, Zero};
 
-use crate::a_star_aligner::AlignmentContext;
 use crate::a_star_aligner::template_switch_distance::Node;
+use crate::a_star_aligner::{AlignmentContext, AlignmentRange};
 use crate::config::TemplateSwitchConfig;
 
 use super::identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary};
@@ -32,8 +32,7 @@ pub struct Context<
     pub reference_name: String,
     pub query_name: String,
 
-    pub offset: AlignmentCoordinates,
-    pub limit: AlignmentCoordinates,
+    pub range: AlignmentRange,
 
     pub config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
 
@@ -62,11 +61,6 @@ pub struct Memory<Strategies: AlignmentStrategySelector> {
 >>::Memory,
 }
 
-pub struct AlignmentCoordinates {
-    pub reference: usize,
-    pub query: usize,
-}
-
 impl<
     'reference,
     'query,
@@ -80,6 +74,7 @@ impl<
         query: &'query SubsequenceType,
         reference_name: &str,
         query_name: &str,
+        range: Option<AlignmentRange>,
         config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
         memory: Memory<Strategies>,
         cost_limit: Option<Strategies::Cost>,
@@ -90,8 +85,8 @@ impl<
             query,
             reference_name: reference_name.to_owned(),
             query_name: query_name.to_owned(),
-            offset: AlignmentCoordinates::new_zero(),
-            limit: AlignmentCoordinates::new(reference.len(), query.len()),
+            range: range
+                .unwrap_or_else(|| AlignmentRange::new_complete(reference.len(), query.len())),
             config,
             a_star_buffers: Default::default(),
             memory,
@@ -111,7 +106,7 @@ impl<
     fn create_root(&self) -> Self::Node {
         Self::Node {
             node_data: NodeData {
-                identifier: Identifier::new_primary(self.offset.reference, self.offset.query, 0, GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::create_root_identifier_primary_extra_data(self)),
+                identifier: Identifier::new_primary(self.range.reference_offset(), self.range.query_offset(), 0, GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::create_root_identifier_primary_extra_data(self)),
                 predecessor: None,
                 predecessor_edge_type: AlignmentType::Root,
                 cost: Strategies::Cost::zero(),
@@ -594,7 +589,10 @@ impl<
                 reference_index,
                 query_index,
                 ..
-            } => reference_index == self.limit.reference && query_index == self.limit.query,
+            } => {
+                reference_index == self.range.reference_limit()
+                    && query_index == self.range.query_limit()
+            }
             _ => false,
         }
     }
@@ -667,15 +665,9 @@ impl<
     fn query_name(&self) -> &str {
         &self.query_name
     }
-}
 
-impl AlignmentCoordinates {
-    pub fn new(reference: usize, query: usize) -> Self {
-        Self { reference, query }
-    }
-
-    pub fn new_zero() -> Self {
-        Self::new(0, 0)
+    fn range(&self) -> &AlignmentRange {
+        &self.range
     }
 }
 

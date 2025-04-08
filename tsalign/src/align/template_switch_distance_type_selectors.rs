@@ -4,6 +4,7 @@ use clap::ValueEnum;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use lib_tsalign::{
     a_star_aligner::{
+        alignment_geometry::{AlignmentCoordinates, AlignmentRange},
         template_switch_distance::strategies::{
             AlignmentStrategySelection,
             chaining::{
@@ -232,6 +233,17 @@ fn align_a_star_template_switch_distance_call<
     let costs = TemplateSwitchConfig::read_plain(config_file)
         .unwrap_or_else(|error| panic!("Error parsing template switch config:\n{error}"));
 
+    let range = Some(AlignmentRange::new_offset_limit(
+        AlignmentCoordinates::new(
+            cli.reference_offset.unwrap_or(0),
+            cli.query_offset.unwrap_or(0),
+        ),
+        AlignmentCoordinates::new(
+            cli.reference_limit.unwrap_or(reference.len()),
+            cli.query_limit.unwrap_or(query.len()),
+        ),
+    ));
+
     info!("Calling aligner...");
     let alignment = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<
@@ -251,6 +263,7 @@ fn align_a_star_template_switch_distance_call<
         query,
         reference_name,
         query_name,
+        range,
         costs,
         cli.cost_limit,
         cli.memory_limit,

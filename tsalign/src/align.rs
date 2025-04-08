@@ -94,6 +94,34 @@ pub struct Cli {
     /// If it is exceeded, then the aligner will abort without result.
     #[clap(long)]
     memory_limit: Option<usize>,
+
+    /// First character in the reference to start the alignment from.
+    ///
+    /// Skipped characters are ignored for computing this index.
+    /// Template switch inners can still align to the full sequence.
+    #[clap(long)]
+    reference_offset: Option<usize>,
+
+    /// First character in the query to start the alignment from.
+    ///
+    /// Skipped characters are ignored for computing this index.
+    /// Template switch inners can still align to the full sequence.
+    #[clap(long)]
+    query_offset: Option<usize>,
+
+    /// First character after the last character in the reference to end the alignment at.
+    ///
+    /// Skipped characters are ignored for computing this index.
+    /// Template switch inners can still align to the full sequence.
+    #[clap(long)]
+    reference_limit: Option<usize>,
+
+    /// First character after the last character in the query to end the alignment at.
+    ///
+    /// Skipped characters are ignored for computing this index.
+    /// Template switch inners can still align to the full sequence.
+    #[clap(long)]
+    query_limit: Option<usize>,
 }
 
 #[derive(Args)]
