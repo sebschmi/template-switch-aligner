@@ -150,7 +150,9 @@ impl<
                     .template_switch_count
                     .can_start_another_template_switch(self);
 
-                if reference_index < self.reference.len() && query_index < self.query.len() {
+                if reference_index < self.range.reference_limit()
+                    && query_index < self.range.query_limit()
+                {
                     // Diagonal characters
                     let r = self.reference[reference_index].clone();
                     let q = self.query[query_index].clone();
@@ -237,7 +239,7 @@ impl<
                     }
                 }
 
-                if reference_index < self.reference.len() {
+                if reference_index < self.range.reference_limit() {
                     // Deleted character
                     let r = self.reference[reference_index].clone();
 
@@ -279,7 +281,7 @@ impl<
                     }
                 }
 
-                if query_index < self.query.len() {
+                if query_index < self.range.query_limit() {
                     // Inserted character
                     let q = self.query[query_index].clone();
 
@@ -517,9 +519,13 @@ impl<
                 anti_primary_gap,
                 ..
             } => {
-                let anti_primary_length = match template_switch_primary {
-                    TemplateSwitchPrimary::Reference => self.query.len(),
-                    TemplateSwitchPrimary::Query => self.reference.len(),
+                let (anti_primary_offset, anti_primary_limit) = match template_switch_primary {
+                    TemplateSwitchPrimary::Reference => {
+                        (self.range.query_offset(), self.range.query_limit())
+                    }
+                    TemplateSwitchPrimary::Query => {
+                        (self.range.reference_offset(), self.range.reference_limit())
+                    }
                 };
                 let entrance_primary_index = match template_switch_primary {
                     TemplateSwitchPrimary::Reference => entrance_reference_index,
@@ -531,7 +537,7 @@ impl<
                     anti_primary_gap - isize::try_from(primary_inner_length).unwrap();
 
                 if length_difference >= 0
-                    && primary_index as isize + length_difference < anti_primary_length as isize
+                    && primary_index as isize + length_difference < anti_primary_limit as isize
                 {
                     let new_cost = config
                         .length_difference_costs
@@ -550,7 +556,9 @@ impl<
                     }
                 }
 
-                if length_difference <= 0 && primary_index as isize + length_difference > 0 {
+                if length_difference <= 0
+                    && primary_index as isize + length_difference > anti_primary_offset as isize
+                {
                     let new_cost = config
                         .length_difference_costs
                         .evaluate(&(&length_difference - 1));
