@@ -201,6 +201,55 @@ impl TsInnerArrangement {
     pub fn query_inners(&self) -> &TaggedVec<TsInnerIdentifier, TsInner> {
         &self.query_inners
     }
+
+    pub fn reference_inner_first_non_blank_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        Self::inner_first_non_blank_column(&self.reference_inners[inner_identifier].sequence)
+    }
+
+    pub fn reference_inner_last_non_blank_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        Self::inner_last_non_blank_column(&self.reference_inners[inner_identifier].sequence)
+    }
+
+    pub fn query_inner_first_non_blank_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        Self::inner_first_non_blank_column(&self.query_inners[inner_identifier].sequence)
+    }
+
+    pub fn query_inner_last_non_blank_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        Self::inner_last_non_blank_column(&self.query_inners[inner_identifier].sequence)
+    }
+
+    fn inner_first_non_blank_column(
+        sequence: &TaggedVec<ArrangementColumn, InnerChar>,
+    ) -> ArrangementColumn {
+        sequence
+            .iter()
+            .find(|(_, c)| !c.is_blank())
+            .map(|(i, _)| i)
+            .unwrap_or(sequence.len().into())
+    }
+
+    fn inner_last_non_blank_column(
+        sequence: &TaggedVec<ArrangementColumn, InnerChar>,
+    ) -> ArrangementColumn {
+        sequence
+            .iter()
+            .rev()
+            .find(|(_, c)| !c.is_blank())
+            .map(|(i, _)| i)
+            .unwrap() // If None, would need to return -1 here, but return value is unsigned.
+    }
 }
 
 impl TsInner {

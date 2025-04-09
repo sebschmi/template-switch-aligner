@@ -3,6 +3,7 @@ use complement::{ComplementChar, TsComplementArrangement};
 use index_types::{ArrangementCharColumn, ArrangementColumn, SourceColumn, TsInnerIdentifier};
 use inner::{TsInner, TsInnerArrangement};
 use lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType;
+use log::debug;
 use source::{SourceChar, TsSourceArrangement};
 use tagged_vec::TaggedVec;
 use template_switch::TemplateSwitch;
@@ -73,6 +74,9 @@ impl TsArrangement {
 
             remove_columns.push(column);
         }
+
+        let remove_columns = remove_columns;
+        debug!("Removing columns: {remove_columns:?}");
 
         let removed_hidden_chars = self.source.remove_columns(remove_columns.iter().copied());
         self.complement
@@ -157,5 +161,37 @@ impl TsArrangement {
 
     pub fn query_source_to_arrangement_column(&self, column: SourceColumn) -> ArrangementColumn {
         self.source.query_source_to_arrangement_column(column)
+    }
+
+    pub fn reference_inner_first_non_blank_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        self.inner
+            .reference_inner_first_non_blank_column(inner_identifier)
+    }
+
+    pub fn reference_inner_last_non_blank_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        self.inner
+            .reference_inner_last_non_blank_column(inner_identifier)
+    }
+
+    pub fn query_inner_first_non_blank_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        self.inner
+            .query_inner_first_non_blank_column(inner_identifier)
+    }
+
+    pub fn query_inner_last_non_blank_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
+    ) -> ArrangementColumn {
+        self.inner
+            .query_inner_last_non_blank_column(inner_identifier)
     }
 }

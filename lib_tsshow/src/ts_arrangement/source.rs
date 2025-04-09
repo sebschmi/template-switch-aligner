@@ -4,6 +4,7 @@ use lib_tsalign::a_star_aligner::{
     alignment_result::alignment::Alignment,
     template_switch_distance::{AlignmentType, TemplateSwitchPrimary, TemplateSwitchSecondary},
 };
+use log::trace;
 use tagged_vec::TaggedVec;
 
 use super::{
@@ -374,6 +375,23 @@ impl TsSourceArrangement {
                 .collect(),
         };
 
+        trace!(
+            "Removing reference columns: {:?}",
+            columns
+                .clone()
+                .into_iter()
+                .map(|c| self.reference[c])
+                .collect::<Vec<_>>()
+        );
+        trace!(
+            "Removing query columns: {:?}",
+            columns
+                .clone()
+                .into_iter()
+                .map(|c| self.query[c])
+                .collect::<Vec<_>>()
+        );
+
         self.reference.remove_multi(columns.clone());
         self.query.remove_multi(columns);
         result
@@ -405,7 +423,7 @@ impl TsSourceArrangement {
                 _ => None,
             })
             .next()
-            .unwrap()
+            .unwrap_or_else(|| panic!("Source column {source_column} has no matching arrangement column. There are {} source columns in the arrangement.", sequence.iter_values().filter(|c| matches!(c, SourceChar::Source {  .. } | SourceChar::Hidden {  .. })).count()))
     }
 
     pub fn reference_arrangement_to_arrangement_char_column(
