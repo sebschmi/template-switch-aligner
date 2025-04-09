@@ -1,0 +1,101 @@
+# Limits
+
+left_flank_length = 0
+right_flank_length = 0
+
+# Base Cost
+
+rr_cost = 4
+rq_cost = 4
+qr_cost = 4
+qq_cost = 4
+
+# Jump Costs
+
+Offset
+ -inf -100 101
+  inf    0 inf
+
+Length
+   0 9 100
+ inf 0 inf
+
+LengthDifference
+ -inf -100 101
+  inf    0 inf
+
+# Primary Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T  N
+--+---------------
+A |  0  2  2  2  0
+C |  2  0  2  2  0
+G |  2  2  0  2  0
+T |  2  2  2  0  0
+N |  0  0  0  0  0
+
+GapOpenCostVector
+ A C G T N
+ 1 1 1 1 1
+
+GapExtendCostVector
+ A C G T N
+ 1 1 1 1 1
+
+# Secondary Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T  N
+--+---------------
+A |  0  8  8  8  0
+C |  8  0  8  8  0
+G |  8  8  0  8  0
+T |  8  8  8  0  0
+N |  0  0  0  0  0
+
+GapOpenCostVector
+ A C G T N
+ 9 9 9 9 9
+
+GapExtendCostVector
+ A C G T N
+ 2 2 2 2 2
+
+# Left Flank Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T  N
+--+---------------
+A |  0  3  3  3  0
+C |  3  0  3  3  0
+G |  3  3  0  3  0
+T |  3  3  3  0  0
+N |  0  0  0  0  0
+
+GapOpenCostVector
+ A C G T N
+ 4 4 4 4 4
+
+GapExtendCostVector
+ A C G T N
+ 1 1 1 1 1
+
+# Right Flank Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T  N
+--+---------------
+A |  0  3  3  3  0
+C |  3  0  3  3  0
+G |  3  3  0  3  0
+T |  3  3  3  0  0
+N |  0  0  0  0  0
+
+GapOpenCostVector
+ A C G T N
+ 4 4 4 4 4
+
+GapExtendCostVector
+ A C G T N
+ 1 1 1 1 1

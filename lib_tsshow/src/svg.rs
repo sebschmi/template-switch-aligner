@@ -22,6 +22,7 @@ use crate::{
     plain_text::mutlipair_alignment_renderer::Character,
     ts_arrangement::{
         TsArrangement,
+        character::Char,
         complement::ComplementChar,
         index_types::ArrangementColumn,
         inner::InnerChar,
@@ -83,11 +84,12 @@ pub fn create_ts_svg(
     debug!("Computing TS arrangement");
     let mut ts_arrangement =
         TsArrangement::new(reference.len(), query.len(), alignment.iter_flat_cloned());
-    ts_arrangement.remove_empty_columns();
 
     if config.render_more_complement {
         ts_arrangement.show_complete_complements_if_used();
     }
+
+    ts_arrangement.remove_empty_columns();
 
     let ts_arrangement = ts_arrangement;
 
@@ -128,25 +130,49 @@ pub fn create_ts_svg(
             sp1_query,
             sp4_reference,
             sp4_query,
-            sp2_secondary,
-            sp3_secondary,
             ..
         },
     ) in ts_arrangement.template_switches()
     {
-        let (anti_primary_sp4_minus_one, anti_primary_sp4, anti_primary_row) = match primary {
+        let anti_primary_sp4_minus_one = match primary {
+            TemplateSwitchPrimary::Reference => sp4_query.checked_sub(1).map(|column| {
+                ts_arrangement.query_arrangement_char_to_arrangement_column(column) + 1usize
+            }),
+            TemplateSwitchPrimary::Query => sp4_reference.checked_sub(1).map(|column| {
+                ts_arrangement.reference_arrangement_char_to_arrangement_column(column) + 1usize
+            }),
+        };
+
+        let (anti_primary_sp4, anti_primary_row) = match primary {
             TemplateSwitchPrimary::Reference => (
-                sp4_query.checked_sub(1).map(|column| {
-                    ts_arrangement.query_arrangement_char_to_arrangement_column(column) + 1usize
-                }),
-                ts_arrangement.query_arrangement_char_to_arrangement_column(*sp4_query),
+                ts_arrangement
+                    .query()
+                    .iter()
+                    .take(
+                        usize::from(
+                            ts_arrangement.query_arrangement_char_to_arrangement_column(*sp4_query),
+                        ) + 1usize,
+                    )
+                    .skip(anti_primary_sp4_minus_one.unwrap_or(0.into()).into())
+                    .find(|(_, c)| !c.is_blank())
+                    .unwrap()
+                    .0,
                 TsArrangementRow::Query,
             ),
             TemplateSwitchPrimary::Query => (
-                sp4_reference.checked_sub(1).map(|column| {
-                    ts_arrangement.reference_arrangement_char_to_arrangement_column(column) + 1usize
-                }),
-                ts_arrangement.reference_arrangement_char_to_arrangement_column(*sp4_reference),
+                ts_arrangement
+                    .reference()
+                    .iter()
+                    .take(
+                        usize::from(
+                            ts_arrangement
+                                .reference_arrangement_char_to_arrangement_column(*sp4_reference),
+                        ) + 1usize,
+                    )
+                    .skip(anti_primary_sp4_minus_one.unwrap_or(0.into()).into())
+                    .find(|(_, c)| !c.is_blank())
+                    .unwrap()
+                    .0,
                 TsArrangementRow::Reference,
             ),
         };
@@ -161,30 +187,62 @@ pub fn create_ts_svg(
             }
         }
 
+        let primary_sp4_minus_one = match primary {
+            TemplateSwitchPrimary::Reference => sp4_reference.checked_sub(1).map(|column| {
+                ts_arrangement.reference_arrangement_char_to_arrangement_column(column) + 1usize
+            }),
+            TemplateSwitchPrimary::Query => sp4_query.checked_sub(1).map(|column| {
+                ts_arrangement.query_arrangement_char_to_arrangement_column(column) + 1usize
+            }),
+        };
+
         let (primary_sp1, primary_sp4, primary_row) = match primary {
             TemplateSwitchPrimary::Reference => (
                 ts_arrangement.reference_arrangement_char_to_arrangement_column(*sp1_reference),
-                ts_arrangement.reference_arrangement_char_to_arrangement_column(*sp4_reference),
+                ts_arrangement
+                    .reference()
+                    .iter()
+                    .take(
+                        usize::from(
+                            ts_arrangement
+                                .reference_arrangement_char_to_arrangement_column(*sp4_reference),
+                        ) + 1usize,
+                    )
+                    .skip(primary_sp4_minus_one.unwrap_or(0.into()).into())
+                    .find(|(_, c)| !c.is_blank())
+                    .unwrap()
+                    .0,
                 TsArrangementRow::Reference,
             ),
             TemplateSwitchPrimary::Query => (
                 ts_arrangement.query_arrangement_char_to_arrangement_column(*sp1_query),
-                ts_arrangement.query_arrangement_char_to_arrangement_column(*sp4_query),
+                ts_arrangement
+                    .query()
+                    .iter()
+                    .take(
+                        usize::from(
+                            ts_arrangement.query_arrangement_char_to_arrangement_column(*sp4_query),
+                        ) + 1usize,
+                    )
+                    .skip(primary_sp4_minus_one.unwrap_or(0.into()).into())
+                    .find(|(_, c)| !c.is_blank())
+                    .unwrap()
+                    .0,
                 TsArrangementRow::Query,
             ),
         };
 
         let (secondary_sp2, secondary_sp3, inner_row) = match secondary {
             TemplateSwitchSecondary::Reference => (
-                ts_arrangement.reference_source_to_arrangement_column(*sp2_secondary),
-                ts_arrangement.reference_source_to_arrangement_column(*sp3_secondary),
+                ts_arrangement.reference_inner_last_non_blank_column(inner_identifier) + 1usize,
+                ts_arrangement.reference_inner_first_non_blank_column(inner_identifier),
                 TsArrangementRow::ReferenceInner {
                     index: inner_identifier,
                 },
             ),
             TemplateSwitchSecondary::Query => (
-                ts_arrangement.query_source_to_arrangement_column(*sp2_secondary),
-                ts_arrangement.query_source_to_arrangement_column(*sp3_secondary),
+                ts_arrangement.query_inner_last_non_blank_column(inner_identifier) + 1usize,
+                ts_arrangement.query_inner_first_non_blank_column(inner_identifier),
                 TsArrangementRow::QueryInner {
                     index: inner_identifier,
                 },
@@ -497,7 +555,7 @@ pub fn create_ts_svg(
         let no_ts_group_height = y;
         let label_group_width = (ts_label_group_width).max(no_ts_label_group_width);
 
-        let label_group = no_ts_label_group.set(
+        let no_ts_label_group = no_ts_label_group.set(
             "transform",
             SvgLocation {
                 x: 0.0,
@@ -514,7 +572,7 @@ pub fn create_ts_svg(
             .as_transform(),
         );
 
-        body_group = body_group.add(label_group).add(no_ts_group);
+        body_group = body_group.add(no_ts_label_group).add(no_ts_group);
 
         (
             label_group_width + ts_group_width.max(no_ts_group_width),
@@ -525,7 +583,7 @@ pub fn create_ts_svg(
         (
             ts_label_group_width + ts_group_width,
             ts_group_height,
-            ts_group_width + ts_label_group_width,
+            ts_label_group_width,
         )
     };
 
