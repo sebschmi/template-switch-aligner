@@ -207,6 +207,7 @@ impl TsSourceArrangement {
         *current_primary_index += primary_inner_length;
 
         let anti_primary_inner_length = if anti_primary_gap < 0 {
+            // Insert copies.
             let duplicate_rev: Vec<_> = anti_primary
                 .iter_values()
                 .take(current_anti_primary_index.primitive())
@@ -574,12 +575,10 @@ impl SourceChar {
     pub fn make_copy(&self) -> Self {
         match self {
             Self::Source {
-                column,
-                lower_case,
-                copy_depth,
+                column, copy_depth, ..
             } => Self::Source {
                 column: *column,
-                lower_case: *lower_case,
+                lower_case: false,
                 copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
             },
             Self::Hidden { column, copy_depth } => Self::Hidden {
