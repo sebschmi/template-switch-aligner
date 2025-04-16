@@ -24,9 +24,13 @@ pub struct TSShow<AlignmentType> {
     pub downstream: Alignment<AlignmentType>,
 }
 
-pub fn parse(alignment: &Alignment<AlignmentType>) -> Vec<TSShow<AlignmentType>> {
+pub fn parse(
+    alignment: &Alignment<AlignmentType>,
+    reference_offset: usize,
+    query_offset: usize,
+) -> Vec<TSShow<AlignmentType>> {
     let mut template_switches = Vec::new();
-    let mut stream = AlignmentStream::new();
+    let mut stream = AlignmentStream::new_with_offset(reference_offset, query_offset);
     let mut alignment = alignment.iter_compact_cloned();
 
     while let Some((multiplicity, alignment_type)) = alignment.peek_front_cloned() {
