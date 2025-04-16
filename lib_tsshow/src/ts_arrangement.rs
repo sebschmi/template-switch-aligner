@@ -24,12 +24,16 @@ pub struct TsArrangement {
 
 impl TsArrangement {
     pub fn new(
+        reference_alignment_offset: usize,
+        query_alignment_offset: usize,
         reference_length: usize,
         query_length: usize,
         alignment: impl IntoIterator<Item = AlignmentType>,
     ) -> Self {
         let mut template_switches = Vec::new();
         let mut source = TsSourceArrangement::new(
+            reference_alignment_offset,
+            query_alignment_offset,
             reference_length,
             query_length,
             alignment,

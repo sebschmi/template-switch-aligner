@@ -54,6 +54,8 @@ pub fn show_template_switches(
             template_switch,
             &statistics.sequences,
             no_ts_result,
+            statistics.reference_offset,
+            statistics.query_offset,
         );
     }
 }
@@ -63,6 +65,8 @@ fn show_template_switch(
     template_switch: &TSShow<AlignmentType>,
     sequences: &SequencePair,
     no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
+    reference_offset: usize,
+    query_offset: usize,
 ) {
     trace!("Showing template switch\n{template_switch:?}");
 
@@ -374,7 +378,7 @@ fn show_template_switch(
         );
 
         // Find subsequence of no-ts alignment that matches ts alignment interval.
-        let mut stream = AlignmentStream::new();
+        let mut stream = AlignmentStream::new_with_offset(reference_offset, query_offset);
         for alignment_type in no_ts_alignment.iter_flat_cloned() {
             if anti_primary_coordinate_picker(&stream.head_coordinates()) >= anti_primary_f3_limit {
                 break;

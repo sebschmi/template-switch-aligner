@@ -82,8 +82,13 @@ pub fn create_ts_svg(
     let query_c: String = statistics.sequences.query_rc.chars().rev().collect();
 
     debug!("Computing TS arrangement");
-    let mut ts_arrangement =
-        TsArrangement::new(reference.len(), query.len(), alignment.iter_flat_cloned());
+    let mut ts_arrangement = TsArrangement::new(
+        statistics.reference_offset,
+        statistics.query_offset,
+        reference.len(),
+        query.len(),
+        alignment.iter_flat_cloned(),
+    );
 
     if config.render_more_complement {
         ts_arrangement.show_complete_complements_if_used();
@@ -108,6 +113,8 @@ pub fn create_ts_svg(
             let reference = &statistics.sequences.reference;
             let query = &statistics.sequences.query;
             Ok(TsSourceArrangement::new(
+                statistics.reference_offset,
+                statistics.query_offset,
                 reference.len(),
                 query.len(),
                 alignment.iter_flat_cloned(),

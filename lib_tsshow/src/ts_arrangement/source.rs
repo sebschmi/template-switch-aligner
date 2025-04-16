@@ -44,6 +44,8 @@ pub enum SourceChar {
 
 impl TsSourceArrangement {
     pub fn new(
+        reference_alignment_offset: usize,
+        query_alignment_offset: usize,
         reference_length: usize,
         query_length: usize,
         alignment: impl IntoIterator<Item = AlignmentType>,
@@ -56,8 +58,8 @@ impl TsSourceArrangement {
             query: FromIterator::from_iter((0..query_length).map(SourceChar::new_source)),
         };
 
-        let mut current_reference_index = ArrangementColumn::ZERO;
-        let mut current_query_index = ArrangementColumn::ZERO;
+        let mut current_reference_index = ArrangementColumn::from(reference_alignment_offset);
+        let mut current_query_index = ArrangementColumn::from(query_alignment_offset);
 
         while let Some(alignment_type) = alignment.next() {
             match alignment_type {
