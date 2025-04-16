@@ -2,13 +2,13 @@
 name = "tsalign-tests"
 license.workspace = true
 authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>", "Jasper Krauter <jasper.krauter@helsinki.fi>"]
-version = "0.1.3"
+version = "0.1.4"
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 publish = false
 
 [dependencies]
-tsalign = { version = "0.14.4", path = "../tsalign" }
+tsalign = { version = "0.14.5", path = "../tsalign" }
 clap = { version = "4.5.16", features = ["derive"] }
 anyhow = "1.0.97"
