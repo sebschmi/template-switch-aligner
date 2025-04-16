@@ -28,6 +28,15 @@ impl AlignmentStream {
         Default::default()
     }
 
+    pub fn new_with_offset(reference_offset: usize, query_offset: usize) -> Self {
+        let mut result = Self::new();
+        result.head_coordinates.reference = reference_offset;
+        result.head_coordinates.query = query_offset;
+        result.tail_coordinates.reference = reference_offset;
+        result.tail_coordinates.query = query_offset;
+        result
+    }
+
     pub fn len(&self) -> usize {
         self.length
     }

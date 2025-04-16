@@ -43,7 +43,12 @@ pub enum AlignmentResult<AlignmentType, Cost> {
 #[must_use]
 pub struct AlignmentStatistics<Cost> {
     pub result: AStarResult<(), Cost>,
+
+    // Input data used by show.
     pub sequences: SequencePair,
+    pub reference_offset: usize,
+    pub query_offset: usize,
+
     pub cost: R64,
     pub cost_per_base: R64,
     pub duration_seconds: R64,
@@ -92,6 +97,8 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
         query: &SubsequenceType,
         reference_name: &str,
         query_name: &str,
+        reference_offset: usize,
+        query_offset: usize,
         result: AStarResult<(), Cost>,
         duration_seconds: f64,
         opened_nodes: usize,
@@ -106,6 +113,8 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
             query,
             reference_name,
             query_name,
+            reference_offset,
+            query_offset,
             result,
             duration_seconds,
             opened_nodes,
@@ -126,6 +135,8 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
         query: &SubsequenceType,
         reference_name: &str,
         query_name: &str,
+        reference_offset: usize,
+        query_offset: usize,
         duration_seconds: f64,
         opened_nodes: usize,
         closed_nodes: usize,
@@ -139,6 +150,8 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
             query,
             reference_name,
             query_name,
+            reference_offset,
+            query_offset,
             result,
             duration_seconds,
             opened_nodes,
@@ -159,6 +172,8 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
         query: &SubsequenceType,
         reference_name: &str,
         query_name: &str,
+        reference_offset: usize,
+        query_offset: usize,
         result: AStarResult<(), Cost>,
         duration_seconds: f64,
         opened_nodes: usize,
@@ -171,6 +186,9 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
         let statistics = AlignmentStatistics {
             result,
             sequences: SequencePair::new(reference, query, reference_name, query_name),
+            reference_offset,
+            query_offset,
+
             cost: (cost.as_f64()).try_into().unwrap(),
             cost_per_base: ((cost.as_f64() * 2.0) / (reference_length + query_length) as f64)
                 .try_into()
@@ -413,6 +431,8 @@ impl<Cost> Default for AlignmentStatistics<Cost> {
         Self {
             result: Default::default(),
             sequences: Default::default(),
+            reference_offset: Default::default(),
+            query_offset: Default::default(),
             cost: Default::default(),
             cost_per_base: Default::default(),
             duration_seconds: Default::default(),

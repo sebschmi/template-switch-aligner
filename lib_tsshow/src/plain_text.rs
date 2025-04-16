@@ -40,7 +40,11 @@ pub fn show_template_switches(
     }
 
     debug!("Collecting template switches");
-    let template_switches = parse_template_switches::parse(alignment);
+    let template_switches = parse_template_switches::parse(
+        alignment,
+        statistics.reference_offset,
+        statistics.query_offset,
+    );
     info!("Found {} template switches", template_switches.len());
 
     for (index, template_switch) in template_switches.iter().enumerate() {
