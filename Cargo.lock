@@ -355,7 +355,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 
 [[package]]
 name = "generic_a_star"
-version = "0.14.5"
+version = "0.14.6"
 dependencies = [
  "binary-heap-plus",
  "deterministic_default_hasher",
@@ -450,7 +450,7 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "lib_tsalign"
-version = "0.14.5"
+version = "0.14.6"
 dependencies = [
  "binary-heap-plus",
  "compact-genome",
@@ -470,7 +470,7 @@ dependencies = [
 
 [[package]]
 name = "lib_tsshow"
-version = "0.14.5"
+version = "0.14.6"
 dependencies = [
  "ena",
  "itertools",
@@ -767,7 +767,7 @@ dependencies = [
 
 [[package]]
 name = "seed_chain"
-version = "0.14.5"
+version = "0.14.6"
 dependencies = [
  "compact-genome",
  "generic_a_star",
@@ -1070,7 +1070,7 @@ checksum = "2b939c825d0c4295ac520f7b479927c1e5b458c9107a9d6f5ba65bc867bb93a5"
 
 [[package]]
 name = "tsalign"
-version = "0.14.5"
+version = "0.14.6"
 dependencies = [
  "anyhow",
  "clap",
@@ -1086,7 +1086,7 @@ dependencies = [
 
 [[package]]
 name = "tsalign-tests"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "clap",
