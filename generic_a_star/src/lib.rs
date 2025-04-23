@@ -9,6 +9,7 @@ use std::{
 use binary_heap_plus::{BinaryHeap, MinComparator};
 use cost::AStarCost;
 use deterministic_default_hasher::DeterministicDefaultHasher;
+use extend_map::ExtendFilter;
 use num_traits::Bounded;
 use reset::Reset;
 
@@ -16,7 +17,7 @@ pub mod cost;
 pub mod reset;
 
 /// A node of the A* graph.
-/// The node must implement [`Ord`], ordering it by its cost, ascending.
+/// The node must implement [`Ord`], ordering it by its cost plus A* cost, ascending.
 /// The graph defined by the node type must be cycle-free.
 pub trait AStarNode: Sized + Ord + Debug + Display {
     /// A unique identifier of the node.
@@ -285,7 +286,8 @@ impl<Context: AStarContext> AStar<Context> {
                 return AStarResult::NoTarget;
             };
 
-            if node.cost() > cost_limit {
+            // Nodes are ordered by cost plus lower bound.
+            if node.cost() + node.a_star_lower_bound() > cost_limit {
                 self.state = AStarState::Terminated {
                     result: AStarResult::ExceededCostLimit { cost_limit },
                 };
@@ -340,7 +342,12 @@ impl<Context: AStarContext> AStar<Context> {
             }
 
             let open_nodes_without_new_successors = self.open_list.len();
-            self.context.generate_successors(&node, &mut self.open_list);
+            self.context.generate_successors(
+                &node,
+                &mut ExtendFilter::new(&mut self.open_list, |node| {
+                    node.cost() + node.a_star_lower_bound() <= cost_limit
+                }),
+            );
             self.performance_counters.opened_nodes +=
                 self.open_list.len() - open_nodes_without_new_successors;
 
