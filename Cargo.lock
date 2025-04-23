@@ -295,9 +295,9 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
 name = "extend_map"
-version = "0.14.3"
+version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06de5c8c44e2cbb75a9f774649a260445586d7be8d4cf24256d4505aa2f88952"
+checksum = "4498b32ba502fde3cf5a0eea38dced8d8e69404501e7692014371fa6c49c8bd9"
 
 [[package]]
 name = "fdeflate"
@@ -359,6 +359,7 @@ version = "0.14.6"
 dependencies = [
  "binary-heap-plus",
  "deterministic_default_hasher",
+ "extend_map",
  "num-traits",
  "serde",
 ]

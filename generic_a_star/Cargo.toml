@@ -15,3 +15,4 @@ binary-heap-plus = "0.5.0"
 deterministic_default_hasher = "0.14.2"
 num-traits.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
+extend_map = "0.14.4"
