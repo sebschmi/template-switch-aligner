@@ -320,7 +320,7 @@ fn align_matrix<
     let mut alignment_matrix =
         AlignmentMatrix::<U64Cost>::new(configuration, reference.len(), query.len());
     let cost = alignment_matrix.align(reference, query);
-    println!("Cost: {}", cost);
+    println!("Cost: {cost}");
 }
 
 fn align_a_star_gap_affine_edit_distance<
@@ -363,5 +363,5 @@ fn align_a_star_gap_affine_edit_distance<
         write!(output, "{}", toml::to_string(&alignment).unwrap()).unwrap();
     }
 
-    println!("{}", alignment);
+    println!("{alignment}");
 }

@@ -271,7 +271,7 @@ fn align_a_star_template_switch_distance_call<
         write!(output, "{}", toml::to_string(&alignment).unwrap()).unwrap();
     }
 
-    println!("{}", alignment);
+    println!("{alignment}");
 }
 
 fn parse_range(cli: &Cli, reference_length: usize, query_length: usize) -> AlignmentRange {

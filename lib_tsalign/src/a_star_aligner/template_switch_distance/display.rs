@@ -71,8 +71,7 @@ impl<PrimaryExtraData> Display for Identifier<PrimaryExtraData> {
                 ..
             } => write!(
                 f,
-                "Primary({}R, {}Q, {}F, {})",
-                reference_index, query_index, flank_index, gap_type
+                "Primary({reference_index}R, {query_index}Q, {flank_index}F, {gap_type})",
             ),
 
             Self::PrimaryReentry {
@@ -83,8 +82,7 @@ impl<PrimaryExtraData> Display for Identifier<PrimaryExtraData> {
                 ..
             } => write!(
                 f,
-                "PrimaryReentry({}R, {}Q, {}F, {})",
-                reference_index, query_index, flank_index, gap_type
+                "PrimaryReentry({reference_index}R, {query_index}Q, {flank_index}F, {gap_type})",
             ),
 
             Self::TemplateSwitchEntrance {
@@ -96,12 +94,7 @@ impl<PrimaryExtraData> Display for Identifier<PrimaryExtraData> {
             } => {
                 write!(
                     f,
-                    "TemplateSwitchEntrance({}R, {}Q, {}P, {}S, {}O)",
-                    entrance_reference_index,
-                    entrance_query_index,
-                    template_switch_primary,
-                    template_switch_secondary,
-                    template_switch_first_offset
+                    "TemplateSwitchEntrance({entrance_reference_index}R, {entrance_query_index}Q, {template_switch_primary}P, {template_switch_secondary}S, {template_switch_first_offset}O)",
                 )
             }
 

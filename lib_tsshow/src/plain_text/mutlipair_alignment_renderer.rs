@@ -222,10 +222,7 @@ impl<SequenceName: Eq + Ord, CharacterData>
             "translated_reference_sequence.len(): {}",
             translated_reference_sequence.len()
         );
-        trace!(
-            "translated_reference_sequence_offset: {}",
-            rendered_sequence_offset
-        );
+        trace!("translated_reference_sequence_offset: {rendered_sequence_offset}");
 
         let (query_sequence_name, mut translated_query_sequence) =
             self.sequences.remove_entry(query_sequence_name).unwrap();
