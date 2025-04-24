@@ -98,6 +98,7 @@ impl<PrimaryExtraData> Display for Identifier<PrimaryExtraData> {
                 )
             }
 
+            #[allow(clippy::uninlined_format_args)]
             Self::Secondary {
                 entrance_reference_index,
                 entrance_query_index,
@@ -120,6 +121,7 @@ impl<PrimaryExtraData> Display for Identifier<PrimaryExtraData> {
                 gap_type
             ),
 
+            #[allow(clippy::uninlined_format_args)]
             Self::TemplateSwitchExit {
                 entrance_reference_index,
                 entrance_query_index,
