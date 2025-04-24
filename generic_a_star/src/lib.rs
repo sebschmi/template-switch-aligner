@@ -261,6 +261,7 @@ impl<Context: AStarContext> AStar<Context> {
             .context
             .cost_limit()
             .unwrap_or(<Context::Node as AStarNode>::Cost::max_value());
+        let mut applied_cost_limit = false;
         let memory_limit = self.context.memory_limit().unwrap_or(usize::MAX);
         // The factor of 2.3 is determined empirically.
         let node_count_limit =
@@ -280,10 +281,17 @@ impl<Context: AStarContext> AStar<Context> {
                 if last_node.is_none() {
                     unreachable!("Open list was empty.");
                 };
-                self.state = AStarState::Terminated {
-                    result: AStarResult::NoTarget,
-                };
-                return AStarResult::NoTarget;
+                if applied_cost_limit {
+                    self.state = AStarState::Terminated {
+                        result: AStarResult::ExceededCostLimit { cost_limit },
+                    };
+                    return AStarResult::ExceededCostLimit { cost_limit };
+                } else {
+                    self.state = AStarState::Terminated {
+                        result: AStarResult::NoTarget,
+                    };
+                    return AStarResult::NoTarget;
+                }
             };
 
             // Nodes are ordered by cost plus lower bound.
@@ -345,7 +353,9 @@ impl<Context: AStarContext> AStar<Context> {
             self.context.generate_successors(
                 &node,
                 &mut ExtendFilter::new(&mut self.open_list, |node| {
-                    node.cost() + node.a_star_lower_bound() <= cost_limit
+                    let result = node.cost() + node.a_star_lower_bound() <= cost_limit;
+                    applied_cost_limit = applied_cost_limit || !result;
+                    result
                 }),
             );
             self.performance_counters.opened_nodes +=

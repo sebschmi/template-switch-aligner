@@ -394,7 +394,7 @@ impl<AlignmentType: Display + IAlignmentType, Cost: Display> Display
             self.write_cigar(f)?;
             writeln!(f)?;
         } else {
-            writeln!(f, "No alignment found with given maximum costs")?;
+            writeln!(f, "No alignment found")?;
         }
 
         let (AlignmentResult::WithTarget { statistics, .. }
