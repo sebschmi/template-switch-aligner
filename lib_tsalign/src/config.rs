@@ -20,7 +20,8 @@ pub struct TemplateSwitchConfig<AlphabetType, Cost> {
 
     // Edit costs
     pub primary_edit_costs: GapAffineAlignmentCostTable<AlphabetType, Cost>,
-    pub secondary_edit_costs: GapAffineAlignmentCostTable<AlphabetType, Cost>,
+    pub secondary_forward_edit_costs: GapAffineAlignmentCostTable<AlphabetType, Cost>,
+    pub secondary_reverse_edit_costs: GapAffineAlignmentCostTable<AlphabetType, Cost>,
     pub left_flank_edit_costs: GapAffineAlignmentCostTable<AlphabetType, Cost>,
     pub right_flank_edit_costs: GapAffineAlignmentCostTable<AlphabetType, Cost>,
 
@@ -87,7 +88,8 @@ impl<AlphabetType: Alphabet, Cost: Clone> Clone for TemplateSwitchConfig<Alphabe
             min_length: self.min_length,
             base_cost: self.base_cost.clone(),
             primary_edit_costs: self.primary_edit_costs.clone(),
-            secondary_edit_costs: self.secondary_edit_costs.clone(),
+            secondary_forward_edit_costs: self.secondary_forward_edit_costs.clone(),
+            secondary_reverse_edit_costs: self.secondary_reverse_edit_costs.clone(),
             left_flank_edit_costs: self.left_flank_edit_costs.clone(),
             right_flank_edit_costs: self.right_flank_edit_costs.clone(),
             offset_costs: self.offset_costs.clone(),

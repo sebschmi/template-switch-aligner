@@ -66,7 +66,7 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
         let lower_bound_config = generate_template_switch_lower_bound_config(config);
         assert!(
             lower_bound_config
-                .secondary_edit_costs
+                .secondary_reverse_edit_costs
                 .min_gap_extend_cost()
                 > Cost::zero(),
             "Secondary gap extend costs must be greater than zero for all alphabet characters."
@@ -317,8 +317,12 @@ fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet, Cost: ASt
         base_cost: config.base_cost.clone(),
 
         primary_edit_costs: GapAffineAlignmentCostTable::new_max(),
-        secondary_edit_costs: config
-            .secondary_edit_costs
+        secondary_forward_edit_costs: config
+            .secondary_forward_edit_costs
+            .clone()
+            .into_match_agnostic_lower_bound(),
+        secondary_reverse_edit_costs: config
+            .secondary_reverse_edit_costs
             .clone()
             .into_match_agnostic_lower_bound(),
         left_flank_edit_costs: GapAffineAlignmentCostTable::new_max(),

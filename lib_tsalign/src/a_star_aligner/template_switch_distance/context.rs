@@ -463,7 +463,7 @@ impl<
                         opened_nodes_output.extend(
                             node.generate_secondary_diagonal_successor(
                                 config
-                                    .secondary_edit_costs
+                                    .secondary_reverse_edit_costs
                                     .match_or_substitution_cost(p.clone(), s.clone()),
                                 p == s,
                                 self,
@@ -484,7 +484,7 @@ impl<
                         opened_nodes_output.extend(
                             node.generate_secondary_deletion_successor(
                                 config
-                                    .secondary_edit_costs
+                                    .secondary_reverse_edit_costs
                                     .gap_costs(s, gap_type != GapType::Deletion),
                                 self,
                             ),
@@ -498,7 +498,7 @@ impl<
                         opened_nodes_output.extend(
                             node.generate_secondary_insertion_successor(
                                 config
-                                    .secondary_edit_costs
+                                    .secondary_reverse_edit_costs
                                     .gap_costs(p, gap_type != GapType::Insertion),
                                 self,
                             ),

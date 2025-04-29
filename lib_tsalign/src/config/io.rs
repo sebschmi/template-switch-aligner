@@ -57,8 +57,12 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
 
         trace!("Parsing primary edit costs");
         let (input, primary_edit_costs) = parse_named_cost_table("Primary Edit Costs")(input)?;
-        trace!("Parsing secondary edit costs");
-        let (input, secondary_edit_costs) = parse_named_cost_table("Secondary Edit Costs")(input)?;
+        trace!("Parsing secondary forward edit costs");
+        let (input, secondary_forward_edit_costs) =
+            parse_named_cost_table("Secondary Forward Edit Costs")(input)?;
+        trace!("Parsing secondary reverse edit costs");
+        let (input, secondary_reverse_edit_costs) =
+            parse_named_cost_table("Secondary Reverse Edit Costs")(input)?;
         trace!("Parsing left flank edit costs");
         let (input, left_flank_edit_costs) =
             parse_named_cost_table("Left Flank Edit Costs")(input)?;
@@ -85,7 +89,8 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
                 },
 
                 primary_edit_costs,
-                secondary_edit_costs,
+                secondary_forward_edit_costs,
+                secondary_reverse_edit_costs,
                 left_flank_edit_costs,
                 right_flank_edit_costs,
 

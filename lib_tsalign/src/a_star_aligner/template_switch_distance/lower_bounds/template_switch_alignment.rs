@@ -246,7 +246,8 @@ fn generate_template_switch_alignment_lower_bound_config<
         base_cost: BaseCost::new_max(),
 
         primary_edit_costs: config.primary_edit_costs.clone(),
-        secondary_edit_costs: GapAffineAlignmentCostTable::new_max(),
+        secondary_forward_edit_costs: GapAffineAlignmentCostTable::new_max(),
+        secondary_reverse_edit_costs: GapAffineAlignmentCostTable::new_max(),
         left_flank_edit_costs: config.left_flank_edit_costs.clone(),
         right_flank_edit_costs: config.right_flank_edit_costs.clone(),
 

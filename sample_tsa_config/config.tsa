@@ -51,16 +51,35 @@ GapExtendCostVector
  A C G T N
  1 1 1 1 1
 
-# Secondary Edit Costs
+# Secondary Forward Edit Costs
 
 SubstitutionCostTable
   |  A  C  G  T  N
 --+---------------
-A |  0  8  8  8  0
-C |  8  0  8  8  0
-G |  8  8  0  8  0
-T |  8  8  8  0  0
-N |  0  0  0  0  0
+A |  0  8  8  8  4
+C |  8  0  8  8  4
+G |  8  8  0  8  4
+T |  8  8  8  0  4
+N |  4  4  4  4  4
+
+GapOpenCostVector
+ A C G T N
+ 9 9 9 9 9
+
+GapExtendCostVector
+ A C G T N
+ 2 2 2 2 2
+
+# Secondary Reverse Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T  N
+--+---------------
+A |  0  8  8  8  4
+C |  8  0  8  8  4
+G |  8  8  0  8  4
+T |  8  8  8  0  4
+N |  4  4  4  4  4
 
 GapOpenCostVector
  A C G T N
