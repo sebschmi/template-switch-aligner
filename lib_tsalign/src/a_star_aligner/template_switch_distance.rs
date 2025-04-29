@@ -240,15 +240,15 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
 
                 let base_cost = match (template_switch_primary, template_switch_secondary) {
                     (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Reference) => {
-                        base_cost.rr
+                        base_cost.rrr
                     }
                     (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Query) => {
-                        base_cost.rq
+                        base_cost.rqr
                     }
                     (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Reference) => {
-                        base_cost.qr
+                        base_cost.qrr
                     }
-                    (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => base_cost.qq,
+                    (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => base_cost.qqr,
                 };
 
                 (base_cost != Strategies::Cost::max_value()).then(|| {

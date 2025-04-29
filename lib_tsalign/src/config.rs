@@ -33,10 +33,22 @@ pub struct TemplateSwitchConfig<AlphabetType, Cost> {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BaseCost<Cost> {
-    pub rr: Cost,
-    pub rq: Cost,
-    pub qr: Cost,
-    pub qq: Cost,
+    /// Primary: reference; secondary: reference; direction: forward.
+    pub rrf: Cost,
+    /// Primary: reference; secondary: query; direction: forward.
+    pub rqf: Cost,
+    /// Primary: query; secondary: reference; direction: forward.
+    pub qrf: Cost,
+    /// Primary: query; secondary: query; direction: forward.
+    pub qqf: Cost,
+    /// Primary: reference; secondary: reference; direction: reverse.
+    pub rrr: Cost,
+    /// Primary: reference; secondary: query; direction: reverse.
+    pub rqr: Cost,
+    /// Primary: query; secondary: reference; direction: reverse.
+    pub qrr: Cost,
+    /// Primary: query; secondary: query; direction: reverse.
+    pub qqr: Cost,
 }
 
 impl<AlphabetType, Cost: Bounded + Ord> TemplateSwitchConfig<AlphabetType, Cost> {
@@ -55,10 +67,14 @@ impl<AlphabetType, Cost: Bounded + Ord> TemplateSwitchConfig<AlphabetType, Cost>
 impl<Cost: UpperBounded> BaseCost<Cost> {
     pub fn new_max() -> Self {
         Self {
-            rr: Cost::max_value(),
-            rq: Cost::max_value(),
-            qr: Cost::max_value(),
-            qq: Cost::max_value(),
+            rrf: Cost::max_value(),
+            rqf: Cost::max_value(),
+            qrf: Cost::max_value(),
+            qqf: Cost::max_value(),
+            rrr: Cost::max_value(),
+            rqr: Cost::max_value(),
+            qrr: Cost::max_value(),
+            qqr: Cost::max_value(),
         }
     }
 }

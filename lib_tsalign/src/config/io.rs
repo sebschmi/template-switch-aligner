@@ -38,10 +38,14 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
 
         trace!("Parsing base costs");
         let (input, ()) = parse_specific_name("Base Cost")(input)?;
-        let (input, rr_cost) = parse_specific_equals_value("rr_cost")(input)?;
-        let (input, rq_cost) = parse_specific_equals_value("rq_cost")(input)?;
-        let (input, qr_cost) = parse_specific_equals_value("qr_cost")(input)?;
-        let (input, qq_cost) = parse_specific_equals_value("qq_cost")(input)?;
+        let (input, rrf_cost) = parse_specific_equals_value("rrf_cost")(input)?;
+        let (input, rqf_cost) = parse_specific_equals_value("rqf_cost")(input)?;
+        let (input, qrf_cost) = parse_specific_equals_value("qrf_cost")(input)?;
+        let (input, qqf_cost) = parse_specific_equals_value("qqf_cost")(input)?;
+        let (input, rrr_cost) = parse_specific_equals_value("rrr_cost")(input)?;
+        let (input, rqr_cost) = parse_specific_equals_value("rqr_cost")(input)?;
+        let (input, qrr_cost) = parse_specific_equals_value("qrr_cost")(input)?;
+        let (input, qqr_cost) = parse_specific_equals_value("qqr_cost")(input)?;
 
         trace!("Parsing jump costs");
         let (input, ()) = parse_specific_name("Jump Costs")(input)?;
@@ -70,10 +74,14 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
                 min_length: length_costs.minimum_finite_input().unwrap_or(usize::MAX),
 
                 base_cost: BaseCost {
-                    rr: rr_cost,
-                    rq: rq_cost,
-                    qr: qr_cost,
-                    qq: qq_cost,
+                    rrf: rrf_cost,
+                    rqf: rqf_cost,
+                    qrf: qrf_cost,
+                    qqf: qqf_cost,
+                    rrr: rrr_cost,
+                    rqr: rqr_cost,
+                    qrr: qrr_cost,
+                    qqr: qqr_cost,
                 },
 
                 primary_edit_costs,
