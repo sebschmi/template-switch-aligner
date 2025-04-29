@@ -2,6 +2,7 @@ use compact_genome::interface::alphabet::Alphabet;
 use num_traits::{Bounded, bounds::UpperBounded};
 
 use crate::{
+    a_star_aligner::template_switch_distance::TemplateSwitchDirection,
     costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable},
     error::{Error, Result},
 };
@@ -61,6 +62,18 @@ impl<AlphabetType, Cost: Bounded + Ord> TemplateSwitchConfig<AlphabetType, Cost>
             Err(Error::LengthDifferenceCostsNotVShaped)
         } else {
             Ok(())
+        }
+    }
+}
+
+impl<AlphabetType, Cost> TemplateSwitchConfig<AlphabetType, Cost> {
+    pub fn secondary_edit_costs(
+        &self,
+        direction: TemplateSwitchDirection,
+    ) -> &GapAffineAlignmentCostTable<AlphabetType, Cost> {
+        match direction {
+            TemplateSwitchDirection::Forward => &self.secondary_forward_edit_costs,
+            TemplateSwitchDirection::Reverse => &self.secondary_reverse_edit_costs,
         }
     }
 }
