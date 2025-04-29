@@ -19,7 +19,9 @@ pub mod strategies;
 
 pub use alignment_type::AlignmentType;
 pub use context::Context;
-pub use identifier::{Identifier, TemplateSwitchPrimary, TemplateSwitchSecondary};
+pub use identifier::{
+    Identifier, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+};
 
 use crate::config::BaseCost;
 
@@ -258,6 +260,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                         AlignmentType::TemplateSwitchEntrance {
                             primary: *template_switch_primary,
                             secondary: *template_switch_secondary,
+                            direction: TemplateSwitchDirection::Reverse,
                             first_offset: *template_switch_first_offset,
                         },
                         context,
@@ -283,6 +286,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             entrance_query_index,
             template_switch_primary,
             template_switch_secondary,
+            template_switch_direction,
             ..
         } = self.node_data.identifier
         else {
@@ -295,12 +299,14 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
+                template_switch_direction,
                 template_switch_first_offset: successor_template_switch_first_offset,
             },
             cost_increment,
             AlignmentType::TemplateSwitchEntrance {
                 primary: template_switch_primary,
                 secondary: template_switch_secondary,
+                direction: template_switch_direction,
                 first_offset: successor_template_switch_first_offset,
             },
             context,
@@ -326,6 +332,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             entrance_query_index,
             template_switch_primary,
             template_switch_secondary,
+            template_switch_direction,
             template_switch_first_offset,
         } = self.node_data.identifier
         else {
@@ -358,6 +365,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
+                template_switch_direction,
                 length: 0,
                 primary_index,
                 secondary_index,
@@ -468,6 +476,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             entrance_query_index,
             template_switch_primary,
             template_switch_secondary,
+            template_switch_direction,
             primary_index,
             length,
             ..
@@ -482,6 +491,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
+                template_switch_direction,
                 primary_index,
                 anti_primary_gap: length.try_into().unwrap(),
             },
@@ -510,6 +520,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             entrance_query_index,
             template_switch_primary,
             template_switch_secondary,
+            template_switch_direction,
             primary_index,
             ..
         } = self.node_data.identifier
@@ -523,6 +534,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
+                template_switch_direction,
                 primary_index,
                 anti_primary_gap: successor_anti_primary_gap,
             },

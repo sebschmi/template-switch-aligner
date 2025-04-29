@@ -2,7 +2,9 @@ use std::{cmp::Ordering, iter};
 
 use lib_tsalign::a_star_aligner::{
     alignment_result::alignment::Alignment,
-    template_switch_distance::{AlignmentType, TemplateSwitchPrimary, TemplateSwitchSecondary},
+    template_switch_distance::{
+        AlignmentType, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+    },
 };
 use log::trace;
 use tagged_vec::TaggedVec;
@@ -12,6 +14,7 @@ use super::{
     index_types::{ArrangementCharColumn, ArrangementColumn, SourceColumn},
     template_switch::TemplateSwitch,
 };
+use crate::error::{Error, Result};
 
 pub struct TsSourceArrangement {
     reference: TaggedVec<ArrangementColumn, SourceChar>,
@@ -50,7 +53,7 @@ impl TsSourceArrangement {
         query_length: usize,
         alignment: impl IntoIterator<Item = AlignmentType>,
         template_switches_out: &mut impl Extend<TemplateSwitch>,
-    ) -> Self {
+    ) -> Result<Self> {
         let mut ts_index = 0;
         let mut alignment = alignment.into_iter();
         let mut result = Self {
@@ -96,8 +99,12 @@ impl TsSourceArrangement {
                 AlignmentType::TemplateSwitchEntrance {
                     primary,
                     secondary,
+                    direction,
                     first_offset,
                 } => {
+                    if direction == TemplateSwitchDirection::Forward {
+                        return Err(Error::ForwardTsNotSupported);
+                    }
                     template_switches_out.extend([result.align_ts(
                         ts_index,
                         primary,
@@ -121,7 +128,7 @@ impl TsSourceArrangement {
             }
         }
 
-        result
+        Ok(result)
     }
 
     #[allow(clippy::too_many_arguments)]

@@ -1,6 +1,6 @@
 use crate::a_star_aligner::alignment_result::IAlignmentType;
 
-use super::identifier::{TemplateSwitchPrimary, TemplateSwitchSecondary};
+use super::identifier::{TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -41,6 +41,7 @@ pub enum AlignmentType {
     TemplateSwitchEntrance {
         primary: TemplateSwitchPrimary,
         secondary: TemplateSwitchSecondary,
+        direction: TemplateSwitchDirection,
         first_offset: isize,
     },
     /// A template switch exit.
@@ -156,10 +157,12 @@ impl AlignmentType {
             Self::TemplateSwitchEntrance {
                 primary,
                 secondary,
+                direction,
                 first_offset,
             } => Self::TemplateSwitchEntrance {
                 primary: primary.inverted(),
                 secondary: secondary.inverted(),
+                direction: direction.inverted(),
                 first_offset: *first_offset,
             },
             Self::PrimaryShortcut {

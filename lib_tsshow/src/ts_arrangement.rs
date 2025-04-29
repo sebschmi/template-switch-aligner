@@ -8,6 +8,8 @@ use source::{SourceChar, TsSourceArrangement};
 use tagged_vec::TaggedVec;
 use template_switch::TemplateSwitch;
 
+use crate::error::Result;
+
 pub mod character;
 pub mod complement;
 pub mod index_types;
@@ -29,7 +31,7 @@ impl TsArrangement {
         reference_length: usize,
         query_length: usize,
         alignment: impl IntoIterator<Item = AlignmentType>,
-    ) -> Self {
+    ) -> Result<Self> {
         let mut template_switches = Vec::new();
         let mut source = TsSourceArrangement::new(
             reference_alignment_offset,
@@ -38,15 +40,15 @@ impl TsArrangement {
             query_length,
             alignment,
             &mut template_switches,
-        );
+        )?;
         let mut complement = TsComplementArrangement::new(&source);
         let inner = TsInnerArrangement::new(&mut source, &mut complement, template_switches);
 
-        Self {
+        Ok(Self {
             source,
             complement,
             inner,
-        }
+        })
     }
 
     /// Removes columns that contain only blanks and hidden characters.

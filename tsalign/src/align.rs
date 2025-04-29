@@ -9,13 +9,13 @@ use anyhow::Result;
 use clap::{Args, Parser, ValueEnum};
 use compact_genome::{
     implementation::{
-        DefaultSequenceStore,
         alphabets::{
             dna_alphabet::DnaAlphabet, dna_alphabet_or_n::DnaAlphabetOrN,
             dna_iupac_nucleic_acid_alphabet::DnaIupacNucleicAcidAlphabet,
             rna_alphabet::RnaAlphabet, rna_alphabet_or_n::RnaAlphabetOrN,
             rna_iupac_nucleic_acid_alphabet::RnaIupacNucleicAcidAlphabet,
         },
+        vec_sequence_store::VectorSequenceStore,
     },
     interface::{alphabet::Alphabet, sequence::GenomeSequence, sequence_store::SequenceStore},
     io::fasta::read_fasta_file,
@@ -213,7 +213,7 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
     }
     let skip_characters = skip_characters;
 
-    let mut sequence_store = DefaultSequenceStore::<AlphabetType>::new();
+    let mut sequence_store = VectorSequenceStore::<AlphabetType>::new();
     let sequences = if let Some(CliPairInput { pair_fasta }) = &cli.input.pair_input {
         info!("Loading pair file {pair_fasta:?}");
         let sequences = read_fasta_file(

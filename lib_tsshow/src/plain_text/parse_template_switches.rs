@@ -1,8 +1,12 @@
 use lib_tsalign::a_star_aligner::{
     alignment_result::alignment::{Alignment, iter::CompactAlignmentIterCloned},
-    template_switch_distance::{AlignmentType, TemplateSwitchPrimary, TemplateSwitchSecondary},
+    template_switch_distance::{
+        AlignmentType, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+    },
 };
 use log::{debug, trace};
+
+use crate::error::{Error, Result};
 
 use super::alignment_stream::{AlignmentCoordinates, AlignmentStream};
 
@@ -28,14 +32,14 @@ pub fn parse(
     alignment: &Alignment<AlignmentType>,
     reference_offset: usize,
     query_offset: usize,
-) -> Vec<TSShow<AlignmentType>> {
+) -> Result<Vec<TSShow<AlignmentType>>> {
     let mut template_switches = Vec::new();
     let mut stream = AlignmentStream::new_with_offset(reference_offset, query_offset);
     let mut alignment = alignment.iter_compact_cloned();
 
     while let Some((multiplicity, alignment_type)) = alignment.peek_front_cloned() {
         if matches!(alignment_type, AlignmentType::TemplateSwitchEntrance { .. }) {
-            template_switches.push(parse_template_switch(&mut alignment, &mut stream));
+            template_switches.push(parse_template_switch(&mut alignment, &mut stream)?);
         } else if matches!(alignment_type, AlignmentType::TemplateSwitchExit { .. }) {
             panic!("Found template switch exit without matching entrance");
         } else {
@@ -44,18 +48,19 @@ pub fn parse(
         }
     }
 
-    template_switches
+    Ok(template_switches)
 }
 
 fn parse_template_switch(
     alignment: &mut CompactAlignmentIterCloned<AlignmentType>,
     stream: &mut AlignmentStream,
-) -> TSShow<AlignmentType> {
+) -> Result<TSShow<AlignmentType>> {
     let (
         multiplicity,
         alignment_type @ AlignmentType::TemplateSwitchEntrance {
             primary,
             secondary,
+            direction,
             first_offset,
         },
     ) = alignment.peek_front_cloned().unwrap()
@@ -63,6 +68,10 @@ fn parse_template_switch(
         unreachable!("Function is only called with a template switch entrance")
     };
     debug!("Parsing TS with first_offset {first_offset}");
+
+    if direction == TemplateSwitchDirection::Forward {
+        return Err(Error::ForwardTsNotSupported);
+    }
 
     let sp1_offset = stream.head_coordinates();
     let upstream = stream.clone();
@@ -119,7 +128,7 @@ fn parse_template_switch(
             let downstream_limit = stream.head_coordinates();
 
             trace!("Returning TSShow");
-            return TSShow {
+            return Ok(TSShow {
                 upstream_offset,
                 downstream_limit,
                 sp1_offset,
@@ -131,7 +140,7 @@ fn parse_template_switch(
                 upstream,
                 template_switch,
                 downstream,
-            };
+            });
         } else {
             template_switch.push((multiplicity, alignment_type));
             stream.push(multiplicity, alignment_type);
