@@ -5,10 +5,10 @@ right_flank_length = 5
 
 # Base Cost
 
-rrf_cost = 3
-rqf_cost = 2
-qrf_cost = 2
-qqf_cost = 3
+rrf_cost = inf
+rqf_cost = inf
+qrf_cost = inf
+qqf_cost = inf
 rrr_cost = 3
 rqr_cost = 2
 qrr_cost = 2

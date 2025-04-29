@@ -6,7 +6,7 @@ use log::trace;
 use nom::{
     IResult, Parser,
     bytes::complete::{tag, take_while1},
-    character::complete::line_ending,
+    character::complete::{digit1, line_ending},
 };
 use num_traits::{Bounded, PrimInt};
 
@@ -119,7 +119,7 @@ fn parse_specific_name(name: &str) -> impl '_ + FnMut(&str) -> IResult<&str, ()>
     }
 }
 
-fn parse_specific_equals_value<Value: FromStr>(
+fn parse_specific_equals_value<Value: FromStr + Bounded>(
     identifier: &str,
 ) -> impl '_ + FnMut(&str) -> IResult<&str, Value> {
     move |input| {
@@ -135,18 +135,11 @@ fn parse_specific_equals_value<Value: FromStr>(
     }
 }
 
-fn parse_equals_value<Value: FromStr>(input: &str) -> IResult<&str, (&str, Value)> {
+fn parse_equals_value<Value: FromStr + Bounded>(input: &str) -> IResult<&str, (&str, Value)> {
     let input = skip_any_whitespace(input)?;
     let (input, identifier) = take_while1(|c: char| c.is_alphanumeric() || c == '_')(input)?;
     let (input, _) = (parse_whitespace, tag("="), parse_whitespace).parse(input)?;
-    let (input, value) = take_while1(|c: char| !c.is_whitespace())(input)?;
-
-    let value = Value::from_str(value).map_err(|_| {
-        nom::Err::Failure(nom::error::Error {
-            input,
-            code: nom::error::ErrorKind::Verify,
-        })
-    })?;
+    let (input, value) = parse_inf_value(input)?;
 
     Ok((input, (identifier, value)))
 }
@@ -174,5 +167,47 @@ fn parse_named_cost_table<AlphabetType: Alphabet, Cost: AStarCost>(
                 code: nom::error::ErrorKind::Verify,
             }))
         }
+    }
+}
+
+pub fn parse_inf_value<Output: FromStr + Bounded>(input: &str) -> IResult<&str, Output> {
+    let mut length = 0;
+
+    let negative = match input
+        .chars()
+        .next()
+        .ok_or(nom::Err::Failure(nom::error::Error {
+            input,
+            code: nom::error::ErrorKind::Verify,
+        }))? {
+        '-' => {
+            length += 1;
+            true
+        }
+        '+' => {
+            length += 1;
+            false
+        }
+        _ => false,
+    };
+
+    if input[length..].starts_with("inf") {
+        length += 3;
+
+        if negative {
+            Ok((&input[length..], Output::min_value()))
+        } else {
+            Ok((&input[length..], Output::max_value()))
+        }
+    } else {
+        length += digit1(&input[length..])?.1.len();
+        let result = Output::from_str(&input[..length]).map_err(|_| {
+            nom::Err::Failure(nom::error::Error {
+                input,
+                code: nom::error::ErrorKind::Verify,
+            })
+        })?;
+
+        Ok((&input[length..], result))
     }
 }

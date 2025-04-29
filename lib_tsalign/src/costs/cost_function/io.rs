@@ -1,11 +1,12 @@
 use std::{fmt::Display, io::Write, str::FromStr};
 
-use nom::{IResult, character::complete::digit1};
+use nom::IResult;
 use num_traits::{Bounded, PrimInt};
 
 use super::CostFunction;
 
 use crate::{
+    config::io::parse_inf_value,
     error::Result,
     io::{skip_any_whitespace, skip_whitespace},
 };
@@ -115,48 +116,6 @@ impl<SourceType: FromStr + PrimInt, Cost: FromStr + Bounded> CostFunction<Source
                 function: indexes.into_iter().zip(costs).collect(),
             },
         ))
-    }
-}
-
-pub fn parse_inf_value<Output: FromStr + Bounded>(input: &str) -> IResult<&str, Output> {
-    let mut length = 0;
-
-    let negative = match input
-        .chars()
-        .next()
-        .ok_or(nom::Err::Failure(nom::error::Error {
-            input,
-            code: nom::error::ErrorKind::Verify,
-        }))? {
-        '-' => {
-            length += 1;
-            true
-        }
-        '+' => {
-            length += 1;
-            false
-        }
-        _ => false,
-    };
-
-    if input[length..].starts_with("inf") {
-        length += 3;
-
-        if negative {
-            Ok((&input[length..], Output::min_value()))
-        } else {
-            Ok((&input[length..], Output::max_value()))
-        }
-    } else {
-        length += digit1(&input[length..])?.1.len();
-        let result = Output::from_str(&input[..length]).map_err(|_| {
-            nom::Err::Failure(nom::error::Error {
-                input,
-                code: nom::error::ErrorKind::Verify,
-            })
-        })?;
-
-        Ok((&input[length..], result))
     }
 }
 
