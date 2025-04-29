@@ -14,9 +14,9 @@ pub fn run_in_repo_root(args: &str) -> Result<()> {
         let current_dir = env::current_dir()?;
 
         if current_dir.ends_with("tsalign-tests") {
-            println!("Current dir: {:?}", current_dir);
+            println!("Current dir: {current_dir:?}");
             let parent_dir = current_dir.parent().ok_or(anyhow!("No parent directory"))?;
-            println!("Switching to parent dir: {:?}", parent_dir);
+            println!("Switching to parent dir: {parent_dir:?}");
 
             // working directory is this crate, a.k.a. "[...]/template-switch-aligner/tsalign-tests"
             // simulate a call from the repo root by traversing to "../"
