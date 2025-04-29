@@ -6,7 +6,7 @@ use log::trace;
 use nom::{
     IResult, Parser,
     bytes::complete::{tag, take_while1},
-    character::complete::line_ending,
+    character::complete::{digit1, line_ending},
 };
 use num_traits::{Bounded, PrimInt};
 
@@ -38,10 +38,14 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
 
         trace!("Parsing base costs");
         let (input, ()) = parse_specific_name("Base Cost")(input)?;
-        let (input, rr_cost) = parse_specific_equals_value("rr_cost")(input)?;
-        let (input, rq_cost) = parse_specific_equals_value("rq_cost")(input)?;
-        let (input, qr_cost) = parse_specific_equals_value("qr_cost")(input)?;
-        let (input, qq_cost) = parse_specific_equals_value("qq_cost")(input)?;
+        let (input, rrf_cost) = parse_specific_equals_value("rrf_cost")(input)?;
+        let (input, rqf_cost) = parse_specific_equals_value("rqf_cost")(input)?;
+        let (input, qrf_cost) = parse_specific_equals_value("qrf_cost")(input)?;
+        let (input, qqf_cost) = parse_specific_equals_value("qqf_cost")(input)?;
+        let (input, rrr_cost) = parse_specific_equals_value("rrr_cost")(input)?;
+        let (input, rqr_cost) = parse_specific_equals_value("rqr_cost")(input)?;
+        let (input, qrr_cost) = parse_specific_equals_value("qrr_cost")(input)?;
+        let (input, qqr_cost) = parse_specific_equals_value("qqr_cost")(input)?;
 
         trace!("Parsing jump costs");
         let (input, ()) = parse_specific_name("Jump Costs")(input)?;
@@ -53,8 +57,12 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
 
         trace!("Parsing primary edit costs");
         let (input, primary_edit_costs) = parse_named_cost_table("Primary Edit Costs")(input)?;
-        trace!("Parsing secondary edit costs");
-        let (input, secondary_edit_costs) = parse_named_cost_table("Secondary Edit Costs")(input)?;
+        trace!("Parsing secondary forward edit costs");
+        let (input, secondary_forward_edit_costs) =
+            parse_named_cost_table("Secondary Forward Edit Costs")(input)?;
+        trace!("Parsing secondary reverse edit costs");
+        let (input, secondary_reverse_edit_costs) =
+            parse_named_cost_table("Secondary Reverse Edit Costs")(input)?;
         trace!("Parsing left flank edit costs");
         let (input, left_flank_edit_costs) =
             parse_named_cost_table("Left Flank Edit Costs")(input)?;
@@ -70,14 +78,19 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
                 min_length: length_costs.minimum_finite_input().unwrap_or(usize::MAX),
 
                 base_cost: BaseCost {
-                    rr: rr_cost,
-                    rq: rq_cost,
-                    qr: qr_cost,
-                    qq: qq_cost,
+                    rrf: rrf_cost,
+                    rqf: rqf_cost,
+                    qrf: qrf_cost,
+                    qqf: qqf_cost,
+                    rrr: rrr_cost,
+                    rqr: rqr_cost,
+                    qrr: qrr_cost,
+                    qqr: qqr_cost,
                 },
 
                 primary_edit_costs,
-                secondary_edit_costs,
+                secondary_forward_edit_costs,
+                secondary_reverse_edit_costs,
                 left_flank_edit_costs,
                 right_flank_edit_costs,
 
@@ -106,7 +119,7 @@ fn parse_specific_name(name: &str) -> impl '_ + FnMut(&str) -> IResult<&str, ()>
     }
 }
 
-fn parse_specific_equals_value<Value: FromStr>(
+fn parse_specific_equals_value<Value: FromStr + Bounded>(
     identifier: &str,
 ) -> impl '_ + FnMut(&str) -> IResult<&str, Value> {
     move |input| {
@@ -122,18 +135,11 @@ fn parse_specific_equals_value<Value: FromStr>(
     }
 }
 
-fn parse_equals_value<Value: FromStr>(input: &str) -> IResult<&str, (&str, Value)> {
+fn parse_equals_value<Value: FromStr + Bounded>(input: &str) -> IResult<&str, (&str, Value)> {
     let input = skip_any_whitespace(input)?;
     let (input, identifier) = take_while1(|c: char| c.is_alphanumeric() || c == '_')(input)?;
     let (input, _) = (parse_whitespace, tag("="), parse_whitespace).parse(input)?;
-    let (input, value) = take_while1(|c: char| !c.is_whitespace())(input)?;
-
-    let value = Value::from_str(value).map_err(|_| {
-        nom::Err::Failure(nom::error::Error {
-            input,
-            code: nom::error::ErrorKind::Verify,
-        })
-    })?;
+    let (input, value) = parse_inf_value(input)?;
 
     Ok((input, (identifier, value)))
 }
@@ -161,5 +167,47 @@ fn parse_named_cost_table<AlphabetType: Alphabet, Cost: AStarCost>(
                 code: nom::error::ErrorKind::Verify,
             }))
         }
+    }
+}
+
+pub fn parse_inf_value<Output: FromStr + Bounded>(input: &str) -> IResult<&str, Output> {
+    let mut length = 0;
+
+    let negative = match input
+        .chars()
+        .next()
+        .ok_or(nom::Err::Failure(nom::error::Error {
+            input,
+            code: nom::error::ErrorKind::Verify,
+        }))? {
+        '-' => {
+            length += 1;
+            true
+        }
+        '+' => {
+            length += 1;
+            false
+        }
+        _ => false,
+    };
+
+    if input[length..].starts_with("inf") {
+        length += 3;
+
+        if negative {
+            Ok((&input[length..], Output::min_value()))
+        } else {
+            Ok((&input[length..], Output::max_value()))
+        }
+    } else {
+        length += digit1(&input[length..])?.1.len();
+        let result = Output::from_str(&input[..length]).map_err(|_| {
+            nom::Err::Failure(nom::error::Error {
+                input,
+                code: nom::error::ErrorKind::Verify,
+            })
+        })?;
+
+        Ok((&input[length..], result))
     }
 }

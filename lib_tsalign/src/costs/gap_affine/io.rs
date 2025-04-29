@@ -1,6 +1,6 @@
 use super::GapAffineAlignmentCostTable;
 use crate::{
-    costs::cost_function::io::parse_inf_value,
+    config::io::parse_inf_value,
     error::{Error, Result},
     io::{
         parse_any_whitespace, parse_title, parse_whitespace, skip_any_whitespace, skip_whitespace,

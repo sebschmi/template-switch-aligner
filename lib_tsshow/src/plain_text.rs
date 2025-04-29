@@ -12,6 +12,8 @@ use log::{debug, info, trace, warn};
 use mutlipair_alignment_renderer::MultipairAlignmentRenderer;
 use parse_template_switches::{STREAM_PADDING, TSShow};
 
+use crate::error::Result;
+
 pub mod alignment_stream;
 pub mod mutlipair_alignment_renderer;
 mod parse_template_switches;
@@ -20,14 +22,14 @@ pub fn show_template_switches(
     mut output: impl Write,
     result: &AlignmentResult<AlignmentType, U64Cost>,
     no_ts_result: &Option<AlignmentResult<AlignmentType, U64Cost>>,
-) {
+) -> Result<()> {
     let AlignmentResult::WithTarget {
         alignment,
         statistics,
     } = result
     else {
         warn!("Alignment was aborted early, no template switches present");
-        return;
+        return Ok(());
     };
 
     info!("CIGAR: {} (Cost: {:.0})", result.cigar(), statistics.cost);
@@ -44,7 +46,7 @@ pub fn show_template_switches(
         alignment,
         statistics.reference_offset,
         statistics.query_offset,
-    );
+    )?;
     info!("Found {} template switches", template_switches.len());
 
     for (index, template_switch) in template_switches.iter().enumerate() {
@@ -58,6 +60,8 @@ pub fn show_template_switches(
             statistics.query_offset,
         );
     }
+
+    Ok(())
 }
 
 fn show_template_switch(

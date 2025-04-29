@@ -81,7 +81,7 @@ pub fn cli(cli: Cli) -> Result<()> {
         toml::from_str(&buffer).unwrap_or_else(|error| panic!("Error parsing input file: {error}"))
     });
 
-    show_template_switches(stdout(), &result, &no_ts_result);
+    show_template_switches(stdout(), &result, &no_ts_result)?;
 
     if let Some(svg_out_path) = cli.svg.as_ref() {
         let mut svg = Vec::new();

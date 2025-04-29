@@ -28,6 +28,7 @@ pub enum Identifier<PrimaryExtraData> {
         entrance_query_index: usize,
         template_switch_primary: TemplateSwitchPrimary,
         template_switch_secondary: TemplateSwitchSecondary,
+        template_switch_direction: TemplateSwitchDirection,
         template_switch_first_offset: isize,
     },
     Secondary {
@@ -35,6 +36,7 @@ pub enum Identifier<PrimaryExtraData> {
         entrance_query_index: usize,
         template_switch_primary: TemplateSwitchPrimary,
         template_switch_secondary: TemplateSwitchSecondary,
+        template_switch_direction: TemplateSwitchDirection,
         length: usize,
         /// The index that does not jump.
         primary_index: usize,
@@ -47,6 +49,7 @@ pub enum Identifier<PrimaryExtraData> {
         entrance_query_index: usize,
         template_switch_primary: TemplateSwitchPrimary,
         template_switch_secondary: TemplateSwitchSecondary,
+        template_switch_direction: TemplateSwitchDirection,
         /// The index that does not jump.
         primary_index: usize,
         anti_primary_gap: isize,
@@ -74,6 +77,14 @@ pub enum TemplateSwitchPrimary {
 pub enum TemplateSwitchSecondary {
     Reference,
     Query,
+}
+
+/// The secondary sequence is the sequence for which the template switch jumps.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum TemplateSwitchDirection {
+    Forward,
+    Reverse,
 }
 
 impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
@@ -245,6 +256,10 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                     TemplateSwitchPrimary::Reference,
                     TemplateSwitchPrimary::Query,
                     TemplateSwitchPrimary::Query,
+                    TemplateSwitchPrimary::Reference,
+                    TemplateSwitchPrimary::Reference,
+                    TemplateSwitchPrimary::Query,
+                    TemplateSwitchPrimary::Query,
                 ]
                 .into_iter()
                 .zip([
@@ -252,14 +267,32 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                     TemplateSwitchSecondary::Query,
                     TemplateSwitchSecondary::Reference,
                     TemplateSwitchSecondary::Query,
+                    TemplateSwitchSecondary::Reference,
+                    TemplateSwitchSecondary::Query,
+                    TemplateSwitchSecondary::Reference,
+                    TemplateSwitchSecondary::Query,
+                ])
+                .zip([
+                    TemplateSwitchDirection::Forward,
+                    TemplateSwitchDirection::Forward,
+                    TemplateSwitchDirection::Forward,
+                    TemplateSwitchDirection::Forward,
+                    TemplateSwitchDirection::Reverse,
+                    TemplateSwitchDirection::Reverse,
+                    TemplateSwitchDirection::Reverse,
+                    TemplateSwitchDirection::Reverse,
                 ])
                 .map(
-                    move |(template_switch_primary, template_switch_secondary)| {
+                    move |(
+                        (template_switch_primary, template_switch_secondary),
+                        template_switch_direction,
+                    )| {
                         Identifier::TemplateSwitchEntrance {
                             entrance_reference_index,
                             entrance_query_index,
                             template_switch_primary,
                             template_switch_secondary,
+                            template_switch_direction,
                             template_switch_first_offset,
                         }
                     },
@@ -279,6 +312,7 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
+                template_switch_direction,
                 length,
                 primary_index,
                 secondary_index,
@@ -288,9 +322,13 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
+                template_switch_direction,
                 length: length + 1,
                 primary_index: primary_index + 1,
-                secondary_index: secondary_index - 1,
+                secondary_index: match template_switch_direction {
+                    TemplateSwitchDirection::Forward => secondary_index + 1,
+                    TemplateSwitchDirection::Reverse => secondary_index - 1,
+                },
                 gap_type: GapType::None,
             },
             other => unreachable!(
@@ -307,6 +345,7 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
+                template_switch_direction,
                 length,
                 primary_index,
                 secondary_index,
@@ -316,9 +355,13 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
+                template_switch_direction,
                 length,
                 primary_index,
-                secondary_index: secondary_index - 1,
+                secondary_index: match template_switch_direction {
+                    TemplateSwitchDirection::Forward => secondary_index + 1,
+                    TemplateSwitchDirection::Reverse => secondary_index - 1,
+                },
                 gap_type: GapType::Deletion,
             },
             other => unreachable!(
@@ -335,6 +378,7 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
+                template_switch_direction,
                 length,
                 primary_index,
                 secondary_index,
@@ -344,6 +388,7 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                 entrance_query_index,
                 template_switch_primary,
                 template_switch_secondary,
+                template_switch_direction,
                 length: length + 1,
                 primary_index: primary_index + 1,
                 secondary_index,
@@ -390,5 +435,11 @@ impl TemplateSwitchSecondary {
             Self::Reference => Self::Query,
             Self::Query => Self::Reference,
         }
+    }
+}
+
+impl TemplateSwitchDirection {
+    pub fn inverted(&self) -> Self {
+        *self
     }
 }

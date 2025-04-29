@@ -88,7 +88,7 @@ pub fn create_ts_svg(
         reference.len(),
         query.len(),
         alignment.iter_flat_cloned(),
-    );
+    )?;
 
     if config.render_more_complement {
         ts_arrangement.show_complete_complements_if_used();
@@ -121,6 +121,7 @@ pub fn create_ts_svg(
                 &mut Vec::new(),
             ))
         })
+        .transpose()?
         .transpose()?;
 
     debug!("Computing TS arrows and labels");

@@ -7,8 +7,8 @@ use generic_a_star::reset::Reset;
 use generic_a_star::{AStarBuffers, AStarContext};
 use num_traits::{Bounded, Zero};
 
-use crate::a_star_aligner::template_switch_distance::Node;
 use crate::a_star_aligner::template_switch_distance::strategies::primary_range::PrimaryRangeStrategy;
+use crate::a_star_aligner::template_switch_distance::{Node, TemplateSwitchDirection};
 use crate::a_star_aligner::{AlignmentContext, AlignmentRange};
 use crate::config::TemplateSwitchConfig;
 
@@ -350,6 +350,7 @@ impl<
                 entrance_reference_index,
                 entrance_query_index,
                 template_switch_secondary,
+                template_switch_direction,
                 template_switch_first_offset,
                 ..
             } => {
@@ -368,7 +369,16 @@ impl<
                 let secondary_index =
                     secondary_entrance_index as isize + template_switch_first_offset;
 
-                if template_switch_first_offset >= 0 && secondary_index < secondary_length as isize
+                if template_switch_first_offset >= 0
+                    && match template_switch_direction {
+                        TemplateSwitchDirection::Forward => {
+                            (secondary_index + self.config.min_length as isize)
+                                < secondary_length as isize
+                        }
+                        TemplateSwitchDirection::Reverse => {
+                            secondary_index < secondary_length as isize
+                        }
+                    }
                 {
                     let new_cost = config
                         .offset_costs
@@ -390,7 +400,12 @@ impl<
                 }
 
                 if template_switch_first_offset <= 0
-                    && secondary_index > self.config.min_length as isize
+                    && match template_switch_direction {
+                        TemplateSwitchDirection::Forward => secondary_index > 0,
+                        TemplateSwitchDirection::Reverse => {
+                            secondary_index > self.config.min_length as isize
+                        }
+                    }
                 {
                     let new_cost = config
                         .offset_costs
@@ -411,9 +426,17 @@ impl<
                     }
                 }
 
-                if secondary_index >= self.config.min_length as isize
-                    && secondary_index <= secondary_length as isize
-                {
+                if match template_switch_direction {
+                    TemplateSwitchDirection::Forward => {
+                        secondary_index >= 0
+                            && (secondary_index + self.config.min_length as isize)
+                                <= secondary_length as isize
+                    }
+                    TemplateSwitchDirection::Reverse => {
+                        secondary_index >= self.config.min_length as isize
+                            && secondary_index <= secondary_length as isize
+                    }
+                } {
                     // Temporarily unpack opened_nodes_output because it borrows self,
                     // but generating the secondary root node wants to borrow self as mutable.
                     let opened_nodes_direct_output = opened_nodes_output.into_inner();
@@ -432,6 +455,7 @@ impl<
             Identifier::Secondary {
                 template_switch_primary,
                 template_switch_secondary,
+                template_switch_direction,
                 length,
                 primary_index,
                 secondary_index,
@@ -455,15 +479,29 @@ impl<
                 // Only generate secondary successors if they can ever exit the template switch based on their length.
                 let min_length_cost = config.length_costs.min(length..).unwrap();
                 if min_length_cost != Strategies::Cost::max_value() {
-                    if primary_index < primary_sequence.len() && secondary_index > 0 {
+                    if primary_index < primary_sequence.len()
+                        && match template_switch_direction {
+                            TemplateSwitchDirection::Forward => {
+                                secondary_index < secondary_sequence.len()
+                            }
+                            TemplateSwitchDirection::Reverse => secondary_index > 0,
+                        }
+                    {
                         // Diagonal characters
                         let p = primary_sequence[primary_index].clone();
-                        let s = secondary_sequence[secondary_index - 1].complement();
+                        let s = match template_switch_direction {
+                            TemplateSwitchDirection::Forward => {
+                                secondary_sequence[secondary_index].clone()
+                            }
+                            TemplateSwitchDirection::Reverse => {
+                                secondary_sequence[secondary_index - 1].complement()
+                            }
+                        };
 
                         opened_nodes_output.extend(
                             node.generate_secondary_diagonal_successor(
                                 config
-                                    .secondary_edit_costs
+                                    .secondary_edit_costs(template_switch_direction)
                                     .match_or_substitution_cost(p.clone(), s.clone()),
                                 p == s,
                                 self,
@@ -471,20 +509,38 @@ impl<
                         );
                     }
 
-                    if secondary_index > 0
-                        && Strategies::SecondaryDeletion::allow_secondary_deletions()
+                    if match template_switch_direction {
+                        TemplateSwitchDirection::Forward => {
+                            secondary_index < secondary_sequence.len()
+                        }
+                        TemplateSwitchDirection::Reverse => secondary_index > 0,
+                    } && Strategies::SecondaryDeletion::allow_secondary_deletions()
                     {
-                        if secondary_index > secondary_sequence.len() {
+                        if match template_switch_direction {
+                            TemplateSwitchDirection::Forward => {
+                                secondary_index >= secondary_sequence.len()
+                            }
+                            TemplateSwitchDirection::Reverse => {
+                                secondary_index > secondary_sequence.len()
+                            }
+                        } {
                             panic!("Secondary index out of bounds for node {node}");
                         }
 
                         // Deleted character
-                        let s = secondary_sequence[secondary_index - 1].complement();
+                        let s = match template_switch_direction {
+                            TemplateSwitchDirection::Forward => {
+                                secondary_sequence[secondary_index].clone()
+                            }
+                            TemplateSwitchDirection::Reverse => {
+                                secondary_sequence[secondary_index - 1].complement()
+                            }
+                        };
 
                         opened_nodes_output.extend(
                             node.generate_secondary_deletion_successor(
                                 config
-                                    .secondary_edit_costs
+                                    .secondary_edit_costs(template_switch_direction)
                                     .gap_costs(s, gap_type != GapType::Deletion),
                                 self,
                             ),
@@ -498,7 +554,7 @@ impl<
                         opened_nodes_output.extend(
                             node.generate_secondary_insertion_successor(
                                 config
-                                    .secondary_edit_costs
+                                    .secondary_edit_costs(template_switch_direction)
                                     .gap_costs(p, gap_type != GapType::Insertion),
                                 self,
                             ),

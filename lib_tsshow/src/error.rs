@@ -15,4 +15,7 @@ pub enum Error {
 
     #[error("A negative anti-primary gap is not supported for SVG generation.")]
     SvgNegativeAntiPrimaryGap,
+
+    #[error("Forward TSes are not yet supported.")]
+    ForwardTsNotSupported,
 }
