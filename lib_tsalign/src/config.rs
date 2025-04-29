@@ -1,7 +1,10 @@
 use compact_genome::interface::alphabet::Alphabet;
-use num_traits::bounds::UpperBounded;
+use num_traits::{Bounded, bounds::UpperBounded};
 
-use crate::costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable};
+use crate::{
+    costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable},
+    error::{Error, Result},
+};
 
 pub mod io;
 
@@ -34,6 +37,19 @@ pub struct BaseCost<Cost> {
     pub rq: Cost,
     pub qr: Cost,
     pub qq: Cost,
+}
+
+impl<AlphabetType, Cost: Bounded + Ord> TemplateSwitchConfig<AlphabetType, Cost> {
+    /// Returns an error if any cost function is malformed.
+    pub fn verify(&self) -> Result<()> {
+        if !self.offset_costs.is_v_shaped() {
+            Err(Error::OffsetCostsNotVShaped)
+        } else if !self.length_difference_costs.is_v_shaped() {
+            Err(Error::LengthDifferenceCostsNotVShaped)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 impl<Cost: UpperBounded> BaseCost<Cost> {
