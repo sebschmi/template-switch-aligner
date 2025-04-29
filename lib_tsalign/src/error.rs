@@ -31,4 +31,14 @@ pub enum Error {
         "A cost function was attempted to create from a sequence whose index does not strictly increase at {index}."
     )]
     CostFunctionIndexNotIncreasing { index: usize },
+
+    #[error(
+        "The offset costs are not V-shaped. They must be non-decreasing when starting from zero in both positive and negative direction."
+    )]
+    OffsetCostsNotVShaped,
+
+    #[error(
+        "The length difference costs are not V-shaped. They must be non-decreasing when starting from zero in both positive and negative direction."
+    )]
+    LengthDifferenceCostsNotVShaped,
 }

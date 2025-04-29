@@ -1,6 +1,6 @@
 use std::ops::{Add, Bound, RangeBounds, Sub};
 
-use num_traits::{Bounded, One};
+use num_traits::{Bounded, One, Zero};
 
 use crate::error::Error;
 
@@ -149,6 +149,29 @@ impl<SourceType: Clone + Ord + From<u8> + Sub<Output = SourceType>, Cost: Bounde
         }
 
         Some(self.function[infinite_index].0.clone() - 1.into())
+    }
+}
+
+impl<SourceType: Bounded + Zero + Ord, Cost: Bounded + Ord> CostFunction<SourceType, Cost> {
+    /// Returns `true` if the cost function is non-decreasing starting from zero in both positive and negative direction.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use lib_tsalign::costs::cost_function::CostFunction;
+    /// assert!(CostFunction::try_from(vec![(-2, 2), (0, 1), (2, 3)]).unwrap().is_v_shaped());
+    /// assert!(CostFunction::try_from(vec![(-2, 3), (0, 3), (2, 3)]).unwrap().is_v_shaped());
+    /// assert!(!CostFunction::try_from(vec![(-2, 2), (0, 3), (2, 3)]).unwrap().is_v_shaped());
+    /// assert!(!CostFunction::try_from(vec![(-2, 3), (0, 3), (2, 2)]).unwrap().is_v_shaped());
+    /// assert!(CostFunction::try_from(vec![(-2, 2), (0, 2), (2, 3)]).unwrap().is_v_shaped());
+    /// assert!(CostFunction::try_from(vec![(-2, 2), (1, 3), (2, 3)]).unwrap().is_v_shaped());
+    /// ```
+    pub fn is_v_shaped(&self) -> bool {
+        self.function.windows(2).all(|window| {
+            (window[0].0 < SourceType::zero() && window[1].0 > SourceType::zero())
+                || (window[0].0 < SourceType::zero() && window[0].1 >= window[1].1)
+                || (window[0].0 >= SourceType::zero() && window[0].1 <= window[1].1)
+        })
     }
 }
 

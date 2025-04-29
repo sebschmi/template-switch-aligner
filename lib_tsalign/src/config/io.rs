@@ -23,9 +23,11 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
         let mut input = String::new();
         reader.read_to_string(&mut input)?;
         let input = input.as_str();
-        Self::parse_plain(input)
+        let result = Self::parse_plain(input)
             .map(|(_, result)| result)
-            .map_err(translate_nom_error)
+            .map_err(translate_nom_error)?;
+        result.verify()?;
+        Ok(result)
     }
 
     fn parse_plain(input: &str) -> IResult<&str, Self> {

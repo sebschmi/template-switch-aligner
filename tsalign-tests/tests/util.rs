@@ -1,19 +1,28 @@
 use std::{
     env,
     process::{Command, Stdio},
+    sync::Mutex,
 };
 
 use anyhow::{Result, anyhow};
 
 pub fn run_in_repo_root(args: &str) -> Result<()> {
-    if env::current_dir()?.ends_with("tsalign-tests") {
-        // working directory is this crate, a.k.a. "[...]/template-switch-aligner/tsalign-tests"
-        // simulate a call from the repo root by traversing to "../"
-        env::set_current_dir(
-            env::current_dir()?
-                .parent()
-                .ok_or(anyhow!("No parent directory"))?,
-        )?;
+    static DIR_LOCK: Mutex<()> = Mutex::new(());
+
+    {
+        let lock = DIR_LOCK.lock().unwrap();
+        let current_dir = env::current_dir()?;
+
+        if current_dir.ends_with("tsalign-tests") {
+            println!("Current dir: {:?}", current_dir);
+            let parent_dir = current_dir.parent().ok_or(anyhow!("No parent directory"))?;
+            println!("Switching to parent dir: {:?}", parent_dir);
+
+            // working directory is this crate, a.k.a. "[...]/template-switch-aligner/tsalign-tests"
+            // simulate a call from the repo root by traversing to "../"
+            env::set_current_dir(parent_dir)?;
+        }
+        drop(lock);
     }
 
     let process = Command::new("cargo")
