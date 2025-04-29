@@ -295,7 +295,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                         AlignmentType::TemplateSwitchEntrance {
                             primary: *template_switch_primary,
                             secondary: *template_switch_secondary,
-                            direction: TemplateSwitchDirection::Reverse,
+                            direction: *template_switch_direction,
                             first_offset: *template_switch_first_offset,
                         },
                         context,
