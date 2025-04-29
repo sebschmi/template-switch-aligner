@@ -233,6 +233,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 let Identifier::TemplateSwitchEntrance {
                     template_switch_primary,
                     template_switch_secondary,
+                    template_switch_direction,
                     template_switch_first_offset,
                     ..
                 } = &identifier
@@ -240,17 +241,51 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                     unreachable!("This closure is only called on template switch entrances.")
                 };
 
-                let base_cost = match (template_switch_primary, template_switch_secondary) {
-                    (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Reference) => {
-                        base_cost.rrr
-                    }
-                    (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Query) => {
-                        base_cost.rqr
-                    }
-                    (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Reference) => {
-                        base_cost.qrr
-                    }
-                    (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => base_cost.qqr,
+                let base_cost = match (
+                    template_switch_primary,
+                    template_switch_secondary,
+                    template_switch_direction,
+                ) {
+                    (
+                        TemplateSwitchPrimary::Reference,
+                        TemplateSwitchSecondary::Reference,
+                        TemplateSwitchDirection::Forward,
+                    ) => base_cost.rrf,
+                    (
+                        TemplateSwitchPrimary::Reference,
+                        TemplateSwitchSecondary::Query,
+                        TemplateSwitchDirection::Forward,
+                    ) => base_cost.rqf,
+                    (
+                        TemplateSwitchPrimary::Query,
+                        TemplateSwitchSecondary::Reference,
+                        TemplateSwitchDirection::Forward,
+                    ) => base_cost.qrf,
+                    (
+                        TemplateSwitchPrimary::Query,
+                        TemplateSwitchSecondary::Query,
+                        TemplateSwitchDirection::Forward,
+                    ) => base_cost.qqf,
+                    (
+                        TemplateSwitchPrimary::Reference,
+                        TemplateSwitchSecondary::Reference,
+                        TemplateSwitchDirection::Reverse,
+                    ) => base_cost.rrr,
+                    (
+                        TemplateSwitchPrimary::Reference,
+                        TemplateSwitchSecondary::Query,
+                        TemplateSwitchDirection::Reverse,
+                    ) => base_cost.rqr,
+                    (
+                        TemplateSwitchPrimary::Query,
+                        TemplateSwitchSecondary::Reference,
+                        TemplateSwitchDirection::Reverse,
+                    ) => base_cost.qrr,
+                    (
+                        TemplateSwitchPrimary::Query,
+                        TemplateSwitchSecondary::Query,
+                        TemplateSwitchDirection::Reverse,
+                    ) => base_cost.qqr,
                 };
 
                 (base_cost != Strategies::Cost::max_value()).then(|| {

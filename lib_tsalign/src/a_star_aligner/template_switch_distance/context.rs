@@ -475,24 +475,28 @@ impl<
                     TemplateSwitchSecondary::Reference => self.reference,
                     TemplateSwitchSecondary::Query => self.query,
                 };
-                let secondary_length = secondary_sequence.len();
 
                 // Only generate secondary successors if they can ever exit the template switch based on their length.
                 let min_length_cost = config.length_costs.min(length..).unwrap();
                 if min_length_cost != Strategies::Cost::max_value() {
                     if primary_index < primary_sequence.len()
                         && match template_switch_direction {
-                            TemplateSwitchDirection::Forward => secondary_index < secondary_length,
+                            TemplateSwitchDirection::Forward => {
+                                secondary_index < secondary_sequence.len()
+                            }
                             TemplateSwitchDirection::Reverse => secondary_index > 0,
                         }
                     {
                         // Diagonal characters
                         let p = primary_sequence[primary_index].clone();
-                        let s = secondary_sequence[match template_switch_direction {
-                            TemplateSwitchDirection::Forward => secondary_index,
-                            TemplateSwitchDirection::Reverse => secondary_index - 1,
-                        }]
-                        .complement();
+                        let s = match template_switch_direction {
+                            TemplateSwitchDirection::Forward => {
+                                secondary_sequence[secondary_index].clone()
+                            }
+                            TemplateSwitchDirection::Reverse => {
+                                secondary_sequence[secondary_index - 1].complement()
+                            }
+                        };
 
                         opened_nodes_output.extend(
                             node.generate_secondary_diagonal_successor(
@@ -506,20 +510,32 @@ impl<
                     }
 
                     if match template_switch_direction {
-                        TemplateSwitchDirection::Forward => secondary_index < secondary_length,
+                        TemplateSwitchDirection::Forward => {
+                            secondary_index < secondary_sequence.len()
+                        }
                         TemplateSwitchDirection::Reverse => secondary_index > 0,
                     } && Strategies::SecondaryDeletion::allow_secondary_deletions()
                     {
-                        if secondary_index > secondary_sequence.len() {
+                        if match template_switch_direction {
+                            TemplateSwitchDirection::Forward => {
+                                secondary_index >= secondary_sequence.len()
+                            }
+                            TemplateSwitchDirection::Reverse => {
+                                secondary_index > secondary_sequence.len()
+                            }
+                        } {
                             panic!("Secondary index out of bounds for node {node}");
                         }
 
                         // Deleted character
-                        let s = secondary_sequence[match template_switch_direction {
-                            TemplateSwitchDirection::Forward => secondary_index,
-                            TemplateSwitchDirection::Reverse => secondary_index - 1,
-                        }]
-                        .complement();
+                        let s = match template_switch_direction {
+                            TemplateSwitchDirection::Forward => {
+                                secondary_sequence[secondary_index].clone()
+                            }
+                            TemplateSwitchDirection::Reverse => {
+                                secondary_sequence[secondary_index - 1].complement()
+                            }
+                        };
 
                         opened_nodes_output.extend(
                             node.generate_secondary_deletion_successor(

@@ -317,29 +317,19 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                 primary_index,
                 secondary_index,
                 ..
-            } => match template_switch_direction {
-                TemplateSwitchDirection::Forward => Self::Secondary {
-                    entrance_reference_index,
-                    entrance_query_index,
-                    template_switch_primary,
-                    template_switch_secondary,
-                    template_switch_direction,
-                    length: length + 1,
-                    primary_index: primary_index + 1,
-                    secondary_index: secondary_index + 1,
-                    gap_type: GapType::None,
+            } => Self::Secondary {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                template_switch_direction,
+                length: length + 1,
+                primary_index: primary_index + 1,
+                secondary_index: match template_switch_direction {
+                    TemplateSwitchDirection::Forward => secondary_index + 1,
+                    TemplateSwitchDirection::Reverse => secondary_index - 1,
                 },
-                TemplateSwitchDirection::Reverse => Self::Secondary {
-                    entrance_reference_index,
-                    entrance_query_index,
-                    template_switch_primary,
-                    template_switch_secondary,
-                    template_switch_direction,
-                    length: length + 1,
-                    primary_index: primary_index + 1,
-                    secondary_index: secondary_index - 1,
-                    gap_type: GapType::None,
-                },
+                gap_type: GapType::None,
             },
             other => unreachable!(
                 "Function is only called on primary identifiers, but this is: {other}."
@@ -360,29 +350,19 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                 primary_index,
                 secondary_index,
                 ..
-            } => match template_switch_direction {
-                TemplateSwitchDirection::Forward => Self::Secondary {
-                    entrance_reference_index,
-                    entrance_query_index,
-                    template_switch_primary,
-                    template_switch_secondary,
-                    template_switch_direction,
-                    length,
-                    primary_index,
-                    secondary_index: secondary_index + 1,
-                    gap_type: GapType::Deletion,
+            } => Self::Secondary {
+                entrance_reference_index,
+                entrance_query_index,
+                template_switch_primary,
+                template_switch_secondary,
+                template_switch_direction,
+                length,
+                primary_index,
+                secondary_index: match template_switch_direction {
+                    TemplateSwitchDirection::Forward => secondary_index + 1,
+                    TemplateSwitchDirection::Reverse => secondary_index - 1,
                 },
-                TemplateSwitchDirection::Reverse => Self::Secondary {
-                    entrance_reference_index,
-                    entrance_query_index,
-                    template_switch_primary,
-                    template_switch_secondary,
-                    template_switch_direction,
-                    length,
-                    primary_index,
-                    secondary_index: secondary_index - 1,
-                    gap_type: GapType::Deletion,
-                },
+                gap_type: GapType::Deletion,
             },
             other => unreachable!(
                 "Function is only called on primary identifiers, but this is: {other}."
