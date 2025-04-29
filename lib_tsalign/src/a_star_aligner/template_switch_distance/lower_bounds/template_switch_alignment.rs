@@ -253,6 +253,7 @@ fn generate_template_switch_alignment_lower_bound_config<
         offset_costs: CostFunction::new_max(),
         length_costs: CostFunction::new_max(),
         length_difference_costs: CostFunction::new_max(),
+        anti_primary_gap_costs: CostFunction::new_max(),
     }
 }
 

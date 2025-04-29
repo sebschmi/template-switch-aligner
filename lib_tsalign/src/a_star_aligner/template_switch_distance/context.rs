@@ -507,9 +507,10 @@ impl<
                 }
 
                 let length_cost = config.length_costs.evaluate(&length);
-                if length_cost != Strategies::Cost::max_value() {
-                    let length_difference_cost = config.length_difference_costs.evaluate(&0);
-                    assert_ne!(length_difference_cost, Strategies::Cost::max_value());
+                let length_difference_cost = config.length_difference_costs.evaluate(&0);
+                if length_cost != Strategies::Cost::max_value()
+                    && length_difference_cost != Strategies::Cost::max_value()
+                {
                     let cost_increment = length_cost + length_difference_cost;
 
                     opened_nodes_output.extend(
@@ -584,12 +585,18 @@ impl<
                     }
                 }
 
-                opened_nodes_output.extend(node.generate_primary_reentry_successor(self).map(
-                    |mut node| {
-                        node.strategies.template_switch_count.increment_count();
-                        node
-                    },
-                ));
+                // Generate reentry successor.
+                // Evaluate anti-primary gap cost only here, because it may not be non-decreasing.
+                let anti_primary_gap_cost =
+                    config.anti_primary_gap_costs.evaluate(&anti_primary_gap);
+
+                opened_nodes_output.extend(
+                    node.generate_primary_reentry_successor(self, anti_primary_gap_cost)
+                        .map(|mut node| {
+                            node.strategies.template_switch_count.increment_count();
+                            node
+                        }),
+                );
             }
         }
 

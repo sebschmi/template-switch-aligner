@@ -539,7 +539,12 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
     >(
         &self,
         context: &Context<SubsequenceType, Strategies>,
+        cost_increment: Strategies::Cost,
     ) -> Option<Self> {
+        if cost_increment == Strategies::Cost::max_value() {
+            return None;
+        }
+
         let identifier @ Identifier::TemplateSwitchExit {
             entrance_reference_index,
             entrance_query_index,
@@ -588,7 +593,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 <Strategies as AlignmentStrategySelector>::Cost,
             >>::generate_successor_identifier_primary_extra_data(identifier, AlignmentType::PrimaryReentry, context),
             },
-            Strategies::Cost::zero(),
+            cost_increment,
             AlignmentType::PrimaryReentry,
             context,
         ))
@@ -695,7 +700,7 @@ impl<PrimaryExtraData: Copy, Cost: AStarCost> NodeData<PrimaryExtraData, Cost> {
         cost_increment: Cost,
         alignment_type: AlignmentType,
     ) -> Self {
-        let cost = self.cost + cost_increment;
+        let cost = self.cost.checked_add(&cost_increment).unwrap();
         let a_star_lower_bound = self.a_star_lower_bound.saturating_sub(&cost_increment);
         Self {
             identifier,
