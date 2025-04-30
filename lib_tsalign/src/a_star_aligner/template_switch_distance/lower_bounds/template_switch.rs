@@ -199,11 +199,13 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
                                 || secondary_index == genome_length - 1
                         }
                         Identifier::TemplateSwitchExit {
-                            anti_primary_gap, ..
+                            template_switch_direction,
+                            anti_primary_gap,
+                            ..
                         } => {
                             let cost_increment = context
                                 .config
-                                .anti_primary_gap_costs
+                                .anti_primary_gap_costs(template_switch_direction)
                                 .evaluate(&anti_primary_gap);
                             node.generate_primary_reentry_successor(context, cost_increment)
                                 .is_none()
@@ -339,7 +341,8 @@ fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet, Cost: ASt
         .unwrap(),
         length_costs: config.length_costs.clone(),
         length_difference_costs: config.length_difference_costs.clone(),
-        anti_primary_gap_costs: config.anti_primary_gap_costs.clone(),
+        forward_anti_primary_gap_costs: config.forward_anti_primary_gap_costs.clone(),
+        reverse_anti_primary_gap_costs: config.reverse_anti_primary_gap_costs.clone(),
     }
 }
 

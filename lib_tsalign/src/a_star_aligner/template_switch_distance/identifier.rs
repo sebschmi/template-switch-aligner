@@ -248,56 +248,74 @@ impl<PrimaryExtraData> Identifier<PrimaryExtraData> {
                 reference_index: entrance_reference_index,
                 query_index: entrance_query_index,
                 ..
-            } => {
-                let template_switch_first_offset = 0;
-
-                [
-                    TemplateSwitchPrimary::Reference,
-                    TemplateSwitchPrimary::Reference,
-                    TemplateSwitchPrimary::Query,
-                    TemplateSwitchPrimary::Query,
-                    TemplateSwitchPrimary::Reference,
-                    TemplateSwitchPrimary::Reference,
-                    TemplateSwitchPrimary::Query,
-                    TemplateSwitchPrimary::Query,
-                ]
-                .into_iter()
-                .zip([
-                    TemplateSwitchSecondary::Reference,
-                    TemplateSwitchSecondary::Query,
-                    TemplateSwitchSecondary::Reference,
-                    TemplateSwitchSecondary::Query,
-                    TemplateSwitchSecondary::Reference,
-                    TemplateSwitchSecondary::Query,
-                    TemplateSwitchSecondary::Reference,
-                    TemplateSwitchSecondary::Query,
-                ])
-                .zip([
-                    TemplateSwitchDirection::Forward,
-                    TemplateSwitchDirection::Forward,
-                    TemplateSwitchDirection::Forward,
-                    TemplateSwitchDirection::Forward,
-                    TemplateSwitchDirection::Reverse,
-                    TemplateSwitchDirection::Reverse,
-                    TemplateSwitchDirection::Reverse,
-                    TemplateSwitchDirection::Reverse,
-                ])
-                .map(
-                    move |(
-                        (template_switch_primary, template_switch_secondary),
-                        template_switch_direction,
-                    )| {
-                        Identifier::TemplateSwitchEntrance {
-                            entrance_reference_index,
-                            entrance_query_index,
-                            template_switch_primary,
-                            template_switch_secondary,
-                            template_switch_direction,
-                            template_switch_first_offset,
+            } => [
+                TemplateSwitchPrimary::Reference,
+                TemplateSwitchPrimary::Reference,
+                TemplateSwitchPrimary::Query,
+                TemplateSwitchPrimary::Query,
+                TemplateSwitchPrimary::Reference,
+                TemplateSwitchPrimary::Reference,
+                TemplateSwitchPrimary::Query,
+                TemplateSwitchPrimary::Query,
+            ]
+            .into_iter()
+            .zip([
+                TemplateSwitchSecondary::Reference,
+                TemplateSwitchSecondary::Query,
+                TemplateSwitchSecondary::Reference,
+                TemplateSwitchSecondary::Query,
+                TemplateSwitchSecondary::Reference,
+                TemplateSwitchSecondary::Query,
+                TemplateSwitchSecondary::Reference,
+                TemplateSwitchSecondary::Query,
+            ])
+            .zip([
+                TemplateSwitchDirection::Forward,
+                TemplateSwitchDirection::Forward,
+                TemplateSwitchDirection::Forward,
+                TemplateSwitchDirection::Forward,
+                TemplateSwitchDirection::Reverse,
+                TemplateSwitchDirection::Reverse,
+                TemplateSwitchDirection::Reverse,
+                TemplateSwitchDirection::Reverse,
+            ])
+            .flat_map(
+                move |(
+                    (template_switch_primary, template_switch_secondary),
+                    template_switch_direction,
+                )| {
+                    match template_switch_direction {
+                        TemplateSwitchDirection::Forward => vec![
+                            Identifier::TemplateSwitchEntrance {
+                                entrance_reference_index,
+                                entrance_query_index,
+                                template_switch_primary,
+                                template_switch_secondary,
+                                template_switch_direction,
+                                template_switch_first_offset: -1,
+                            },
+                            Identifier::TemplateSwitchEntrance {
+                                entrance_reference_index,
+                                entrance_query_index,
+                                template_switch_primary,
+                                template_switch_secondary,
+                                template_switch_direction,
+                                template_switch_first_offset: 1,
+                            },
+                        ],
+                        TemplateSwitchDirection::Reverse => {
+                            vec![Identifier::TemplateSwitchEntrance {
+                                entrance_reference_index,
+                                entrance_query_index,
+                                template_switch_primary,
+                                template_switch_secondary,
+                                template_switch_direction,
+                                template_switch_first_offset: 0,
+                            }]
                         }
-                    },
-                )
-            }
+                    }
+                },
+            ),
 
             other => unreachable!(
                 "Function is only called on primary identifiers, but this is: {other}."
