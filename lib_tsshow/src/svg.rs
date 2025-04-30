@@ -242,15 +242,15 @@ pub fn create_ts_svg(
 
         let (secondary_sp2, secondary_sp3, inner_row) = match secondary {
             TemplateSwitchSecondary::Reference => (
-                ts_arrangement.reference_inner_last_non_blank_column(inner_identifier) + 1usize,
-                ts_arrangement.reference_inner_first_non_blank_column(inner_identifier),
+                ts_arrangement.inner_last_non_blank_column(inner_identifier) + 1usize,
+                ts_arrangement.inner_first_non_blank_column(inner_identifier),
                 TsArrangementRow::ReferenceInner {
                     index: inner_identifier,
                 },
             ),
             TemplateSwitchSecondary::Query => (
-                ts_arrangement.query_inner_last_non_blank_column(inner_identifier) + 1usize,
-                ts_arrangement.query_inner_first_non_blank_column(inner_identifier),
+                ts_arrangement.inner_last_non_blank_column(inner_identifier) + 1usize,
+                ts_arrangement.inner_first_non_blank_column(inner_identifier),
                 TsArrangementRow::QueryInner {
                     index: inner_identifier,
                 },
@@ -328,7 +328,7 @@ pub fn create_ts_svg(
     let mut ts_label_group_width = 0.0f32;
 
     // Reference inners.
-    for (identifier, reference_inner) in ts_arrangement.reference_inners().iter().rev() {
+    for (identifier, reference_inner) in ts_arrangement.reference_complement_inners().rev() {
         ts_group = ts_group.add(svg_string(
             reference_inner
                 .sequence()
@@ -451,7 +451,7 @@ pub fn create_ts_svg(
     y += typewriter::FONT.character_height;
 
     // Query inners.
-    for (identifier, query_inner) in ts_arrangement.query_inners().iter() {
+    for (identifier, query_inner) in ts_arrangement.query_complement_inners() {
         ts_group = ts_group.add(svg_string(
             query_inner.sequence().iter_values().map(render_inner_char(
                 match query_inner.template_switch().primary {

@@ -16,13 +16,14 @@ use super::{
 };
 
 pub struct TsInnerArrangement {
-    reference_inners: TaggedVec<TsInnerIdentifier, TsInner>,
-    query_inners: TaggedVec<TsInnerIdentifier, TsInner>,
+    inners: TaggedVec<TsInnerIdentifier, TsInner>,
 }
 
 pub struct TsInner {
     sequence: TaggedVec<ArrangementColumn, InnerChar>,
     template_switch: TemplateSwitch,
+    reference: bool,
+    complement: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -45,8 +46,7 @@ impl TsInnerArrangement {
         template_switches: Vec<TemplateSwitch>,
     ) -> Self {
         let mut result = Self {
-            reference_inners: Default::default(),
-            query_inners: Default::default(),
+            inners: Default::default(),
         };
 
         for ts in template_switches {
@@ -93,11 +93,7 @@ impl TsInnerArrangement {
                             );
 
                             source_arrangement.insert_blank(current_arrangement_column);
-                            for existing_inner in result
-                                .reference_inners
-                                .iter_values_mut()
-                                .chain(&mut result.query_inners)
-                            {
+                            for existing_inner in result.inners.iter_values_mut() {
                                 existing_inner
                                     .sequence
                                     .insert(current_arrangement_column, InnerChar::Blank);
@@ -166,12 +162,13 @@ impl TsInnerArrangement {
                     .skip(inner.len());
             inner.extend(suffix_blanks);
 
-            match ts.secondary {
-                TemplateSwitchSecondary::Reference => {
-                    result.reference_inners.push(TsInner::new(inner, ts))
-                }
-                TemplateSwitchSecondary::Query => result.query_inners.push(TsInner::new(inner, ts)),
+            let is_reference = match ts.secondary {
+                TemplateSwitchSecondary::Reference => true,
+                TemplateSwitchSecondary::Query => false,
             };
+            result
+                .inners
+                .push(TsInner::new(inner, ts, is_reference, true));
         }
 
         result
@@ -182,11 +179,7 @@ impl TsInnerArrangement {
         columns: impl IntoIterator<Item = ArrangementColumn> + Clone,
         removed_hidden_chars: &RemovedHiddenChars,
     ) {
-        for inner in self
-            .reference_inners
-            .iter_values_mut()
-            .chain(&mut self.query_inners)
-        {
+        for inner in self.inners.iter_values_mut() {
             inner.sequence.remove_multi(columns.clone());
             inner
                 .template_switch
@@ -194,45 +187,32 @@ impl TsInnerArrangement {
         }
     }
 
-    pub fn reference_inners(&self) -> &TaggedVec<TsInnerIdentifier, TsInner> {
-        &self.reference_inners
+    pub fn inners(&self) -> &TaggedVec<TsInnerIdentifier, TsInner> {
+        &self.inners
     }
 
-    pub fn query_inners(&self) -> &TaggedVec<TsInnerIdentifier, TsInner> {
-        &self.query_inners
+    pub fn reference_complement_inners(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
+        self.inners
+            .iter()
+            .filter(|inner| inner.1.reference && inner.1.complement)
     }
 
-    pub fn reference_inner_first_non_blank_column(
+    pub fn query_complement_inners(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
+        self.inners
+            .iter()
+            .filter(|inner| !inner.1.reference && inner.1.complement)
+    }
+
+    pub fn inner_first_non_blank_column(
         &self,
         inner_identifier: TsInnerIdentifier,
     ) -> ArrangementColumn {
-        Self::inner_first_non_blank_column(&self.reference_inners[inner_identifier].sequence)
-    }
+        let sequence = &self.inners[inner_identifier].sequence;
 
-    pub fn reference_inner_last_non_blank_column(
-        &self,
-        inner_identifier: TsInnerIdentifier,
-    ) -> ArrangementColumn {
-        Self::inner_last_non_blank_column(&self.reference_inners[inner_identifier].sequence)
-    }
-
-    pub fn query_inner_first_non_blank_column(
-        &self,
-        inner_identifier: TsInnerIdentifier,
-    ) -> ArrangementColumn {
-        Self::inner_first_non_blank_column(&self.query_inners[inner_identifier].sequence)
-    }
-
-    pub fn query_inner_last_non_blank_column(
-        &self,
-        inner_identifier: TsInnerIdentifier,
-    ) -> ArrangementColumn {
-        Self::inner_last_non_blank_column(&self.query_inners[inner_identifier].sequence)
-    }
-
-    fn inner_first_non_blank_column(
-        sequence: &TaggedVec<ArrangementColumn, InnerChar>,
-    ) -> ArrangementColumn {
         sequence
             .iter()
             .find(|(_, c)| !c.is_blank())
@@ -240,9 +220,12 @@ impl TsInnerArrangement {
             .unwrap_or(sequence.len().into())
     }
 
-    fn inner_last_non_blank_column(
-        sequence: &TaggedVec<ArrangementColumn, InnerChar>,
+    pub fn inner_last_non_blank_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
     ) -> ArrangementColumn {
+        let sequence = &self.inners[inner_identifier].sequence;
+
         sequence
             .iter()
             .rev()
@@ -253,13 +236,17 @@ impl TsInnerArrangement {
 }
 
 impl TsInner {
-    pub fn new(
+    fn new(
         sequence: TaggedVec<ArrangementColumn, InnerChar>,
         template_switch: TemplateSwitch,
+        reference: bool,
+        complement: bool,
     ) -> Self {
         Self {
             sequence,
             template_switch,
+            reference,
+            complement,
         }
     }
 
