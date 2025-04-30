@@ -405,7 +405,10 @@ impl<SequenceName: Eq + Ord + Clone, CharacterData>
 
         assert!(!self.sequences.contains_key(&query_sequence_name));
 
-        let reference_sequence = self.sequences.get_mut(reference_sequence_name).unwrap();
+        let reference_sequence = self
+            .sequences
+            .get_mut(reference_sequence_name)
+            .unwrap_or_else(|| panic!("Reference sequence does not exist"));
         let index = reference_sequence
             .translate_alignment_offset(reference_sequence_offset)
             .unwrap_or_else(|| {
@@ -576,7 +579,10 @@ impl<SequenceName: Eq + Ord + Display, CharacterData>
             .unwrap();
 
         for name in names {
-            let sequence = self.sequences.get(name).unwrap();
+            let sequence = self
+                .sequences
+                .get(name)
+                .unwrap_or_else(|| panic!("Render sequence name not found: {name}"));
 
             let name = name.to_string();
             write!(output, "{name}: ")?;

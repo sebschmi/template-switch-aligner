@@ -6,7 +6,7 @@ use lib_tsalign::a_star_aligner::{
 };
 use log::{debug, trace};
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 use super::alignment_stream::{AlignmentCoordinates, AlignmentStream};
 
@@ -69,10 +69,6 @@ fn parse_template_switch(
     };
     debug!("Parsing TS with first_offset {first_offset}");
 
-    if direction == TemplateSwitchDirection::Forward {
-        return Err(Error::ForwardTsNotSupported);
-    }
-
     let sp1_offset = stream.head_coordinates();
     let upstream = stream.clone();
     let mut template_switch = Vec::new();
@@ -106,7 +102,7 @@ fn parse_template_switch(
                     sp1_offset
                         .reference()
                         .max(sp1_offset.query())
-                        .saturating_sub(sp2_secondary_offset)
+                        .saturating_sub(sp2_secondary_offset.min(sp3_secondary_offset))
                         + STREAM_PADDING,
                 ),
             );
@@ -121,9 +117,13 @@ fn parse_template_switch(
             let downstream = parse_downstream(
                 alignment,
                 stream,
-                STREAM_DEFAULT_LENGTH.max(sp3_secondary_offset.saturating_sub(
-                    sp4_offset.reference().min(sp4_offset.query()) + STREAM_PADDING,
-                )),
+                STREAM_DEFAULT_LENGTH.max(
+                    sp3_secondary_offset
+                        .max(sp2_secondary_offset)
+                        .saturating_sub(
+                            sp4_offset.reference().min(sp4_offset.query()) + STREAM_PADDING,
+                        ),
+                ),
             );
             let downstream_limit = stream.head_coordinates();
 
@@ -151,8 +151,16 @@ fn parse_template_switch(
                     | AlignmentType::SecondarySubstitution
                     | AlignmentType::SecondaryMatch
             ) {
-                sp3_secondary_offset -= multiplicity;
-                assert!(sp3_secondary_offset < sp2_secondary_offset);
+                match direction {
+                    TemplateSwitchDirection::Forward => {
+                        sp3_secondary_offset += multiplicity;
+                        assert!(sp3_secondary_offset > sp2_secondary_offset);
+                    }
+                    TemplateSwitchDirection::Reverse => {
+                        sp3_secondary_offset -= multiplicity;
+                        assert!(sp3_secondary_offset < sp2_secondary_offset);
+                    }
+                }
             }
         }
     }

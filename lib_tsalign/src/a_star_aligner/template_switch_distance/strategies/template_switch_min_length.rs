@@ -6,7 +6,7 @@ use generic_a_star::cost::AStarCost;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
 
-use crate::a_star_aligner::template_switch_distance::AlignmentType;
+use crate::a_star_aligner::template_switch_distance::{AlignmentType, TemplateSwitchDirection};
 use crate::a_star_aligner::template_switch_distance::{
     Context, Identifier, Node,
     identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary},
@@ -80,6 +80,7 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
 pub struct LookaheadMemoryKey {
     template_switch_primary: TemplateSwitchPrimary,
     template_switch_secondary: TemplateSwitchSecondary,
+    template_switch_direction: TemplateSwitchDirection,
     primary_index: usize,
     secondary_index: usize,
 }
@@ -100,6 +101,7 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
         let Identifier::Secondary {
             template_switch_primary,
             template_switch_secondary,
+            template_switch_direction,
             length: 0,
             primary_index,
             secondary_index,
@@ -113,6 +115,7 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
         let memory_key = LookaheadMemoryKey {
             template_switch_primary,
             template_switch_secondary,
+            template_switch_direction,
             primary_index,
             secondary_index,
         };
