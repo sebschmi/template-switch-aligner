@@ -579,6 +579,7 @@ impl<
                 entrance_reference_index,
                 entrance_query_index,
                 template_switch_primary,
+                template_switch_direction,
                 primary_index,
                 anti_primary_gap,
                 ..
@@ -643,8 +644,9 @@ impl<
 
                 // Generate reentry successor.
                 // Evaluate anti-primary gap cost only here, because it may not be non-decreasing.
-                let anti_primary_gap_cost =
-                    config.anti_primary_gap_costs.evaluate(&anti_primary_gap);
+                let anti_primary_gap_cost = config
+                    .anti_primary_gap_costs(template_switch_direction)
+                    .evaluate(&anti_primary_gap);
 
                 opened_nodes_output.extend(
                     node.generate_primary_reentry_successor(self, anti_primary_gap_cost)

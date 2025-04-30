@@ -30,7 +30,8 @@ pub struct TemplateSwitchConfig<AlphabetType, Cost> {
     pub offset_costs: CostFunction<isize, Cost>,
     pub length_costs: CostFunction<usize, Cost>,
     pub length_difference_costs: CostFunction<isize, Cost>,
-    pub anti_primary_gap_costs: CostFunction<isize, Cost>,
+    pub forward_anti_primary_gap_costs: CostFunction<isize, Cost>,
+    pub reverse_anti_primary_gap_costs: CostFunction<isize, Cost>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -76,6 +77,16 @@ impl<AlphabetType, Cost> TemplateSwitchConfig<AlphabetType, Cost> {
             TemplateSwitchDirection::Reverse => &self.secondary_reverse_edit_costs,
         }
     }
+
+    pub fn anti_primary_gap_costs(
+        &self,
+        direction: TemplateSwitchDirection,
+    ) -> &CostFunction<isize, Cost> {
+        match direction {
+            TemplateSwitchDirection::Forward => &self.forward_anti_primary_gap_costs,
+            TemplateSwitchDirection::Reverse => &self.reverse_anti_primary_gap_costs,
+        }
+    }
 }
 
 impl<Cost: UpperBounded> BaseCost<Cost> {
@@ -108,7 +119,8 @@ impl<AlphabetType: Alphabet, Cost: Clone> Clone for TemplateSwitchConfig<Alphabe
             offset_costs: self.offset_costs.clone(),
             length_costs: self.length_costs.clone(),
             length_difference_costs: self.length_difference_costs.clone(),
-            anti_primary_gap_costs: self.anti_primary_gap_costs.clone(),
+            forward_anti_primary_gap_costs: self.forward_anti_primary_gap_costs.clone(),
+            reverse_anti_primary_gap_costs: self.reverse_anti_primary_gap_costs.clone(),
         }
     }
 }
