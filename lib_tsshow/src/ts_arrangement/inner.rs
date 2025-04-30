@@ -62,100 +62,112 @@ impl TsInnerArrangement {
                     source_arrangement.query_source_to_arrangement_column(ts.sp3_secondary),
                 ),
             };
+            let forward = sp2_secondary < sp3_secondary;
 
             let mut source_inner = ts.inner.iter().rev().copied();
             let mut inner = TaggedVec::<ArrangementColumn, _>::default();
-            inner.extend(iter::repeat_n(InnerChar::Blank, sp3_secondary.into()));
+            inner.extend(iter::repeat_n(
+                InnerChar::Blank,
+                sp3_secondary.min(sp2_secondary).into(),
+            ));
+            let mut current_arrangement_column = sp3_secondary.min(sp2_secondary);
 
-            let mut current_arrangement_column = sp3_secondary;
-            for alignment_type in ts.inner_alignment.iter_flat_cloned().rev() {
-                match alignment_type {
-                    AlignmentType::SecondaryInsertion => {
-                        loop {
-                            let c = complement_arrangement.secondary_complement(ts.secondary)
-                                [current_arrangement_column];
+            if forward {
+                // Align inner against source.
+                todo!()
+            } else {
+                // Align inner against source complement in reverse.
+                for alignment_type in ts.inner_alignment.iter_flat_cloned().rev() {
+                    match alignment_type {
+                        AlignmentType::SecondaryInsertion => {
+                            loop {
+                                let c = complement_arrangement.secondary_complement(ts.secondary)
+                                    [current_arrangement_column];
 
-                            if c.is_gap() || c.is_source_char() {
-                                break;
+                                if c.is_gap() || c.is_source_char() {
+                                    break;
+                                }
+
+                                inner.push(InnerChar::Blank);
+                                current_arrangement_column += 1;
                             }
 
-                            inner.push(InnerChar::Blank);
-                            current_arrangement_column += 1;
-                        }
-
-                        if !complement_arrangement.secondary_complement(ts.secondary)
-                            [current_arrangement_column]
-                            .is_gap()
-                        {
-                            complement_arrangement.insert_secondary_complement_gap(
-                                ts.secondary,
-                                current_arrangement_column,
-                            );
-
-                            source_arrangement.insert_blank(current_arrangement_column);
-                            for existing_inner in result.inners.iter_values_mut() {
-                                existing_inner
-                                    .sequence
-                                    .insert(current_arrangement_column, InnerChar::Blank);
-                            }
-
-                            sp2_secondary += 1;
-                        }
-
-                        inner.push(source_inner.next().unwrap().into());
-                        current_arrangement_column += 1;
-                    }
-                    AlignmentType::SecondaryDeletion => {
-                        while !complement_arrangement.secondary_complement(ts.secondary)
-                            [current_arrangement_column]
-                            .is_source_char()
-                        {
-                            inner.push(InnerChar::Blank);
-                            current_arrangement_column += 1;
-                        }
-
-                        complement_arrangement
-                            .show_secondary_character(ts.secondary, current_arrangement_column);
-                        inner.push(InnerChar::Gap {
-                            copy_depth: source_arrangement.secondary(ts.secondary)
+                            if !complement_arrangement.secondary_complement(ts.secondary)
                                 [current_arrangement_column]
-                                .copy_depth(),
-                        });
-                        current_arrangement_column += 1;
-                    }
-                    AlignmentType::SecondarySubstitution | AlignmentType::SecondaryMatch => {
-                        while !source_arrangement.secondary(ts.secondary)
-                            [current_arrangement_column]
-                            .is_source_char()
-                        {
-                            inner.push(InnerChar::Blank);
+                                .is_gap()
+                            {
+                                complement_arrangement.insert_secondary_complement_gap(
+                                    ts.secondary,
+                                    current_arrangement_column,
+                                );
+
+                                source_arrangement.insert_blank(current_arrangement_column);
+                                for existing_inner in result.inners.iter_values_mut() {
+                                    existing_inner
+                                        .sequence
+                                        .insert(current_arrangement_column, InnerChar::Blank);
+                                }
+
+                                sp2_secondary += 1;
+                            }
+
+                            inner.push(source_inner.next().unwrap().into());
                             current_arrangement_column += 1;
                         }
+                        AlignmentType::SecondaryDeletion => {
+                            while !complement_arrangement.secondary_complement(ts.secondary)
+                                [current_arrangement_column]
+                                .is_source_char()
+                            {
+                                inner.push(InnerChar::Blank);
+                                current_arrangement_column += 1;
+                            }
 
-                        complement_arrangement
-                            .show_secondary_character(ts.secondary, current_arrangement_column);
-
-                        let mut inner_char: InnerChar = source_inner.next().unwrap().into();
-                        if alignment_type == AlignmentType::SecondarySubstitution {
                             complement_arrangement
-                                .secondary_to_lower_case(ts.secondary, current_arrangement_column);
-                            inner_char.to_lower_case();
+                                .show_secondary_character(ts.secondary, current_arrangement_column);
+                            inner.push(InnerChar::Gap {
+                                copy_depth: source_arrangement.secondary(ts.secondary)
+                                    [current_arrangement_column]
+                                    .copy_depth(),
+                            });
+                            current_arrangement_column += 1;
                         }
+                        AlignmentType::SecondarySubstitution | AlignmentType::SecondaryMatch => {
+                            while !source_arrangement.secondary(ts.secondary)
+                                [current_arrangement_column]
+                                .is_source_char()
+                            {
+                                inner.push(InnerChar::Blank);
+                                current_arrangement_column += 1;
+                            }
 
-                        inner.push(inner_char);
-                        current_arrangement_column += 1;
+                            complement_arrangement
+                                .show_secondary_character(ts.secondary, current_arrangement_column);
+
+                            let mut inner_char: InnerChar = source_inner.next().unwrap().into();
+                            if alignment_type == AlignmentType::SecondarySubstitution {
+                                complement_arrangement.secondary_to_lower_case(
+                                    ts.secondary,
+                                    current_arrangement_column,
+                                );
+                                inner_char.to_lower_case();
+                            }
+
+                            inner.push(inner_char);
+                            current_arrangement_column += 1;
+                        }
+                        _ => unreachable!(),
                     }
-                    _ => unreachable!(),
                 }
-            }
 
-            // We skip further secondary non-source chars for the assertion below.
-            while !source_arrangement.secondary(ts.secondary)[current_arrangement_column]
-                .is_source_char()
-            {
-                current_arrangement_column += 1;
+                // We skip further secondary non-source chars for the assertion below.
+                while !source_arrangement.secondary(ts.secondary)[current_arrangement_column]
+                    .is_source_char()
+                {
+                    current_arrangement_column += 1;
+                }
+                assert_eq!(current_arrangement_column, sp2_secondary);
             }
-            assert_eq!(current_arrangement_column, sp2_secondary);
 
             let suffix_blanks =
                 iter::repeat_n(InnerChar::Blank, source_arrangement.reference().len())
@@ -168,7 +180,7 @@ impl TsInnerArrangement {
             };
             result
                 .inners
-                .push(TsInner::new(inner, ts, is_reference, true));
+                .push(TsInner::new(inner, ts, is_reference, !forward));
         }
 
         result
