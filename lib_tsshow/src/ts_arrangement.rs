@@ -123,6 +123,16 @@ impl TsArrangement {
         self.inner.inners()
     }
 
+    pub fn reference_inners(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
+        self.inner.reference_inners()
+    }
+
+    pub fn query_inners(&self) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
+        self.inner.query_inners()
+    }
+
     pub fn reference_complement_inners(
         &self,
     ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {

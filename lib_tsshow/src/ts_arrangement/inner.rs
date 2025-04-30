@@ -52,7 +52,7 @@ impl TsInnerArrangement {
         for ts in template_switches {
             trace!("source_inner: {:?}", ts.inner);
 
-            let (mut sp2_secondary, sp3_secondary) = match ts.secondary {
+            let (mut sp2_secondary, mut sp3_secondary) = match ts.secondary {
                 TemplateSwitchSecondary::Reference => (
                     source_arrangement.reference_source_to_arrangement_column(ts.sp2_secondary),
                     source_arrangement.reference_source_to_arrangement_column(ts.sp3_secondary),
@@ -64,7 +64,7 @@ impl TsInnerArrangement {
             };
             let forward = sp2_secondary < sp3_secondary;
 
-            let mut source_inner = ts.inner.iter().rev().copied();
+            let mut source_inner = ts.inner.iter().copied();
             let mut inner = TaggedVec::<ArrangementColumn, _>::default();
             inner.extend(iter::repeat_n(
                 InnerChar::Blank,
@@ -74,7 +74,91 @@ impl TsInnerArrangement {
 
             if forward {
                 // Align inner against source.
-                todo!()
+                for alignment_type in ts.inner_alignment.iter_flat_cloned() {
+                    match alignment_type {
+                        AlignmentType::SecondaryInsertion => {
+                            loop {
+                                let c = source_arrangement.secondary(ts.secondary)
+                                    [current_arrangement_column];
+
+                                if c.is_gap() || c.is_source_char() {
+                                    break;
+                                }
+
+                                inner.push(InnerChar::Blank);
+                                current_arrangement_column += 1;
+                            }
+
+                            if !source_arrangement.secondary(ts.secondary)
+                                [current_arrangement_column]
+                                .is_gap()
+                            {
+                                source_arrangement.insert_secondary_gap_with_minimum_copy_depth(
+                                    ts.secondary,
+                                    current_arrangement_column,
+                                );
+
+                                complement_arrangement.insert_blank(current_arrangement_column);
+                                for existing_inner in result.inners.iter_values_mut() {
+                                    existing_inner
+                                        .sequence
+                                        .insert(current_arrangement_column, InnerChar::Blank);
+                                }
+
+                                sp3_secondary += 1;
+                            }
+
+                            inner.push(source_inner.next().unwrap().into());
+                            current_arrangement_column += 1;
+                        }
+                        AlignmentType::SecondaryDeletion => {
+                            while !source_arrangement.secondary(ts.secondary)
+                                [current_arrangement_column]
+                                .is_source_char()
+                            {
+                                inner.push(InnerChar::Blank);
+                                current_arrangement_column += 1;
+                            }
+
+                            inner.push(InnerChar::Gap {
+                                copy_depth: source_arrangement.secondary(ts.secondary)
+                                    [current_arrangement_column]
+                                    .copy_depth(),
+                            });
+                            current_arrangement_column += 1;
+                        }
+                        AlignmentType::SecondarySubstitution | AlignmentType::SecondaryMatch => {
+                            while !source_arrangement.secondary(ts.secondary)
+                                [current_arrangement_column]
+                                .is_source_char()
+                            {
+                                inner.push(InnerChar::Blank);
+                                current_arrangement_column += 1;
+                            }
+
+                            let mut inner_char: InnerChar = source_inner.next().unwrap().into();
+                            if alignment_type == AlignmentType::SecondarySubstitution {
+                                source_arrangement.secondary_to_lower_case(
+                                    ts.secondary,
+                                    current_arrangement_column,
+                                );
+                                inner_char.to_lower_case();
+                            }
+
+                            inner.push(inner_char);
+                            current_arrangement_column += 1;
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+
+                // We skip further secondary non-source chars for the assertion below.
+                while !source_arrangement.secondary(ts.secondary)[current_arrangement_column]
+                    .is_source_char()
+                {
+                    current_arrangement_column += 1;
+                }
+                assert_eq!(current_arrangement_column, sp3_secondary);
             } else {
                 // Align inner against source complement in reverse.
                 for alignment_type in ts.inner_alignment.iter_flat_cloned().rev() {
@@ -201,6 +285,20 @@ impl TsInnerArrangement {
 
     pub fn inners(&self) -> &TaggedVec<TsInnerIdentifier, TsInner> {
         &self.inners
+    }
+
+    pub fn reference_inners(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
+        self.inners
+            .iter()
+            .filter(|inner| inner.1.reference && !inner.1.complement)
+    }
+
+    pub fn query_inners(&self) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
+        self.inners
+            .iter()
+            .filter(|inner| !inner.1.reference && !inner.1.complement)
     }
 
     pub fn reference_complement_inners(

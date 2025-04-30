@@ -335,6 +335,41 @@ impl TsSourceArrangement {
         self.reference.len()
     }
 
+    pub fn secondary_to_lower_case(
+        &mut self,
+        secondary: TemplateSwitchSecondary,
+        column: ArrangementColumn,
+    ) {
+        match secondary {
+            TemplateSwitchSecondary::Reference => self.reference[column].to_lower_case(),
+            TemplateSwitchSecondary::Query => self.query[column].to_lower_case(),
+        }
+    }
+
+    pub fn insert_secondary_gap_with_minimum_copy_depth(
+        &mut self,
+        secondary: TemplateSwitchSecondary,
+        column: ArrangementColumn,
+    ) {
+        let secondary_sequence = self.secondary(secondary);
+        let copy_depth = if column == ArrangementColumn::ZERO {
+            secondary_sequence[column].copy_depth()
+        } else if column == ArrangementColumn::from(secondary_sequence.len()) {
+            secondary_sequence[column - 1].copy_depth()
+        } else {
+            let copy_depth_1 = secondary_sequence[column - 1].copy_depth();
+            let copy_depth_2 = secondary_sequence[column].copy_depth();
+
+            if let (Some(copy_depth_1), Some(copy_depth_2)) = (copy_depth_1, copy_depth_2) {
+                Some(copy_depth_1.min(copy_depth_2))
+            } else {
+                None
+            }
+        };
+
+        self.insert_secondary_gap(secondary, column, copy_depth);
+    }
+
     pub fn insert_secondary_gap(
         &mut self,
         secondary: TemplateSwitchSecondary,
