@@ -166,6 +166,11 @@ impl TsComplementArrangement {
             .insert(column, ComplementChar::Gap { source_hidden });
     }
 
+    pub fn insert_blank(&mut self, column: ArrangementColumn) {
+        self.reference_c.insert(column, ComplementChar::Blank);
+        self.query_c.insert(column, ComplementChar::Blank);
+    }
+
     fn is_insert_gap_source_hidden(
         sequence: &TaggedVec<ArrangementColumn, ComplementChar>,
         column: ArrangementColumn,

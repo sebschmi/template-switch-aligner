@@ -14,7 +14,7 @@ use super::{
     index_types::{ArrangementCharColumn, ArrangementColumn, SourceColumn},
     template_switch::TemplateSwitch,
 };
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 pub struct TsSourceArrangement {
     reference: TaggedVec<ArrangementColumn, SourceChar>,
@@ -102,13 +102,11 @@ impl TsSourceArrangement {
                     direction,
                     first_offset,
                 } => {
-                    if direction == TemplateSwitchDirection::Forward {
-                        return Err(Error::ForwardTsNotSupported);
-                    }
                     template_switches_out.extend([result.align_ts(
                         ts_index,
                         primary,
                         secondary,
+                        direction,
                         first_offset,
                         &mut alignment,
                         &mut current_reference_index,
@@ -137,6 +135,7 @@ impl TsSourceArrangement {
         ts_index: usize,
         ts_primary: TemplateSwitchPrimary,
         ts_secondary: TemplateSwitchSecondary,
+        ts_direction: TemplateSwitchDirection,
         first_offset: isize,
         mut alignment: impl Iterator<Item = AlignmentType>,
         current_reference_index: &mut ArrangementColumn,
@@ -164,14 +163,20 @@ impl TsSourceArrangement {
                     break anti_primary_gap;
                 }
                 Some(alignment_type @ AlignmentType::SecondaryDeletion) => {
-                    sp3_secondary -= 1;
+                    match ts_direction {
+                        TemplateSwitchDirection::Forward => sp3_secondary += 1,
+                        TemplateSwitchDirection::Reverse => sp3_secondary -= 1,
+                    }
                     inner_alignment.push(alignment_type);
                 }
                 Some(
                     alignment_type @ (AlignmentType::SecondarySubstitution
                     | AlignmentType::SecondaryMatch),
                 ) => {
-                    sp3_secondary -= 1;
+                    match ts_direction {
+                        TemplateSwitchDirection::Forward => sp3_secondary += 1,
+                        TemplateSwitchDirection::Reverse => sp3_secondary -= 1,
+                    }
                     primary_inner_length += 1;
                     inner_alignment.push(alignment_type);
                 }
@@ -202,6 +207,8 @@ impl TsSourceArrangement {
                 ),
             };
 
+        // Mark the TS inner in the source arrangement as hidden.
+        // Take a copy of the unhidden characters at the same time.
         let inner = primary
             .iter_values_mut()
             .skip(current_primary_index.primitive())
@@ -326,6 +333,41 @@ impl TsSourceArrangement {
 
     pub fn width(&self) -> usize {
         self.reference.len()
+    }
+
+    pub fn secondary_to_lower_case(
+        &mut self,
+        secondary: TemplateSwitchSecondary,
+        column: ArrangementColumn,
+    ) {
+        match secondary {
+            TemplateSwitchSecondary::Reference => self.reference[column].to_lower_case(),
+            TemplateSwitchSecondary::Query => self.query[column].to_lower_case(),
+        }
+    }
+
+    pub fn insert_secondary_gap_with_minimum_copy_depth(
+        &mut self,
+        secondary: TemplateSwitchSecondary,
+        column: ArrangementColumn,
+    ) {
+        let secondary_sequence = self.secondary(secondary);
+        let copy_depth = if column == ArrangementColumn::ZERO {
+            secondary_sequence[column].copy_depth()
+        } else if column == ArrangementColumn::from(secondary_sequence.len()) {
+            secondary_sequence[column - 1].copy_depth()
+        } else {
+            let copy_depth_1 = secondary_sequence[column - 1].copy_depth();
+            let copy_depth_2 = secondary_sequence[column].copy_depth();
+
+            if let (Some(copy_depth_1), Some(copy_depth_2)) = (copy_depth_1, copy_depth_2) {
+                Some(copy_depth_1.min(copy_depth_2))
+            } else {
+                None
+            }
+        };
+
+        self.insert_secondary_gap(secondary, column, copy_depth);
     }
 
     pub fn insert_secondary_gap(

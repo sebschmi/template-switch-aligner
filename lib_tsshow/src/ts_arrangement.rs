@@ -68,11 +68,7 @@ impl TsArrangement {
             if !self.query_complement()[column].is_blank_or_hidden() {
                 continue;
             }
-            for inner in self
-                .reference_inners()
-                .iter_values()
-                .chain(self.query_inners())
-            {
+            for inner in self.inner.inners().iter_values() {
                 if !inner.sequence()[column].is_blank_or_hidden() {
                     continue 'column_iter;
                 }
@@ -123,18 +119,35 @@ impl TsArrangement {
         self.complement.query_complement()
     }
 
-    pub fn reference_inners(&self) -> &TaggedVec<TsInnerIdentifier, TsInner> {
+    pub fn inners(&self) -> &TaggedVec<TsInnerIdentifier, TsInner> {
+        self.inner.inners()
+    }
+
+    pub fn reference_inners(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
         self.inner.reference_inners()
     }
 
-    pub fn query_inners(&self) -> &TaggedVec<TsInnerIdentifier, TsInner> {
+    pub fn query_inners(&self) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
         self.inner.query_inners()
     }
 
+    pub fn reference_complement_inners(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
+        self.inner.reference_complement_inners()
+    }
+
+    pub fn query_complement_inners(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
+        self.inner.query_complement_inners()
+    }
+
     pub fn template_switches(&self) -> impl Iterator<Item = (TsInnerIdentifier, &TemplateSwitch)> {
-        self.reference_inners()
+        self.inners()
             .iter()
-            .chain(self.query_inners().iter())
             .map(|(identifier, inner)| (identifier, inner.template_switch()))
     }
 
@@ -169,35 +182,17 @@ impl TsArrangement {
         self.source.query_source_to_arrangement_column(column)
     }
 
-    pub fn reference_inner_first_non_blank_column(
+    pub fn inner_first_non_blank_column(
         &self,
         inner_identifier: TsInnerIdentifier,
     ) -> ArrangementColumn {
-        self.inner
-            .reference_inner_first_non_blank_column(inner_identifier)
+        self.inner.inner_first_non_blank_column(inner_identifier)
     }
 
-    pub fn reference_inner_last_non_blank_column(
+    pub fn inner_last_non_blank_column(
         &self,
         inner_identifier: TsInnerIdentifier,
     ) -> ArrangementColumn {
-        self.inner
-            .reference_inner_last_non_blank_column(inner_identifier)
-    }
-
-    pub fn query_inner_first_non_blank_column(
-        &self,
-        inner_identifier: TsInnerIdentifier,
-    ) -> ArrangementColumn {
-        self.inner
-            .query_inner_first_non_blank_column(inner_identifier)
-    }
-
-    pub fn query_inner_last_non_blank_column(
-        &self,
-        inner_identifier: TsInnerIdentifier,
-    ) -> ArrangementColumn {
-        self.inner
-            .query_inner_last_non_blank_column(inner_identifier)
+        self.inner.inner_last_non_blank_column(inner_identifier)
     }
 }

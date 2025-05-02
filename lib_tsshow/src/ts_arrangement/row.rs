@@ -8,8 +8,7 @@ pub enum TsArrangementRow {
     Query,
     ReferenceComplement,
     QueryComplement,
-    ReferenceInner { index: TsInnerIdentifier },
-    QueryInner { index: TsInnerIdentifier },
+    Inner { index: TsInnerIdentifier },
 }
 
 impl Display for TsArrangementRow {
@@ -19,8 +18,7 @@ impl Display for TsArrangementRow {
             TsArrangementRow::Query => write!(f, "Q"),
             TsArrangementRow::ReferenceComplement => write!(f, "RC"),
             TsArrangementRow::QueryComplement => write!(f, "QC"),
-            TsArrangementRow::ReferenceInner { index } => write!(f, "RI-{index}"),
-            TsArrangementRow::QueryInner { index } => write!(f, "RI-{index}"),
+            TsArrangementRow::Inner { index } => write!(f, "I-{index}"),
         }
     }
 }

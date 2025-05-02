@@ -136,6 +136,8 @@ pub fn create_ts_svg(
             secondary,
             sp1_reference,
             sp1_query,
+            sp2_secondary,
+            sp3_secondary,
             sp4_reference,
             sp4_query,
             ..
@@ -240,18 +242,19 @@ pub fn create_ts_svg(
             ),
         };
 
-        let (secondary_sp2, secondary_sp3, inner_row) = match secondary {
+        let forward = sp2_secondary < sp3_secondary;
+        let (secondary_limit, secondary_offset, inner_row) = match secondary {
             TemplateSwitchSecondary::Reference => (
-                ts_arrangement.reference_inner_last_non_blank_column(inner_identifier) + 1usize,
-                ts_arrangement.reference_inner_first_non_blank_column(inner_identifier),
-                TsArrangementRow::ReferenceInner {
+                ts_arrangement.inner_last_non_blank_column(inner_identifier) + 1usize,
+                ts_arrangement.inner_first_non_blank_column(inner_identifier),
+                TsArrangementRow::Inner {
                     index: inner_identifier,
                 },
             ),
             TemplateSwitchSecondary::Query => (
-                ts_arrangement.query_inner_last_non_blank_column(inner_identifier) + 1usize,
-                ts_arrangement.query_inner_first_non_blank_column(inner_identifier),
-                TsArrangementRow::QueryInner {
+                ts_arrangement.inner_last_non_blank_column(inner_identifier) + 1usize,
+                ts_arrangement.inner_first_non_blank_column(inner_identifier),
+                TsArrangementRow::Inner {
                     index: inner_identifier,
                 },
             ),
@@ -267,16 +270,32 @@ pub fn create_ts_svg(
         );
         let number2 = Number::new(
             format!("{running_number}2"),
-            secondary_sp2,
+            if forward {
+                secondary_offset
+            } else {
+                secondary_limit
+            },
             inner_row,
-            NumberAlignment::Left,
+            if forward {
+                NumberAlignment::Right
+            } else {
+                NumberAlignment::Left
+            },
             0.5,
         );
         let number3 = Number::new(
             format!("{running_number}3"),
-            secondary_sp3,
+            if forward {
+                secondary_limit
+            } else {
+                secondary_offset
+            },
             inner_row,
-            NumberAlignment::Right,
+            if forward {
+                NumberAlignment::Left
+            } else {
+                NumberAlignment::Right
+            },
             0.5,
         );
         let number4 = Number::new(
@@ -293,17 +312,33 @@ pub fn create_ts_svg(
                 number1.width(),
                 primary_row,
                 ArrowEndpointDirection::Forward,
-                secondary_sp2,
+                if forward {
+                    secondary_offset
+                } else {
+                    secondary_limit
+                },
                 number2.width(),
                 inner_row,
-                ArrowEndpointDirection::Forward,
+                if forward {
+                    ArrowEndpointDirection::Backward
+                } else {
+                    ArrowEndpointDirection::Forward
+                },
             ));
 
             arrows.push(Arrow::new_curved(
-                secondary_sp3,
+                if forward {
+                    secondary_limit
+                } else {
+                    secondary_offset
+                },
                 number3.width(),
                 inner_row,
-                ArrowEndpointDirection::Backward,
+                if forward {
+                    ArrowEndpointDirection::Forward
+                } else {
+                    ArrowEndpointDirection::Backward
+                },
                 primary_sp4,
                 number4.width(),
                 primary_row,
@@ -327,8 +362,8 @@ pub fn create_ts_svg(
     let mut y = 0.0;
     let mut ts_label_group_width = 0.0f32;
 
-    // Reference inners.
-    for (identifier, reference_inner) in ts_arrangement.reference_inners().iter().rev() {
+    // Reference complement inners.
+    for (identifier, reference_inner) in ts_arrangement.reference_complement_inners().rev() {
         ts_group = ts_group.add(svg_string(
             reference_inner
                 .sequence()
@@ -358,7 +393,7 @@ pub fn create_ts_svg(
             &sans_serif_mono::FONT,
         ));
 
-        rows.insert(TsArrangementRow::ReferenceInner { index: identifier }, y);
+        rows.insert(TsArrangementRow::Inner { index: identifier }, y);
         y += typewriter::FONT.character_height;
     }
 
@@ -383,6 +418,41 @@ pub fn create_ts_svg(
 
     rows.insert(TsArrangementRow::ReferenceComplement, y);
     y += typewriter::FONT.character_height;
+
+    // Reference inners.
+    for (identifier, reference_inner) in ts_arrangement.reference_inners().rev() {
+        ts_group = ts_group.add(svg_string(
+            reference_inner
+                .sequence()
+                .iter_values()
+                .map(render_inner_char(
+                    match reference_inner.template_switch().primary {
+                        TemplateSwitchPrimary::Reference => &reference,
+                        TemplateSwitchPrimary::Query => &query,
+                    },
+                )),
+            &SvgLocation { x: 0.0, y },
+            &typewriter::FONT,
+        ));
+
+        let label = format!(
+            "TS-{} inner:",
+            TS_RUNNING_NUMBER
+                .chars()
+                .nth(reference_inner.template_switch().index)
+                .unwrap()
+        );
+        ts_label_group_width = ts_label_group_width
+            .max(label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+        label_group = label_group.add(svg_string(
+            label.chars().map(render_label_char),
+            &SvgLocation { x: 0.0, y },
+            &sans_serif_mono::FONT,
+        ));
+
+        rows.insert(TsArrangementRow::Inner { index: identifier }, y);
+        y += typewriter::FONT.character_height;
+    }
 
     // Reference.
     ts_group = ts_group.add(svg_string(
@@ -428,30 +498,8 @@ pub fn create_ts_svg(
     rows.insert(TsArrangementRow::Query, y);
     y += typewriter::FONT.character_height;
 
-    // Query complement.
-    ts_group = ts_group.add(svg_string(
-        ts_arrangement
-            .query_complement()
-            .iter_values()
-            .map(render_complement_char(&query_c)),
-        &SvgLocation { x: 0.0, y },
-        &typewriter::FONT,
-    ));
-
-    let label = "Query complement:";
-    ts_label_group_width = ts_label_group_width
-        .max(label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
-    label_group = label_group.add(svg_string(
-        label.chars().map(render_label_char),
-        &SvgLocation { x: 0.0, y },
-        &sans_serif_mono::FONT,
-    ));
-
-    rows.insert(TsArrangementRow::QueryComplement, y);
-    y += typewriter::FONT.character_height;
-
     // Query inners.
-    for (identifier, query_inner) in ts_arrangement.query_inners().iter() {
+    for (identifier, query_inner) in ts_arrangement.query_inners() {
         ts_group = ts_group.add(svg_string(
             query_inner.sequence().iter_values().map(render_inner_char(
                 match query_inner.template_switch().primary {
@@ -478,7 +526,61 @@ pub fn create_ts_svg(
             &sans_serif_mono::FONT,
         ));
 
-        rows.insert(TsArrangementRow::QueryInner { index: identifier }, y);
+        rows.insert(TsArrangementRow::Inner { index: identifier }, y);
+        y += typewriter::FONT.character_height;
+    }
+
+    // Query complement.
+    ts_group = ts_group.add(svg_string(
+        ts_arrangement
+            .query_complement()
+            .iter_values()
+            .map(render_complement_char(&query_c)),
+        &SvgLocation { x: 0.0, y },
+        &typewriter::FONT,
+    ));
+
+    let label = "Query complement:";
+    ts_label_group_width = ts_label_group_width
+        .max(label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+    label_group = label_group.add(svg_string(
+        label.chars().map(render_label_char),
+        &SvgLocation { x: 0.0, y },
+        &sans_serif_mono::FONT,
+    ));
+
+    rows.insert(TsArrangementRow::QueryComplement, y);
+    y += typewriter::FONT.character_height;
+
+    // Query complement inners.
+    for (identifier, query_inner) in ts_arrangement.query_complement_inners() {
+        ts_group = ts_group.add(svg_string(
+            query_inner.sequence().iter_values().map(render_inner_char(
+                match query_inner.template_switch().primary {
+                    TemplateSwitchPrimary::Reference => &reference,
+                    TemplateSwitchPrimary::Query => &query,
+                },
+            )),
+            &SvgLocation { x: 0.0, y },
+            &typewriter::FONT,
+        ));
+
+        let label = format!(
+            "TS-{} inner:",
+            TS_RUNNING_NUMBER
+                .chars()
+                .nth(query_inner.template_switch().index)
+                .unwrap()
+        );
+        ts_label_group_width = ts_label_group_width
+            .max(label.chars().count() as f32 * sans_serif_mono::FONT.character_width);
+        label_group = label_group.add(svg_string(
+            label.chars().map(render_label_char),
+            &SvgLocation { x: 0.0, y },
+            &sans_serif_mono::FONT,
+        ));
+
+        rows.insert(TsArrangementRow::Inner { index: identifier }, y);
         y += typewriter::FONT.character_height;
     }
 

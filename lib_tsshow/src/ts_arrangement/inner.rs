@@ -16,13 +16,14 @@ use super::{
 };
 
 pub struct TsInnerArrangement {
-    reference_inners: TaggedVec<TsInnerIdentifier, TsInner>,
-    query_inners: TaggedVec<TsInnerIdentifier, TsInner>,
+    inners: TaggedVec<TsInnerIdentifier, TsInner>,
 }
 
 pub struct TsInner {
     sequence: TaggedVec<ArrangementColumn, InnerChar>,
     template_switch: TemplateSwitch,
+    reference: bool,
+    complement: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -45,14 +46,13 @@ impl TsInnerArrangement {
         template_switches: Vec<TemplateSwitch>,
     ) -> Self {
         let mut result = Self {
-            reference_inners: Default::default(),
-            query_inners: Default::default(),
+            inners: Default::default(),
         };
 
         for ts in template_switches {
             trace!("source_inner: {:?}", ts.inner);
 
-            let (mut sp2_secondary, sp3_secondary) = match ts.secondary {
+            let (mut sp2_secondary, mut sp3_secondary) = match ts.secondary {
                 TemplateSwitchSecondary::Reference => (
                     source_arrangement.reference_source_to_arrangement_column(ts.sp2_secondary),
                     source_arrangement.reference_source_to_arrangement_column(ts.sp3_secondary),
@@ -62,116 +62,209 @@ impl TsInnerArrangement {
                     source_arrangement.query_source_to_arrangement_column(ts.sp3_secondary),
                 ),
             };
+            let forward = sp2_secondary < sp3_secondary;
 
-            let mut source_inner = ts.inner.iter().rev().copied();
+            let mut source_inner = ts.inner.iter().copied();
             let mut inner = TaggedVec::<ArrangementColumn, _>::default();
-            inner.extend(iter::repeat_n(InnerChar::Blank, sp3_secondary.into()));
+            inner.extend(iter::repeat_n(
+                InnerChar::Blank,
+                sp3_secondary.min(sp2_secondary).into(),
+            ));
+            let mut current_arrangement_column = sp3_secondary.min(sp2_secondary);
 
-            let mut current_arrangement_column = sp3_secondary;
-            for alignment_type in ts.inner_alignment.iter_flat_cloned().rev() {
-                match alignment_type {
-                    AlignmentType::SecondaryInsertion => {
-                        loop {
-                            let c = complement_arrangement.secondary_complement(ts.secondary)
-                                [current_arrangement_column];
+            if forward {
+                // Align inner against source.
+                for alignment_type in ts.inner_alignment.iter_flat_cloned() {
+                    match alignment_type {
+                        AlignmentType::SecondaryInsertion => {
+                            loop {
+                                let c = source_arrangement.secondary(ts.secondary)
+                                    [current_arrangement_column];
 
-                            if c.is_gap() || c.is_source_char() {
-                                break;
+                                if c.is_gap() || c.is_source_char() {
+                                    break;
+                                }
+
+                                inner.push(InnerChar::Blank);
+                                current_arrangement_column += 1;
                             }
 
-                            inner.push(InnerChar::Blank);
-                            current_arrangement_column += 1;
-                        }
-
-                        if !complement_arrangement.secondary_complement(ts.secondary)
-                            [current_arrangement_column]
-                            .is_gap()
-                        {
-                            complement_arrangement.insert_secondary_complement_gap(
-                                ts.secondary,
-                                current_arrangement_column,
-                            );
-
-                            source_arrangement.insert_blank(current_arrangement_column);
-                            for existing_inner in result
-                                .reference_inners
-                                .iter_values_mut()
-                                .chain(&mut result.query_inners)
-                            {
-                                existing_inner
-                                    .sequence
-                                    .insert(current_arrangement_column, InnerChar::Blank);
-                            }
-
-                            sp2_secondary += 1;
-                        }
-
-                        inner.push(source_inner.next().unwrap().into());
-                        current_arrangement_column += 1;
-                    }
-                    AlignmentType::SecondaryDeletion => {
-                        while !complement_arrangement.secondary_complement(ts.secondary)
-                            [current_arrangement_column]
-                            .is_source_char()
-                        {
-                            inner.push(InnerChar::Blank);
-                            current_arrangement_column += 1;
-                        }
-
-                        complement_arrangement
-                            .show_secondary_character(ts.secondary, current_arrangement_column);
-                        inner.push(InnerChar::Gap {
-                            copy_depth: source_arrangement.secondary(ts.secondary)
+                            if !source_arrangement.secondary(ts.secondary)
                                 [current_arrangement_column]
-                                .copy_depth(),
-                        });
-                        current_arrangement_column += 1;
-                    }
-                    AlignmentType::SecondarySubstitution | AlignmentType::SecondaryMatch => {
-                        while !source_arrangement.secondary(ts.secondary)
-                            [current_arrangement_column]
-                            .is_source_char()
-                        {
-                            inner.push(InnerChar::Blank);
+                                .is_gap()
+                            {
+                                source_arrangement.insert_secondary_gap_with_minimum_copy_depth(
+                                    ts.secondary,
+                                    current_arrangement_column,
+                                );
+
+                                complement_arrangement.insert_blank(current_arrangement_column);
+                                for existing_inner in result.inners.iter_values_mut() {
+                                    existing_inner
+                                        .sequence
+                                        .insert(current_arrangement_column, InnerChar::Blank);
+                                }
+
+                                sp3_secondary += 1;
+                            }
+
+                            inner.push(source_inner.next().unwrap().into());
                             current_arrangement_column += 1;
                         }
+                        AlignmentType::SecondaryDeletion => {
+                            while !source_arrangement.secondary(ts.secondary)
+                                [current_arrangement_column]
+                                .is_source_char()
+                            {
+                                inner.push(InnerChar::Blank);
+                                current_arrangement_column += 1;
+                            }
 
-                        complement_arrangement
-                            .show_secondary_character(ts.secondary, current_arrangement_column);
-
-                        let mut inner_char: InnerChar = source_inner.next().unwrap().into();
-                        if alignment_type == AlignmentType::SecondarySubstitution {
-                            complement_arrangement
-                                .secondary_to_lower_case(ts.secondary, current_arrangement_column);
-                            inner_char.to_lower_case();
+                            inner.push(InnerChar::Gap {
+                                copy_depth: source_arrangement.secondary(ts.secondary)
+                                    [current_arrangement_column]
+                                    .copy_depth(),
+                            });
+                            current_arrangement_column += 1;
                         }
+                        AlignmentType::SecondarySubstitution | AlignmentType::SecondaryMatch => {
+                            while !source_arrangement.secondary(ts.secondary)
+                                [current_arrangement_column]
+                                .is_source_char()
+                            {
+                                inner.push(InnerChar::Blank);
+                                current_arrangement_column += 1;
+                            }
 
-                        inner.push(inner_char);
-                        current_arrangement_column += 1;
+                            let mut inner_char: InnerChar = source_inner.next().unwrap().into();
+                            if alignment_type == AlignmentType::SecondarySubstitution {
+                                source_arrangement.secondary_to_lower_case(
+                                    ts.secondary,
+                                    current_arrangement_column,
+                                );
+                                inner_char.to_lower_case();
+                            }
+
+                            inner.push(inner_char);
+                            current_arrangement_column += 1;
+                        }
+                        _ => unreachable!(),
                     }
-                    _ => unreachable!(),
                 }
-            }
 
-            // We skip further secondary non-source chars for the assertion below.
-            while !source_arrangement.secondary(ts.secondary)[current_arrangement_column]
-                .is_source_char()
-            {
-                current_arrangement_column += 1;
+                // We skip further secondary non-source chars for the assertion below.
+                while !source_arrangement.secondary(ts.secondary)[current_arrangement_column]
+                    .is_source_char()
+                {
+                    current_arrangement_column += 1;
+                }
+                assert_eq!(current_arrangement_column, sp3_secondary);
+            } else {
+                // Align inner against source complement in reverse.
+                for alignment_type in ts.inner_alignment.iter_flat_cloned().rev() {
+                    match alignment_type {
+                        AlignmentType::SecondaryInsertion => {
+                            loop {
+                                let c = complement_arrangement.secondary_complement(ts.secondary)
+                                    [current_arrangement_column];
+
+                                if c.is_gap() || c.is_source_char() {
+                                    break;
+                                }
+
+                                inner.push(InnerChar::Blank);
+                                current_arrangement_column += 1;
+                            }
+
+                            if !complement_arrangement.secondary_complement(ts.secondary)
+                                [current_arrangement_column]
+                                .is_gap()
+                            {
+                                complement_arrangement.insert_secondary_complement_gap(
+                                    ts.secondary,
+                                    current_arrangement_column,
+                                );
+
+                                source_arrangement.insert_blank(current_arrangement_column);
+                                for existing_inner in result.inners.iter_values_mut() {
+                                    existing_inner
+                                        .sequence
+                                        .insert(current_arrangement_column, InnerChar::Blank);
+                                }
+
+                                sp2_secondary += 1;
+                            }
+
+                            inner.push(source_inner.next().unwrap().into());
+                            current_arrangement_column += 1;
+                        }
+                        AlignmentType::SecondaryDeletion => {
+                            while !complement_arrangement.secondary_complement(ts.secondary)
+                                [current_arrangement_column]
+                                .is_source_char()
+                            {
+                                inner.push(InnerChar::Blank);
+                                current_arrangement_column += 1;
+                            }
+
+                            complement_arrangement
+                                .show_secondary_character(ts.secondary, current_arrangement_column);
+                            inner.push(InnerChar::Gap {
+                                copy_depth: source_arrangement.secondary(ts.secondary)
+                                    [current_arrangement_column]
+                                    .copy_depth(),
+                            });
+                            current_arrangement_column += 1;
+                        }
+                        AlignmentType::SecondarySubstitution | AlignmentType::SecondaryMatch => {
+                            while !source_arrangement.secondary(ts.secondary)
+                                [current_arrangement_column]
+                                .is_source_char()
+                            {
+                                inner.push(InnerChar::Blank);
+                                current_arrangement_column += 1;
+                            }
+
+                            complement_arrangement
+                                .show_secondary_character(ts.secondary, current_arrangement_column);
+
+                            let mut inner_char: InnerChar = source_inner.next().unwrap().into();
+                            if alignment_type == AlignmentType::SecondarySubstitution {
+                                complement_arrangement.secondary_to_lower_case(
+                                    ts.secondary,
+                                    current_arrangement_column,
+                                );
+                                inner_char.to_lower_case();
+                            }
+
+                            inner.push(inner_char);
+                            current_arrangement_column += 1;
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+
+                // We skip further secondary non-source chars for the assertion below.
+                while !source_arrangement.secondary(ts.secondary)[current_arrangement_column]
+                    .is_source_char()
+                {
+                    current_arrangement_column += 1;
+                }
+                assert_eq!(current_arrangement_column, sp2_secondary);
             }
-            assert_eq!(current_arrangement_column, sp2_secondary);
 
             let suffix_blanks =
                 iter::repeat_n(InnerChar::Blank, source_arrangement.reference().len())
                     .skip(inner.len());
             inner.extend(suffix_blanks);
 
-            match ts.secondary {
-                TemplateSwitchSecondary::Reference => {
-                    result.reference_inners.push(TsInner::new(inner, ts))
-                }
-                TemplateSwitchSecondary::Query => result.query_inners.push(TsInner::new(inner, ts)),
+            let is_reference = match ts.secondary {
+                TemplateSwitchSecondary::Reference => true,
+                TemplateSwitchSecondary::Query => false,
             };
+            result
+                .inners
+                .push(TsInner::new(inner, ts, is_reference, !forward));
         }
 
         result
@@ -182,11 +275,7 @@ impl TsInnerArrangement {
         columns: impl IntoIterator<Item = ArrangementColumn> + Clone,
         removed_hidden_chars: &RemovedHiddenChars,
     ) {
-        for inner in self
-            .reference_inners
-            .iter_values_mut()
-            .chain(&mut self.query_inners)
-        {
+        for inner in self.inners.iter_values_mut() {
             inner.sequence.remove_multi(columns.clone());
             inner
                 .template_switch
@@ -194,45 +283,46 @@ impl TsInnerArrangement {
         }
     }
 
-    pub fn reference_inners(&self) -> &TaggedVec<TsInnerIdentifier, TsInner> {
-        &self.reference_inners
+    pub fn inners(&self) -> &TaggedVec<TsInnerIdentifier, TsInner> {
+        &self.inners
     }
 
-    pub fn query_inners(&self) -> &TaggedVec<TsInnerIdentifier, TsInner> {
-        &self.query_inners
+    pub fn reference_inners(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
+        self.inners
+            .iter()
+            .filter(|inner| inner.1.reference && !inner.1.complement)
     }
 
-    pub fn reference_inner_first_non_blank_column(
+    pub fn query_inners(&self) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
+        self.inners
+            .iter()
+            .filter(|inner| !inner.1.reference && !inner.1.complement)
+    }
+
+    pub fn reference_complement_inners(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
+        self.inners
+            .iter()
+            .filter(|inner| inner.1.reference && inner.1.complement)
+    }
+
+    pub fn query_complement_inners(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = (TsInnerIdentifier, &TsInner)> {
+        self.inners
+            .iter()
+            .filter(|inner| !inner.1.reference && inner.1.complement)
+    }
+
+    pub fn inner_first_non_blank_column(
         &self,
         inner_identifier: TsInnerIdentifier,
     ) -> ArrangementColumn {
-        Self::inner_first_non_blank_column(&self.reference_inners[inner_identifier].sequence)
-    }
+        let sequence = &self.inners[inner_identifier].sequence;
 
-    pub fn reference_inner_last_non_blank_column(
-        &self,
-        inner_identifier: TsInnerIdentifier,
-    ) -> ArrangementColumn {
-        Self::inner_last_non_blank_column(&self.reference_inners[inner_identifier].sequence)
-    }
-
-    pub fn query_inner_first_non_blank_column(
-        &self,
-        inner_identifier: TsInnerIdentifier,
-    ) -> ArrangementColumn {
-        Self::inner_first_non_blank_column(&self.query_inners[inner_identifier].sequence)
-    }
-
-    pub fn query_inner_last_non_blank_column(
-        &self,
-        inner_identifier: TsInnerIdentifier,
-    ) -> ArrangementColumn {
-        Self::inner_last_non_blank_column(&self.query_inners[inner_identifier].sequence)
-    }
-
-    fn inner_first_non_blank_column(
-        sequence: &TaggedVec<ArrangementColumn, InnerChar>,
-    ) -> ArrangementColumn {
         sequence
             .iter()
             .find(|(_, c)| !c.is_blank())
@@ -240,9 +330,12 @@ impl TsInnerArrangement {
             .unwrap_or(sequence.len().into())
     }
 
-    fn inner_last_non_blank_column(
-        sequence: &TaggedVec<ArrangementColumn, InnerChar>,
+    pub fn inner_last_non_blank_column(
+        &self,
+        inner_identifier: TsInnerIdentifier,
     ) -> ArrangementColumn {
+        let sequence = &self.inners[inner_identifier].sequence;
+
         sequence
             .iter()
             .rev()
@@ -253,13 +346,17 @@ impl TsInnerArrangement {
 }
 
 impl TsInner {
-    pub fn new(
+    fn new(
         sequence: TaggedVec<ArrangementColumn, InnerChar>,
         template_switch: TemplateSwitch,
+        reference: bool,
+        complement: bool,
     ) -> Self {
         Self {
             sequence,
             template_switch,
+            reference,
+            complement,
         }
     }
 

@@ -74,6 +74,7 @@ fn show_template_switch(
 ) {
     trace!("Showing template switch\n{template_switch:?}");
 
+    let forward = template_switch.sp2_secondary_offset < template_switch.sp3_secondary_offset;
     let reference = &sequences.reference;
     let reference_c: String = sequences.reference_rc.chars().rev().collect();
     let query = &sequences.query;
@@ -130,6 +131,7 @@ fn show_template_switch(
         || (template_switch.primary == TemplateSwitchPrimary::Query
             && template_switch.secondary == TemplateSwitchSecondary::Query);
 
+    let primary_forward_label = format!("{primary_label}F");
     let primary_reverse_label = format!("{primary_label}R");
     let anti_primary_forward_label = format!("{anti_primary_label}F");
     let anti_primary_reverse_label = format!("{anti_primary_label}R");
@@ -152,12 +154,23 @@ fn show_template_switch(
     let primary_sp4 = primary_coordinate_picker(&template_switch.sp4_offset);
     let anti_primary_sp4 = anti_primary_coordinate_picker(&template_switch.sp4_offset);
 
-    let ts_reverse: String = primary[primary_coordinate_picker(&template_switch.sp1_offset)
-        ..primary_coordinate_picker(&template_switch.sp4_offset)]
-        .chars()
-        .rev()
-        .collect();
-    let ts_reverse_alignment = template_switch.template_switch.reverse();
+    let (ts_inner, ts_inner_alignment) = if forward {
+        (
+            primary[primary_coordinate_picker(&template_switch.sp1_offset)
+                ..primary_coordinate_picker(&template_switch.sp4_offset)]
+                .to_string(),
+            template_switch.template_switch.clone(),
+        )
+    } else {
+        (
+            primary[primary_coordinate_picker(&template_switch.sp1_offset)
+                ..primary_coordinate_picker(&template_switch.sp4_offset)]
+                .chars()
+                .rev()
+                .collect(),
+            template_switch.template_switch.reverse(),
+        )
+    };
 
     debug!("Primary offset: {primary_offset}");
     debug!("SP1 primary offset: {primary_sp1}");
@@ -170,11 +183,11 @@ fn show_template_switch(
     debug!("Anti-primary limit: {anti_primary_f3_limit}");
     debug!("Anti-primary len: {}", anti_primary.len());
     debug!(
-        "SP2 primary offset: {}",
+        "SP2 secondary offset: {}",
         template_switch.sp2_secondary_offset
     );
     debug!(
-        "SP3 primary offset: {}",
+        "SP3 secondary offset: {}",
         template_switch.sp3_secondary_offset
     );
 
@@ -182,13 +195,16 @@ fn show_template_switch(
         let primary_extended_offset = primary_offset.min(
             template_switch
                 .sp3_secondary_offset
+                .min(template_switch.sp2_secondary_offset)
                 .saturating_sub(STREAM_PADDING),
         );
         let primary_extended_limit = primary_limit.max(
-            primary
-                .chars()
-                .count()
-                .min(template_switch.sp2_secondary_offset + STREAM_PADDING),
+            primary.chars().count().min(
+                template_switch
+                    .sp2_secondary_offset
+                    .max(template_switch.sp3_secondary_offset)
+                    + STREAM_PADDING,
+            ),
         );
 
         debug!("Primary extended offset: {primary_extended_offset}");
@@ -242,23 +258,38 @@ fn show_template_switch(
         );
 
         debug!("Creating inside renderer");
-        let mut inside_renderer = MultipairAlignmentRenderer::new_without_data(
-            primary_reverse_label.clone(),
-            primary_c[primary_extended_offset..primary_extended_limit].chars(),
-        );
+        let mut inside_renderer = if forward {
+            MultipairAlignmentRenderer::new_without_data(
+                primary_forward_label.clone(),
+                primary[primary_extended_offset..primary_extended_limit].chars(),
+            )
+        } else {
+            MultipairAlignmentRenderer::new_without_data(
+                primary_reverse_label.clone(),
+                primary_c[primary_extended_offset..primary_extended_limit].chars(),
+            )
+        };
         debug!("Adding F2");
         inside_renderer.add_aligned_sequence_without_data(
-            &primary_reverse_label,
-            template_switch.sp3_secondary_offset - primary_extended_offset,
+            if forward {
+                &primary_forward_label
+            } else {
+                &primary_reverse_label
+            },
+            template_switch
+                .sp3_secondary_offset
+                .min(template_switch.sp2_secondary_offset)
+                - primary_extended_offset,
             f2_label.clone(),
-            ts_reverse.chars(),
-            ts_reverse_alignment.iter_flat_cloned(),
+            ts_inner.chars(),
+            ts_inner_alignment.iter_flat_cloned(),
             true,
             false,
         );
 
         println!("{anti_primary_label}: {anti_primary_name}");
         println!("{primary_label}: {primary_name}");
+        println!("Direction: {}", if forward { "forward" } else { "reverse" });
         println!();
         println!("Switch process:");
 
@@ -271,19 +302,32 @@ fn show_template_switch(
             .unwrap();
         println!();
         inside_renderer
-            .render(&mut output, [&primary_reverse_label, &f2_label])
+            .render(
+                &mut output,
+                [
+                    if forward {
+                        &primary_forward_label
+                    } else {
+                        &primary_reverse_label
+                    },
+                    &f2_label,
+                ],
+            )
             .unwrap();
     } else {
         let anti_primary_extended_offset = anti_primary_offset.min(
             template_switch
                 .sp3_secondary_offset
+                .min(template_switch.sp2_secondary_offset)
                 .saturating_sub(STREAM_PADDING),
         );
         let anti_primary_extended_limit = anti_primary_f3_limit.max(
-            anti_primary
-                .chars()
-                .count()
-                .min(template_switch.sp2_secondary_offset + STREAM_PADDING),
+            anti_primary.chars().count().min(
+                template_switch
+                    .sp2_secondary_offset
+                    .max(template_switch.sp3_secondary_offset)
+                    + STREAM_PADDING,
+            ),
         );
 
         debug!("Anti-primary extended offset: {anti_primary_extended_offset}");
@@ -294,19 +338,22 @@ fn show_template_switch(
             anti_primary_forward_label.clone(),
             anti_primary[anti_primary_extended_offset..anti_primary_extended_limit].chars(),
         );
-        debug!("Adding complement primary");
-        renderer.add_aligned_sequence_without_data(
-            &anti_primary_forward_label,
-            0,
-            anti_primary_reverse_label.clone(),
-            anti_primary_c[anti_primary_extended_offset..anti_primary_extended_limit].chars(),
-            iter::repeat_n(
-                AlignmentType::PrimaryMatch,
-                anti_primary_extended_limit - anti_primary_extended_offset,
-            ),
-            false,
-            false,
-        );
+
+        if !forward {
+            debug!("Adding complement primary");
+            renderer.add_aligned_sequence_without_data(
+                &anti_primary_forward_label,
+                0,
+                anti_primary_reverse_label.clone(),
+                anti_primary_c[anti_primary_extended_offset..anti_primary_extended_limit].chars(),
+                iter::repeat_n(
+                    AlignmentType::PrimaryMatch,
+                    anti_primary_extended_limit - anti_primary_extended_offset,
+                ),
+                false,
+                false,
+            );
+        }
 
         debug!("Adding F1");
         renderer.add_aligned_sequence_without_data(
@@ -332,17 +379,25 @@ fn show_template_switch(
 
         debug!("Adding F2");
         renderer.add_aligned_sequence_without_data(
-            &anti_primary_reverse_label,
-            template_switch.sp3_secondary_offset - anti_primary_extended_offset,
+            if forward {
+                &anti_primary_forward_label
+            } else {
+                &anti_primary_reverse_label
+            },
+            template_switch
+                .sp3_secondary_offset
+                .min(template_switch.sp2_secondary_offset)
+                - anti_primary_extended_offset,
             f2_label.clone(),
-            ts_reverse.chars(),
-            ts_reverse_alignment.iter_flat_cloned(),
+            ts_inner.chars(),
+            ts_inner_alignment.iter_flat_cloned(),
             true,
             false,
         );
 
         println!("{anti_primary_label}: {anti_primary_name}");
         println!("{primary_label}: {primary_name}");
+        println!("Direction: {}", if forward { "forward" } else { "reverse" });
         println!();
         println!("Switch process:");
 
@@ -350,13 +405,17 @@ fn show_template_switch(
         renderer
             .render(
                 &mut output,
-                [
-                    &f1_label,
-                    &f3_label,
-                    &anti_primary_forward_label,
-                    &anti_primary_reverse_label,
-                    &f2_label,
-                ],
+                if forward {
+                    vec![&f1_label, &f3_label, &anti_primary_forward_label, &f2_label]
+                } else {
+                    vec![
+                        &f1_label,
+                        &f3_label,
+                        &anti_primary_forward_label,
+                        &anti_primary_reverse_label,
+                        &f2_label,
+                    ]
+                },
             )
             .unwrap();
     }
