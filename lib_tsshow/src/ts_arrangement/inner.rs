@@ -161,6 +161,7 @@ impl TsInnerArrangement {
                 assert_eq!(current_arrangement_column, sp3_secondary);
             } else {
                 // Align inner against source complement in reverse.
+                let mut source_inner = source_inner.rev();
                 for alignment_type in ts.inner_alignment.iter_flat_cloned().rev() {
                     match alignment_type {
                         AlignmentType::SecondaryInsertion => {
