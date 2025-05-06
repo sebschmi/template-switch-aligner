@@ -64,6 +64,7 @@ fn parse_template_switch(
             secondary,
             direction,
             first_offset,
+            ..
         },
     ) = alignment.peek_front_cloned().unwrap()
     else {
