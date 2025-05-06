@@ -1,13 +1,22 @@
 use std::fmt::Debug;
 
 use compact_genome::{
-    implementation::{alphabets::dna_alphabet::DnaAlphabet, vec_sequence::VectorGenome},
+    implementation::{
+        alphabets::{
+            dna_alphabet::DnaAlphabet, dna_alphabet_or_n::DnaAlphabetOrN,
+            dna_iupac_nucleic_acid_alphabet::DnaIupacNucleicAcidAlphabet,
+            rna_alphabet::RnaAlphabet, rna_alphabet_or_n::RnaAlphabetOrN,
+            rna_iupac_nucleic_acid_alphabet::RnaIupacNucleicAcidAlphabet,
+        },
+        vec_sequence::VectorGenome,
+    },
     interface::{
         alphabet::Alphabet,
         sequence::{GenomeSequence, OwnedGenomeSequence},
     },
 };
 use generic_a_star::cost::U64Cost;
+use serde::Deserialize;
 
 use crate::{
     a_star_aligner::{
@@ -44,28 +53,53 @@ use super::{
     },
 };
 
-#[derive(Debug)]
+// TODO to be discussed
+// TODO more ergonomic way to only adjust some cost values ...
+/// Default costs for a star alignment, given in the custom `.tsa` format
+const DEFAULT_COSTS: &str = include_str!("../../../sample_tsa_config/config.tsa");
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case", default)]
 pub struct Config {
-    alphabet: InputAlphabet,
-    reference_name: String,
-    query_name: String,
+    pub alphabet: InputAlphabet,
+    pub reference_name: String,
+    pub query_name: String,
     /// Costs specification in plain text format.
     ///
     /// This is the same format that the `.tsa` config files use.
-    costs: String,
+    pub costs: String,
 
-    node_ord_strategy: NodeOrdStrategySelector,
-    min_length_strategy: MinLengthStrategySelector,
-    chaining_strategy: ChainingStrategySelector,
-    no_ts: bool,
+    pub node_ord_strategy: NodeOrdStrategySelector,
+    pub min_length_strategy: MinLengthStrategySelector,
+    pub chaining_strategy: ChainingStrategySelector,
+    pub no_ts: bool,
 
-    cost_limit: Option<U64Cost>,
+    pub cost_limit: Option<U64Cost>,
     /// Approximate memory limit in bytes.
-    memory_limit: Option<usize>,
-    range: Option<AlignmentRange>,
+    pub memory_limit: Option<usize>,
+    pub range: Option<AlignmentRange>,
 }
 
-#[derive(Debug)]
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            alphabet: InputAlphabet::DnaN,
+            reference_name: "reference".to_owned(),
+            query_name: "query".to_owned(),
+            costs: DEFAULT_COSTS.to_owned(),
+            node_ord_strategy: NodeOrdStrategySelector::AntiDiagonal,
+            min_length_strategy: MinLengthStrategySelector::Lookahead,
+            chaining_strategy: ChainingStrategySelector::None,
+            no_ts: false,
+            cost_limit: None,
+            memory_limit: None,
+            range: None,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum InputAlphabet {
     Dna,
     DnaN,
@@ -75,19 +109,22 @@ pub enum InputAlphabet {
     RnaIupac,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum NodeOrdStrategySelector {
     CostOnly,
     AntiDiagonal,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum MinLengthStrategySelector {
     None,
     Lookahead,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ChainingStrategySelector {
     None,
     PrecomputeOnly,
@@ -106,11 +143,21 @@ pub fn a_star_align(
         InputAlphabet::Dna => {
             a_star_align_select_node_ord_strategy::<DnaAlphabet>(reference, query, config)
         }
-        InputAlphabet::DnaN => todo!(),
-        InputAlphabet::Rna => todo!(),
-        InputAlphabet::RnaN => todo!(),
-        InputAlphabet::DnaIupac => todo!(),
-        InputAlphabet::RnaIupac => todo!(),
+        InputAlphabet::DnaN => {
+            a_star_align_select_node_ord_strategy::<DnaAlphabetOrN>(reference, query, config)
+        }
+        InputAlphabet::Rna => {
+            a_star_align_select_node_ord_strategy::<RnaAlphabet>(reference, query, config)
+        }
+        InputAlphabet::RnaN => {
+            a_star_align_select_node_ord_strategy::<RnaAlphabetOrN>(reference, query, config)
+        }
+        InputAlphabet::DnaIupac => a_star_align_select_node_ord_strategy::<
+            DnaIupacNucleicAcidAlphabet,
+        >(reference, query, config),
+        InputAlphabet::RnaIupac => a_star_align_select_node_ord_strategy::<
+            RnaIupacNucleicAcidAlphabet,
+        >(reference, query, config),
     }
 }
 
