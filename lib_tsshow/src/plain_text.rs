@@ -1,9 +1,12 @@
 use std::{io::Write, iter};
 
-use alignment_stream::{AlignmentCoordinates, AlignmentStream};
 use lib_tsalign::{
     a_star_aligner::{
-        alignment_result::{AlignmentResult, a_star_sequences::SequencePair},
+        alignment_result::{
+            AlignmentResult,
+            a_star_sequences::SequencePair,
+            alignment::stream::{AlignmentStream, AlignmentStreamCoordinates},
+        },
         template_switch_distance::{AlignmentType, TemplateSwitchPrimary, TemplateSwitchSecondary},
     },
     costs::U64Cost,
@@ -14,7 +17,6 @@ use parse_template_switches::{STREAM_PADDING, TSShow};
 
 use crate::error::Result;
 
-pub mod alignment_stream;
 pub mod mutlipair_alignment_renderer;
 mod parse_template_switches;
 
@@ -98,15 +100,16 @@ fn show_template_switch(
             &sequences.reference_name,
             reference,
             &reference_c,
-            Box::new(|alignment_coordinates: &AlignmentCoordinates| {
+            Box::new(|alignment_coordinates: &AlignmentStreamCoordinates| {
                 alignment_coordinates.reference()
-            }) as Box<dyn Fn(&AlignmentCoordinates) -> usize>,
+            }) as Box<dyn Fn(&AlignmentStreamCoordinates) -> usize>,
             "Child".to_string(),
             &sequences.query_name,
             query,
             &query_c,
-            Box::new(|alignment_coordinates: &AlignmentCoordinates| alignment_coordinates.query())
-                as Box<dyn Fn(&AlignmentCoordinates) -> usize>,
+            Box::new(|alignment_coordinates: &AlignmentStreamCoordinates| {
+                alignment_coordinates.query()
+            }) as Box<dyn Fn(&AlignmentStreamCoordinates) -> usize>,
             true,
         ),
         TemplateSwitchPrimary::Query => (
@@ -114,15 +117,16 @@ fn show_template_switch(
             &sequences.query_name,
             query,
             &query_c,
-            Box::new(|alignment_coordinates: &AlignmentCoordinates| alignment_coordinates.query())
-                as Box<dyn Fn(&AlignmentCoordinates) -> usize>,
+            Box::new(|alignment_coordinates: &AlignmentStreamCoordinates| {
+                alignment_coordinates.query()
+            }) as Box<dyn Fn(&AlignmentStreamCoordinates) -> usize>,
             "Parent".to_string(),
             &sequences.reference_name,
             reference,
             &reference_c,
-            Box::new(|alignment_coordinates: &AlignmentCoordinates| {
+            Box::new(|alignment_coordinates: &AlignmentStreamCoordinates| {
                 alignment_coordinates.reference()
-            }) as Box<dyn Fn(&AlignmentCoordinates) -> usize>,
+            }) as Box<dyn Fn(&AlignmentStreamCoordinates) -> usize>,
             false,
         ),
     };

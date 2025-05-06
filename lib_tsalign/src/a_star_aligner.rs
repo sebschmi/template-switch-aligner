@@ -170,7 +170,7 @@ pub fn template_switch_distance_a_star_align<
         primary_match: (),
     };
 
-    a_star_align(template_switch_distance::Context::<
+    let mut result = a_star_align(template_switch_distance::Context::<
         SubsequenceType,
         Strategies,
     >::new(
@@ -183,5 +183,7 @@ pub fn template_switch_distance_a_star_align<
         memory,
         cost_limit,
         memory_limit,
-    ))
+    ));
+    result.compute_ts_equal_cost_ranges();
+    result
 }

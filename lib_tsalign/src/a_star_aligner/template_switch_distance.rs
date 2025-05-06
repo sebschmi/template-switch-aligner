@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use alignment_type::equal_cost_range::EqualCostRange;
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::{AStarNode, cost::AStarCost};
 use identifier::GapType;
@@ -296,6 +297,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                             primary: *template_switch_primary,
                             secondary: *template_switch_secondary,
                             direction: *template_switch_direction,
+                            equal_cost_range: EqualCostRange::new_invalid(),
                             first_offset: *template_switch_first_offset,
                         },
                         context,
@@ -342,6 +344,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 primary: template_switch_primary,
                 secondary: template_switch_secondary,
                 direction: template_switch_direction,
+                equal_cost_range: EqualCostRange::new_invalid(),
                 first_offset: successor_template_switch_first_offset,
             },
             context,

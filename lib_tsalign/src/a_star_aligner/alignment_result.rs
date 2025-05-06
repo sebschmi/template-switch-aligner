@@ -1,11 +1,17 @@
 use std::fmt::{Display, Formatter, Result, Write};
 
 use a_star_sequences::SequencePair;
-use alignment::Alignment;
+use alignment::{Alignment, stream::AlignmentStream};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStarResult, cost::AStarCost};
 use noisy_float::types::{R64, r64};
 use num_traits::{Float, Zero};
+
+use crate::config::TemplateSwitchConfig;
+
+use super::template_switch_distance::{
+    TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+};
 
 pub mod a_star_sequences;
 pub mod alignment;
@@ -221,6 +227,114 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
             }
         } else {
             Self::WithoutTarget { statistics }
+        }
+    }
+}
+
+impl<Cost: AStarCost> AlignmentResult<super::template_switch_distance::AlignmentType, Cost> {
+    pub fn compute_ts_equal_cost_ranges<
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    >(
+        &mut self,
+        reference: &SubsequenceType,
+        query: &SubsequenceType,
+        config: &TemplateSwitchConfig<AlphabetType, Cost>,
+    ) {
+        let Self::WithTarget { alignment, .. } = self else {
+            return;
+        };
+        let mut stream = AlignmentStream::new();
+
+        for i in 0..alignment.inner_mut().len() {
+            let multiplicity = alignment.inner_mut()[i].0;
+            let alignment_type = alignment.inner_mut()[i].1;
+
+            match alignment_type {
+                super::template_switch_distance::AlignmentType::TemplateSwitchEntrance {
+                    first_offset,
+                    primary,
+                    secondary,
+                    direction,
+                    mut equal_cost_range,
+                    ..
+                } => {
+                    equal_cost_range.min_start = 0;
+                    equal_cost_range.max_start = 0;
+                    equal_cost_range.min_end = 0;
+                    equal_cost_range.max_end = 0;
+
+                    // Extend start backwards.
+                    let mut remaining_left_flank = config.left_flank_length;
+                    let mut preceding_reference_index = stream.head_coordinates().reference();
+                    let mut preceding_query_index = stream.head_coordinates().query();
+                    let mut preceding_alignment = alignment.iter_flat_cloned().rev();
+                    let mut inner_primary_index = match primary {
+                        TemplateSwitchPrimary::Reference => preceding_reference_index,
+                        TemplateSwitchPrimary::Query => preceding_query_index,
+                    };
+                    let mut inner_secondary_index = (match secondary {
+                        TemplateSwitchSecondary::Reference => preceding_reference_index,
+                        TemplateSwitchSecondary::Query => preceding_query_index,
+                    } as isize
+                        + first_offset)
+                        as usize;
+
+                    loop {
+                        match preceding_alignment.next() {
+                            Some(
+                                super::template_switch_distance::AlignmentType::PrimaryFlankMatch
+                                | super::template_switch_distance::AlignmentType::PrimaryMatch,
+                            ) => { /* Do not exit loop. */ }
+                            _ => break,
+                        }
+
+                        inner_primary_index -= 1;
+                        match direction {
+                            TemplateSwitchDirection::Forward => inner_secondary_index -= 1,
+                            TemplateSwitchDirection::Reverse => inner_secondary_index += 1,
+                        }
+                        preceding_reference_index -= 1;
+                        preceding_query_index -= 1;
+
+                        let primary_character =
+                            primary.get(reference, query)[inner_primary_index].clone();
+                        let secondary_character =
+                            secondary.get(reference, query)[inner_secondary_index].clone();
+                        let reference_character = reference[preceding_reference_index].clone();
+                        let query_character = query[preceding_query_index].clone();
+
+                        let preceding_cost = if remaining_left_flank > 0 {
+                            remaining_left_flank -= 1;
+                            &config.left_flank_edit_costs
+                        } else {
+                            &config.primary_edit_costs
+                        }
+                        .match_or_substitution_cost(reference_character, query_character);
+                        let inner_cost = config
+                            .secondary_edit_costs(direction)
+                            .match_or_substitution_cost(primary_character, secondary_character);
+
+                        if preceding_cost.is_zero() && inner_cost.is_zero() {
+                            equal_cost_range.min_start -= 1;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    let super::template_switch_distance::AlignmentType::TemplateSwitchEntrance {
+                        equal_cost_range: alignment_equal_cost_range,
+                        ..
+                    } = &mut alignment.inner_mut()[i].1
+                    else {
+                        unreachable!()
+                    };
+                    *alignment_equal_cost_range = equal_cost_range;
+                }
+                _ => { /* Do nothing. */ }
+            }
+
+            stream.push(multiplicity, alignment_type);
         }
     }
 }

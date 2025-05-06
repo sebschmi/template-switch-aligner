@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter, Result};
 
 use super::{
     AlignmentType, GapType, Identifier, TemplateSwitchPrimary, TemplateSwitchSecondary,
-    identifier::TemplateSwitchDirection,
+    alignment_type::equal_cost_range::EqualCostRange, identifier::TemplateSwitchDirection,
 };
 
 impl Display for AlignmentType {
@@ -22,8 +22,12 @@ impl Display for AlignmentType {
                 primary,
                 secondary,
                 direction,
+                equal_cost_range,
                 first_offset,
-            } => write!(f, "[TS{primary}{secondary}{direction}{first_offset}:"),
+            } => write!(
+                f,
+                "[TS{primary}{secondary}{direction}:{equal_cost_range}:{first_offset}:"
+            ),
             Self::TemplateSwitchExit { anti_primary_gap } => write!(f, ":{anti_primary_gap}]"),
             Self::Root => Ok(()),
             Self::SecondaryRoot => Ok(()),
@@ -70,6 +74,19 @@ impl Display for TemplateSwitchDirection {
             Self::Forward => write!(f, "F"),
             Self::Reverse => write!(f, "R"),
         }
+    }
+}
+
+impl Display for EqualCostRange {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        assert!(self.is_valid());
+        let Self {
+            min_start,
+            max_start,
+            min_end,
+            max_end,
+        } = self;
+        write!(f, "[{min_start},{max_start}]:[{min_end},{max_end}]")
     }
 }
 

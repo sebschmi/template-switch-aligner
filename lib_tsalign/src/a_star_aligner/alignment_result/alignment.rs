@@ -7,6 +7,7 @@ use iter::{
 use super::IAlignmentType;
 
 pub mod iter;
+pub mod stream;
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -32,6 +33,10 @@ impl<AlignmentType> Alignment<AlignmentType> {
         } else {
             self.alignment.push((1, alignment_type));
         }
+    }
+
+    pub fn inner_mut(&mut self) -> &mut Vec<(usize, AlignmentType)> {
+        &mut self.alignment
     }
 }
 
