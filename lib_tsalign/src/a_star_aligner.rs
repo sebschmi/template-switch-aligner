@@ -19,6 +19,7 @@ use crate::config;
 
 pub mod alignment_geometry;
 pub mod alignment_result;
+pub mod configurable_a_star_align;
 pub mod gap_affine_edit_distance;
 pub mod template_switch_distance;
 #[cfg(test)]
