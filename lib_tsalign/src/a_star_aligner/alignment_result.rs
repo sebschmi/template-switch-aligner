@@ -280,15 +280,11 @@ impl<Cost: AStarCost> AlignmentResult<super::template_switch_distance::Alignment
                         + first_offset)
                         as usize;
 
-                    loop {
-                        match preceding_alignment.next() {
-                            Some(
-                                super::template_switch_distance::AlignmentType::PrimaryFlankMatch
-                                | super::template_switch_distance::AlignmentType::PrimaryMatch,
-                            ) => { /* Do not exit loop. */ }
-                            _ => break,
-                        }
-
+                    while let Some(
+                        super::template_switch_distance::AlignmentType::PrimaryFlankMatch
+                        | super::template_switch_distance::AlignmentType::PrimaryMatch,
+                    ) = preceding_alignment.next()
+                    {
                         inner_primary_index -= 1;
                         match direction {
                             TemplateSwitchDirection::Forward => inner_secondary_index -= 1,
