@@ -178,12 +178,12 @@ pub fn template_switch_distance_a_star_align<
         query,
         reference_name,
         query_name,
-        range,
+        range.clone(),
         config.clone(),
         memory,
         cost_limit,
         memory_limit,
     ));
-    result.compute_ts_equal_cost_ranges(reference, query, &config);
+    result.compute_ts_equal_cost_ranges(reference, query, &range, &config);
     result
 }

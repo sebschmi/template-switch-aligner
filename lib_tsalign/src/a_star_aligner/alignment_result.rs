@@ -2,15 +2,21 @@ use std::fmt::{Display, Formatter, Result, Write};
 
 use a_star_sequences::SequencePair;
 use alignment::{Alignment, stream::AlignmentStream};
-use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
+use compact_genome::interface::{
+    alphabet::{Alphabet, AlphabetCharacter},
+    sequence::GenomeSequence,
+};
 use generic_a_star::{AStarResult, cost::AStarCost};
 use noisy_float::types::{R64, r64};
 use num_traits::{Float, Zero};
 
 use crate::config::TemplateSwitchConfig;
 
-use super::template_switch_distance::{
-    TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+use super::{
+    alignment_geometry::AlignmentRange,
+    template_switch_distance::{
+        TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+    },
 };
 
 pub mod a_star_sequences;
@@ -239,6 +245,7 @@ impl<Cost: AStarCost> AlignmentResult<super::template_switch_distance::Alignment
         &mut self,
         reference: &SubsequenceType,
         query: &SubsequenceType,
+        range: &Option<AlignmentRange>,
         config: &TemplateSwitchConfig<AlphabetType, Cost>,
     ) {
         let Self::WithTarget { alignment, .. } = self else {
@@ -266,8 +273,13 @@ impl<Cost: AStarCost> AlignmentResult<super::template_switch_distance::Alignment
 
                     // Extend start backwards.
                     let mut remaining_left_flank = config.left_flank_length;
-                    let mut preceding_reference_index = stream.head_coordinates().reference();
-                    let mut preceding_query_index = stream.head_coordinates().query();
+                    let mut preceding_reference_index = stream.head_coordinates().reference()
+                        + range
+                            .clone()
+                            .map(|range| range.reference_offset())
+                            .unwrap_or(0);
+                    let mut preceding_query_index = stream.head_coordinates().query()
+                        + range.clone().map(|range| range.query_offset()).unwrap_or(0);
                     let mut preceding_alignment = alignment.iter_flat_cloned().rev();
                     let mut inner_primary_index = match primary {
                         TemplateSwitchPrimary::Reference => preceding_reference_index,
@@ -285,6 +297,7 @@ impl<Cost: AStarCost> AlignmentResult<super::template_switch_distance::Alignment
                         | super::template_switch_distance::AlignmentType::PrimaryMatch,
                     ) = preceding_alignment.next()
                     {
+                        println!("Entering loop");
                         inner_primary_index -= 1;
                         match direction {
                             TemplateSwitchDirection::Forward => inner_secondary_index -= 1,
@@ -296,7 +309,7 @@ impl<Cost: AStarCost> AlignmentResult<super::template_switch_distance::Alignment
                         let primary_character =
                             primary.get(reference, query)[inner_primary_index].clone();
                         let secondary_character =
-                            secondary.get(reference, query)[inner_secondary_index].clone();
+                            secondary.get(reference, query)[inner_secondary_index].complement();
                         let reference_character = reference[preceding_reference_index].clone();
                         let query_character = query[preceding_query_index].clone();
 
@@ -314,6 +327,9 @@ impl<Cost: AStarCost> AlignmentResult<super::template_switch_distance::Alignment
                         if preceding_cost.is_zero() && inner_cost.is_zero() {
                             equal_cost_range.min_start -= 1;
                         } else {
+                            println!(
+                                "Breaking loop due to cost: preceding: {preceding_cost}; inner: {inner_cost}"
+                            );
                             break;
                         }
                     }
