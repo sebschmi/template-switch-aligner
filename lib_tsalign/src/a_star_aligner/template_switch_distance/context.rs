@@ -670,6 +670,11 @@ impl<
                 reference_index,
                 query_index,
                 ..
+            }
+            | Identifier::PrimaryReentry {
+                reference_index,
+                query_index,
+                ..
             } => {
                 reference_index == self.range.reference_limit()
                     && query_index == self.range.query_limit()
