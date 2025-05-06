@@ -272,67 +272,143 @@ impl<Cost: AStarCost> AlignmentResult<super::template_switch_distance::Alignment
                     equal_cost_range.max_end = 0;
 
                     // Extend start backwards.
-                    let mut remaining_left_flank = config.left_flank_length;
-                    let mut preceding_reference_index = stream.head_coordinates().reference()
-                        + range
-                            .clone()
-                            .map(|range| range.reference_offset())
-                            .unwrap_or(0);
-                    let mut preceding_query_index = stream.head_coordinates().query()
-                        + range.clone().map(|range| range.query_offset()).unwrap_or(0);
-                    let mut preceding_alignment = alignment.iter_flat_cloned().rev();
-                    let mut inner_primary_index = match primary {
-                        TemplateSwitchPrimary::Reference => preceding_reference_index,
-                        TemplateSwitchPrimary::Query => preceding_query_index,
-                    };
-                    let mut inner_secondary_index = (match secondary {
-                        TemplateSwitchSecondary::Reference => preceding_reference_index,
-                        TemplateSwitchSecondary::Query => preceding_query_index,
-                    } as isize
-                        + first_offset)
-                        as usize;
-
-                    while let Some(
-                        super::template_switch_distance::AlignmentType::PrimaryFlankMatch
-                        | super::template_switch_distance::AlignmentType::PrimaryMatch,
-                    ) = preceding_alignment.next()
                     {
-                        println!("Entering loop");
-                        inner_primary_index -= 1;
-                        match direction {
-                            TemplateSwitchDirection::Forward => inner_secondary_index -= 1,
-                            TemplateSwitchDirection::Reverse => inner_secondary_index += 1,
-                        }
-                        preceding_reference_index -= 1;
-                        preceding_query_index -= 1;
+                        let mut remaining_left_flank = config.left_flank_length;
+                        let mut preceding_reference_index = stream.head_coordinates().reference()
+                            + range
+                                .clone()
+                                .map(|range| range.reference_offset())
+                                .unwrap_or(0);
+                        let mut preceding_query_index = stream.head_coordinates().query()
+                            + range.clone().map(|range| range.query_offset()).unwrap_or(0);
+                        let mut preceding_alignment = stream.stream_iter_flat_rev();
+                        let mut inner_primary_index = match primary {
+                            TemplateSwitchPrimary::Reference => preceding_reference_index,
+                            TemplateSwitchPrimary::Query => preceding_query_index,
+                        };
+                        let mut inner_secondary_index = (match secondary {
+                            TemplateSwitchSecondary::Reference => preceding_reference_index,
+                            TemplateSwitchSecondary::Query => preceding_query_index,
+                        } as isize
+                            + first_offset)
+                            as usize;
 
-                        let primary_character =
-                            primary.get(reference, query)[inner_primary_index].clone();
-                        let secondary_character =
-                            secondary.get(reference, query)[inner_secondary_index].complement();
-                        let reference_character = reference[preceding_reference_index].clone();
-                        let query_character = query[preceding_query_index].clone();
+                        while let Some(
+                            super::template_switch_distance::AlignmentType::PrimaryFlankMatch
+                            | super::template_switch_distance::AlignmentType::PrimaryMatch,
+                        ) = preceding_alignment.next()
+                        {
+                            println!("Entering loop");
+                            inner_primary_index -= 1;
+                            match direction {
+                                TemplateSwitchDirection::Forward => inner_secondary_index -= 1,
+                                TemplateSwitchDirection::Reverse => inner_secondary_index += 1,
+                            }
+                            preceding_reference_index -= 1;
+                            preceding_query_index -= 1;
 
-                        let preceding_cost = if remaining_left_flank > 0 {
-                            remaining_left_flank -= 1;
-                            &config.left_flank_edit_costs
-                        } else {
-                            &config.primary_edit_costs
-                        }
-                        .match_or_substitution_cost(reference_character, query_character);
-                        let inner_cost = config
-                            .secondary_edit_costs(direction)
-                            .match_or_substitution_cost(primary_character, secondary_character);
+                            let primary_character =
+                                primary.get(reference, query)[inner_primary_index].clone();
+                            let secondary_character = secondary.get(reference, query)
+                                [match direction {
+                                    TemplateSwitchDirection::Forward => inner_secondary_index,
+                                    TemplateSwitchDirection::Reverse => inner_secondary_index - 1,
+                                }]
+                            .complement();
+                            let reference_character = reference[preceding_reference_index].clone();
+                            let query_character = query[preceding_query_index].clone();
 
-                        if preceding_cost.is_zero() && inner_cost.is_zero() {
-                            equal_cost_range.min_start -= 1;
-                        } else {
-                            println!(
-                                "Breaking loop due to cost: preceding: {preceding_cost}; inner: {inner_cost}"
-                            );
-                            break;
+                            let preceding_cost = if remaining_left_flank > 0 {
+                                remaining_left_flank -= 1;
+                                &config.left_flank_edit_costs
+                            } else {
+                                &config.primary_edit_costs
+                            }
+                            .match_or_substitution_cost(reference_character, query_character);
+                            let inner_cost = config
+                                .secondary_edit_costs(direction)
+                                .match_or_substitution_cost(primary_character, secondary_character);
+
+                            if preceding_cost.is_zero() && inner_cost.is_zero() {
+                                equal_cost_range.min_start -= 1;
+                            } else {
+                                println!(
+                                    "Breaking loop due to cost: preceding: {preceding_cost}; inner: {inner_cost}"
+                                );
+                                break;
+                            }
                         }
                     }
+
+                    // Extend start forwards.
+                    // TODO the following is mostly a copy of above.
+                    /*{
+                        let mut remaining_right_flank = config.right_flank_length;
+                        let mut preceding_reference_index = stream.head_coordinates().reference()
+                            + range
+                                .clone()
+                                .map(|range| range.reference_offset())
+                                .unwrap_or(0);
+                        let mut preceding_query_index = stream.head_coordinates().query()
+                            + range.clone().map(|range| range.query_offset()).unwrap_or(0);
+                        let mut preceding_alignment = alignment.iter_flat_cloned().rev();
+                        let mut inner_primary_index = match primary {
+                            TemplateSwitchPrimary::Reference => preceding_reference_index,
+                            TemplateSwitchPrimary::Query => preceding_query_index,
+                        };
+                        let mut inner_secondary_index = (match secondary {
+                            TemplateSwitchSecondary::Reference => preceding_reference_index,
+                            TemplateSwitchSecondary::Query => preceding_query_index,
+                        } as isize
+                            + first_offset)
+                            as usize;
+
+                        while let Some(
+                            super::template_switch_distance::AlignmentType::PrimaryFlankMatch
+                            | super::template_switch_distance::AlignmentType::PrimaryMatch,
+                        ) = preceding_alignment.next()
+                        {
+                            println!("Entering loop");
+                            inner_primary_index -= 1;
+                            match direction {
+                                TemplateSwitchDirection::Forward => inner_secondary_index -= 1,
+                                TemplateSwitchDirection::Reverse => inner_secondary_index += 1,
+                            }
+                            preceding_reference_index -= 1;
+                            preceding_query_index -= 1;
+
+                            let primary_character =
+                                primary.get(reference, query)[inner_primary_index].clone();
+                            let secondary_character = secondary.get(reference, query)
+                                [match direction {
+                                    TemplateSwitchDirection::Forward => inner_secondary_index,
+                                    TemplateSwitchDirection::Reverse => inner_secondary_index - 1,
+                                }]
+                            .complement();
+                            let reference_character = reference[preceding_reference_index].clone();
+                            let query_character = query[preceding_query_index].clone();
+
+                            let preceding_cost = if remaining_left_flank > 0 {
+                                remaining_left_flank -= 1;
+                                &config.left_flank_edit_costs
+                            } else {
+                                &config.primary_edit_costs
+                            }
+                            .match_or_substitution_cost(reference_character, query_character);
+                            let inner_cost = config
+                                .secondary_edit_costs(direction)
+                                .match_or_substitution_cost(primary_character, secondary_character);
+
+                            if preceding_cost.is_zero() && inner_cost.is_zero() {
+                                equal_cost_range.min_start -= 1;
+                            } else {
+                                println!(
+                                    "Breaking loop due to cost: preceding: {preceding_cost}; inner: {inner_cost}"
+                                );
+                                break;
+                            }
+                        }
+                    }*/
 
                     let super::template_switch_distance::AlignmentType::TemplateSwitchEntrance {
                         equal_cost_range: alignment_equal_cost_range,

@@ -41,12 +41,18 @@ impl AlignmentStream {
         self.length
     }
 
-    pub fn stream_iter(&self) -> impl use<'_> + Iterator<Item = (usize, AlignmentType)> {
+    pub fn stream_iter(&self) -> impl use<'_> + DoubleEndedIterator<Item = (usize, AlignmentType)> {
         self.stream.iter().copied()
     }
 
     pub fn stream_iter_flat(&self) -> impl use<'_> + Iterator<Item = AlignmentType> {
         self.stream_iter()
+            .flat_map(|(multiplicity, alignment_type)| iter::repeat_n(alignment_type, multiplicity))
+    }
+
+    pub fn stream_iter_flat_rev(&self) -> impl use<'_> + Iterator<Item = AlignmentType> {
+        self.stream_iter()
+            .rev()
             .flat_map(|(multiplicity, alignment_type)| iter::repeat_n(alignment_type, multiplicity))
     }
 
