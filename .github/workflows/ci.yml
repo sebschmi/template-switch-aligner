@@ -2,6 +2,7 @@ name: Tests and Lints
 
 on:
   push:
+  pull_request:
 
 env:
   RUSTFLAGS: "-Dwarnings"
