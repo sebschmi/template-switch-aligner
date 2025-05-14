@@ -2,12 +2,16 @@ use compact_genome::interface::{
     alphabet::{Alphabet, AlphabetCharacter},
     sequence::GenomeSequence,
 };
+use generic_a_star::cost::AStarCost;
 
-use crate::a_star_aligner::{
-    alignment_result::{IAlignmentType, alignment::stream::AlignmentStream},
-    template_switch_distance::{
-        AlignmentType, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+use crate::{
+    a_star_aligner::{
+        alignment_result::{IAlignmentType, alignment::stream::AlignmentStream},
+        template_switch_distance::{
+            AlignmentType, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+        },
     },
+    config::TemplateSwitchConfig,
 };
 
 use super::Alignment;
@@ -289,7 +293,6 @@ impl Alignment<AlignmentType> {
                     _ => unreachable!(),
                 },
             );
-        println!("Inner secondary length: {inner_secondary_length}");
 
         if let Some((_, AlignmentType::PrimaryMatch | AlignmentType::PrimarySubstitution)) =
             self.alignment.get(exit_index + 1)
@@ -343,14 +346,12 @@ impl Alignment<AlignmentType> {
             }
 
             // Check if the new inner pair is a match or a substitution.
-            println!("Primary index: {ts_inner_primary_index}");
             let primary_char = primary.get(reference, query)[ts_inner_primary_index].clone();
             let secondary_char = match direction {
                 TemplateSwitchDirection::Forward => {
                     secondary.get(reference, query)[ts_inner_secondary_index].clone()
                 }
                 TemplateSwitchDirection::Reverse => {
-                    println!("Secondary index: {}", ts_inner_secondary_index - 1);
                     secondary.get(reference, query)[ts_inner_secondary_index - 1].complement()
                 }
             };
@@ -484,25 +485,328 @@ impl Alignment<AlignmentType> {
             false
         }
     }
+
+    /// Compute the cost of an alignment.
+    ///
+    /// Flanks are not supported.
+    pub fn compute_cost<
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+        Cost: AStarCost,
+    >(
+        &mut self,
+        reference: &SubsequenceType,
+        query: &SubsequenceType,
+        reference_offset: usize,
+        query_offset: usize,
+        config: &TemplateSwitchConfig<AlphabetType, Cost>,
+    ) -> Cost {
+        let mut cost = Cost::zero();
+
+        let mut last_alignment_type = None;
+        let mut reference_index = reference_offset;
+        let mut query_index = query_offset;
+        let mut primary_index = 0;
+        let mut secondary_index = 0;
+        let mut primary = TemplateSwitchPrimary::Reference;
+        let mut secondary = TemplateSwitchSecondary::Reference;
+        let mut direction = TemplateSwitchDirection::Forward;
+        for alignment_type in self.iter_flat_cloned() {
+            let cost_increment = match alignment_type {
+                AlignmentType::PrimaryInsertion => {
+                    let cost_increment = if Some(alignment_type) == last_alignment_type {
+                        config
+                            .primary_edit_costs
+                            .gap_extend_cost(query[query_index].clone())
+                    } else {
+                        config
+                            .primary_edit_costs
+                            .gap_open_cost(query[query_index].clone())
+                    };
+                    query_index += 1;
+                    cost_increment
+                }
+                AlignmentType::PrimaryDeletion => {
+                    let cost_increment = if Some(alignment_type) == last_alignment_type {
+                        config
+                            .primary_edit_costs
+                            .gap_extend_cost(reference[reference_index].clone())
+                    } else {
+                        config
+                            .primary_edit_costs
+                            .gap_open_cost(reference[reference_index].clone())
+                    };
+                    reference_index += 1;
+                    cost_increment
+                }
+                AlignmentType::PrimarySubstitution | AlignmentType::PrimaryMatch => {
+                    let cost_increment = config.primary_edit_costs.match_or_substitution_cost(
+                        reference[reference_index].clone(),
+                        query[query_index].clone(),
+                    );
+                    reference_index += 1;
+                    query_index += 1;
+                    cost_increment
+                }
+                AlignmentType::PrimaryFlankInsertion
+                | AlignmentType::PrimaryFlankDeletion
+                | AlignmentType::PrimaryFlankSubstitution
+                | AlignmentType::PrimaryFlankMatch => {
+                    todo!("Flanks are not yet supported")
+                }
+                AlignmentType::SecondaryInsertion => {
+                    let primary_character = match primary {
+                        TemplateSwitchPrimary::Reference => reference[primary_index].clone(),
+                        TemplateSwitchPrimary::Query => query[primary_index].clone(),
+                    };
+                    let cost_increment = if Some(alignment_type) == last_alignment_type {
+                        config
+                            .secondary_edit_costs(direction)
+                            .gap_extend_cost(primary_character)
+                    } else {
+                        config
+                            .secondary_edit_costs(direction)
+                            .gap_open_cost(primary_character)
+                    };
+                    primary_index += 1;
+                    cost_increment
+                }
+                AlignmentType::SecondaryDeletion => {
+                    let secondary_character = match (secondary, direction) {
+                        (TemplateSwitchSecondary::Reference, TemplateSwitchDirection::Forward) => {
+                            reference[secondary_index].clone()
+                        }
+                        (TemplateSwitchSecondary::Reference, TemplateSwitchDirection::Reverse) => {
+                            reference[secondary_index - 1].complement()
+                        }
+                        (TemplateSwitchSecondary::Query, TemplateSwitchDirection::Forward) => {
+                            query[secondary_index].clone()
+                        }
+                        (TemplateSwitchSecondary::Query, TemplateSwitchDirection::Reverse) => {
+                            query[secondary_index - 1].complement()
+                        }
+                    };
+                    let cost_increment = if Some(alignment_type) == last_alignment_type {
+                        config
+                            .secondary_edit_costs(direction)
+                            .gap_extend_cost(secondary_character)
+                    } else {
+                        config
+                            .secondary_edit_costs(direction)
+                            .gap_open_cost(secondary_character)
+                    };
+                    match direction {
+                        TemplateSwitchDirection::Forward => secondary_index += 1,
+                        TemplateSwitchDirection::Reverse => secondary_index -= 1,
+                    }
+                    cost_increment
+                }
+                AlignmentType::SecondarySubstitution | AlignmentType::SecondaryMatch => {
+                    let primary_character = match primary {
+                        TemplateSwitchPrimary::Reference => reference[primary_index].clone(),
+                        TemplateSwitchPrimary::Query => query[primary_index].clone(),
+                    };
+                    let secondary_character = match (secondary, direction) {
+                        (TemplateSwitchSecondary::Reference, TemplateSwitchDirection::Forward) => {
+                            reference[secondary_index].clone()
+                        }
+                        (TemplateSwitchSecondary::Reference, TemplateSwitchDirection::Reverse) => {
+                            reference[secondary_index - 1].complement()
+                        }
+                        (TemplateSwitchSecondary::Query, TemplateSwitchDirection::Forward) => {
+                            query[secondary_index].clone()
+                        }
+                        (TemplateSwitchSecondary::Query, TemplateSwitchDirection::Reverse) => {
+                            query[secondary_index - 1].complement()
+                        }
+                    };
+                    println!(
+                        "Primary character: {primary_character}; secondary character: {secondary_character}"
+                    );
+                    let cost_increment = config
+                        .secondary_edit_costs(direction)
+                        .match_or_substitution_cost(primary_character, secondary_character);
+                    primary_index += 1;
+                    match direction {
+                        TemplateSwitchDirection::Forward => secondary_index += 1,
+                        TemplateSwitchDirection::Reverse => secondary_index -= 1,
+                    }
+                    cost_increment
+                }
+                AlignmentType::TemplateSwitchEntrance {
+                    first_offset,
+                    primary: ts_primary,
+                    secondary: ts_secondary,
+                    direction: ts_direction,
+                    ..
+                } => {
+                    assert!(!matches!(
+                        last_alignment_type,
+                        Some(AlignmentType::TemplateSwitchEntrance { .. })
+                    ));
+                    primary = ts_primary;
+                    secondary = ts_secondary;
+                    direction = ts_direction;
+                    let cost_increment = config.base_cost.get(primary, secondary, direction);
+                    let Some(cost_increment) =
+                        cost_increment.checked_add(&config.offset_costs.evaluate(&first_offset))
+                    else {
+                        return Cost::max_value();
+                    };
+                    primary_index = match primary {
+                        TemplateSwitchPrimary::Reference => reference_index,
+                        TemplateSwitchPrimary::Query => query_index,
+                    };
+                    secondary_index = usize::try_from(
+                        isize::try_from(match secondary {
+                            TemplateSwitchSecondary::Reference => reference_index,
+                            TemplateSwitchSecondary::Query => query_index,
+                        })
+                        .unwrap()
+                        .checked_add(first_offset)
+                        .unwrap(),
+                    )
+                    .unwrap();
+                    cost_increment
+                }
+                AlignmentType::TemplateSwitchExit { anti_primary_gap } => {
+                    assert!(!matches!(
+                        last_alignment_type,
+                        Some(AlignmentType::TemplateSwitchExit { .. })
+                    ));
+                    let length = match primary {
+                        TemplateSwitchPrimary::Reference => {
+                            let length = primary_index - reference_index;
+                            reference_index = primary_index;
+                            query_index = usize::try_from(
+                                isize::try_from(query_index)
+                                    .unwrap()
+                                    .checked_add(anti_primary_gap)
+                                    .unwrap(),
+                            )
+                            .unwrap();
+                            length
+                        }
+                        TemplateSwitchPrimary::Query => {
+                            let length = primary_index - query_index;
+                            query_index = primary_index;
+                            reference_index = usize::try_from(
+                                isize::try_from(reference_index)
+                                    .unwrap()
+                                    .checked_add(anti_primary_gap)
+                                    .unwrap(),
+                            )
+                            .unwrap();
+                            length
+                        }
+                    };
+                    let length_difference = anti_primary_gap - isize::try_from(length).unwrap();
+                    let cost_increment = config
+                        .anti_primary_gap_costs(direction)
+                        .evaluate(&anti_primary_gap);
+                    let Some(cost_increment) =
+                        cost_increment.checked_add(&config.length_costs.evaluate(&length))
+                    else {
+                        return Cost::max_value();
+                    };
+                    let Some(cost_increment) = cost_increment
+                        .checked_add(&config.length_difference_costs.evaluate(&length_difference))
+                    else {
+                        return Cost::max_value();
+                    };
+                    cost_increment
+                }
+                AlignmentType::Root
+                | AlignmentType::SecondaryRoot
+                | AlignmentType::PrimaryReentry => {
+                    // Do nothing
+                    Cost::zero()
+                }
+                AlignmentType::PrimaryShortcut { .. } => panic!("Not supported"),
+            };
+
+            println!("Got cost increment of {cost_increment} for {alignment_type}");
+            cost = if let Some(cost) = cost.checked_add(&cost_increment) {
+                cost
+            } else {
+                return Cost::max_value();
+            };
+            last_alignment_type = Some(alignment_type);
+        }
+
+        cost
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::LazyLock;
+
     use compact_genome::{
         implementation::{alphabets::dna_alphabet::DnaAlphabet, vec_sequence::VectorGenome},
-        interface::sequence::{GenomeSequence, OwnedGenomeSequence},
-    };
-
-    use crate::a_star_aligner::{
-        alignment_result::alignment::Alignment,
-        template_switch_distance::{
-            AlignmentType, EqualCostRange, TemplateSwitchDirection, TemplateSwitchPrimary,
-            TemplateSwitchSecondary,
+        interface::{
+            alphabet::Alphabet,
+            sequence::{GenomeSequence, OwnedGenomeSequence},
         },
+    };
+    use generic_a_star::cost::U64Cost;
+
+    use crate::{
+        a_star_aligner::{
+            alignment_result::alignment::Alignment,
+            template_switch_distance::{
+                AlignmentType, EqualCostRange, TemplateSwitchDirection, TemplateSwitchPrimary,
+                TemplateSwitchSecondary,
+            },
+        },
+        config::{BaseCost, TemplateSwitchConfig},
+        costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable},
     };
 
     static START_REFERENCE: &[u8] = b"AGAGAGCTCTAA";
     static START_QUERY: &[u8] = b"AGAGAGCTTTAA";
+    static START_COSTS: LazyLock<Vec<U64Cost>> = LazyLock::new(|| {
+        [
+            CONFIG.base_cost.rqr
+                + CONFIG.offset_costs.evaluate(&-6)
+                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&2)
+                + CONFIG.length_costs.evaluate(&2)
+                + CONFIG.length_difference_costs.evaluate(&0),
+            CONFIG.base_cost.rqr
+                + CONFIG.offset_costs.evaluate(&-4)
+                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&3)
+                + CONFIG.length_costs.evaluate(&3)
+                + CONFIG.length_difference_costs.evaluate(&0),
+            CONFIG.base_cost.rqr
+                + CONFIG.offset_costs.evaluate(&-2)
+                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&4)
+                + CONFIG.length_costs.evaluate(&4)
+                + CONFIG.length_difference_costs.evaluate(&0),
+            CONFIG.base_cost.rqr
+                + CONFIG.offset_costs.evaluate(&0)
+                + CONFIG.secondary_reverse_edit_costs.substitution_cost(
+                    DnaAlphabet::ascii_to_character(b'G').unwrap(),
+                    DnaAlphabet::ascii_to_character(b'T').unwrap(),
+                )
+                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&5)
+                + CONFIG.length_costs.evaluate(&5)
+                + CONFIG.length_difference_costs.evaluate(&0),
+            CONFIG.base_cost.rqr
+                + CONFIG.offset_costs.evaluate(&2)
+                + CONFIG.secondary_reverse_edit_costs.substitution_cost(
+                    DnaAlphabet::ascii_to_character(b'G').unwrap(),
+                    DnaAlphabet::ascii_to_character(b'T').unwrap(),
+                )
+                + CONFIG.secondary_reverse_edit_costs.substitution_cost(
+                    DnaAlphabet::ascii_to_character(b'A').unwrap(),
+                    DnaAlphabet::ascii_to_character(b'C').unwrap(),
+                )
+                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&6)
+                + CONFIG.length_costs.evaluate(&6)
+                + CONFIG.length_difference_costs.evaluate(&0),
+        ]
+        .to_vec()
+    });
     static START_ALIGNMENTS: &[&[(usize, AlignmentType)]] = &[
         &[
             (6, AlignmentType::PrimaryMatch),
@@ -615,6 +919,48 @@ mod tests {
 
     static END_REFERENCE: &[u8] = b"AACTCTAGAGAG";
     static END_QUERY: &[u8] = b"AATTCTAGAGAG";
+    static END_COSTS: LazyLock<Vec<U64Cost>> = LazyLock::new(|| {
+        [
+            CONFIG.base_cost.rqr
+                + CONFIG.offset_costs.evaluate(&10)
+                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&2)
+                + CONFIG.length_costs.evaluate(&2)
+                + CONFIG.length_difference_costs.evaluate(&0),
+            CONFIG.base_cost.rqr
+                + CONFIG.offset_costs.evaluate(&10)
+                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&3)
+                + CONFIG.length_costs.evaluate(&3)
+                + CONFIG.length_difference_costs.evaluate(&0),
+            CONFIG.base_cost.rqr
+                + CONFIG.offset_costs.evaluate(&10)
+                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&4)
+                + CONFIG.length_costs.evaluate(&4)
+                + CONFIG.length_difference_costs.evaluate(&0),
+            CONFIG.base_cost.rqr
+                + CONFIG.offset_costs.evaluate(&10)
+                + CONFIG.secondary_reverse_edit_costs.substitution_cost(
+                    DnaAlphabet::ascii_to_character(b'A').unwrap(),
+                    DnaAlphabet::ascii_to_character(b'C').unwrap(),
+                )
+                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&5)
+                + CONFIG.length_costs.evaluate(&5)
+                + CONFIG.length_difference_costs.evaluate(&0),
+            CONFIG.base_cost.rqr
+                + CONFIG.offset_costs.evaluate(&10)
+                + CONFIG.secondary_reverse_edit_costs.substitution_cost(
+                    DnaAlphabet::ascii_to_character(b'A').unwrap(),
+                    DnaAlphabet::ascii_to_character(b'C').unwrap(),
+                )
+                + CONFIG.secondary_reverse_edit_costs.substitution_cost(
+                    DnaAlphabet::ascii_to_character(b'G').unwrap(),
+                    DnaAlphabet::ascii_to_character(b'T').unwrap(),
+                )
+                + CONFIG.reverse_anti_primary_gap_costs.evaluate(&6)
+                + CONFIG.length_costs.evaluate(&6)
+                + CONFIG.length_difference_costs.evaluate(&0),
+        ]
+        .to_vec()
+    });
     static END_ALIGNMENTS: &[&[(usize, AlignmentType)]] = &[
         &[
             (1, AlignmentType::PrimaryMatch),
@@ -725,13 +1071,98 @@ mod tests {
         ],
     ];
 
+    static CONFIG: LazyLock<TemplateSwitchConfig<DnaAlphabet, U64Cost>> =
+        LazyLock::new(|| TemplateSwitchConfig {
+            left_flank_length: 0,
+            right_flank_length: 0,
+            min_length: 3,
+            base_cost: BaseCost {
+                rrf: 10u64.into(),
+                rqf: 100u64.into(),
+                qrf: 1000u64.into(),
+                qqf: 10000u64.into(),
+                rrr: 100000u64.into(),
+                rqr: 1000000u64.into(),
+                qrr: 10000000u64.into(),
+                qqr: 100000000u64.into(),
+            },
+            primary_edit_costs: GapAffineAlignmentCostTable::new(
+                "",
+                [0u64, 2, 2, 2, 2, 0, 2, 2, 2, 2, 0, 2, 2, 2, 2, 0]
+                    .map(Into::into)
+                    .to_vec(),
+                [3u64, 3, 3, 3].map(Into::into).to_vec(),
+                [1u64, 1, 1, 1].map(Into::into).to_vec(),
+            ),
+            secondary_forward_edit_costs: GapAffineAlignmentCostTable::new(
+                "",
+                [0u64, 3, 3, 3, 3, 0, 3, 3, 3, 3, 0, 3, 3, 3, 3, 0]
+                    .map(Into::into)
+                    .to_vec(),
+                [3u64, 6, 6, 6].map(Into::into).to_vec(),
+                [1u64, 1, 1, 1].map(Into::into).to_vec(),
+            ),
+            secondary_reverse_edit_costs: GapAffineAlignmentCostTable::new(
+                "",
+                [0u64, 5, 5, 5, 5, 0, 5, 5, 5, 5, 0, 5, 5, 5, 5, 0]
+                    .map(Into::into)
+                    .to_vec(),
+                [3u64, 7, 7, 7].map(Into::into).to_vec(),
+                [1u64, 1, 1, 1].map(Into::into).to_vec(),
+            ),
+            left_flank_edit_costs: GapAffineAlignmentCostTable::new_zero(),
+            right_flank_edit_costs: GapAffineAlignmentCostTable::new_zero(),
+            offset_costs: CostFunction::try_from(
+                (-20..=20)
+                    .map(|i| (i, U64Cost::from(17 * u64::try_from(i + 21).unwrap())))
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap(),
+            length_costs: CostFunction::try_from(
+                (0..=20)
+                    .map(|i| (i, U64Cost::from(19 * u64::try_from(i + 21).unwrap())))
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap(),
+            length_difference_costs: CostFunction::try_from(
+                (-20..=20)
+                    .map(|i| (i, U64Cost::from(23 * u64::try_from(i + 21).unwrap())))
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap(),
+            forward_anti_primary_gap_costs: CostFunction::try_from(
+                (-20..=20)
+                    .map(|i| (i, U64Cost::from(29 * u64::try_from(i + 21).unwrap())))
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap(),
+            reverse_anti_primary_gap_costs: CostFunction::try_from(
+                (-20..=20)
+                    .map(|i| (i, U64Cost::from(31 * u64::try_from(i + 21).unwrap())))
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap(),
+        });
+
     #[test]
     fn move_template_switch_start_backwards() {
         let reference = VectorGenome::<DnaAlphabet>::from_slice_u8(START_REFERENCE).unwrap();
         let query = VectorGenome::from_slice_u8(START_QUERY).unwrap();
         let mut alignment = Alignment::from(START_ALIGNMENTS[0].to_vec());
+        assert_eq!(
+            alignment.compute_cost(
+                reference.as_genome_subsequence(),
+                query.as_genome_subsequence(),
+                2,
+                2,
+                &CONFIG
+            ),
+            START_COSTS[0]
+        );
 
-        for expected_alignment in &START_ALIGNMENTS[1..] {
+        for (expected_alignment, expected_cost) in
+            START_ALIGNMENTS[1..].iter().zip(&START_COSTS[1..])
+        {
             assert!(alignment.move_template_switch_start_backwards(
                 reference.as_genome_subsequence(),
                 query.as_genome_subsequence(),
@@ -740,6 +1171,16 @@ mod tests {
                 1
             ));
             assert_eq!(alignment, Alignment::from(expected_alignment.to_vec()));
+            assert_eq!(
+                alignment.compute_cost(
+                    reference.as_genome_subsequence(),
+                    query.as_genome_subsequence(),
+                    2,
+                    2,
+                    &CONFIG
+                ),
+                *expected_cost
+            );
         }
     }
 
@@ -748,8 +1189,23 @@ mod tests {
         let reference = VectorGenome::<DnaAlphabet>::from_slice_u8(START_REFERENCE).unwrap();
         let query = VectorGenome::from_slice_u8(START_QUERY).unwrap();
         let mut alignment = Alignment::from(START_ALIGNMENTS.last().unwrap().to_vec());
+        assert_eq!(
+            alignment.compute_cost(
+                reference.as_genome_subsequence(),
+                query.as_genome_subsequence(),
+                2,
+                2,
+                &CONFIG
+            ),
+            *START_COSTS.last().unwrap()
+        );
 
-        for expected_alignment in START_ALIGNMENTS.iter().rev().skip(1) {
+        for (expected_alignment, expected_cost) in START_ALIGNMENTS
+            .iter()
+            .zip(START_COSTS.iter())
+            .rev()
+            .skip(1)
+        {
             assert!(alignment.move_template_switch_start_forwards(
                 reference.as_genome_subsequence(),
                 query.as_genome_subsequence(),
@@ -758,6 +1214,16 @@ mod tests {
                 1
             ));
             assert_eq!(alignment, Alignment::from(expected_alignment.to_vec()));
+            assert_eq!(
+                alignment.compute_cost(
+                    reference.as_genome_subsequence(),
+                    query.as_genome_subsequence(),
+                    2,
+                    2,
+                    &CONFIG
+                ),
+                *expected_cost
+            );
         }
     }
 
@@ -766,8 +1232,20 @@ mod tests {
         let reference = VectorGenome::<DnaAlphabet>::from_slice_u8(END_REFERENCE).unwrap();
         let query = VectorGenome::from_slice_u8(END_QUERY).unwrap();
         let mut alignment = Alignment::from(END_ALIGNMENTS.last().unwrap().to_vec());
+        assert_eq!(
+            alignment.compute_cost(
+                reference.as_genome_subsequence(),
+                query.as_genome_subsequence(),
+                1,
+                1,
+                &CONFIG
+            ),
+            *END_COSTS.last().unwrap()
+        );
 
-        for expected_alignment in END_ALIGNMENTS.iter().rev().skip(1) {
+        for (expected_alignment, expected_cost) in
+            END_ALIGNMENTS.iter().zip(END_COSTS.iter()).rev().skip(1)
+        {
             assert!(alignment.move_template_switch_end_backwards(
                 reference.as_genome_subsequence(),
                 query.as_genome_subsequence(),
@@ -776,6 +1254,16 @@ mod tests {
                 1
             ));
             assert_eq!(alignment, Alignment::from(expected_alignment.to_vec()));
+            assert_eq!(
+                alignment.compute_cost(
+                    reference.as_genome_subsequence(),
+                    query.as_genome_subsequence(),
+                    1,
+                    1,
+                    &CONFIG
+                ),
+                *expected_cost
+            );
         }
     }
 
@@ -784,8 +1272,18 @@ mod tests {
         let reference = VectorGenome::<DnaAlphabet>::from_slice_u8(END_REFERENCE).unwrap();
         let query = VectorGenome::from_slice_u8(END_QUERY).unwrap();
         let mut alignment = Alignment::from(END_ALIGNMENTS[0].to_vec());
+        assert_eq!(
+            alignment.compute_cost(
+                reference.as_genome_subsequence(),
+                query.as_genome_subsequence(),
+                1,
+                1,
+                &CONFIG
+            ),
+            *END_COSTS.first().unwrap()
+        );
 
-        for expected_alignment in &END_ALIGNMENTS[1..] {
+        for (expected_alignment, expected_cost) in END_ALIGNMENTS[1..].iter().zip(&END_COSTS[1..]) {
             assert!(alignment.move_template_switch_end_forwards(
                 reference.as_genome_subsequence(),
                 query.as_genome_subsequence(),
@@ -794,6 +1292,16 @@ mod tests {
                 1
             ));
             assert_eq!(alignment, Alignment::from(expected_alignment.to_vec()));
+            assert_eq!(
+                alignment.compute_cost(
+                    reference.as_genome_subsequence(),
+                    query.as_genome_subsequence(),
+                    1,
+                    1,
+                    &CONFIG
+                ),
+                *expected_cost
+            );
         }
     }
 }
