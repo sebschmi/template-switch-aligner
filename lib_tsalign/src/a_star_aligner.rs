@@ -159,7 +159,10 @@ pub fn template_switch_distance_a_star_align<
     cost_limit: Option<Strategies::Cost>,
     memory_limit: Option<usize>,
     template_switch_count_memory: <Strategies::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
-) -> AlignmentResult<template_switch_distance::AlignmentType, Strategies::Cost> {
+) -> AlignmentResult<template_switch_distance::AlignmentType, Strategies::Cost>
+where
+    Strategies::Cost: From<u64>,
+{
     let memory = Memory {
         template_switch_min_length: Default::default(),
         chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy<
