@@ -374,6 +374,10 @@ impl IAlignmentType for AlignmentType {
         self == &Self::Root
     }
 
+    fn is_template_switch_entrance(&self) -> bool {
+        false
+    }
+
     fn is_template_switch_exit(&self) -> bool {
         false
     }

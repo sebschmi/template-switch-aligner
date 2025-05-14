@@ -8,6 +8,7 @@ use super::IAlignmentType;
 
 pub mod iter;
 pub mod stream;
+pub mod template_switch_specifics;
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

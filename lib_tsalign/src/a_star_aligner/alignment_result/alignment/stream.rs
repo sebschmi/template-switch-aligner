@@ -109,6 +109,12 @@ impl AlignmentStream {
         self.length += multiplicity * Self::stream_length(alignment_type);
     }
 
+    pub fn push_all(&mut self, iterator: impl IntoIterator<Item = (usize, AlignmentType)>) {
+        for (multiplicity, alignment_type) in iterator {
+            self.push(multiplicity, alignment_type);
+        }
+    }
+
     /// Pops one unit of length from the tail of the stream.
     pub fn pop_one(&mut self) {
         self.pop(self.length.saturating_sub(1));

@@ -1,6 +1,5 @@
 use std::fmt::Display;
 
-use alignment_type::equal_cost_range::EqualCostRange;
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::{AStarNode, cost::AStarCost};
 use identifier::GapType;
@@ -18,7 +17,7 @@ mod identifier;
 pub mod lower_bounds;
 pub mod strategies;
 
-pub use alignment_type::AlignmentType;
+pub use alignment_type::{AlignmentType, equal_cost_range::EqualCostRange};
 pub use context::Context;
 pub use identifier::{
     Identifier, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,

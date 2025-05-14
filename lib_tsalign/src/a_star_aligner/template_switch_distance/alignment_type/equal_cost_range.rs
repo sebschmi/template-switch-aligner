@@ -26,7 +26,7 @@ pub struct EqualCostRange {
 }
 
 impl EqualCostRange {
-    pub fn new_invalid() -> Self {
+    pub const fn new_invalid() -> Self {
         Self {
             min_start: 1,
             max_start: -1,

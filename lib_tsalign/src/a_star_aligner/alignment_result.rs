@@ -29,6 +29,8 @@ pub trait IAlignmentType {
 
     fn is_internal(&self) -> bool;
 
+    fn is_template_switch_entrance(&self) -> bool;
+
     fn is_template_switch_exit(&self) -> bool;
 }
 
@@ -266,6 +268,10 @@ impl<Cost: AStarCost> AlignmentResult<super::template_switch_distance::Alignment
                     mut equal_cost_range,
                     ..
                 } => {
+                    if config.left_flank_length > 0 || config.right_flank_length > 0 {
+                        continue;
+                    }
+
                     equal_cost_range.min_start = 0;
                     equal_cost_range.max_start = 0;
                     equal_cost_range.min_end = 0;

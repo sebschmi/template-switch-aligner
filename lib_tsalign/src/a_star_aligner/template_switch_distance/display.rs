@@ -79,14 +79,17 @@ impl Display for TemplateSwitchDirection {
 
 impl Display for EqualCostRange {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        assert!(self.is_valid());
-        let Self {
-            min_start,
-            max_start,
-            min_end,
-            max_end,
-        } = self;
-        write!(f, "[{min_start},{max_start}]:[{min_end},{max_end}]")
+        if self.is_valid() {
+            let Self {
+                min_start,
+                max_start,
+                min_end,
+                max_end,
+            } = self;
+            write!(f, "[{min_start},{max_start}]:[{min_end},{max_end}]")
+        } else {
+            write!(f, "[-]:[-]")
+        }
     }
 }
 

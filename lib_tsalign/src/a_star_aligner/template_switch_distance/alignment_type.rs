@@ -145,6 +145,10 @@ impl IAlignmentType for AlignmentType {
         )
     }
 
+    fn is_template_switch_entrance(&self) -> bool {
+        matches!(self, Self::TemplateSwitchEntrance { .. })
+    }
+
     fn is_template_switch_exit(&self) -> bool {
         matches!(self, Self::TemplateSwitchExit { .. })
     }
