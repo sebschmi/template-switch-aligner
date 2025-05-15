@@ -208,7 +208,7 @@ impl Alignment<AlignmentType> {
                 self.alignment[compact_index - 1].0 += 1;
             } else {
                 self.alignment
-                    .insert(compact_index - 1, (1, outer_alignment_type));
+                    .insert(compact_index, (1, outer_alignment_type));
                 compact_index += 1;
             }
 
@@ -620,9 +620,6 @@ impl Alignment<AlignmentType> {
                             query[secondary_index - 1].complement()
                         }
                     };
-                    println!(
-                        "Primary character: {primary_character}; secondary character: {secondary_character}"
-                    );
                     let cost_increment = config
                         .secondary_edit_costs(direction)
                         .match_or_substitution_cost(primary_character, secondary_character);
@@ -725,7 +722,6 @@ impl Alignment<AlignmentType> {
                 AlignmentType::PrimaryShortcut { .. } => panic!("Not supported"),
             };
 
-            println!("Got cost increment of {cost_increment} for {alignment_type}");
             cost = if let Some(cost) = cost.checked_add(&cost_increment) {
                 cost
             } else {
@@ -1163,7 +1159,7 @@ mod tests {
         for (expected_alignment, expected_cost) in
             START_ALIGNMENTS[1..].iter().zip(&START_COSTS[1..])
         {
-            assert!(alignment.move_template_switch_start_backwards(
+            assert!(alignment.move_template_switch_end_forwards(
                 reference.as_genome_subsequence(),
                 query.as_genome_subsequence(),
                 2,
