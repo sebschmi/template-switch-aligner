@@ -72,6 +72,18 @@ impl Alignment<AlignmentType> {
                 .unwrap(),
             )
             .unwrap();
+            match direction {
+                TemplateSwitchDirection::Forward => {
+                    if ts_inner_secondary_index == 0 {
+                        return false;
+                    }
+                }
+                TemplateSwitchDirection::Reverse => {
+                    if ts_inner_secondary_index >= secondary.get(reference, query).len() {
+                        return false;
+                    }
+                }
+            }
 
             // Remove one match or substitution from before the TS.
             let multiplicity = &mut self.alignment[compact_index - 1].0;
@@ -327,12 +339,24 @@ impl Alignment<AlignmentType> {
             )
             .unwrap();
             let ts_inner_secondary_index = match direction {
-                TemplateSwitchDirection::Forward => ts_inner_secondary_index
-                    .checked_add(inner_secondary_length)
-                    .unwrap(),
-                TemplateSwitchDirection::Reverse => ts_inner_secondary_index
-                    .checked_sub(inner_secondary_length)
-                    .unwrap(),
+                TemplateSwitchDirection::Forward => {
+                    let ts_inner_secondary_index = ts_inner_secondary_index
+                        .checked_add(inner_secondary_length)
+                        .unwrap();
+                    if ts_inner_secondary_index >= secondary.get(reference, query).len() {
+                        return false;
+                    }
+                    ts_inner_secondary_index
+                }
+                TemplateSwitchDirection::Reverse => {
+                    let ts_inner_secondary_index = ts_inner_secondary_index
+                        .checked_sub(inner_secondary_length)
+                        .unwrap();
+                    if ts_inner_secondary_index == 0 {
+                        return false;
+                    }
+                    ts_inner_secondary_index
+                }
             };
 
             // Remove one match or substitution from after the TS.
@@ -1159,7 +1183,8 @@ mod tests {
         for (expected_alignment, expected_cost) in
             START_ALIGNMENTS[1..].iter().zip(&START_COSTS[1..])
         {
-            assert!(alignment.move_template_switch_end_forwards(
+            println!("{}", alignment.cigar());
+            assert!(alignment.move_template_switch_start_backwards(
                 reference.as_genome_subsequence(),
                 query.as_genome_subsequence(),
                 2,
