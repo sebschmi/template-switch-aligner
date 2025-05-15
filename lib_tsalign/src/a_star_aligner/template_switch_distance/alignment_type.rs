@@ -1,6 +1,10 @@
+use equal_cost_range::EqualCostRange;
+
 use crate::a_star_aligner::alignment_result::IAlignmentType;
 
 use super::identifier::{TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary};
+
+pub mod equal_cost_range;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -39,10 +43,11 @@ pub enum AlignmentType {
     SecondaryMatch,
     /// A template switch entrance.
     TemplateSwitchEntrance {
+        first_offset: isize,
+        equal_cost_range: EqualCostRange,
         primary: TemplateSwitchPrimary,
         secondary: TemplateSwitchSecondary,
         direction: TemplateSwitchDirection,
-        first_offset: isize,
     },
     /// A template switch exit.
     TemplateSwitchExit {
@@ -140,6 +145,10 @@ impl IAlignmentType for AlignmentType {
         )
     }
 
+    fn is_template_switch_entrance(&self) -> bool {
+        matches!(self, Self::TemplateSwitchEntrance { .. })
+    }
+
     fn is_template_switch_exit(&self) -> bool {
         matches!(self, Self::TemplateSwitchExit { .. })
     }
@@ -158,11 +167,13 @@ impl AlignmentType {
                 primary,
                 secondary,
                 direction,
+                equal_cost_range,
                 first_offset,
             } => Self::TemplateSwitchEntrance {
                 primary: primary.inverted(),
                 secondary: secondary.inverted(),
                 direction: direction.inverted(),
+                equal_cost_range: *equal_cost_range,
                 first_offset: *first_offset,
             },
             Self::PrimaryShortcut {

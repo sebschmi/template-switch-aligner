@@ -1,11 +1,15 @@
 use std::fmt::{Display, Formatter, Result, Write};
 
 use a_star_sequences::SequencePair;
-use alignment::Alignment;
+use alignment::{Alignment, stream::AlignmentStream};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStarResult, cost::AStarCost};
 use noisy_float::types::{R64, r64};
 use num_traits::{Float, Zero};
+
+use crate::config::TemplateSwitchConfig;
+
+use super::alignment_geometry::AlignmentRange;
 
 pub mod a_star_sequences;
 pub mod alignment;
@@ -16,6 +20,8 @@ pub trait IAlignmentType {
     fn is_repeated(&self, previous: &Self) -> bool;
 
     fn is_internal(&self) -> bool;
+
+    fn is_template_switch_entrance(&self) -> bool;
 
     fn is_template_switch_exit(&self) -> bool;
 }
@@ -221,6 +227,178 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
             }
         } else {
             Self::WithoutTarget { statistics }
+        }
+    }
+}
+
+impl<Cost: AStarCost + From<u64>>
+    AlignmentResult<super::template_switch_distance::AlignmentType, Cost>
+{
+    pub fn compute_ts_equal_cost_ranges<
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    >(
+        &mut self,
+        reference: &SubsequenceType,
+        query: &SubsequenceType,
+        range: &Option<AlignmentRange>,
+        config: &TemplateSwitchConfig<AlphabetType, Cost>,
+    ) {
+        let Self::WithTarget {
+            alignment,
+            statistics,
+        } = self
+        else {
+            return;
+        };
+        let mut stream = AlignmentStream::new();
+        let reference_offset = range
+            .as_ref()
+            .map(|range| range.reference_offset())
+            .unwrap_or(0);
+        let query_offset = range
+            .as_ref()
+            .map(|range| range.query_offset())
+            .unwrap_or(0);
+
+        for i in 0..alignment.inner_mut().len() {
+            let multiplicity = alignment.inner_mut()[i].0;
+            let alignment_type = alignment.inner_mut()[i].1;
+
+            match alignment_type {
+                super::template_switch_distance::AlignmentType::TemplateSwitchEntrance {
+                    mut equal_cost_range,
+                    ..
+                } => {
+                    if config.left_flank_length == 0 && config.right_flank_length == 0 {
+                        equal_cost_range.min_start = 0;
+                        equal_cost_range.max_start = 0;
+                        equal_cost_range.min_end = 0;
+                        equal_cost_range.max_end = 0;
+
+                        let initial_cost = alignment.compute_cost(
+                            reference,
+                            query,
+                            reference_offset,
+                            query_offset,
+                            config,
+                        );
+                        assert_eq!(initial_cost, (statistics.cost.round().raw() as u64).into());
+
+                        {
+                            let mut min_start_alignment = alignment.clone();
+                            while min_start_alignment.move_template_switch_end_forwards(
+                                reference,
+                                query,
+                                reference_offset,
+                                query_offset,
+                                i,
+                            ) {
+                                let new_cost = min_start_alignment.compute_cost(
+                                    reference,
+                                    query,
+                                    reference_offset,
+                                    query_offset,
+                                    config,
+                                );
+                                if new_cost > initial_cost {
+                                    break;
+                                } else {
+                                    assert_eq!(new_cost, initial_cost);
+                                    equal_cost_range.min_start -= 1;
+                                }
+                            }
+                        }
+
+                        {
+                            let mut max_start_alignment = alignment.clone();
+                            while max_start_alignment.move_template_switch_start_forwards(
+                                reference,
+                                query,
+                                reference_offset,
+                                query_offset,
+                                i,
+                            ) {
+                                let new_cost = max_start_alignment.compute_cost(
+                                    reference,
+                                    query,
+                                    reference_offset,
+                                    query_offset,
+                                    config,
+                                );
+                                if new_cost > initial_cost {
+                                    break;
+                                } else {
+                                    assert_eq!(new_cost, initial_cost);
+                                    equal_cost_range.max_start += 1;
+                                }
+                            }
+                        }
+
+                        {
+                            let mut min_end_alignment = alignment.clone();
+                            while min_end_alignment.move_template_switch_end_backwards(
+                                reference,
+                                query,
+                                reference_offset,
+                                query_offset,
+                                i,
+                            ) {
+                                let new_cost = min_end_alignment.compute_cost(
+                                    reference,
+                                    query,
+                                    reference_offset,
+                                    query_offset,
+                                    config,
+                                );
+                                if new_cost > initial_cost {
+                                    break;
+                                } else {
+                                    assert_eq!(new_cost, initial_cost);
+                                    equal_cost_range.min_end -= 1;
+                                }
+                            }
+                        }
+
+                        {
+                            let mut max_end_alignment = alignment.clone();
+                            while max_end_alignment.move_template_switch_end_forwards(
+                                reference,
+                                query,
+                                reference_offset,
+                                query_offset,
+                                i,
+                            ) {
+                                let new_cost = max_end_alignment.compute_cost(
+                                    reference,
+                                    query,
+                                    reference_offset,
+                                    query_offset,
+                                    config,
+                                );
+                                if new_cost > initial_cost {
+                                    break;
+                                } else {
+                                    assert_eq!(new_cost, initial_cost);
+                                    equal_cost_range.max_end += 1;
+                                }
+                            }
+                        }
+
+                        let super::template_switch_distance::AlignmentType::TemplateSwitchEntrance {
+                        equal_cost_range: alignment_equal_cost_range,
+                        ..
+                    } = &mut alignment.inner_mut()[i].1
+                    else {
+                        unreachable!()
+                    };
+                        *alignment_equal_cost_range = equal_cost_range;
+                    }
+                }
+                _ => { /* Do nothing. */ }
+            }
+
+            stream.push(multiplicity, alignment_type);
         }
     }
 }

@@ -17,7 +17,7 @@ mod identifier;
 pub mod lower_bounds;
 pub mod strategies;
 
-pub use alignment_type::AlignmentType;
+pub use alignment_type::{AlignmentType, equal_cost_range::EqualCostRange};
 pub use context::Context;
 pub use identifier::{
     Identifier, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
@@ -241,52 +241,11 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                     unreachable!("This closure is only called on template switch entrances.")
                 };
 
-                let base_cost = match (
-                    template_switch_primary,
-                    template_switch_secondary,
-                    template_switch_direction,
-                ) {
-                    (
-                        TemplateSwitchPrimary::Reference,
-                        TemplateSwitchSecondary::Reference,
-                        TemplateSwitchDirection::Forward,
-                    ) => base_cost.rrf,
-                    (
-                        TemplateSwitchPrimary::Reference,
-                        TemplateSwitchSecondary::Query,
-                        TemplateSwitchDirection::Forward,
-                    ) => base_cost.rqf,
-                    (
-                        TemplateSwitchPrimary::Query,
-                        TemplateSwitchSecondary::Reference,
-                        TemplateSwitchDirection::Forward,
-                    ) => base_cost.qrf,
-                    (
-                        TemplateSwitchPrimary::Query,
-                        TemplateSwitchSecondary::Query,
-                        TemplateSwitchDirection::Forward,
-                    ) => base_cost.qqf,
-                    (
-                        TemplateSwitchPrimary::Reference,
-                        TemplateSwitchSecondary::Reference,
-                        TemplateSwitchDirection::Reverse,
-                    ) => base_cost.rrr,
-                    (
-                        TemplateSwitchPrimary::Reference,
-                        TemplateSwitchSecondary::Query,
-                        TemplateSwitchDirection::Reverse,
-                    ) => base_cost.rqr,
-                    (
-                        TemplateSwitchPrimary::Query,
-                        TemplateSwitchSecondary::Reference,
-                        TemplateSwitchDirection::Reverse,
-                    ) => base_cost.qrr,
-                    (
-                        TemplateSwitchPrimary::Query,
-                        TemplateSwitchSecondary::Query,
-                        TemplateSwitchDirection::Reverse,
-                    ) => base_cost.qqr,
-                };
+                let base_cost = base_cost.get(
+                    *template_switch_primary,
+                    *template_switch_secondary,
+                    *template_switch_direction,
+                );
 
                 (base_cost != Strategies::Cost::max_value()).then(|| {
                     self.generate_successor(
@@ -296,6 +255,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                             primary: *template_switch_primary,
                             secondary: *template_switch_secondary,
                             direction: *template_switch_direction,
+                            equal_cost_range: EqualCostRange::new_invalid(),
                             first_offset: *template_switch_first_offset,
                         },
                         context,
@@ -342,6 +302,7 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
                 primary: template_switch_primary,
                 secondary: template_switch_secondary,
                 direction: template_switch_direction,
+                equal_cost_range: EqualCostRange::new_invalid(),
                 first_offset: successor_template_switch_first_offset,
             },
             context,

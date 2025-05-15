@@ -160,7 +160,10 @@ pub fn template_switch_distance_a_star_align<
     cost_limit: Option<Strategies::Cost>,
     memory_limit: Option<usize>,
     template_switch_count_memory: <Strategies::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
-) -> AlignmentResult<template_switch_distance::AlignmentType, Strategies::Cost> {
+) -> AlignmentResult<template_switch_distance::AlignmentType, Strategies::Cost>
+where
+    Strategies::Cost: From<u64>,
+{
     let memory = Memory {
         template_switch_min_length: Default::default(),
         chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy<
@@ -171,7 +174,7 @@ pub fn template_switch_distance_a_star_align<
         primary_match: (),
     };
 
-    a_star_align(template_switch_distance::Context::<
+    let mut result = a_star_align(template_switch_distance::Context::<
         SubsequenceType,
         Strategies,
     >::new(
@@ -179,10 +182,12 @@ pub fn template_switch_distance_a_star_align<
         query,
         reference_name,
         query_name,
-        range,
-        config,
+        range.clone(),
+        config.clone(),
         memory,
         cost_limit,
         memory_limit,
-    ))
+    ));
+    result.compute_ts_equal_cost_ranges(reference, query, &range, &config);
+    result
 }

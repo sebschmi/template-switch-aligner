@@ -1,4 +1,4 @@
-use compact_genome::interface::sequence::GenomeSequence;
+use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 
 use super::{
     AlignmentType, Context,
@@ -445,6 +445,23 @@ impl TemplateSwitchPrimary {
             Self::Query => Self::Reference,
         }
     }
+
+    pub fn get<
+        'reference: 'result,
+        'query: 'result,
+        'result,
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    >(
+        &self,
+        reference: &'reference SubsequenceType,
+        query: &'query SubsequenceType,
+    ) -> &'result SubsequenceType {
+        match self {
+            TemplateSwitchPrimary::Reference => reference,
+            TemplateSwitchPrimary::Query => query,
+        }
+    }
 }
 
 impl TemplateSwitchSecondary {
@@ -452,6 +469,23 @@ impl TemplateSwitchSecondary {
         match self {
             Self::Reference => Self::Query,
             Self::Query => Self::Reference,
+        }
+    }
+
+    pub fn get<
+        'reference: 'result,
+        'query: 'result,
+        'result,
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    >(
+        &self,
+        reference: &'reference SubsequenceType,
+        query: &'query SubsequenceType,
+    ) -> &'result SubsequenceType {
+        match self {
+            TemplateSwitchSecondary::Reference => reference,
+            TemplateSwitchSecondary::Query => query,
         }
     }
 }

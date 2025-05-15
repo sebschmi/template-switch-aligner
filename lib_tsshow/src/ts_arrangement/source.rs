@@ -101,6 +101,7 @@ impl TsSourceArrangement {
                     secondary,
                     direction,
                     first_offset,
+                    ..
                 } => {
                     template_switches_out.extend([result.align_ts(
                         ts_index,

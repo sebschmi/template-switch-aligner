@@ -1,5 +1,9 @@
 use lib_tsalign::a_star_aligner::{
-    alignment_result::alignment::{Alignment, iter::CompactAlignmentIterCloned},
+    alignment_result::alignment::{
+        Alignment,
+        iter::CompactAlignmentIterCloned,
+        stream::{AlignmentStream, AlignmentStreamCoordinates},
+    },
     template_switch_distance::{
         AlignmentType, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
     },
@@ -8,19 +12,17 @@ use log::{debug, trace};
 
 use crate::error::Result;
 
-use super::alignment_stream::{AlignmentCoordinates, AlignmentStream};
-
 pub const STREAM_DEFAULT_LENGTH: usize = 20;
 pub const STREAM_PADDING: usize = 10;
 
 #[derive(Debug)]
 pub struct TSShow<AlignmentType> {
-    pub upstream_offset: AlignmentCoordinates,
-    pub downstream_limit: AlignmentCoordinates,
-    pub sp1_offset: AlignmentCoordinates,
+    pub upstream_offset: AlignmentStreamCoordinates,
+    pub downstream_limit: AlignmentStreamCoordinates,
+    pub sp1_offset: AlignmentStreamCoordinates,
     pub sp2_secondary_offset: usize,
     pub sp3_secondary_offset: usize,
-    pub sp4_offset: AlignmentCoordinates,
+    pub sp4_offset: AlignmentStreamCoordinates,
     pub primary: TemplateSwitchPrimary,
     pub secondary: TemplateSwitchSecondary,
     pub upstream: Alignment<AlignmentType>,
@@ -62,6 +64,7 @@ fn parse_template_switch(
             secondary,
             direction,
             first_offset,
+            ..
         },
     ) = alignment.peek_front_cloned().unwrap()
     else {

@@ -2,7 +2,9 @@ use compact_genome::interface::alphabet::Alphabet;
 use num_traits::{Bounded, bounds::UpperBounded};
 
 use crate::{
-    a_star_aligner::template_switch_distance::TemplateSwitchDirection,
+    a_star_aligner::template_switch_distance::{
+        TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+    },
     costs::{cost_function::CostFunction, gap_affine::GapAffineAlignmentCostTable},
     error::{Error, Result},
 };
@@ -100,6 +102,58 @@ impl<Cost: UpperBounded> BaseCost<Cost> {
             rqr: Cost::max_value(),
             qrr: Cost::max_value(),
             qqr: Cost::max_value(),
+        }
+    }
+}
+
+impl<Cost: Clone> BaseCost<Cost> {
+    pub fn get(
+        &self,
+        primary: TemplateSwitchPrimary,
+        secondary: TemplateSwitchSecondary,
+        direction: TemplateSwitchDirection,
+    ) -> Cost {
+        match (primary, secondary, direction) {
+            (
+                TemplateSwitchPrimary::Reference,
+                TemplateSwitchSecondary::Reference,
+                TemplateSwitchDirection::Forward,
+            ) => self.rrf.clone(),
+            (
+                TemplateSwitchPrimary::Reference,
+                TemplateSwitchSecondary::Reference,
+                TemplateSwitchDirection::Reverse,
+            ) => self.rrr.clone(),
+            (
+                TemplateSwitchPrimary::Reference,
+                TemplateSwitchSecondary::Query,
+                TemplateSwitchDirection::Forward,
+            ) => self.rqf.clone(),
+            (
+                TemplateSwitchPrimary::Reference,
+                TemplateSwitchSecondary::Query,
+                TemplateSwitchDirection::Reverse,
+            ) => self.rqr.clone(),
+            (
+                TemplateSwitchPrimary::Query,
+                TemplateSwitchSecondary::Reference,
+                TemplateSwitchDirection::Forward,
+            ) => self.qrf.clone(),
+            (
+                TemplateSwitchPrimary::Query,
+                TemplateSwitchSecondary::Reference,
+                TemplateSwitchDirection::Reverse,
+            ) => self.qrr.clone(),
+            (
+                TemplateSwitchPrimary::Query,
+                TemplateSwitchSecondary::Query,
+                TemplateSwitchDirection::Forward,
+            ) => self.qqf.clone(),
+            (
+                TemplateSwitchPrimary::Query,
+                TemplateSwitchSecondary::Query,
+                TemplateSwitchDirection::Reverse,
+            ) => self.qqr.clone(),
         }
     }
 }

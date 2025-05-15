@@ -1,7 +1,7 @@
 # Limits
 
-left_flank_length = 0
-right_flank_length = 0
+left_flank_length = 5
+right_flank_length = 5
 
 # Base Cost
 
@@ -9,10 +9,10 @@ rrf_cost = 300
 rqf_cost = 200
 qrf_cost = 200
 qqf_cost = 300
-rrr_cost = 4
-rqr_cost = 4
-qrr_cost = 4
-qqr_cost = 4
+rrr_cost = 3
+rqr_cost = 2
+qrr_cost = 2
+qqr_cost = 3
 
 # Jump Costs
 
@@ -21,11 +21,11 @@ Offset
   inf    0 inf
 
 Length
-   0 1 100
+   0 5   6
  inf 0 inf
 
 LengthDifference
- -inf -100  11
+ -inf -100 101
   inf    0 inf
 
 ForwardAntiPrimaryGap
@@ -60,11 +60,11 @@ GapExtendCostVector
 SubstitutionCostTable
   |  A  C  G  T  N
 --+---------------
-A |  0  8  8  8  0
-C |  8  0  8  8  0
-G |  8  8  0  8  0
-T |  8  8  8  0  0
-N |  0  0  0  0  0
+A |  0  8  8  8  4
+C |  8  0  8  8  4
+G |  8  8  0  8  4
+T |  8  8  8  0  4
+N |  4  4  4  4  4
 
 GapOpenCostVector
  A C G T N
@@ -79,11 +79,11 @@ GapExtendCostVector
 SubstitutionCostTable
   |  A  C  G  T  N
 --+---------------
-A |  0  8  8  8  0
-C |  8  0  8  8  0
-G |  8  8  0  8  0
-T |  8  8  8  0  0
-N |  0  0  0  0  0
+A |  0  8  8  8  4
+C |  8  0  8  8  4
+G |  8  8  0  8  4
+T |  8  8  8  0  4
+N |  4  4  4  4  4
 
 GapOpenCostVector
  A C G T N
