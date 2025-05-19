@@ -421,12 +421,14 @@ impl<Cost: AStarCost + From<u64>>
 
                     {
                         let mut min_start_alignment = alignment.clone();
+                        let mut i = i;
+
                         while min_start_alignment.move_template_switch_start_backwards(
                             reference,
                             query,
                             reference_offset,
                             query_offset,
-                            i,
+                            &mut i,
                         ) {
                             let new_cost = min_start_alignment.compute_cost(
                                 reference,
@@ -449,12 +451,14 @@ impl<Cost: AStarCost + From<u64>>
 
                     {
                         let mut max_start_alignment = alignment.clone();
+                        let mut i = i;
+
                         while max_start_alignment.move_template_switch_start_forwards(
                             reference,
                             query,
                             reference_offset,
                             query_offset,
-                            i,
+                            &mut i,
                         ) {
                             let new_cost = max_start_alignment.compute_cost(
                                 reference,

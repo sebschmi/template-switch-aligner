@@ -33,7 +33,7 @@ impl Alignment<AlignmentType> {
         query: &SubsequenceType,
         reference_offset: usize,
         query_offset: usize,
-        mut compact_index: usize,
+        compact_index: &mut usize,
     ) -> bool {
         let AlignmentType::TemplateSwitchEntrance {
             first_offset,
@@ -41,7 +41,7 @@ impl Alignment<AlignmentType> {
             secondary,
             direction,
             ..
-        } = self.alignment[compact_index].1
+        } = self.alignment[*compact_index].1
         else {
             panic!()
         };
@@ -55,7 +55,7 @@ impl Alignment<AlignmentType> {
         ) {
             // Compute TS inner first indices.
             let mut stream = AlignmentStream::new();
-            stream.push_all(self.iter_compact_cloned().take(compact_index));
+            stream.push_all(self.iter_compact_cloned().take(*compact_index));
             let ts_inner_primary_index = match primary {
                 TemplateSwitchPrimary::Reference => {
                     stream.head_coordinates().reference() + reference_offset
@@ -92,14 +92,14 @@ impl Alignment<AlignmentType> {
             }
 
             // Remove one match or substitution from before the TS.
-            let multiplicity = &mut self.alignment[compact_index - 1].0;
+            let multiplicity = &mut self.alignment[*compact_index - 1].0;
             assert!(*multiplicity > 0);
             *multiplicity -= 1;
 
             // Remove the alignment entry if it has zero multiplicity.
             if *multiplicity == 0 {
-                compact_index -= 1;
-                self.alignment.remove(compact_index);
+                *compact_index -= 1;
+                self.alignment.remove(*compact_index);
             }
 
             // Check if the new inner pair is a match or a substitution.
@@ -119,18 +119,18 @@ impl Alignment<AlignmentType> {
             };
 
             // Insert new inner alignment.
-            if self.alignment[compact_index + 1].1 == inner_alignment_type {
-                self.alignment[compact_index + 1].0 += 1;
+            if self.alignment[*compact_index + 1].1 == inner_alignment_type {
+                self.alignment[*compact_index + 1].0 += 1;
             } else {
                 self.alignment
-                    .insert(compact_index + 1, (1, inner_alignment_type));
+                    .insert(*compact_index + 1, (1, inner_alignment_type));
             }
 
             // If reverse TS, then fix first offset.
             // (If forward TS, the changes to points 1 and 2 cancel out.)
             if direction == TemplateSwitchDirection::Reverse {
                 let AlignmentType::TemplateSwitchEntrance { first_offset, .. } =
-                    &mut self.alignment[compact_index].1
+                    &mut self.alignment[*compact_index].1
                 else {
                     unreachable!();
                 };
@@ -139,7 +139,7 @@ impl Alignment<AlignmentType> {
 
             // Fix anti-primary gap.
             let Some((_, AlignmentType::TemplateSwitchExit { anti_primary_gap })) = self.alignment
-                [compact_index..]
+                [*compact_index..]
                 .iter_mut()
                 .find(|(_, alignment_type)| alignment_type.is_template_switch_exit())
             else {
@@ -171,10 +171,10 @@ impl Alignment<AlignmentType> {
         query: &SubsequenceType,
         reference_offset: usize,
         query_offset: usize,
-        mut compact_index: usize,
+        compact_index: &mut usize,
     ) -> bool {
         let AlignmentType::TemplateSwitchEntrance { direction, .. } =
-            self.alignment[compact_index].1
+            self.alignment[*compact_index].1
         else {
             panic!()
         };
@@ -182,7 +182,7 @@ impl Alignment<AlignmentType> {
         // Assert that no flanks are involved.
         assert!(
             self.alignment
-                .get(compact_index - 1)
+                .get(*compact_index - 1)
                 .map(|(_, alignment_type)| !matches!(
                     alignment_type,
                     AlignmentType::PrimaryFlankDeletion
@@ -194,22 +194,22 @@ impl Alignment<AlignmentType> {
         );
 
         if let Some((_, AlignmentType::SecondaryMatch | AlignmentType::SecondarySubstitution)) =
-            self.alignment.get(compact_index + 1)
+            self.alignment.get(*compact_index + 1)
         {
             // Compute TS outer first indices.
             let mut stream = AlignmentStream::new();
-            stream.push_all(self.iter_compact_cloned().take(compact_index));
+            stream.push_all(self.iter_compact_cloned().take(*compact_index));
             let ts_outer_reference_index = stream.head_coordinates().reference() + reference_offset;
             let ts_outer_query_index = stream.head_coordinates().query() + query_offset;
 
             // Remove one match or substitution from inside the TS.
-            let multiplicity = &mut self.alignment[compact_index + 1].0;
+            let multiplicity = &mut self.alignment[*compact_index + 1].0;
             assert!(*multiplicity > 0);
             *multiplicity -= 1;
 
             // Remove the alignment entry if it has zero multiplicity.
             if *multiplicity == 0 {
-                self.alignment.remove(compact_index + 1);
+                self.alignment.remove(*compact_index + 1);
             }
 
             // Check if the new outer pair is a match or a substitution.
@@ -222,19 +222,19 @@ impl Alignment<AlignmentType> {
             };
 
             // Insert new outer alignment.
-            if self.alignment[compact_index - 1].1 == outer_alignment_type {
-                self.alignment[compact_index - 1].0 += 1;
+            if self.alignment[*compact_index - 1].1 == outer_alignment_type {
+                self.alignment[*compact_index - 1].0 += 1;
             } else {
                 self.alignment
-                    .insert(compact_index, (1, outer_alignment_type));
-                compact_index += 1;
+                    .insert(*compact_index, (1, outer_alignment_type));
+                *compact_index += 1;
             }
 
             // If reverse TS, then fix first offset.
             // (If forward TS, the changes to points 1 and 2 cancel out.)
             if direction == TemplateSwitchDirection::Reverse {
                 let AlignmentType::TemplateSwitchEntrance { first_offset, .. } =
-                    &mut self.alignment[compact_index].1
+                    &mut self.alignment[*compact_index].1
                 else {
                     unreachable!();
                 };
@@ -243,7 +243,7 @@ impl Alignment<AlignmentType> {
 
             // Fix anti-primary gap.
             let Some((_, AlignmentType::TemplateSwitchExit { anti_primary_gap })) = self.alignment
-                [compact_index..]
+                [*compact_index..]
                 .iter_mut()
                 .find(|(_, alignment_type)| alignment_type.is_template_switch_exit())
             else {
@@ -1197,7 +1197,7 @@ mod tests {
                 query.as_genome_subsequence(),
                 2,
                 2,
-                1
+                &mut 1
             ));
             assert_eq!(alignment, Alignment::from(expected_alignment.to_vec()));
             assert_eq!(
@@ -1240,7 +1240,7 @@ mod tests {
                 query.as_genome_subsequence(),
                 2,
                 2,
-                1
+                &mut 1
             ));
             assert_eq!(alignment, Alignment::from(expected_alignment.to_vec()));
             assert_eq!(
