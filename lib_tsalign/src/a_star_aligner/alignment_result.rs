@@ -432,8 +432,7 @@ impl<Cost: AStarCost + From<u64>>
                             );
                             if new_cost > initial_cost {
                                 trace!(
-                                    "Stopping moving TS start backwards because cost {new_cost} > {initial_cost} with alignment {}",
-                                    min_start_alignment
+                                    "Stopping moving TS start backwards because cost {new_cost} > {initial_cost} with alignment {min_start_alignment}"
                                 );
                                 break;
                             } else {
@@ -461,8 +460,7 @@ impl<Cost: AStarCost + From<u64>>
                             );
                             if new_cost > initial_cost {
                                 trace!(
-                                    "Stopping moving TS start forwards because cost {new_cost} > {initial_cost} with alignment {}",
-                                    max_start_alignment
+                                    "Stopping moving TS start forwards because cost {new_cost} > {initial_cost} with alignment {max_start_alignment}"
                                 );
                                 break;
                             } else {
@@ -490,8 +488,7 @@ impl<Cost: AStarCost + From<u64>>
                             );
                             if new_cost > initial_cost {
                                 trace!(
-                                    "Stopping moving TS end backwards because cost {new_cost} > {initial_cost} with alignment {}",
-                                    min_end_alignment
+                                    "Stopping moving TS end backwards because cost {new_cost} > {initial_cost} with alignment {min_end_alignment}"
                                 );
                                 break;
                             } else {
@@ -519,8 +516,7 @@ impl<Cost: AStarCost + From<u64>>
                             );
                             if new_cost > initial_cost {
                                 trace!(
-                                    "Stopping moving TS end forwards because cost {new_cost} > {initial_cost} with alignment {}",
-                                    max_end_alignment
+                                    "Stopping moving TS end forwards because cost {new_cost} > {initial_cost} with alignment {max_end_alignment}"
                                 );
                                 break;
                             } else {
