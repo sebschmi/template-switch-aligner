@@ -46,9 +46,13 @@ impl Alignment<AlignmentType> {
             panic!()
         };
 
-        if let Some((_, AlignmentType::PrimaryMatch | AlignmentType::PrimarySubstitution)) =
-            self.alignment.get(compact_index - 1)
-        {
+        if matches!(
+            self.alignment.get(compact_index.saturating_sub(1)),
+            Some((
+                _,
+                AlignmentType::PrimaryMatch | AlignmentType::PrimarySubstitution
+            ))
+        ) {
             // Compute TS inner first indices.
             let mut stream = AlignmentStream::new();
             stream.push_all(self.iter_compact_cloned().take(compact_index));
@@ -72,6 +76,8 @@ impl Alignment<AlignmentType> {
                 .unwrap(),
             )
             .unwrap();
+
+            // Check if first indices can be moved while staying in bounds.
             match direction {
                 TemplateSwitchDirection::Forward => {
                     if ts_inner_secondary_index == 0 {
@@ -343,6 +349,7 @@ impl Alignment<AlignmentType> {
                     let ts_inner_secondary_index = ts_inner_secondary_index
                         .checked_add(inner_secondary_length)
                         .unwrap();
+                    // Check if first indices can be moved while staying in bounds.
                     if ts_inner_secondary_index >= secondary.get(reference, query).len() {
                         return false;
                     }
@@ -352,6 +359,7 @@ impl Alignment<AlignmentType> {
                     let ts_inner_secondary_index = ts_inner_secondary_index
                         .checked_sub(inner_secondary_length)
                         .unwrap();
+                    // Check if first indices can be moved while staying in bounds.
                     if ts_inner_secondary_index == 0 {
                         return false;
                     }

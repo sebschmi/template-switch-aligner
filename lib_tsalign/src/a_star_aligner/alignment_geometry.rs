@@ -51,6 +51,43 @@ impl AlignmentRange {
     pub fn query_range(&self) -> Range<usize> {
         self.offset.query..self.limit.query
     }
+
+    pub fn move_offsets_left(&self) -> Self {
+        Self::new_offset_limit(
+            AlignmentCoordinates::new(
+                self.offset.reference.checked_sub(1).unwrap(),
+                self.offset.query.checked_sub(1).unwrap(),
+            ),
+            self.limit,
+        )
+    }
+
+    pub fn move_offsets_right(&self) -> Self {
+        assert!(self.offset.reference < self.limit.reference);
+        assert!(self.offset.query < self.limit.query);
+
+        Self::new_offset_limit(
+            AlignmentCoordinates::new(self.offset.reference + 1, self.offset.query + 1),
+            self.limit,
+        )
+    }
+
+    pub fn move_limits_left(&self) -> Self {
+        assert!(self.offset.reference < self.limit.reference);
+        assert!(self.offset.query < self.limit.query);
+
+        Self::new_offset_limit(
+            self.offset,
+            AlignmentCoordinates::new(self.limit.reference - 1, self.limit.query - 1),
+        )
+    }
+
+    pub fn move_limits_right(&self) -> Self {
+        Self::new_offset_limit(
+            self.offset,
+            AlignmentCoordinates::new(self.limit.reference + 1, self.limit.query + 1),
+        )
+    }
 }
 
 impl AlignmentCoordinates {
