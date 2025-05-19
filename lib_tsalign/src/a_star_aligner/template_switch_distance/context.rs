@@ -44,7 +44,7 @@ pub struct Context<
                 <Strategies as AlignmentStrategySelector>::Cost,
             >>::IdentifierPrimaryExtraData,
         >,
-        Node<Strategies>,
+        Box<Node<Strategies>>,
     >,
     pub memory: Memory<Strategies>,
 
@@ -102,10 +102,10 @@ impl<
     Strategies: AlignmentStrategySelector,
 > AStarContext for Context<'_, '_, SubsequenceType, Strategies>
 {
-    type Node = Node<Strategies>;
+    type Node = Box<Node<Strategies>>;
 
     fn create_root(&self) -> Self::Node {
-        Self::Node {
+        Box::new(Node {
             node_data: NodeData {
                 identifier: Identifier::new_primary(self.range.reference_offset(), self.range.query_offset(), 0, GapType::None, <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::create_root_identifier_primary_extra_data(self)),
                 predecessor: None,
@@ -114,7 +114,7 @@ impl<
                 a_star_lower_bound: Strategies::Cost::zero(),
             },
             strategies: AlignmentStrategiesNodeMemory::create_root(self),
-        }
+        })
     }
 
     fn generate_successors(
@@ -186,12 +186,15 @@ impl<
                             };
 
                         if cost_increment != Strategies::Cost::max_value() {
-                            opened_nodes_output.extend(node.generate_primary_diagonal_successor(
-                                0,
-                                cost_increment,
-                                is_match,
-                                self,
-                            ));
+                            opened_nodes_output.extend(
+                                node.generate_primary_diagonal_successor(
+                                    0,
+                                    cost_increment,
+                                    is_match,
+                                    self,
+                                )
+                                .map(Into::into),
+                            );
                         }
 
                         if is_match && <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::always_generate_substitution() {
@@ -203,7 +206,8 @@ impl<
                                     cost_increment,
                                     false,
                                     self,
-                                ));
+                                )
+                                .map(Into::into));
                             }
                         }
                     }
@@ -232,12 +236,15 @@ impl<
                         };
 
                         if cost_increment != Strategies::Cost::max_value() {
-                            opened_nodes_output.extend(node.generate_primary_diagonal_successor(
-                                flank_index + 1,
-                                cost_increment,
-                                is_match,
-                                self,
-                            ));
+                            opened_nodes_output.extend(
+                                node.generate_primary_diagonal_successor(
+                                    flank_index + 1,
+                                    cost_increment,
+                                    is_match,
+                                    self,
+                                )
+                                .map(Into::into),
+                            );
                         }
                     }
                 }
@@ -256,7 +263,8 @@ impl<
                                     .primary_edit_costs
                                     .gap_costs(r.clone(), gap_type != GapType::Deletion),
                                 self,
-                            ),
+                            )
+                            .map(Into::into),
                         );
                     }
 
@@ -271,7 +279,8 @@ impl<
                                     .left_flank_edit_costs
                                     .gap_costs(r, gap_type != GapType::Deletion),
                                 self,
-                            ),
+                            )
+                            .map(Into::into),
                         );
                     } else if flank_index < 0 {
                         opened_nodes_output.extend(
@@ -281,7 +290,8 @@ impl<
                                     .right_flank_edit_costs
                                     .gap_costs(r, gap_type != GapType::Deletion),
                                 self,
-                            ),
+                            )
+                            .map(Into::into),
                         );
                     }
                 }
@@ -300,7 +310,8 @@ impl<
                                     .primary_edit_costs
                                     .gap_costs(q.clone(), gap_type != GapType::Insertion),
                                 self,
-                            ),
+                            )
+                            .map(Into::into),
                         );
                     }
 
@@ -315,7 +326,8 @@ impl<
                                     .left_flank_edit_costs
                                     .gap_costs(q, gap_type != GapType::Insertion),
                                 self,
-                            ),
+                            )
+                            .map(Into::into),
                         );
                     } else if flank_index < 0 {
                         opened_nodes_output.extend(
@@ -325,7 +337,8 @@ impl<
                                     .right_flank_edit_costs
                                     .gap_costs(q, gap_type != GapType::Insertion),
                                 self,
-                            ),
+                            )
+                            .map(Into::into),
                         );
                     }
                 }
@@ -340,7 +353,8 @@ impl<
                                 config.offset_costs.evaluate(&0),
                                 &config.base_cost,
                                 self,
-                            ),
+                            )
+                            .map(Into::into),
                         );
                     }
                 }
@@ -394,7 +408,8 @@ impl<
                                 cost_increment,
                                 template_switch_first_offset + 1,
                                 self,
-                            ),
+                            )
+                            .map(Into::into),
                         )
                     }
                 }
@@ -421,7 +436,8 @@ impl<
                                 cost_increment,
                                 template_switch_first_offset - 1,
                                 self,
-                            ),
+                            )
+                            .map(Into::into),
                         )
                     }
                 }
@@ -443,6 +459,7 @@ impl<
                     let secondary_root_node: Vec<_> = node
                         .generate_secondary_root_node(self)
                         .into_iter()
+                        .map(Box::new)
                         .collect();
                     opened_nodes_output = ExtendMap::new(
                         opened_nodes_direct_output,
@@ -505,7 +522,8 @@ impl<
                                     .match_or_substitution_cost(p.clone(), s.clone()),
                                 p == s,
                                 self,
-                            ),
+                            )
+                            .map(Into::into),
                         );
                     }
 
@@ -543,7 +561,8 @@ impl<
                                     .secondary_edit_costs(template_switch_direction)
                                     .gap_costs(s, gap_type != GapType::Deletion),
                                 self,
-                            ),
+                            )
+                            .map(Into::into),
                         );
                     }
 
@@ -557,7 +576,8 @@ impl<
                                     .secondary_edit_costs(template_switch_direction)
                                     .gap_costs(p, gap_type != GapType::Insertion),
                                 self,
-                            ),
+                            )
+                            .map(Into::into),
                         );
                     }
                 }
@@ -570,7 +590,8 @@ impl<
                     let cost_increment = length_cost + length_difference_cost;
 
                     opened_nodes_output.extend(
-                        node.generate_initial_template_switch_exit_successor(cost_increment, self),
+                        node.generate_initial_template_switch_exit_successor(cost_increment, self)
+                            .map(Into::into),
                     )
                 }
             }
@@ -613,11 +634,14 @@ impl<
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
 
-                        opened_nodes_output.extend(node.generate_template_switch_exit_successor(
-                            cost_increment,
-                            anti_primary_gap + 1,
-                            self,
-                        ))
+                        opened_nodes_output.extend(
+                            node.generate_template_switch_exit_successor(
+                                cost_increment,
+                                anti_primary_gap + 1,
+                                self,
+                            )
+                            .map(Into::into),
+                        )
                     }
                 }
 
@@ -634,11 +658,14 @@ impl<
                         assert!(new_cost >= old_cost);
                         let cost_increment = new_cost - old_cost;
 
-                        opened_nodes_output.extend(node.generate_template_switch_exit_successor(
-                            cost_increment,
-                            anti_primary_gap - 1,
-                            self,
-                        ))
+                        opened_nodes_output.extend(
+                            node.generate_template_switch_exit_successor(
+                                cost_increment,
+                                anti_primary_gap - 1,
+                                self,
+                            )
+                            .map(Into::into),
+                        )
                     }
                 }
 
@@ -652,7 +679,7 @@ impl<
                     node.generate_primary_reentry_successor(self, anti_primary_gap_cost)
                         .map(|mut node| {
                             node.strategies.template_switch_count.increment_count();
-                            node
+                            node.into()
                         }),
                 );
             }
@@ -705,7 +732,8 @@ fn generate_output_mapper_function<
     <Context<'reference, 'query, SubsequenceType, Strategies> as AStarContext>::Node,
 ) -> <Context<'reference, 'query, SubsequenceType, Strategies> as AStarContext>::Node {
     move |node| {
-        <Strategies as AlignmentStrategySelector>::Chaining::apply_lower_bound(node, context)
+        <Strategies as AlignmentStrategySelector>::Chaining::apply_lower_bound(*node, context)
+            .into()
     }
 }
 

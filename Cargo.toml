@@ -26,3 +26,6 @@ compact-genome = "12.3.0"
 traitsequence = "8.1.2"
 log = "0.4.27"
 num-traits = "0.2.19"
+
+[profile.release]
+debug = true
