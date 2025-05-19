@@ -188,6 +188,11 @@ where
         cost_limit,
         memory_limit,
     ));
+
+    let mut range = range;
+    result.extend_beyond_range_with_equal_cost(reference, query, &mut range, &config);
+    let range = range;
+
     result.compute_ts_equal_cost_ranges(reference, query, &range, &config);
     result
 }

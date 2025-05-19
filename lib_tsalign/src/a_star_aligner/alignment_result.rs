@@ -7,7 +7,9 @@ use generic_a_star::{AStarResult, cost::AStarCost};
 use noisy_float::types::{R64, r64};
 use num_traits::{Float, Zero};
 
-use crate::config::TemplateSwitchConfig;
+use crate::{
+    a_star_aligner::template_switch_distance::AlignmentType, config::TemplateSwitchConfig,
+};
 
 use super::alignment_geometry::AlignmentRange;
 
@@ -234,6 +236,129 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
 impl<Cost: AStarCost + From<u64>>
     AlignmentResult<super::template_switch_distance::AlignmentType, Cost>
 {
+    pub fn extend_beyond_range_with_equal_cost<
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    >(
+        &mut self,
+        reference: &SubsequenceType,
+        query: &SubsequenceType,
+        range: &mut Option<AlignmentRange>,
+        config: &TemplateSwitchConfig<AlphabetType, Cost>,
+    ) {
+        let Some(range) = range else {
+            return;
+        };
+        let Self::WithTarget {
+            alignment,
+            statistics,
+        } = self
+        else {
+            return;
+        };
+
+        // Compute cost before extending.
+        let initial_cost = alignment.compute_cost(
+            reference,
+            query,
+            range.reference_offset(),
+            range.query_offset(),
+            config,
+        );
+        assert_eq!(initial_cost, (statistics.cost.round().raw() as u64).into());
+
+        // Extend left with equal cost.
+        while range.reference_offset() > 0 && range.query_offset() > 0 {
+            // Determine extension alignment type.
+            let reference_character = reference[range.reference_offset() - 1].clone();
+            let query_character = query[range.query_offset() - 1].clone();
+            let alignment_type = if reference_character == query_character {
+                AlignmentType::PrimaryMatch
+            } else {
+                AlignmentType::PrimarySubstitution
+            };
+
+            // Insert alignment type at beginning of alignment.
+            if alignment.inner_mut()[0].1 == alignment_type {
+                alignment.inner_mut()[0].0 += 1;
+            } else {
+                alignment.inner_mut().insert(0, (1, alignment_type));
+            }
+
+            // Update ranges.
+            let new_range = range.move_offsets_left();
+
+            // Compute cost.
+            let new_cost = alignment.compute_cost(
+                reference,
+                query,
+                new_range.reference_offset(),
+                new_range.query_offset(),
+                config,
+            );
+
+            if new_cost > initial_cost {
+                // If cost is not equal, revert alignment and break.
+                alignment.inner_mut()[0].0 -= 1;
+                if alignment.inner_mut()[0].0 == 0 {
+                    alignment.inner_mut().remove(0);
+                }
+                break;
+            } else {
+                // If cost is equal, commit range and continue.
+                *range = new_range;
+                assert_eq!(new_cost, initial_cost);
+            }
+        }
+
+        // Extend right with equal cost.
+        while range.reference_limit() < reference.len() && range.query_limit() < query.len() {
+            // Determine extension alignment type.
+            let reference_character = reference[range.reference_limit()].clone();
+            let query_character = query[range.query_limit()].clone();
+            let alignment_type = if reference_character == query_character {
+                AlignmentType::PrimaryMatch
+            } else {
+                AlignmentType::PrimarySubstitution
+            };
+
+            // Insert alignment type at end of alignment.
+            if alignment.inner_mut().last().unwrap().1 == alignment_type {
+                alignment.inner_mut().last_mut().unwrap().0 += 1;
+            } else {
+                alignment.inner_mut().push((1, alignment_type));
+            }
+
+            // Update ranges.
+            let new_range = range.move_limits_right();
+
+            // Compute cost.
+            let new_cost = alignment.compute_cost(
+                reference,
+                query,
+                new_range.reference_offset(),
+                new_range.query_offset(),
+                config,
+            );
+
+            if new_cost > initial_cost {
+                // If cost is not equal, revert alignment and break.
+                alignment.inner_mut().last_mut().unwrap().0 -= 1;
+                if alignment.inner_mut().last().unwrap().0 == 0 {
+                    alignment.inner_mut().pop();
+                }
+                break;
+            } else {
+                // If cost is equal, commit range and continue.
+                *range = new_range;
+                assert_eq!(new_cost, initial_cost);
+            }
+        }
+
+        statistics.reference_offset = range.reference_offset();
+        statistics.query_offset = range.query_offset();
+    }
+
     pub fn compute_ts_equal_cost_ranges<
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
