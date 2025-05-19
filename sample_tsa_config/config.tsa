@@ -1,7 +1,7 @@
 # Limits
 
-left_flank_length = 5
-right_flank_length = 5
+left_flank_length = 0
+right_flank_length = 0
 
 # Base Cost
 

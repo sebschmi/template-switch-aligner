@@ -4,7 +4,7 @@ use a_star_sequences::SequencePair;
 use alignment::{Alignment, stream::AlignmentStream};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStarResult, cost::AStarCost};
-use log::trace;
+use log::{trace, warn};
 use noisy_float::types::{R64, r64};
 use num_traits::{Float, Zero};
 
@@ -257,6 +257,10 @@ impl<Cost: AStarCost + From<u64>>
         else {
             return;
         };
+        if config.left_flank_length > 0 || config.right_flank_length > 0 {
+            warn!("Alignment extension does not support flanks");
+            return;
+        }
 
         // Compute cost before extending.
         let initial_cost = alignment.compute_cost(
@@ -378,6 +382,7 @@ impl<Cost: AStarCost + From<u64>>
             return;
         };
         if config.left_flank_length > 0 || config.right_flank_length > 0 {
+            warn!("TS extension does not support flanks");
             return;
         }
 
@@ -416,12 +421,14 @@ impl<Cost: AStarCost + From<u64>>
 
                     {
                         let mut min_start_alignment = alignment.clone();
+                        let mut i = i;
+
                         while min_start_alignment.move_template_switch_start_backwards(
                             reference,
                             query,
                             reference_offset,
                             query_offset,
-                            i,
+                            &mut i,
                         ) {
                             let new_cost = min_start_alignment.compute_cost(
                                 reference,
@@ -444,12 +451,14 @@ impl<Cost: AStarCost + From<u64>>
 
                     {
                         let mut max_start_alignment = alignment.clone();
+                        let mut i = i;
+
                         while max_start_alignment.move_template_switch_start_forwards(
                             reference,
                             query,
                             reference_offset,
                             query_offset,
-                            i,
+                            &mut i,
                         ) {
                             let new_cost = max_start_alignment.compute_cost(
                                 reference,
