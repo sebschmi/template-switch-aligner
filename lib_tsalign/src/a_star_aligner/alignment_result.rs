@@ -4,6 +4,7 @@ use a_star_sequences::SequencePair;
 use alignment::{Alignment, stream::AlignmentStream};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStarResult, cost::AStarCost};
+use log::trace;
 use noisy_float::types::{R64, r64};
 use num_traits::{Float, Zero};
 
@@ -376,6 +377,10 @@ impl<Cost: AStarCost + From<u64>>
         else {
             return;
         };
+        if config.left_flank_length > 0 || config.right_flank_length > 0 {
+            return;
+        }
+
         let mut stream = AlignmentStream::new();
         let reference_offset = range
             .as_ref()
@@ -395,130 +400,144 @@ impl<Cost: AStarCost + From<u64>>
                     mut equal_cost_range,
                     ..
                 } => {
-                    if config.left_flank_length == 0 && config.right_flank_length == 0 {
-                        equal_cost_range.min_start = 0;
-                        equal_cost_range.max_start = 0;
-                        equal_cost_range.min_end = 0;
-                        equal_cost_range.max_end = 0;
+                    equal_cost_range.min_start = 0;
+                    equal_cost_range.max_start = 0;
+                    equal_cost_range.min_end = 0;
+                    equal_cost_range.max_end = 0;
 
-                        let initial_cost = alignment.compute_cost(
+                    let initial_cost = alignment.compute_cost(
+                        reference,
+                        query,
+                        reference_offset,
+                        query_offset,
+                        config,
+                    );
+                    assert_eq!(initial_cost, (statistics.cost.round().raw() as u64).into());
+
+                    {
+                        let mut min_start_alignment = alignment.clone();
+                        while min_start_alignment.move_template_switch_start_backwards(
                             reference,
                             query,
                             reference_offset,
                             query_offset,
-                            config,
-                        );
-                        assert_eq!(initial_cost, (statistics.cost.round().raw() as u64).into());
-
-                        {
-                            let mut min_start_alignment = alignment.clone();
-                            while min_start_alignment.move_template_switch_end_forwards(
+                            i,
+                        ) {
+                            let new_cost = min_start_alignment.compute_cost(
                                 reference,
                                 query,
                                 reference_offset,
                                 query_offset,
-                                i,
-                            ) {
-                                let new_cost = min_start_alignment.compute_cost(
-                                    reference,
-                                    query,
-                                    reference_offset,
-                                    query_offset,
-                                    config,
+                                config,
+                            );
+                            if new_cost > initial_cost {
+                                trace!(
+                                    "Stopping moving TS start backwards because cost {new_cost} > {initial_cost} with alignment {}",
+                                    min_start_alignment
                                 );
-                                if new_cost > initial_cost {
-                                    break;
-                                } else {
-                                    assert_eq!(new_cost, initial_cost);
-                                    equal_cost_range.min_start -= 1;
-                                }
+                                break;
+                            } else {
+                                assert_eq!(new_cost, initial_cost);
+                                equal_cost_range.min_start -= 1;
                             }
                         }
+                    }
 
-                        {
-                            let mut max_start_alignment = alignment.clone();
-                            while max_start_alignment.move_template_switch_start_forwards(
+                    {
+                        let mut max_start_alignment = alignment.clone();
+                        while max_start_alignment.move_template_switch_start_forwards(
+                            reference,
+                            query,
+                            reference_offset,
+                            query_offset,
+                            i,
+                        ) {
+                            let new_cost = max_start_alignment.compute_cost(
                                 reference,
                                 query,
                                 reference_offset,
                                 query_offset,
-                                i,
-                            ) {
-                                let new_cost = max_start_alignment.compute_cost(
-                                    reference,
-                                    query,
-                                    reference_offset,
-                                    query_offset,
-                                    config,
+                                config,
+                            );
+                            if new_cost > initial_cost {
+                                trace!(
+                                    "Stopping moving TS start forwards because cost {new_cost} > {initial_cost} with alignment {}",
+                                    max_start_alignment
                                 );
-                                if new_cost > initial_cost {
-                                    break;
-                                } else {
-                                    assert_eq!(new_cost, initial_cost);
-                                    equal_cost_range.max_start += 1;
-                                }
+                                break;
+                            } else {
+                                assert_eq!(new_cost, initial_cost);
+                                equal_cost_range.max_start += 1;
                             }
                         }
+                    }
 
-                        {
-                            let mut min_end_alignment = alignment.clone();
-                            while min_end_alignment.move_template_switch_end_backwards(
+                    {
+                        let mut min_end_alignment = alignment.clone();
+                        while min_end_alignment.move_template_switch_end_backwards(
+                            reference,
+                            query,
+                            reference_offset,
+                            query_offset,
+                            i,
+                        ) {
+                            let new_cost = min_end_alignment.compute_cost(
                                 reference,
                                 query,
                                 reference_offset,
                                 query_offset,
-                                i,
-                            ) {
-                                let new_cost = min_end_alignment.compute_cost(
-                                    reference,
-                                    query,
-                                    reference_offset,
-                                    query_offset,
-                                    config,
+                                config,
+                            );
+                            if new_cost > initial_cost {
+                                trace!(
+                                    "Stopping moving TS end backwards because cost {new_cost} > {initial_cost} with alignment {}",
+                                    min_end_alignment
                                 );
-                                if new_cost > initial_cost {
-                                    break;
-                                } else {
-                                    assert_eq!(new_cost, initial_cost);
-                                    equal_cost_range.min_end -= 1;
-                                }
+                                break;
+                            } else {
+                                assert_eq!(new_cost, initial_cost);
+                                equal_cost_range.min_end -= 1;
                             }
                         }
+                    }
 
-                        {
-                            let mut max_end_alignment = alignment.clone();
-                            while max_end_alignment.move_template_switch_end_forwards(
+                    {
+                        let mut max_end_alignment = alignment.clone();
+                        while max_end_alignment.move_template_switch_end_forwards(
+                            reference,
+                            query,
+                            reference_offset,
+                            query_offset,
+                            i,
+                        ) {
+                            let new_cost = max_end_alignment.compute_cost(
                                 reference,
                                 query,
                                 reference_offset,
                                 query_offset,
-                                i,
-                            ) {
-                                let new_cost = max_end_alignment.compute_cost(
-                                    reference,
-                                    query,
-                                    reference_offset,
-                                    query_offset,
-                                    config,
+                                config,
+                            );
+                            if new_cost > initial_cost {
+                                trace!(
+                                    "Stopping moving TS end forwards because cost {new_cost} > {initial_cost} with alignment {}",
+                                    max_end_alignment
                                 );
-                                if new_cost > initial_cost {
-                                    break;
-                                } else {
-                                    assert_eq!(new_cost, initial_cost);
-                                    equal_cost_range.max_end += 1;
-                                }
+                                break;
+                            } else {
+                                assert_eq!(new_cost, initial_cost);
+                                equal_cost_range.max_end += 1;
                             }
                         }
+                    }
 
-                        let super::template_switch_distance::AlignmentType::TemplateSwitchEntrance {
+                    let super::template_switch_distance::AlignmentType::TemplateSwitchEntrance {
                         equal_cost_range: alignment_equal_cost_range,
                         ..
                     } = &mut alignment.inner_mut()[i].1
                     else {
                         unreachable!()
                     };
-                        *alignment_equal_cost_range = equal_cost_range;
-                    }
+                    *alignment_equal_cost_range = equal_cost_range;
                 }
                 _ => { /* Do nothing. */ }
             }

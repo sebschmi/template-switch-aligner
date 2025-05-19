@@ -4,7 +4,7 @@ use alignment_geometry::AlignmentRange;
 use alignment_result::{AlignmentResult, IAlignmentType};
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult, cost::AStarCost};
-use log::info;
+use log::{debug, info};
 use template_switch_distance::{
     context::Memory,
     strategies::{
@@ -188,6 +188,7 @@ where
         cost_limit,
         memory_limit,
     ));
+    debug!("CIGAR before extending: {}", result.cigar());
 
     let mut range = range;
     result.extend_beyond_range_with_equal_cost(reference, query, &mut range, &config);
