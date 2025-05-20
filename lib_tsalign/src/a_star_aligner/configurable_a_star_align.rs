@@ -99,7 +99,7 @@ impl Default for Config {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum InputAlphabet {
     Dna,
     DnaN,
@@ -110,21 +110,21 @@ pub enum InputAlphabet {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum NodeOrdStrategySelector {
     CostOnly,
     AntiDiagonal,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum MinLengthStrategySelector {
     None,
     Lookahead,
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum ChainingStrategySelector {
     None,
     PrecomputeOnly,
