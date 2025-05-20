@@ -1,4 +1,5 @@
 use compact_genome::interface::alphabet::Alphabet;
+use generic_a_star::cost::AStarCost;
 use num_traits::{Bounded, bounds::UpperBounded};
 
 use crate::{
@@ -175,6 +176,87 @@ impl<AlphabetType: Alphabet, Cost: Clone> Clone for TemplateSwitchConfig<Alphabe
             length_difference_costs: self.length_difference_costs.clone(),
             forward_anti_primary_gap_costs: self.forward_anti_primary_gap_costs.clone(),
             reverse_anti_primary_gap_costs: self.reverse_anti_primary_gap_costs.clone(),
+        }
+    }
+}
+
+impl<AlphabetType: Alphabet, Cost: AStarCost> Default for TemplateSwitchConfig<AlphabetType, Cost> {
+    fn default() -> Self {
+        Self {
+            left_flank_length: 0,
+            right_flank_length: 0,
+            min_length: 5,
+            base_cost: BaseCost {
+                rrf: 4.into(),
+                rqf: 4.into(),
+                qrf: 4.into(),
+                qqf: 4.into(),
+                rrr: 3.into(),
+                rqr: 2.into(),
+                qrr: 2.into(),
+                qqr: 3.into(),
+            },
+            primary_edit_costs: GapAffineAlignmentCostTable::new_base_agnostic(
+                "Primary Edit Costs",
+                0.into(),
+                2.into(),
+                3.into(),
+                1.into(),
+            ),
+            secondary_forward_edit_costs: GapAffineAlignmentCostTable::new_base_agnostic(
+                "Secondary Forward Edit Costs",
+                0.into(),
+                2.into(),
+                3.into(),
+                1.into(),
+            ),
+            secondary_reverse_edit_costs: GapAffineAlignmentCostTable::new_base_agnostic(
+                "Secondary Reverse Edit Costs",
+                0.into(),
+                2.into(),
+                3.into(),
+                1.into(),
+            ),
+            left_flank_edit_costs: GapAffineAlignmentCostTable::new_base_agnostic(
+                "Left Flank Edit Costs",
+                0.into(),
+                2.into(),
+                3.into(),
+                1.into(),
+            ),
+            right_flank_edit_costs: GapAffineAlignmentCostTable::new_base_agnostic(
+                "Right Flank Edit Costs",
+                0.into(),
+                2.into(),
+                3.into(),
+                1.into(),
+            ),
+            offset_costs: CostFunction::try_from(vec![
+                (isize::MIN, Cost::max_value()),
+                (-100, 0.into()),
+                (101, Cost::max_value()),
+            ])
+            .unwrap(),
+            length_costs: CostFunction::try_from(vec![(0, Cost::max_value()), (5, 0.into())])
+                .unwrap(),
+            length_difference_costs: CostFunction::try_from(vec![
+                (isize::MIN, Cost::max_value()),
+                (-100, 0.into()),
+                (101, Cost::max_value()),
+            ])
+            .unwrap(),
+            forward_anti_primary_gap_costs: CostFunction::try_from(vec![
+                (isize::MIN, Cost::max_value()),
+                (-100, 0.into()),
+                (101, Cost::max_value()),
+            ])
+            .unwrap(),
+            reverse_anti_primary_gap_costs: CostFunction::try_from(vec![
+                (isize::MIN, Cost::max_value()),
+                (-100, 0.into()),
+                (101, Cost::max_value()),
+            ])
+            .unwrap(),
         }
     }
 }

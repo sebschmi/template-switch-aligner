@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{iter, marker::PhantomData};
 
 use compact_genome::interface::alphabet::{Alphabet, AlphabetCharacter};
 use generic_a_star::cost::AStarCost;
@@ -27,6 +27,34 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> GapAffineAlignmentCostTable<Alphab
             gap_open_cost_vector: gap_open_cost_vector.into(),
             gap_extend_cost_vector: gap_extend_cost_vector.into(),
             phantom_data: Default::default(),
+        }
+    }
+
+    pub fn new_base_agnostic(
+        name: impl Into<String>,
+        match_cost: Cost,
+        substitution_cost: Cost,
+        gap_open_cost: Cost,
+        gap_extend_cost: Cost,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            substitution_cost_table: (0..AlphabetType::SIZE)
+                .flat_map(|a| {
+                    (0..AlphabetType::SIZE).map(move |b| {
+                        if a == b {
+                            match_cost
+                        } else {
+                            substitution_cost
+                        }
+                    })
+                })
+                .collect(),
+            gap_open_cost_vector: iter::repeat_n(gap_open_cost, AlphabetType::SIZE.into())
+                .collect(),
+            gap_extend_cost_vector: iter::repeat_n(gap_extend_cost, AlphabetType::SIZE.into())
+                .collect(),
+            phantom_data: PhantomData,
         }
     }
 
