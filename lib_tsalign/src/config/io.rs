@@ -246,11 +246,11 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> std::fmt::Display
         writeln!(f, "ReverseAntiPrimaryGap")?;
         writeln!(f, "{}", self.reverse_anti_primary_gap_costs)?;
 
-        self.primary_edit_costs.fmt(f)?;
-        self.secondary_forward_edit_costs.fmt(f)?;
-        self.secondary_reverse_edit_costs.fmt(f)?;
-        self.left_flank_edit_costs.fmt(f)?;
-        self.right_flank_edit_costs.fmt(f)?;
+        writeln!(f, "{}", self.primary_edit_costs)?;
+        writeln!(f, "{}", self.secondary_forward_edit_costs)?;
+        writeln!(f, "{}", self.secondary_reverse_edit_costs)?;
+        writeln!(f, "{}", self.left_flank_edit_costs)?;
+        writeln!(f, "{}", self.right_flank_edit_costs)?;
 
         Ok(())
     }
