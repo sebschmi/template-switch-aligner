@@ -190,6 +190,7 @@ where
     ));
     debug!("CIGAR before extending: {}", result.cigar());
 
+    info!("Extending template switches");
     let mut range = range;
     result.extend_beyond_range_with_equal_cost(reference, query, &mut range, &config);
     let range = range;
