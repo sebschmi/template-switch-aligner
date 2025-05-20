@@ -71,7 +71,6 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> GapAffineAlignmentCostTable<Alphab
             .map(|substitution_cost| format!("{substitution_cost}").len())
             .max()
             .unwrap();
-        println!("{column_width:?}");
 
         write!(writer, "  |")?;
         for column_index in 0..AlphabetType::SIZE {
@@ -358,4 +357,15 @@ fn parse_alphabet_character<CharacterType: AlphabetCharacter>(
         })
     })?;
     Ok((input, character))
+}
+
+impl<AlphabetType: Alphabet, Cost: AStarCost> std::fmt::Display
+    for GapAffineAlignmentCostTable<AlphabetType, Cost>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut output = Vec::new();
+        self.write_plain(&mut output).unwrap();
+        let string = String::from_utf8(output).unwrap();
+        write!(f, "{string}")
+    }
 }

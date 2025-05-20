@@ -215,3 +215,61 @@ pub fn parse_inf_value<Output: FromStr + Bounded>(input: &str) -> IResult<&str, 
         Ok((&input[length..], result))
     }
 }
+
+impl<AlphabetType: Alphabet, Cost: AStarCost> std::fmt::Display
+    for TemplateSwitchConfig<AlphabetType, Cost>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "# Limits")?;
+        writeln!(f, "left_flank_length = {}", self.left_flank_length)?;
+        writeln!(f, "right_flank_length = {}", self.right_flank_length)?;
+
+        writeln!(f, "# Base Cost")?;
+        writeln!(f, "rrf_cost = {}", self.base_cost.rrf)?;
+        writeln!(f, "rqf_cost = {}", self.base_cost.rqf)?;
+        writeln!(f, "qrf_cost = {}", self.base_cost.qrf)?;
+        writeln!(f, "qqf_cost = {}", self.base_cost.qqf)?;
+        writeln!(f, "rrr_cost = {}", self.base_cost.rrr)?;
+        writeln!(f, "rqr_cost = {}", self.base_cost.rqr)?;
+        writeln!(f, "qrr_cost = {}", self.base_cost.qrr)?;
+        writeln!(f, "qqr_cost = {}", self.base_cost.qqr)?;
+
+        writeln!(f, "# Jump Costs")?;
+        writeln!(f, "Offset")?;
+        writeln!(f, "{}", self.offset_costs)?;
+        writeln!(f, "Length")?;
+        writeln!(f, "{}", self.length_costs)?;
+        writeln!(f, "LengthDifference")?;
+        writeln!(f, "{}", self.length_difference_costs)?;
+        writeln!(f, "ForwardAntiPrimaryGap")?;
+        writeln!(f, "{}", self.forward_anti_primary_gap_costs)?;
+        writeln!(f, "ReverseAntiPrimaryGap")?;
+        writeln!(f, "{}", self.reverse_anti_primary_gap_costs)?;
+
+        writeln!(f, "{}", self.primary_edit_costs)?;
+        writeln!(f, "{}", self.secondary_forward_edit_costs)?;
+        writeln!(f, "{}", self.secondary_reverse_edit_costs)?;
+        writeln!(f, "{}", self.left_flank_edit_costs)?;
+        writeln!(f, "{}", self.right_flank_edit_costs)?;
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use compact_genome::implementation::alphabets::dna_alphabet_or_n::DnaAlphabetOrN;
+    use generic_a_star::cost::U64Cost;
+
+    use crate::config::TemplateSwitchConfig;
+
+    #[test]
+    fn display() {
+        let config = TemplateSwitchConfig::<DnaAlphabetOrN, U64Cost>::default();
+        let string = config.to_string();
+        assert_eq!(
+            config,
+            TemplateSwitchConfig::read_plain(string.as_bytes()).unwrap()
+        );
+    }
+}

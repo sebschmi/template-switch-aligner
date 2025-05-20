@@ -19,7 +19,7 @@ impl<SourceType: PrimInt + Display, Cost: Bounded + Display + Eq> CostFunction<S
             .map(|(index, cost)| {
                 if index == &SourceType::max_value() {
                     3
-                } else if index == &SourceType::min_value() {
+                } else if index == &SourceType::min_value() && !index.is_zero() {
                     4
                 } else {
                     format!("{index}").len()
@@ -45,7 +45,7 @@ impl<SourceType: PrimInt + Display, Cost: Bounded + Display + Eq> CostFunction<S
                     write!(writer, " ")?;
                 }
                 write!(writer, "inf")?;
-            } else if index == &SourceType::min_value() {
+            } else if index == &SourceType::min_value() && !index.is_zero() {
                 for _ in 4..column_width {
                     write!(writer, " ")?;
                 }
@@ -116,6 +116,17 @@ impl<SourceType: FromStr + PrimInt, Cost: FromStr + Bounded> CostFunction<Source
                 function: indexes.into_iter().zip(costs).collect(),
             },
         ))
+    }
+}
+
+impl<SourceType: PrimInt + Display, Cost: Bounded + Display + Eq> std::fmt::Display
+    for CostFunction<SourceType, Cost>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut output = Vec::new();
+        self.write_plain(&mut output).unwrap();
+        let string = String::from_utf8(output).unwrap();
+        write!(f, "{string}")
     }
 }
 

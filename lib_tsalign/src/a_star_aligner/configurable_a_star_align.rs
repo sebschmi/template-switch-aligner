@@ -16,7 +16,6 @@ use compact_genome::{
     },
 };
 use generic_a_star::cost::U64Cost;
-use serde::Deserialize;
 
 use crate::{
     a_star_aligner::{
@@ -53,13 +52,9 @@ use super::{
     },
 };
 
-// TODO to be discussed
-// TODO more ergonomic way to only adjust some cost values ...
-/// Default costs for a star alignment, given in the custom `.tsa` format
-const DEFAULT_COSTS: &str = include_str!("../../../sample_tsa_config/config.tsa");
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case", default)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub struct Config {
     pub alphabet: InputAlphabet,
     pub reference_name: String,
@@ -86,7 +81,7 @@ impl Default for Config {
             alphabet: InputAlphabet::DnaN,
             reference_name: "reference".to_owned(),
             query_name: "query".to_owned(),
-            costs: DEFAULT_COSTS.to_owned(),
+            costs: TemplateSwitchConfig::<DnaAlphabetOrN, U64Cost>::default().to_string(),
             node_ord_strategy: NodeOrdStrategySelector::AntiDiagonal,
             min_length_strategy: MinLengthStrategySelector::Lookahead,
             chaining_strategy: ChainingStrategySelector::None,
@@ -98,8 +93,9 @@ impl Default for Config {
     }
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum InputAlphabet {
     Dna,
     DnaN,
@@ -109,22 +105,25 @@ pub enum InputAlphabet {
     RnaIupac,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum NodeOrdStrategySelector {
     CostOnly,
     AntiDiagonal,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum MinLengthStrategySelector {
     None,
     Lookahead,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum ChainingStrategySelector {
     None,
     PrecomputeOnly,

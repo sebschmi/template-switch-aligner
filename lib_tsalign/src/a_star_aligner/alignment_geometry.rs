@@ -1,16 +1,16 @@
 use std::{fmt::Display, ops::Range};
 
-use serde::Deserialize;
-
-#[derive(Debug, Clone, Eq, PartialEq, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub struct AlignmentRange {
     offset: AlignmentCoordinates,
     limit: AlignmentCoordinates,
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub struct AlignmentCoordinates {
     reference: usize,
     query: usize,
