@@ -241,10 +241,10 @@ impl<
     Strategies: AlignmentStrategySelector,
 > AStarContext for TemplateSwitchMinLengthContext<'_, '_, '_, SubsequenceType, Strategies>
 {
-    type Node = Node<Strategies>;
+    type Node = Box<Node<Strategies>>;
 
     fn create_root(&self) -> Self::Node {
-        self.root_node.clone()
+        self.root_node.clone().into()
     }
 
     fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {

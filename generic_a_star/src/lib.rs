@@ -579,3 +579,31 @@ impl<NodeIdentifier, Cost> Default for AStarResult<NodeIdentifier, Cost> {
         Self::NoTarget
     }
 }
+
+impl<T: AStarNode> AStarNode for Box<T> {
+    type Identifier = <T as AStarNode>::Identifier;
+
+    type EdgeType = <T as AStarNode>::EdgeType;
+
+    type Cost = <T as AStarNode>::Cost;
+
+    fn identifier(&self) -> &Self::Identifier {
+        <T as AStarNode>::identifier(self)
+    }
+
+    fn cost(&self) -> Self::Cost {
+        <T as AStarNode>::cost(self)
+    }
+
+    fn a_star_lower_bound(&self) -> Self::Cost {
+        <T as AStarNode>::a_star_lower_bound(self)
+    }
+
+    fn predecessor(&self) -> Option<&Self::Identifier> {
+        <T as AStarNode>::predecessor(self)
+    }
+
+    fn predecessor_edge_type(&self) -> Option<Self::EdgeType> {
+        <T as AStarNode>::predecessor_edge_type(self)
+    }
+}

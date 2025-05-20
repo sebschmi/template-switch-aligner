@@ -88,14 +88,21 @@ impl<Cost: AStarCost> ShortcutStrategy<Cost> for TemplateSwitchLowerBoundShortcu
             Identifier::Primary { flank_index, .. }
             | Identifier::PrimaryReentry { flank_index, .. } => {
                 if flank_index == context.config.left_flank_length {
-                    opened_nodes_output.extend(context.memory.shortcut.iter().flat_map(|entry| {
-                        node.generate_template_switch_shortcut_successor(
-                            entry.x(),
-                            entry.y(),
-                            entry.cost(),
-                            context,
-                        )
-                    }));
+                    opened_nodes_output.extend(
+                        context
+                            .memory
+                            .shortcut
+                            .iter()
+                            .flat_map(|entry| {
+                                node.generate_template_switch_shortcut_successor(
+                                    entry.x(),
+                                    entry.y(),
+                                    entry.cost(),
+                                    context,
+                                )
+                            })
+                            .map(Into::into),
+                    );
                 }
             }
 
