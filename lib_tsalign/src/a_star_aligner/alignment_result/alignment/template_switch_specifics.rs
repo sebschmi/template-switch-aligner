@@ -77,7 +77,7 @@ impl Alignment<AlignmentType> {
             )
             .unwrap();
 
-            // Check if first indices can be moved while staying in bounds.
+            // Check if indices can be moved while staying in bounds.
             match direction {
                 TemplateSwitchDirection::Forward => {
                     if ts_inner_secondary_index == 0 {
@@ -202,6 +202,11 @@ impl Alignment<AlignmentType> {
             let ts_outer_reference_index = stream.head_coordinates().reference() + reference_offset;
             let ts_outer_query_index = stream.head_coordinates().query() + query_offset;
 
+            // Check if indices can be moved while staying in bounds.
+            if ts_outer_reference_index == reference.len() || ts_outer_query_index == query.len() {
+                return false;
+            }
+
             // Remove one match or substitution from inside the TS.
             let multiplicity = &mut self.alignment[*compact_index + 1].0;
             assert!(*multiplicity > 0);
@@ -222,7 +227,7 @@ impl Alignment<AlignmentType> {
             };
 
             // Insert new outer alignment.
-            if self.alignment[*compact_index - 1].1 == outer_alignment_type {
+            if self.alignment.get(*compact_index - 1).map(|t| t.1) == Some(outer_alignment_type) {
                 self.alignment[*compact_index - 1].0 += 1;
             } else {
                 self.alignment
@@ -349,7 +354,7 @@ impl Alignment<AlignmentType> {
                     let ts_inner_secondary_index = ts_inner_secondary_index
                         .checked_add(inner_secondary_length)
                         .unwrap();
-                    // Check if first indices can be moved while staying in bounds.
+                    // Check if indices can be moved while staying in bounds.
                     if ts_inner_secondary_index >= secondary.get(reference, query).len() {
                         return false;
                     }
@@ -359,7 +364,7 @@ impl Alignment<AlignmentType> {
                     let ts_inner_secondary_index = ts_inner_secondary_index
                         .checked_sub(inner_secondary_length)
                         .unwrap();
-                    // Check if first indices can be moved while staying in bounds.
+                    // Check if indices can be moved while staying in bounds.
                     if ts_inner_secondary_index == 0 {
                         return false;
                     }
@@ -474,6 +479,11 @@ impl Alignment<AlignmentType> {
             let ts_outer_reference_index = stream.head_coordinates().reference() + reference_offset;
             let ts_outer_query_index = stream.head_coordinates().query() + query_offset;
 
+            // Check if indices can be moved while staying in bounds.
+            if ts_outer_reference_index == 0 || ts_outer_query_index == 0 {
+                return false;
+            }
+
             // Remove one match or substitution from inside the TS.
             let multiplicity = &mut self.alignment[exit_index - 1].0;
             assert!(*multiplicity > 0);
@@ -486,8 +496,8 @@ impl Alignment<AlignmentType> {
             }
 
             // Check if the new outer pair is a match or a substitution.
-            let reference_char = reference[ts_outer_reference_index].clone();
-            let query_char = query[ts_outer_query_index].clone();
+            let reference_char = reference[ts_outer_reference_index - 1].clone();
+            let query_char = query[ts_outer_query_index - 1].clone();
             let outer_alignment_type = if reference_char == query_char {
                 AlignmentType::PrimaryMatch
             } else {
@@ -495,7 +505,7 @@ impl Alignment<AlignmentType> {
             };
 
             // Insert new outer alignment.
-            if self.alignment[exit_index + 1].1 == outer_alignment_type {
+            if self.alignment.get(exit_index + 1).map(|t| t.1) == Some(outer_alignment_type) {
                 self.alignment[exit_index + 1].0 += 1;
             } else {
                 self.alignment
