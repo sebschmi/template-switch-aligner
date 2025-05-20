@@ -4,8 +4,8 @@ members = [
     "generic_a_star",
     "seed_chain",
     "lib_tsalign",
-    "tsalign",
     "lib_tsshow",
+    "tsalign",
 
     # Bindings
     "python_bindings",
