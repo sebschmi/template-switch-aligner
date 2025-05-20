@@ -9,6 +9,6 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-tsalign = { version = "0.15.0", path = "../tsalign" }
+tsalign = { version = "0.16.0", path = "../tsalign" }
 clap = { version = "4.5.16", features = ["derive"] }
 anyhow = "1.0.97"
