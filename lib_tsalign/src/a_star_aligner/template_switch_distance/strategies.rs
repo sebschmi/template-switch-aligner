@@ -10,6 +10,7 @@ use secondary_deletion::SecondaryDeletionStrategy;
 use shortcut::ShortcutStrategy;
 use template_switch_count::TemplateSwitchCountStrategy;
 use template_switch_min_length::TemplateSwitchMinLengthStrategy;
+use template_switch_total_length::TemplateSwitchTotalLengthStrategy;
 
 use super::{AlignmentType, Context, Identifier};
 
@@ -21,6 +22,7 @@ pub mod secondary_deletion;
 pub mod shortcut;
 pub mod template_switch_count;
 pub mod template_switch_min_length;
+pub mod template_switch_total_length;
 
 pub trait AlignmentStrategySelector: Eq + Clone + std::fmt::Debug {
     type Alphabet: Alphabet;
@@ -33,6 +35,7 @@ pub trait AlignmentStrategySelector: Eq + Clone + std::fmt::Debug {
     type Shortcut: ShortcutStrategy<Self::Cost>;
     type PrimaryMatch: PrimaryMatchStrategy<Self::Cost>;
     type PrimaryRange: PrimaryRangeStrategy;
+    type TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy;
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -41,6 +44,7 @@ pub struct AlignmentStrategiesNodeMemory<Selector: AlignmentStrategySelector> {
     pub template_switch_min_length_strategy: Selector::TemplateSwitchMinLength,
     pub template_switch_count: Selector::TemplateSwitchCount,
     pub primary_match: Selector::PrimaryMatch,
+    pub template_switch_total_length: Selector::TemplateSwitchTotalLength,
 }
 
 pub trait AlignmentStrategy: Eq + Clone + std::fmt::Debug {
@@ -79,6 +83,9 @@ impl<Strategies: AlignmentStrategySelector> AlignmentStrategiesNodeMemory<Strate
             ),
             template_switch_count: Strategies::TemplateSwitchCount::create_root(context),
             primary_match: Strategies::PrimaryMatch::create_root(context),
+            template_switch_total_length: Strategies::TemplateSwitchTotalLength::create_root(
+                context,
+            ),
         }
     }
 
@@ -113,6 +120,11 @@ impl<Strategies: AlignmentStrategySelector> AlignmentStrategiesNodeMemory<Strate
                 alignment_type,
                 context,
             ),
+            template_switch_total_length: self.template_switch_total_length.generate_successor(
+                identifier,
+                alignment_type,
+                context,
+            ),
         }
     }
 }
@@ -128,6 +140,7 @@ pub struct AlignmentStrategySelection<
     Shortcut: ShortcutStrategy<Cost>,
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
     PrimaryRange: PrimaryRangeStrategy,
+    TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
 > {
     #[allow(clippy::type_complexity)]
     phantom_data: PhantomData<(
@@ -141,6 +154,7 @@ pub struct AlignmentStrategySelection<
         Shortcut,
         PrimaryMatch,
         PrimaryRange,
+        TemplateSwitchTotalLength,
     )>,
 }
 
@@ -155,6 +169,7 @@ impl<
     Shortcut: ShortcutStrategy<Cost>,
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
     PrimaryRange: PrimaryRangeStrategy,
+    TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
 > AlignmentStrategySelector
     for AlignmentStrategySelection<
         AlphabetType,
@@ -167,6 +182,7 @@ impl<
         Shortcut,
         PrimaryMatch,
         PrimaryRange,
+        TemplateSwitchTotalLength,
     >
 {
     type Alphabet = AlphabetType;
@@ -179,6 +195,7 @@ impl<
     type Shortcut = Shortcut;
     type PrimaryMatch = PrimaryMatch;
     type PrimaryRange = PrimaryRange;
+    type TemplateSwitchTotalLength = TemplateSwitchTotalLength;
 }
 
 impl<
@@ -192,6 +209,7 @@ impl<
     Shortcut: ShortcutStrategy<Cost>,
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
     PrimaryRange: PrimaryRangeStrategy,
+    TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
 > Debug
     for AlignmentStrategySelection<
         AlphabetType,
@@ -204,6 +222,7 @@ impl<
         Shortcut,
         PrimaryMatch,
         PrimaryRange,
+        TemplateSwitchTotalLength,
     >
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -222,6 +241,7 @@ impl<
     Shortcut: ShortcutStrategy<Cost>,
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
     PrimaryRange: PrimaryRangeStrategy,
+    TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
 > Clone
     for AlignmentStrategySelection<
         AlphabetType,
@@ -234,6 +254,7 @@ impl<
         Shortcut,
         PrimaryMatch,
         PrimaryRange,
+        TemplateSwitchTotalLength,
     >
 {
     fn clone(&self) -> Self {
@@ -254,6 +275,7 @@ impl<
     Shortcut: ShortcutStrategy<Cost>,
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
     PrimaryRange: PrimaryRangeStrategy,
+    TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
 > PartialEq
     for AlignmentStrategySelection<
         AlphabetType,
@@ -266,6 +288,7 @@ impl<
         Shortcut,
         PrimaryMatch,
         PrimaryRange,
+        TemplateSwitchTotalLength,
     >
 {
     fn eq(&self, other: &Self) -> bool {
@@ -284,6 +307,7 @@ impl<
     Shortcut: ShortcutStrategy<Cost>,
     PrimaryMatch: PrimaryMatchStrategy<Cost>,
     PrimaryRange: PrimaryRangeStrategy,
+    TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
 > Eq
     for AlignmentStrategySelection<
         AlphabetType,
@@ -296,6 +320,7 @@ impl<
         Shortcut,
         PrimaryMatch,
         PrimaryRange,
+        TemplateSwitchTotalLength,
     >
 {
 }

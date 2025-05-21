@@ -48,6 +48,7 @@ use super::{
                 LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
                 TemplateSwitchMinLengthStrategy,
             },
+            template_switch_total_length::MaxTemplateSwitchTotalLengthStrategy,
         },
     },
 };
@@ -320,6 +321,7 @@ fn align_a_star_template_switch_distance_call<
             NoShortcutStrategy<U64Cost>,
             AllowPrimaryMatchStrategy,
             NoPrunePrimaryRangeStrategy,
+            MaxTemplateSwitchTotalLengthStrategy,
         >,
         _,
     >(

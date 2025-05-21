@@ -386,7 +386,7 @@ impl<
                 if template_switch_first_offset >= 0
                     && match template_switch_direction {
                         TemplateSwitchDirection::Forward => {
-                            (secondary_index + self.config.min_length as isize)
+                            (secondary_index + self.config.template_switch_min_length as isize)
                                 < secondary_length as isize
                         }
                         TemplateSwitchDirection::Reverse => {
@@ -418,7 +418,7 @@ impl<
                     && match template_switch_direction {
                         TemplateSwitchDirection::Forward => secondary_index > 0,
                         TemplateSwitchDirection::Reverse => {
-                            secondary_index > self.config.min_length as isize
+                            secondary_index > self.config.template_switch_min_length as isize
                         }
                     }
                 {
@@ -445,11 +445,11 @@ impl<
                 if match template_switch_direction {
                     TemplateSwitchDirection::Forward => {
                         secondary_index >= 0
-                            && (secondary_index + self.config.min_length as isize)
+                            && (secondary_index + self.config.template_switch_min_length as isize)
                                 <= secondary_length as isize
                     }
                     TemplateSwitchDirection::Reverse => {
-                        secondary_index >= self.config.min_length as isize
+                        secondary_index >= self.config.template_switch_min_length as isize
                             && secondary_index <= secondary_length as isize
                     }
                 } {

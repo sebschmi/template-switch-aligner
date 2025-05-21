@@ -24,6 +24,7 @@ use lib_tsalign::{
                 LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
                 TemplateSwitchMinLengthStrategy,
             },
+            template_switch_total_length::MaxTemplateSwitchTotalLengthStrategy,
         },
         template_switch_distance_a_star_align,
     },
@@ -249,6 +250,7 @@ fn align_a_star_template_switch_distance_call<
             NoShortcutStrategy<U64Cost>,
             AllowPrimaryMatchStrategy,
             NoPrunePrimaryRangeStrategy,
+            MaxTemplateSwitchTotalLengthStrategy,
         >,
         _,
     >(

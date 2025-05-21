@@ -78,7 +78,9 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> TemplateSwitchConfig<AlphabetType,
             Self {
                 left_flank_length,
                 right_flank_length,
-                min_length: length_costs.minimum_finite_input().unwrap_or(usize::MAX),
+                template_switch_min_length: length_costs
+                    .minimum_finite_input()
+                    .unwrap_or(usize::MAX),
 
                 base_cost: BaseCost {
                     rrf: rrf_cost,

@@ -30,6 +30,7 @@ use crate::{
                 shortcut::TemplateSwitchLowerBoundShortcutStrategy,
                 template_switch_count::NoTemplateSwitchCountStrategy,
                 template_switch_min_length::NoTemplateSwitchMinLengthStrategy,
+                template_switch_total_length::NoTemplateSwitchTotalLengthStrategy,
             },
         },
     },
@@ -56,6 +57,7 @@ type TSALBAlignmentStrategies<AlphabetType, Cost> = AlignmentStrategySelection<
     TemplateSwitchLowerBoundShortcutStrategy<Cost>,
     MaxConsecutivePrimaryMatchStrategy,
     NoPrunePrimaryRangeStrategy,
+    NoTemplateSwitchTotalLengthStrategy,
 >;
 
 impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
@@ -241,7 +243,7 @@ fn generate_template_switch_alignment_lower_bound_config<
     TemplateSwitchConfig {
         left_flank_length: config.left_flank_length,
         right_flank_length: config.right_flank_length,
-        min_length: usize::MAX,
+        template_switch_min_length: usize::MAX,
 
         base_cost: BaseCost::new_max(),
 
