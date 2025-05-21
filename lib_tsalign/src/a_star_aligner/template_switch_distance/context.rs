@@ -717,6 +717,11 @@ impl<
     fn memory_limit(&self) -> Option<usize> {
         self.memory_limit
     }
+
+    fn is_label_setting(&self) -> bool {
+        // E.g. TS total length strategy makes this label-correcting.
+        false
+    }
 }
 
 fn generate_output_mapper_function<

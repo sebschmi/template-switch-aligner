@@ -4,7 +4,9 @@ use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Id
 
 use super::{AlignmentStrategy, AlignmentStrategySelector, primary_match::PrimaryMatchStrategy};
 
-pub trait TemplateSwitchTotalLengthStrategy: AlignmentStrategy {}
+pub trait TemplateSwitchTotalLengthStrategy: AlignmentStrategy {
+    fn template_switch_total_length(&self) -> usize;
+}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct NoTemplateSwitchTotalLengthStrategy;
@@ -14,9 +16,17 @@ pub struct MaxTemplateSwitchTotalLengthStrategy {
     template_switch_total_length: usize,
 }
 
-impl TemplateSwitchTotalLengthStrategy for NoTemplateSwitchTotalLengthStrategy {}
+impl TemplateSwitchTotalLengthStrategy for NoTemplateSwitchTotalLengthStrategy {
+    fn template_switch_total_length(&self) -> usize {
+        0
+    }
+}
 
-impl TemplateSwitchTotalLengthStrategy for MaxTemplateSwitchTotalLengthStrategy {}
+impl TemplateSwitchTotalLengthStrategy for MaxTemplateSwitchTotalLengthStrategy {
+    fn template_switch_total_length(&self) -> usize {
+        self.template_switch_total_length
+    }
+}
 
 impl AlignmentStrategy for NoTemplateSwitchTotalLengthStrategy {
     fn create_root<

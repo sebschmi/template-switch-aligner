@@ -1,12 +1,14 @@
 #![forbid(clippy::mod_module_files)]
 
 use std::{
+    cmp::Ordering,
     collections::HashMap,
     fmt::{Debug, Display},
     hash::Hash,
 };
 
-use binary_heap_plus::{BinaryHeap, MinComparator};
+use binary_heap_plus::BinaryHeap;
+use compare::Compare;
 use cost::AStarCost;
 use deterministic_default_hasher::DeterministicDefaultHasher;
 use extend_map::ExtendFilter;
@@ -42,6 +44,11 @@ pub trait AStarNode: Sized + Ord + Debug + Display {
 
     /// Returns the A* lower bound of this node.
     fn a_star_lower_bound(&self) -> Self::Cost;
+
+    /// Returns a score that is used to order nodes of the same cost.
+    ///
+    /// This score should be maximised, which is done via complete search.
+    fn secondary_maximisable_score(&self) -> usize;
 
     /// Returns the identifier of the predecessor of this node.
     fn predecessor(&self) -> Option<&Self::Identifier>;
@@ -116,14 +123,14 @@ pub struct AStar<Context: AStarContext> {
         Context::Node,
         DeterministicDefaultHasher,
     >,
-    open_list: BinaryHeap<Context::Node, MinComparator>,
+    open_list: BinaryHeap<Context::Node, AStarNodeComparator>,
     performance_counters: AStarPerformanceCounters,
 }
 
 #[derive(Debug)]
 pub struct AStarBuffers<NodeIdentifier, Node> {
     closed_list: HashMap<NodeIdentifier, Node, DeterministicDefaultHasher>,
-    open_list: BinaryHeap<Node, MinComparator>,
+    open_list: BinaryHeap<Node, AStarNodeComparator>,
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash)]
@@ -160,13 +167,16 @@ struct BacktrackingIteratorWithCost<'a_star, Context: AStarContext> {
     current: <Context::Node as AStarNode>::Identifier,
 }
 
+#[derive(Debug, Default)]
+struct AStarNodeComparator;
+
 impl<Context: AStarContext> AStar<Context> {
     pub fn new(context: Context) -> Self {
         Self {
             state: AStarState::Empty,
             context,
             closed_list: Default::default(),
-            open_list: BinaryHeap::new_min(),
+            open_list: BinaryHeap::from_vec(Vec::new()),
             performance_counters: Default::default(),
         }
     }
@@ -275,8 +285,11 @@ impl<Context: AStarContext> AStar<Context> {
         self.state = AStarState::Searching;
 
         let mut last_node = None;
+        let mut target_identifier = None;
+        let mut target_cost = <Context::Node as AStarNode>::Cost::max_value();
+        let mut target_secondary_maximisable_score = 0;
 
-        let target_identifier = loop {
+        loop {
             let Some(node) = self.open_list.pop() else {
                 if last_node.is_none() {
                     unreachable!("Open list was empty.");
@@ -294,6 +307,7 @@ impl<Context: AStarContext> AStar<Context> {
                 }
             };
 
+            // Check cost limit.
             // Nodes are ordered by cost plus lower bound.
             if node.cost() + node.a_star_lower_bound() > cost_limit {
                 self.state = AStarState::Terminated {
@@ -302,6 +316,7 @@ impl<Context: AStarContext> AStar<Context> {
                 return AStarResult::ExceededCostLimit { cost_limit };
             }
 
+            // Check memory limit.
             if self.closed_list.len() + self.open_list.len() > node_count_limit {
                 self.state = AStarState::Terminated {
                     result: AStarResult::ExceededMemoryLimit {
@@ -313,11 +328,19 @@ impl<Context: AStarContext> AStar<Context> {
                 };
             }
 
+            // If label-correcting, abort when the first node more expensive than the cheapest target is visited.
+            if node.cost() + node.a_star_lower_bound() > target_cost {
+                debug_assert!(!self.context.is_label_setting());
+                break;
+            }
+
             last_node = Some(node.identifier().clone());
 
             if let Some(previous_visit) = self.closed_list.get(node.identifier()) {
+                self.performance_counters.suboptimal_opened_nodes += 1;
+
                 if self.context.is_label_setting() {
-                    // In label-setting mode, if we have already visited the node, we now must be visiting it with a higher cost.
+                    // In label-setting mode, if we have already visited the node, we now must be visiting it with a higher or equal cost.
                     debug_assert!(
                         previous_visit.cost() + previous_visit.a_star_lower_bound()
                             <= node.cost() + node.a_star_lower_bound(),
@@ -343,10 +366,13 @@ impl<Context: AStarContext> AStar<Context> {
                             out
                         }
                     );
-                }
 
-                self.performance_counters.suboptimal_opened_nodes += 1;
-                continue;
+                    continue;
+                } else if AStarNodeComparator.compare(&node, previous_visit) != Ordering::Less {
+                    // If we are label-correcting, we may still find a better node later on.
+                    // Skip if equal or worse.
+                    continue;
+                }
             }
 
             let open_nodes_without_new_successors = self.open_list.len();
@@ -361,20 +387,38 @@ impl<Context: AStarContext> AStar<Context> {
             self.performance_counters.opened_nodes +=
                 self.open_list.len() - open_nodes_without_new_successors;
 
-            if is_target(&self.context, &node) {
-                let identifier = node.identifier().clone();
-                let previous_visit = self.closed_list.insert(node.identifier().clone(), node);
-                self.performance_counters.closed_nodes += 1;
-                debug_assert!(previous_visit.is_none() || !self.context.is_label_setting());
-                break identifier;
+            if is_target(&self.context, &node)
+                && (node.cost() < target_cost
+                    || (node.cost() == target_cost
+                        && node.secondary_maximisable_score() > target_secondary_maximisable_score))
+            {
+                target_identifier = Some(node.identifier().clone());
+                target_cost = node.cost();
+                target_secondary_maximisable_score = node.secondary_maximisable_score();
+
+                if self.context.is_label_setting() {
+                    let previous_visit = self.closed_list.insert(node.identifier().clone(), node);
+                    self.performance_counters.closed_nodes += 1;
+                    debug_assert!(previous_visit.is_none() || !self.context.is_label_setting());
+                    break;
+                }
             }
 
             let previous_visit = self.closed_list.insert(node.identifier().clone(), node);
             self.performance_counters.closed_nodes += 1;
             debug_assert!(previous_visit.is_none() || !self.context.is_label_setting());
+        }
+
+        let Some(target_identifier) = target_identifier else {
+            debug_assert!(!self.context.is_label_setting());
+            self.state = AStarState::Terminated {
+                result: AStarResult::NoTarget,
+            };
+            return AStarResult::NoTarget;
         };
 
         let cost = self.closed_list.get(&target_identifier).unwrap().cost();
+        debug_assert_eq!(cost, target_cost);
         self.state = AStarState::Terminated {
             result: AStarResult::FoundTarget {
                 identifier: target_identifier.clone(),
@@ -549,11 +593,11 @@ impl<Context: AStarContext> Iterator for BacktrackingIteratorWithCost<'_, Contex
     }
 }
 
-impl<NodeIdentifier, Node: Ord> Default for AStarBuffers<NodeIdentifier, Node> {
+impl<NodeIdentifier, Node: AStarNode> Default for AStarBuffers<NodeIdentifier, Node> {
     fn default() -> Self {
         Self {
             closed_list: Default::default(),
-            open_list: BinaryHeap::new_min(),
+            open_list: BinaryHeap::from_vec(Vec::new()),
         }
     }
 }
@@ -599,11 +643,25 @@ impl<T: AStarNode> AStarNode for Box<T> {
         <T as AStarNode>::a_star_lower_bound(self)
     }
 
+    fn secondary_maximisable_score(&self) -> usize {
+        <T as AStarNode>::secondary_maximisable_score(self)
+    }
+
     fn predecessor(&self) -> Option<&Self::Identifier> {
         <T as AStarNode>::predecessor(self)
     }
 
     fn predecessor_edge_type(&self) -> Option<Self::EdgeType> {
         <T as AStarNode>::predecessor_edge_type(self)
+    }
+}
+
+impl<T: AStarNode> Compare<T> for AStarNodeComparator {
+    fn compare(&self, l: &T, r: &T) -> Ordering {
+        l.cmp(r).then_with(|| {
+            l.secondary_maximisable_score()
+                .cmp(&r.secondary_maximisable_score())
+                .reverse()
+        })
     }
 }

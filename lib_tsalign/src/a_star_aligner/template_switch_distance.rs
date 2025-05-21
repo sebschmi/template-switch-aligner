@@ -8,6 +8,7 @@ use strategies::{
     AlignmentStrategiesNodeMemory, AlignmentStrategySelector, node_ord::NodeOrdStrategy,
     primary_match::PrimaryMatchStrategy,
     template_switch_min_length::TemplateSwitchMinLengthStrategy,
+    template_switch_total_length::TemplateSwitchTotalLengthStrategy,
 };
 
 mod alignment_type;
@@ -66,6 +67,12 @@ impl<Strategies: AlignmentStrategySelector> AStarNode for Node<Strategies> {
 
     fn a_star_lower_bound(&self) -> Self::Cost {
         self.node_data.a_star_lower_bound
+    }
+
+    fn secondary_maximisable_score(&self) -> usize {
+        self.strategies
+            .template_switch_total_length
+            .template_switch_total_length()
     }
 
     fn predecessor(&self) -> Option<&Self::Identifier> {

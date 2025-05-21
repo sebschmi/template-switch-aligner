@@ -44,6 +44,10 @@ impl<Cost: AStarCost> AStarNode for Node<Cost> {
         Cost::zero()
     }
 
+    fn secondary_maximisable_score(&self) -> usize {
+        0
+    }
+
     fn predecessor(&self) -> Option<&Self::Identifier> {
         self.predecessor.as_ref()
     }
