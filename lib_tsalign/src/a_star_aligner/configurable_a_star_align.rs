@@ -48,7 +48,10 @@ use super::{
                 LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
                 TemplateSwitchMinLengthStrategy,
             },
-            template_switch_total_length::MaxTemplateSwitchTotalLengthStrategy,
+            template_switch_total_length::{
+                MaxTemplateSwitchTotalLengthStrategy, NoTemplateSwitchTotalLengthStrategy,
+                TemplateSwitchTotalLengthStrategy,
+            },
         },
     },
 };
@@ -68,6 +71,7 @@ pub struct Config {
     pub node_ord_strategy: NodeOrdStrategySelector,
     pub min_length_strategy: MinLengthStrategySelector,
     pub chaining_strategy: ChainingStrategySelector,
+    pub total_length_strategy: TotalLengthStrategySelector,
     pub no_ts: bool,
 
     pub cost_limit: Option<U64Cost>,
@@ -86,6 +90,7 @@ impl Default for Config {
             node_ord_strategy: NodeOrdStrategySelector::AntiDiagonal,
             min_length_strategy: MinLengthStrategySelector::Lookahead,
             chaining_strategy: ChainingStrategySelector::None,
+            total_length_strategy: TotalLengthStrategySelector::Maximise,
             no_ts: false,
             cost_limit: None,
             memory_limit: None,
@@ -129,6 +134,14 @@ pub enum ChainingStrategySelector {
     None,
     PrecomputeOnly,
     LowerBound,
+}
+
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+pub enum TotalLengthStrategySelector {
+    None,
+    Maximise,
 }
 
 /// Align `query` to `reference` with the given `config`.
@@ -205,24 +218,22 @@ fn a_star_align_select_template_switch_min_length_strategy<
     costs: TemplateSwitchConfig<AlphabetType, U64Cost>,
 ) -> AlignmentResult<AlignmentType, U64Cost> {
     match config.min_length_strategy {
-        MinLengthStrategySelector::None => align_a_star_template_switch_select_chaining_strategy::<
+        MinLengthStrategySelector::None => a_star_align_select_chaining_strategy::<
             _,
             _,
             NodeOrd,
             NoTemplateSwitchMinLengthStrategy<U64Cost>,
         >(reference, query, config, costs),
-        MinLengthStrategySelector::Lookahead => {
-            align_a_star_template_switch_select_chaining_strategy::<
-                _,
-                _,
-                NodeOrd,
-                LookaheadTemplateSwitchMinLengthStrategy<U64Cost>,
-            >(reference, query, config, costs)
-        }
+        MinLengthStrategySelector::Lookahead => a_star_align_select_chaining_strategy::<
+            _,
+            _,
+            NodeOrd,
+            LookaheadTemplateSwitchMinLengthStrategy<U64Cost>,
+        >(reference, query, config, costs),
     }
 }
 
-fn align_a_star_template_switch_select_chaining_strategy<
+fn a_star_align_select_chaining_strategy<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
     NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
@@ -234,35 +245,31 @@ fn align_a_star_template_switch_select_chaining_strategy<
     costs: TemplateSwitchConfig<AlphabetType, U64Cost>,
 ) -> AlignmentResult<AlignmentType, U64Cost> {
     match config.chaining_strategy {
-        ChainingStrategySelector::None => align_a_star_template_switch_select_no_ts_strategy::<
+        ChainingStrategySelector::None => a_star_align_select_no_ts_strategy::<
             _,
             _,
             NodeOrd,
             TemplateSwitchMinLength,
             NoChainingStrategy<U64Cost>,
         >(reference, query, config, costs),
-        ChainingStrategySelector::PrecomputeOnly => {
-            align_a_star_template_switch_select_no_ts_strategy::<
-                _,
-                _,
-                NodeOrd,
-                TemplateSwitchMinLength,
-                PrecomputeOnlyChainingStrategy<U64Cost>,
-            >(reference, query, config, costs)
-        }
-        ChainingStrategySelector::LowerBound => {
-            align_a_star_template_switch_select_no_ts_strategy::<
-                _,
-                _,
-                NodeOrd,
-                TemplateSwitchMinLength,
-                LowerBoundChainingStrategy<U64Cost>,
-            >(reference, query, config, costs)
-        }
+        ChainingStrategySelector::PrecomputeOnly => a_star_align_select_no_ts_strategy::<
+            _,
+            _,
+            NodeOrd,
+            TemplateSwitchMinLength,
+            PrecomputeOnlyChainingStrategy<U64Cost>,
+        >(reference, query, config, costs),
+        ChainingStrategySelector::LowerBound => a_star_align_select_no_ts_strategy::<
+            _,
+            _,
+            NodeOrd,
+            TemplateSwitchMinLength,
+            LowerBoundChainingStrategy<U64Cost>,
+        >(reference, query, config, costs),
     }
 }
 
-fn align_a_star_template_switch_select_no_ts_strategy<
+fn a_star_align_select_no_ts_strategy<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
     NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
@@ -275,7 +282,7 @@ fn align_a_star_template_switch_select_no_ts_strategy<
     costs: TemplateSwitchConfig<AlphabetType, U64Cost>,
 ) -> AlignmentResult<AlignmentType, U64Cost> {
     if config.no_ts {
-        align_a_star_template_switch_distance_call::<
+        a_star_align_select_total_length_strategy::<
             _,
             _,
             NodeOrd,
@@ -284,7 +291,7 @@ fn align_a_star_template_switch_select_no_ts_strategy<
             MaxTemplateSwitchCountStrategy,
         >(reference, query, config, costs, 0)
     } else {
-        align_a_star_template_switch_distance_call::<
+        a_star_align_select_total_length_strategy::<
             _,
             _,
             NodeOrd,
@@ -295,13 +302,62 @@ fn align_a_star_template_switch_select_no_ts_strategy<
     }
 }
 
-fn align_a_star_template_switch_distance_call<
+fn a_star_align_select_total_length_strategy<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
     NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
     TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<U64Cost>,
     Chaining: ChainingStrategy<U64Cost>,
     TemplateSwitchCount: TemplateSwitchCountStrategy,
+>(
+    reference: &SubsequenceType,
+    query: &SubsequenceType,
+    config: &Config,
+    costs: TemplateSwitchConfig<AlphabetType, U64Cost>,
+    template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
+) -> AlignmentResult<AlignmentType, U64Cost> {
+    match config.total_length_strategy {
+        TotalLengthStrategySelector::None => a_star_align_call::<
+            _,
+            _,
+            NodeOrd,
+            TemplateSwitchMinLength,
+            Chaining,
+            TemplateSwitchCount,
+            NoTemplateSwitchTotalLengthStrategy,
+        >(
+            reference,
+            query,
+            config,
+            costs,
+            template_switch_count_memory,
+        ),
+        TotalLengthStrategySelector::Maximise => a_star_align_call::<
+            _,
+            _,
+            NodeOrd,
+            TemplateSwitchMinLength,
+            Chaining,
+            TemplateSwitchCount,
+            MaxTemplateSwitchTotalLengthStrategy,
+        >(
+            reference,
+            query,
+            config,
+            costs,
+            template_switch_count_memory,
+        ),
+    }
+}
+
+fn a_star_align_call<
+    AlphabetType: Alphabet + Debug + Clone + Eq,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
+    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<U64Cost>,
+    Chaining: ChainingStrategy<U64Cost>,
+    TemplateSwitchCount: TemplateSwitchCountStrategy,
+    TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
 >(
     reference: &SubsequenceType,
     query: &SubsequenceType,
@@ -321,7 +377,7 @@ fn align_a_star_template_switch_distance_call<
             NoShortcutStrategy<U64Cost>,
             AllowPrimaryMatchStrategy,
             NoPrunePrimaryRangeStrategy,
-            MaxTemplateSwitchTotalLengthStrategy,
+            TemplateSwitchTotalLength,
         >,
         _,
     >(

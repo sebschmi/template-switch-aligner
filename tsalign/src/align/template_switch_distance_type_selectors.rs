@@ -24,7 +24,10 @@ use lib_tsalign::{
                 LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
                 TemplateSwitchMinLengthStrategy,
             },
-            template_switch_total_length::MaxTemplateSwitchTotalLengthStrategy,
+            template_switch_total_length::{
+                MaxTemplateSwitchTotalLengthStrategy, NoTemplateSwitchTotalLengthStrategy,
+                TemplateSwitchTotalLengthStrategy,
+            },
         },
         template_switch_distance_a_star_align,
     },
@@ -52,6 +55,12 @@ pub enum TemplateSwitchChainingStrategySelector {
     None,
     PrecomputeOnly,
     LowerBound,
+}
+
+#[derive(Clone, ValueEnum)]
+pub enum TemplateSwitchTotalLengthStrategySelector {
+    None,
+    Maximise,
 }
 
 pub fn align_a_star_template_switch_distance<
@@ -189,7 +198,7 @@ fn align_a_star_template_switch_select_no_ts_strategy<
     query_name: &str,
 ) {
     if cli.no_ts {
-        align_a_star_template_switch_distance_call::<
+        align_a_star_template_switch_select_template_switch_total_length_strategy::<
             _,
             _,
             NodeOrd,
@@ -198,7 +207,7 @@ fn align_a_star_template_switch_select_no_ts_strategy<
             MaxTemplateSwitchCountStrategy,
         >(cli, reference, query, reference_name, query_name, 0)
     } else {
-        align_a_star_template_switch_distance_call::<
+        align_a_star_template_switch_select_template_switch_total_length_strategy::<
             _,
             _,
             NodeOrd,
@@ -209,6 +218,61 @@ fn align_a_star_template_switch_select_no_ts_strategy<
     }
 }
 
+fn align_a_star_template_switch_select_template_switch_total_length_strategy<
+    AlphabetType: Alphabet + Debug + Clone + Eq,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
+    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<U64Cost>,
+    Chaining: ChainingStrategy<U64Cost>,
+    TemplateSwitchCount: TemplateSwitchCountStrategy,
+>(
+    cli: Cli,
+    reference: &SubsequenceType,
+    query: &SubsequenceType,
+    reference_name: &str,
+    query_name: &str,
+    template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
+) {
+    match cli.ts_total_length_strategy {
+        TemplateSwitchTotalLengthStrategySelector::None => {
+            align_a_star_template_switch_distance_call::<
+                _,
+                _,
+                NodeOrd,
+                TemplateSwitchMinLength,
+                Chaining,
+                TemplateSwitchCount,
+                NoTemplateSwitchTotalLengthStrategy,
+            >(
+                cli,
+                reference,
+                query,
+                reference_name,
+                query_name,
+                template_switch_count_memory,
+            )
+        }
+        TemplateSwitchTotalLengthStrategySelector::Maximise => {
+            align_a_star_template_switch_distance_call::<
+                _,
+                _,
+                NodeOrd,
+                TemplateSwitchMinLength,
+                Chaining,
+                TemplateSwitchCount,
+                MaxTemplateSwitchTotalLengthStrategy,
+            >(
+                cli,
+                reference,
+                query,
+                reference_name,
+                query_name,
+                template_switch_count_memory,
+            )
+        }
+    }
+}
+
 fn align_a_star_template_switch_distance_call<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -216,6 +280,7 @@ fn align_a_star_template_switch_distance_call<
     TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<U64Cost>,
     Chaining: ChainingStrategy<U64Cost>,
     TemplateSwitchCount: TemplateSwitchCountStrategy,
+    TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
 >(
     cli: Cli,
     reference: &SubsequenceType,
@@ -250,7 +315,7 @@ fn align_a_star_template_switch_distance_call<
             NoShortcutStrategy<U64Cost>,
             AllowPrimaryMatchStrategy,
             NoPrunePrimaryRangeStrategy,
-            MaxTemplateSwitchTotalLengthStrategy,
+            TemplateSwitchTotalLength,
         >,
         _,
     >(
