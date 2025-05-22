@@ -8,13 +8,15 @@ use std::{
 };
 
 use binary_heap_plus::BinaryHeap;
+use comparator::AStarNodeComparator;
 use compare::Compare;
 use cost::AStarCost;
 use deterministic_default_hasher::DeterministicDefaultHasher;
 use extend_map::ExtendFilter;
-use num_traits::Bounded;
+use num_traits::{Bounded, Zero};
 use reset::Reset;
 
+mod comparator;
 pub mod cost;
 pub mod reset;
 
@@ -166,9 +168,6 @@ struct BacktrackingIteratorWithCost<'a_star, Context: AStarContext> {
     a_star: &'a_star AStar<Context>,
     current: <Context::Node as AStarNode>::Identifier,
 }
-
-#[derive(Debug, Default)]
-struct AStarNodeComparator;
 
 impl<Context: AStarContext> AStar<Context> {
     pub fn new(context: Context) -> Self {
@@ -392,6 +391,8 @@ impl<Context: AStarContext> AStar<Context> {
                     || (node.cost() == target_cost
                         && node.secondary_maximisable_score() > target_secondary_maximisable_score))
             {
+                debug_assert!(node.a_star_lower_bound().is_zero());
+
                 target_identifier = Some(node.identifier().clone());
                 target_cost = node.cost();
                 target_secondary_maximisable_score = node.secondary_maximisable_score();
@@ -653,15 +654,5 @@ impl<T: AStarNode> AStarNode for Box<T> {
 
     fn predecessor_edge_type(&self) -> Option<Self::EdgeType> {
         <T as AStarNode>::predecessor_edge_type(self)
-    }
-}
-
-impl<T: AStarNode> Compare<T> for AStarNodeComparator {
-    fn compare(&self, l: &T, r: &T) -> Ordering {
-        l.cmp(r).then_with(|| {
-            l.secondary_maximisable_score()
-                .cmp(&r.secondary_maximisable_score())
-                .reverse()
-        })
     }
 }
