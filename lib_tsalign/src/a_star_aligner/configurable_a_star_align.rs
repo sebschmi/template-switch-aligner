@@ -112,7 +112,7 @@ pub enum InputAlphabet {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum NodeOrdStrategySelector {
-    CostOnly,
+    // CostOnly,
     AntiDiagonal,
 }
 
@@ -129,7 +129,7 @@ pub enum MinLengthStrategySelector {
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum ChainingStrategySelector {
     None,
-    PrecomputeOnly,
+    // PrecomputeOnly,
     LowerBound,
 }
 
@@ -181,15 +181,15 @@ fn a_star_align_select_node_ord_strategy<AlphabetType: Alphabet + Debug + Clone 
     let costs = TemplateSwitchConfig::read_plain(config.costs.as_bytes()).unwrap();
 
     match config.node_ord_strategy {
-        NodeOrdStrategySelector::CostOnly => {
-            /*a_star_align_select_template_switch_min_length_strategy::<_, _, CostOnlyNodeOrdStrategy>(
+        /*NodeOrdStrategySelector::CostOnly => {
+            a_star_align_select_template_switch_min_length_strategy::<_, _, CostOnlyNodeOrdStrategy>(
                 reference.as_genome_subsequence(),
                 query.as_genome_subsequence(),
                 config,
                 costs,
-            )*/
+            )
             unimplemented!("The other option appears to always be better.");
-        }
+        }*/
         NodeOrdStrategySelector::AntiDiagonal => {
             a_star_align_select_template_switch_min_length_strategy::<
                 _,
@@ -250,16 +250,16 @@ fn a_star_align_select_chaining_strategy<
             TemplateSwitchMinLength,
             NoChainingStrategy<U64Cost>,
         >(reference, query, config, costs),
-        ChainingStrategySelector::PrecomputeOnly => {
-            /*a_star_align_select_no_ts_strategy::<
+        /*ChainingStrategySelector::PrecomputeOnly => {
+            a_star_align_select_no_ts_strategy::<
                 _,
                 _,
                 NodeOrd,
                 TemplateSwitchMinLength,
                 PrecomputeOnlyChainingStrategy<U64Cost>,
-            >(reference, query, config, costs)*/
+            >(reference, query, config, costs)
             unimplemented!("No reason to precompute without using the information.");
-        }
+        }*/
         ChainingStrategySelector::LowerBound => a_star_align_select_no_ts_strategy::<
             _,
             _,
