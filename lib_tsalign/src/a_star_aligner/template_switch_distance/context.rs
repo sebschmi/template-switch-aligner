@@ -19,6 +19,7 @@ use super::strategies::secondary_deletion::SecondaryDeletionStrategy;
 use super::strategies::shortcut::ShortcutStrategy;
 use super::strategies::template_switch_count::TemplateSwitchCountStrategy;
 use super::strategies::template_switch_min_length::TemplateSwitchMinLengthStrategy;
+use super::strategies::template_switch_total_length::TemplateSwitchTotalLengthStrategy;
 use super::strategies::{AlignmentStrategiesNodeMemory, AlignmentStrategySelector};
 use super::{AlignmentType, Identifier, NodeData};
 
@@ -50,6 +51,10 @@ pub struct Context<
 
     cost_limit: Option<Strategies::Cost>,
     memory_limit: Option<usize>,
+    /// Force the search to run in label-correcting mode.
+    ///
+    /// This is for debug purposes only.
+    force_label_correcting: bool,
 }
 
 pub struct Memory<Strategies: AlignmentStrategySelector> {
@@ -80,6 +85,7 @@ impl<
         memory: Memory<Strategies>,
         cost_limit: Option<Strategies::Cost>,
         memory_limit: Option<usize>,
+        force_label_correcting: bool,
     ) -> Self {
         Self {
             reference,
@@ -93,6 +99,7 @@ impl<
             memory,
             cost_limit,
             memory_limit,
+            force_label_correcting,
         }
     }
 }
@@ -386,7 +393,7 @@ impl<
                 if template_switch_first_offset >= 0
                     && match template_switch_direction {
                         TemplateSwitchDirection::Forward => {
-                            (secondary_index + self.config.min_length as isize)
+                            (secondary_index + self.config.template_switch_min_length as isize)
                                 < secondary_length as isize
                         }
                         TemplateSwitchDirection::Reverse => {
@@ -418,7 +425,7 @@ impl<
                     && match template_switch_direction {
                         TemplateSwitchDirection::Forward => secondary_index > 0,
                         TemplateSwitchDirection::Reverse => {
-                            secondary_index > self.config.min_length as isize
+                            secondary_index > self.config.template_switch_min_length as isize
                         }
                     }
                 {
@@ -445,11 +452,11 @@ impl<
                 if match template_switch_direction {
                     TemplateSwitchDirection::Forward => {
                         secondary_index >= 0
-                            && (secondary_index + self.config.min_length as isize)
+                            && (secondary_index + self.config.template_switch_min_length as isize)
                                 <= secondary_length as isize
                     }
                     TemplateSwitchDirection::Reverse => {
-                        secondary_index >= self.config.min_length as isize
+                        secondary_index >= self.config.template_switch_min_length as isize
                             && secondary_index <= secondary_length as isize
                     }
                 } {
@@ -716,6 +723,10 @@ impl<
 
     fn memory_limit(&self) -> Option<usize> {
         self.memory_limit
+    }
+
+    fn is_label_setting(&self) -> bool {
+        !<Strategies::TemplateSwitchTotalLength as TemplateSwitchTotalLengthStrategy>::makes_label_correcting() && !self.force_label_correcting
     }
 }
 

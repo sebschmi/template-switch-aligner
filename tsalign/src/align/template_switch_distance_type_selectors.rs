@@ -7,11 +7,8 @@ use lib_tsalign::{
         alignment_geometry::{AlignmentCoordinates, AlignmentRange},
         template_switch_distance::strategies::{
             AlignmentStrategySelection,
-            chaining::{
-                ChainingStrategy, LowerBoundChainingStrategy, NoChainingStrategy,
-                PrecomputeOnlyChainingStrategy,
-            },
-            node_ord::{AntiDiagonalNodeOrdStrategy, CostOnlyNodeOrdStrategy, NodeOrdStrategy},
+            chaining::{ChainingStrategy, LowerBoundChainingStrategy, NoChainingStrategy},
+            node_ord::{AntiDiagonalNodeOrdStrategy, NodeOrdStrategy},
             primary_match::AllowPrimaryMatchStrategy,
             primary_range::NoPrunePrimaryRangeStrategy,
             secondary_deletion::AllowSecondaryDeletionStrategy,
@@ -23,6 +20,10 @@ use lib_tsalign::{
             template_switch_min_length::{
                 LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
                 TemplateSwitchMinLengthStrategy,
+            },
+            template_switch_total_length::{
+                MaxTemplateSwitchTotalLengthStrategy, NoTemplateSwitchTotalLengthStrategy,
+                TemplateSwitchTotalLengthStrategy,
             },
         },
         template_switch_distance_a_star_align,
@@ -51,6 +52,12 @@ pub enum TemplateSwitchChainingStrategySelector {
     None,
     PrecomputeOnly,
     LowerBound,
+}
+
+#[derive(Clone, ValueEnum)]
+pub enum TemplateSwitchTotalLengthStrategySelector {
+    None,
+    Maximise,
 }
 
 pub fn align_a_star_template_switch_distance<
@@ -84,11 +91,12 @@ fn align_a_star_template_switch_distance_select_node_ord_strategy<
 ) {
     match cli.ts_node_ord_strategy {
         TemplateSwitchNodeOrdStrategySelector::CostOnly => {
-            align_a_star_template_switch_distance_select_template_switch_min_length_strategy::<
+            /*align_a_star_template_switch_distance_select_template_switch_min_length_strategy::<
                 _,
                 _,
                 CostOnlyNodeOrdStrategy,
-            >(cli, reference, query, reference_name, query_name)
+            >(cli, reference, query, reference_name, query_name)*/
+            unimplemented!("The other option appears to always be better.");
         }
         TemplateSwitchNodeOrdStrategySelector::AntiDiagonal => {
             align_a_star_template_switch_distance_select_template_switch_min_length_strategy::<
@@ -154,13 +162,14 @@ fn align_a_star_template_switch_select_chaining_strategy<
             >(cli, reference, query, reference_name, query_name)
         }
         TemplateSwitchChainingStrategySelector::PrecomputeOnly => {
-            align_a_star_template_switch_select_no_ts_strategy::<
+            /*align_a_star_template_switch_select_no_ts_strategy::<
                 _,
                 _,
                 NodeOrd,
                 TemplateSwitchMinLength,
                 PrecomputeOnlyChainingStrategy<U64Cost>,
-            >(cli, reference, query, reference_name, query_name)
+            >(cli, reference, query, reference_name, query_name)*/
+            unimplemented!("No reason to precompute without using the information.");
         }
         TemplateSwitchChainingStrategySelector::LowerBound => {
             align_a_star_template_switch_select_no_ts_strategy::<
@@ -188,7 +197,7 @@ fn align_a_star_template_switch_select_no_ts_strategy<
     query_name: &str,
 ) {
     if cli.no_ts {
-        align_a_star_template_switch_distance_call::<
+        align_a_star_template_switch_select_template_switch_total_length_strategy::<
             _,
             _,
             NodeOrd,
@@ -197,7 +206,7 @@ fn align_a_star_template_switch_select_no_ts_strategy<
             MaxTemplateSwitchCountStrategy,
         >(cli, reference, query, reference_name, query_name, 0)
     } else {
-        align_a_star_template_switch_distance_call::<
+        align_a_star_template_switch_select_template_switch_total_length_strategy::<
             _,
             _,
             NodeOrd,
@@ -208,6 +217,61 @@ fn align_a_star_template_switch_select_no_ts_strategy<
     }
 }
 
+fn align_a_star_template_switch_select_template_switch_total_length_strategy<
+    AlphabetType: Alphabet + Debug + Clone + Eq,
+    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
+    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<U64Cost>,
+    Chaining: ChainingStrategy<U64Cost>,
+    TemplateSwitchCount: TemplateSwitchCountStrategy,
+>(
+    cli: Cli,
+    reference: &SubsequenceType,
+    query: &SubsequenceType,
+    reference_name: &str,
+    query_name: &str,
+    template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
+) {
+    match cli.ts_total_length_strategy {
+        TemplateSwitchTotalLengthStrategySelector::None => {
+            align_a_star_template_switch_distance_call::<
+                _,
+                _,
+                NodeOrd,
+                TemplateSwitchMinLength,
+                Chaining,
+                TemplateSwitchCount,
+                NoTemplateSwitchTotalLengthStrategy,
+            >(
+                cli,
+                reference,
+                query,
+                reference_name,
+                query_name,
+                template_switch_count_memory,
+            )
+        }
+        TemplateSwitchTotalLengthStrategySelector::Maximise => {
+            align_a_star_template_switch_distance_call::<
+                _,
+                _,
+                NodeOrd,
+                TemplateSwitchMinLength,
+                Chaining,
+                TemplateSwitchCount,
+                MaxTemplateSwitchTotalLengthStrategy,
+            >(
+                cli,
+                reference,
+                query,
+                reference_name,
+                query_name,
+                template_switch_count_memory,
+            )
+        }
+    }
+}
+
 fn align_a_star_template_switch_distance_call<
     AlphabetType: Alphabet + Debug + Clone + Eq,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -215,6 +279,7 @@ fn align_a_star_template_switch_distance_call<
     TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<U64Cost>,
     Chaining: ChainingStrategy<U64Cost>,
     TemplateSwitchCount: TemplateSwitchCountStrategy,
+    TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
 >(
     cli: Cli,
     reference: &SubsequenceType,
@@ -249,6 +314,7 @@ fn align_a_star_template_switch_distance_call<
             NoShortcutStrategy<U64Cost>,
             AllowPrimaryMatchStrategy,
             NoPrunePrimaryRangeStrategy,
+            TemplateSwitchTotalLength,
         >,
         _,
     >(
@@ -260,6 +326,7 @@ fn align_a_star_template_switch_distance_call<
         costs,
         cli.cost_limit,
         cli.memory_limit,
+        cli.force_label_correcting,
         template_switch_count_memory,
     );
     info!("Finished aligning");

@@ -87,6 +87,10 @@ impl<Cost: AStarCost> AStarNode for Node<Cost> {
         Cost::zero()
     }
 
+    fn secondary_maximisable_score(&self) -> usize {
+        0
+    }
+
     fn predecessor(&self) -> Option<&Self::Identifier> {
         self.predecessor.as_ref()
     }
@@ -286,7 +290,7 @@ impl<Cost: std::fmt::Display> std::fmt::Display for Node<Cost> {
         if let Some(predecessor) = predecessor {
             write!(f, "predecessor: {predecessor}; ")?;
         }
-        write!(f, "alignment_type: {predecessor_edge_type}")?;
+        write!(f, "alignment_type: {predecessor_edge_type}; ")?;
         write!(f, "cost: {cost}")
     }
 }

@@ -270,7 +270,13 @@ impl<Cost: AStarCost + From<u64>>
             range.query_offset(),
             config,
         );
-        assert_eq!(initial_cost, (statistics.cost.round().raw() as u64).into());
+        let alignment_cost = (statistics.cost.round().raw() as u64).into();
+        assert_eq!(
+            initial_cost,
+            alignment_cost,
+            "computed cost {initial_cost} != alignment cost {alignment_cost}; {}",
+            alignment.cigar()
+        );
 
         // Extend left with equal cost.
         while range.reference_offset() > 0 && range.query_offset() > 0 {

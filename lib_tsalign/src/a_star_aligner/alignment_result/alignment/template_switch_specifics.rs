@@ -1113,7 +1113,7 @@ mod tests {
         LazyLock::new(|| TemplateSwitchConfig {
             left_flank_length: 0,
             right_flank_length: 0,
-            min_length: 3,
+            template_switch_min_length: 3,
             base_cost: BaseCost {
                 rrf: 10u64.into(),
                 rqf: 100u64.into(),

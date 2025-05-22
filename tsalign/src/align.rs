@@ -30,7 +30,8 @@ use log::{LevelFilter, debug, info};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 use template_switch_distance_type_selectors::{
     TemplateSwitchChainingStrategySelector, TemplateSwitchMinLengthStrategySelector,
-    TemplateSwitchNodeOrdStrategySelector, align_a_star_template_switch_distance,
+    TemplateSwitchNodeOrdStrategySelector, TemplateSwitchTotalLengthStrategySelector,
+    align_a_star_template_switch_distance,
 };
 
 mod template_switch_distance_type_selectors;
@@ -77,6 +78,13 @@ pub struct Cli {
     #[clap(long, default_value = "none")]
     ts_chaining_strategy: TemplateSwitchChainingStrategySelector,
 
+    /// If set to maximise, the total length of template switches becomes a secondary search criterion.
+    ///
+    /// As a result, instead of reporting an arbitrary alignment with optimal cost,
+    /// tsalign selects an alignment with maximal total TS length out of all the alignments with optimal cost.
+    #[clap(long, default_value = "maximise")]
+    ts_total_length_strategy: TemplateSwitchTotalLengthStrategySelector,
+
     /// If set, template switches are not allowed.
     ///
     /// Use this to compare a template switch alignment against an alignment with out template switches.
@@ -85,7 +93,7 @@ pub struct Cli {
 
     /// A cost limit for the alignment.
     ///
-    /// If there is no alignment with that cost, the aligner will abort without result.
+    /// If there is no alignment with at most that cost, the aligner will abort without result.
     #[clap(long)]
     cost_limit: Option<U64Cost>,
 
@@ -94,6 +102,12 @@ pub struct Cli {
     /// If it is exceeded, then the aligner will abort without result.
     #[clap(long)]
     memory_limit: Option<usize>,
+
+    /// Force the search to run in label-correcting mode.
+    ///
+    /// This is for debug purposes only.
+    #[clap(long)]
+    force_label_correcting: bool,
 
     /// First character in the reference to start the alignment from.
     ///

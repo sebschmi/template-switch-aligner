@@ -25,6 +25,7 @@ use crate::{
                 secondary_deletion::ForbidSecondaryDeletionStrategy, shortcut::NoShortcutStrategy,
                 template_switch_count::MaxTemplateSwitchCountStrategy,
                 template_switch_min_length::NoTemplateSwitchMinLengthStrategy,
+                template_switch_total_length::NoTemplateSwitchTotalLengthStrategy,
             },
         },
     },
@@ -58,6 +59,7 @@ type TSLBAlignmentStrategies<AlphabetType, Cost> = AlignmentStrategySelection<
     NoShortcutStrategy<Cost>,
     AllowPrimaryMatchStrategy,
     NoPrunePrimaryRangeStrategy,
+    NoTemplateSwitchTotalLengthStrategy,
 >;
 
 impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
@@ -102,6 +104,7 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
                     },
                     None,
                     None,
+                    false,
                 ),
             );
             let root_xy = genome_length / 2;
@@ -314,7 +317,7 @@ fn generate_template_switch_lower_bound_config<AlphabetType: Alphabet, Cost: ASt
     TemplateSwitchConfig {
         left_flank_length: 0,
         right_flank_length: 0,
-        min_length: config.min_length,
+        template_switch_min_length: config.template_switch_min_length,
 
         base_cost: config.base_cost.clone(),
 

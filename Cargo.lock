@@ -364,6 +364,7 @@ name = "generic_a_star"
 version = "0.18.0"
 dependencies = [
  "binary-heap-plus",
+ "compare",
  "deterministic_default_hasher",
  "extend_map",
  "num-traits",

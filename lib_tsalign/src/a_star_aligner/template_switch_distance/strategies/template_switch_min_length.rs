@@ -145,7 +145,10 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
                     .memory
                     .template_switch_min_length
                     .insert(memory_key, lower_bound);
-                secondary_root_node.node_data.a_star_lower_bound += lower_bound;
+                secondary_root_node.node_data.a_star_lower_bound = secondary_root_node
+                    .node_data
+                    .a_star_lower_bound
+                    .max(lower_bound);
 
                 secondary_root_node
             } else {
@@ -255,9 +258,9 @@ impl<
         let Identifier::Secondary { length, .. } = node.node_data.identifier else {
             unreachable!("A non-secondary node was closed before a target was closed.")
         };
-        debug_assert!(length <= self.context.config.min_length);
+        debug_assert!(length <= self.context.config.template_switch_min_length);
 
-        length == self.context.config.min_length
+        length == self.context.config.template_switch_min_length
     }
 
     fn cost_limit(&self) -> Option<Strategies::Cost> {
