@@ -34,11 +34,8 @@ use super::{
     template_switch_distance::{
         AlignmentType,
         strategies::{
-            chaining::{
-                ChainingStrategy, LowerBoundChainingStrategy, NoChainingStrategy,
-                PrecomputeOnlyChainingStrategy,
-            },
-            node_ord::{AntiDiagonalNodeOrdStrategy, CostOnlyNodeOrdStrategy, NodeOrdStrategy},
+            chaining::{ChainingStrategy, LowerBoundChainingStrategy, NoChainingStrategy},
+            node_ord::{AntiDiagonalNodeOrdStrategy, NodeOrdStrategy},
             primary_match::AllowPrimaryMatchStrategy,
             template_switch_count::{
                 MaxTemplateSwitchCountStrategy, NoTemplateSwitchCountStrategy,
@@ -185,12 +182,13 @@ fn a_star_align_select_node_ord_strategy<AlphabetType: Alphabet + Debug + Clone 
 
     match config.node_ord_strategy {
         NodeOrdStrategySelector::CostOnly => {
-            a_star_align_select_template_switch_min_length_strategy::<_, _, CostOnlyNodeOrdStrategy>(
+            /*a_star_align_select_template_switch_min_length_strategy::<_, _, CostOnlyNodeOrdStrategy>(
                 reference.as_genome_subsequence(),
                 query.as_genome_subsequence(),
                 config,
                 costs,
-            )
+            )*/
+            unimplemented!("The other option appears to always be better.");
         }
         NodeOrdStrategySelector::AntiDiagonal => {
             a_star_align_select_template_switch_min_length_strategy::<
@@ -252,13 +250,16 @@ fn a_star_align_select_chaining_strategy<
             TemplateSwitchMinLength,
             NoChainingStrategy<U64Cost>,
         >(reference, query, config, costs),
-        ChainingStrategySelector::PrecomputeOnly => a_star_align_select_no_ts_strategy::<
-            _,
-            _,
-            NodeOrd,
-            TemplateSwitchMinLength,
-            PrecomputeOnlyChainingStrategy<U64Cost>,
-        >(reference, query, config, costs),
+        ChainingStrategySelector::PrecomputeOnly => {
+            /*a_star_align_select_no_ts_strategy::<
+                _,
+                _,
+                NodeOrd,
+                TemplateSwitchMinLength,
+                PrecomputeOnlyChainingStrategy<U64Cost>,
+            >(reference, query, config, costs)*/
+            unimplemented!("No reason to precompute without using the information.");
+        }
         ChainingStrategySelector::LowerBound => a_star_align_select_no_ts_strategy::<
             _,
             _,
