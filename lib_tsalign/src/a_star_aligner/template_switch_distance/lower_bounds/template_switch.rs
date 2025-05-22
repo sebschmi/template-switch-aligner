@@ -104,6 +104,7 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
                     },
                     None,
                     None,
+                    false,
                 ),
             );
             let root_xy = genome_length / 2;

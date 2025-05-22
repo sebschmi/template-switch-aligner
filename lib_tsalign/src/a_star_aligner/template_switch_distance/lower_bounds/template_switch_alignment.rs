@@ -113,6 +113,7 @@ impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
                 },
                 None,
                 None,
+                false,
             ),
         );
         a_star.initialise();

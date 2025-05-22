@@ -19,6 +19,7 @@ use super::strategies::secondary_deletion::SecondaryDeletionStrategy;
 use super::strategies::shortcut::ShortcutStrategy;
 use super::strategies::template_switch_count::TemplateSwitchCountStrategy;
 use super::strategies::template_switch_min_length::TemplateSwitchMinLengthStrategy;
+use super::strategies::template_switch_total_length::TemplateSwitchTotalLengthStrategy;
 use super::strategies::{AlignmentStrategiesNodeMemory, AlignmentStrategySelector};
 use super::{AlignmentType, Identifier, NodeData};
 
@@ -50,6 +51,10 @@ pub struct Context<
 
     cost_limit: Option<Strategies::Cost>,
     memory_limit: Option<usize>,
+    /// Force the search to run in label-correcting mode.
+    ///
+    /// This is for debug purposes only.
+    force_label_correcting: bool,
 }
 
 pub struct Memory<Strategies: AlignmentStrategySelector> {
@@ -80,6 +85,7 @@ impl<
         memory: Memory<Strategies>,
         cost_limit: Option<Strategies::Cost>,
         memory_limit: Option<usize>,
+        force_label_correcting: bool,
     ) -> Self {
         Self {
             reference,
@@ -93,6 +99,7 @@ impl<
             memory,
             cost_limit,
             memory_limit,
+            force_label_correcting,
         }
     }
 }
@@ -719,8 +726,7 @@ impl<
     }
 
     fn is_label_setting(&self) -> bool {
-        // E.g. TS total length strategy makes this label-correcting.
-        false
+        !<Strategies::TemplateSwitchTotalLength as TemplateSwitchTotalLengthStrategy>::makes_label_correcting() && !self.force_label_correcting
     }
 }
 

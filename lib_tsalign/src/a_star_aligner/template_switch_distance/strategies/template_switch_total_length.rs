@@ -6,6 +6,9 @@ use super::{AlignmentStrategy, AlignmentStrategySelector, primary_match::Primary
 
 pub trait TemplateSwitchTotalLengthStrategy: AlignmentStrategy {
     fn template_switch_total_length(&self) -> usize;
+
+    /// True if this choice of strategy makes the search label correcting.
+    fn makes_label_correcting() -> bool;
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -20,11 +23,19 @@ impl TemplateSwitchTotalLengthStrategy for NoTemplateSwitchTotalLengthStrategy {
     fn template_switch_total_length(&self) -> usize {
         0
     }
+
+    fn makes_label_correcting() -> bool {
+        false
+    }
 }
 
 impl TemplateSwitchTotalLengthStrategy for MaxTemplateSwitchTotalLengthStrategy {
     fn template_switch_total_length(&self) -> usize {
         self.template_switch_total_length
+    }
+
+    fn makes_label_correcting() -> bool {
+        true
     }
 }
 

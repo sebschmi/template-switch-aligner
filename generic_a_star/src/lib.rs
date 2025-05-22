@@ -367,7 +367,7 @@ impl<Context: AStarContext> AStar<Context> {
                     );
 
                     continue;
-                } else if AStarNodeComparator.compare(&node, previous_visit) != Ordering::Less {
+                } else if AStarNodeComparator.compare(&node, previous_visit) != Ordering::Greater {
                     // If we are label-correcting, we may still find a better node later on.
                     // Skip if equal or worse.
                     continue;
@@ -386,13 +386,14 @@ impl<Context: AStarContext> AStar<Context> {
             self.performance_counters.opened_nodes +=
                 self.open_list.len() - open_nodes_without_new_successors;
 
-            if is_target(&self.context, &node)
+            let is_target = is_target(&self.context, &node);
+            debug_assert!(!is_target || node.a_star_lower_bound().is_zero());
+
+            if is_target
                 && (node.cost() < target_cost
                     || (node.cost() == target_cost
                         && node.secondary_maximisable_score() > target_secondary_maximisable_score))
             {
-                debug_assert!(node.a_star_lower_bound().is_zero());
-
                 target_identifier = Some(node.identifier().clone());
                 target_cost = node.cost();
                 target_secondary_maximisable_score = node.secondary_maximisable_score();

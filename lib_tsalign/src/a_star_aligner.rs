@@ -52,6 +52,7 @@ where
     <Context::Node as AStarNode>::EdgeType: IAlignmentType,
 {
     info!("Aligning on subsequence {}", context.range());
+    debug!("Is label setting: {}", context.is_label_setting());
 
     let start_time = Instant::now();
 
@@ -159,6 +160,7 @@ pub fn template_switch_distance_a_star_align<
     >,
     cost_limit: Option<Strategies::Cost>,
     memory_limit: Option<usize>,
+    force_label_correcting: bool,
     template_switch_count_memory: <Strategies::TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
 ) -> AlignmentResult<template_switch_distance::AlignmentType, Strategies::Cost>
 where
@@ -187,6 +189,7 @@ where
         memory,
         cost_limit,
         memory_limit,
+        force_label_correcting,
     ));
     debug!("CIGAR before extending: {}", result.cigar());
 

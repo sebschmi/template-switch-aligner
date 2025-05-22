@@ -390,6 +390,7 @@ fn a_star_align_call<
         costs,
         config.cost_limit,
         config.memory_limit,
+        false,
         template_switch_count_memory,
     )
 }

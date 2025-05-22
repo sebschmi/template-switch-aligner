@@ -103,6 +103,12 @@ pub struct Cli {
     #[clap(long)]
     memory_limit: Option<usize>,
 
+    /// Force the search to run in label-correcting mode.
+    ///
+    /// This is for debug purposes only.
+    #[clap(long)]
+    force_label_correcting: bool,
+
     /// First character in the reference to start the alignment from.
     ///
     /// Skipped characters are ignored for computing this index.
