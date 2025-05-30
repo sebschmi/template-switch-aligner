@@ -54,22 +54,16 @@ impl Alignment<AlignmentType> {
             ))
         ) {
             // Compute TS inner first indices.
-            let mut stream = AlignmentStream::new();
+            let mut stream = AlignmentStream::new_with_offset(reference_offset, query_offset);
             stream.push_all(self.iter_compact_cloned().take(*compact_index));
             let ts_inner_primary_index = match primary {
-                TemplateSwitchPrimary::Reference => {
-                    stream.head_coordinates().reference() + reference_offset
-                }
-                TemplateSwitchPrimary::Query => stream.head_coordinates().query() + query_offset,
+                TemplateSwitchPrimary::Reference => stream.head_coordinates().reference(),
+                TemplateSwitchPrimary::Query => stream.head_coordinates().query(),
             };
             let ts_inner_secondary_index = usize::try_from(
                 isize::try_from(match secondary {
-                    TemplateSwitchSecondary::Reference => {
-                        stream.head_coordinates().reference() + reference_offset
-                    }
-                    TemplateSwitchSecondary::Query => {
-                        stream.head_coordinates().query() + query_offset
-                    }
+                    TemplateSwitchSecondary::Reference => stream.head_coordinates().reference(),
+                    TemplateSwitchSecondary::Query => stream.head_coordinates().query(),
                 })
                 .unwrap()
                 .checked_add(first_offset)
@@ -197,10 +191,10 @@ impl Alignment<AlignmentType> {
             self.alignment.get(*compact_index + 1)
         {
             // Compute TS outer first indices.
-            let mut stream = AlignmentStream::new();
+            let mut stream = AlignmentStream::new_with_offset(reference_offset, query_offset);
             stream.push_all(self.iter_compact_cloned().take(*compact_index));
-            let ts_outer_reference_index = stream.head_coordinates().reference() + reference_offset;
-            let ts_outer_query_index = stream.head_coordinates().query() + query_offset;
+            let ts_outer_reference_index = stream.head_coordinates().reference();
+            let ts_outer_query_index = stream.head_coordinates().query();
 
             // Check if indices can be moved while staying in bounds.
             if ts_outer_reference_index == reference.len() || ts_outer_query_index == query.len() {
@@ -321,7 +315,7 @@ impl Alignment<AlignmentType> {
             self.alignment.get(exit_index + 1)
         {
             // Compute TS inner last indices.
-            let mut stream = AlignmentStream::new();
+            let mut stream = AlignmentStream::new_with_offset(reference_offset, query_offset);
             stream.push_all(self.iter_compact_cloned().take(compact_index));
             stream.clear();
             stream.push_all(
@@ -330,19 +324,13 @@ impl Alignment<AlignmentType> {
                     .skip(compact_index),
             );
             let ts_inner_primary_index = match primary {
-                TemplateSwitchPrimary::Reference => {
-                    stream.head_coordinates().reference() + reference_offset
-                }
-                TemplateSwitchPrimary::Query => stream.head_coordinates().query() + query_offset,
+                TemplateSwitchPrimary::Reference => stream.head_coordinates().reference(),
+                TemplateSwitchPrimary::Query => stream.head_coordinates().query(),
             };
             let ts_inner_secondary_index = usize::try_from(
                 isize::try_from(match secondary {
-                    TemplateSwitchSecondary::Reference => {
-                        stream.tail_coordinates().reference() + reference_offset
-                    }
-                    TemplateSwitchSecondary::Query => {
-                        stream.tail_coordinates().query() + query_offset
-                    }
+                    TemplateSwitchSecondary::Reference => stream.tail_coordinates().reference(),
+                    TemplateSwitchSecondary::Query => stream.tail_coordinates().query(),
                 })
                 .unwrap()
                 .checked_add(first_offset)
@@ -474,10 +462,10 @@ impl Alignment<AlignmentType> {
             self.alignment.get(exit_index - 1)
         {
             // Compute TS outer first indices.
-            let mut stream = AlignmentStream::new();
+            let mut stream = AlignmentStream::new_with_offset(reference_offset, query_offset);
             stream.push_all(self.iter_compact_cloned().take(exit_index + 1));
-            let ts_outer_reference_index = stream.head_coordinates().reference() + reference_offset;
-            let ts_outer_query_index = stream.head_coordinates().query() + query_offset;
+            let ts_outer_reference_index = stream.head_coordinates().reference();
+            let ts_outer_query_index = stream.head_coordinates().query();
 
             // Check if indices can be moved while staying in bounds.
             if ts_outer_reference_index == 0 || ts_outer_query_index == 0 {

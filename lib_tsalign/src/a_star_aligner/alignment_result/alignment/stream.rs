@@ -5,7 +5,7 @@ use crate::a_star_aligner::{
     template_switch_distance::{AlignmentType, TemplateSwitchPrimary},
 };
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct AlignmentStream {
     stream: VecDeque<(usize, AlignmentType)>,
     length: usize,
@@ -16,7 +16,7 @@ pub struct AlignmentStream {
     tail_coordinates: AlignmentStreamCoordinates,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct AlignmentStreamCoordinates {
     reference: usize,
     query: usize,
@@ -24,17 +24,25 @@ pub struct AlignmentStreamCoordinates {
 }
 
 impl AlignmentStream {
+    #[deprecated = "our alignments typically have offsets nowadays"]
+    #[expect(clippy::new_without_default)]
     pub fn new() -> Self {
-        Default::default()
+        Self::new_with_offset(0, 0)
     }
 
     pub fn new_with_offset(reference_offset: usize, query_offset: usize) -> Self {
-        let mut result = Self::new();
-        result.head_coordinates.reference = reference_offset;
-        result.head_coordinates.query = query_offset;
-        result.tail_coordinates.reference = reference_offset;
-        result.tail_coordinates.query = query_offset;
-        result
+        Self {
+            stream: Default::default(),
+            length: 0,
+            head_coordinates: AlignmentStreamCoordinates::new_with_offset(
+                reference_offset,
+                query_offset,
+            ),
+            tail_coordinates: AlignmentStreamCoordinates::new_with_offset(
+                reference_offset,
+                query_offset,
+            ),
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -178,6 +186,14 @@ impl AlignmentStream {
 }
 
 impl AlignmentStreamCoordinates {
+    pub fn new_with_offset(reference_offset: usize, query_offset: usize) -> Self {
+        Self {
+            reference: reference_offset,
+            query: query_offset,
+            template_switch_primary: None,
+        }
+    }
+
     pub fn reference(&self) -> usize {
         self.reference
     }
