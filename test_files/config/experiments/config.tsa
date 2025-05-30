@@ -5,10 +5,14 @@ right_flank_length = 0
 
 # Base Cost
 
-rr_cost = 3
-rq_cost = 2
-qr_cost = 2
-qq_cost = 3
+rrf_cost = 31
+rqf_cost = 30
+qrf_cost = 30
+qqf_cost = 31
+rrr_cost = 3
+rqr_cost = 2
+qrr_cost = 2
+qqr_cost = 3
 
 # Jump Costs
 
@@ -23,6 +27,14 @@ Length
 LengthDifference
  -inf -100 -20 -10 11 21 101
   inf    4   2   0  2  4 inf
+
+ForwardAntiPrimaryGap
+ -inf   1
+    0 inf
+
+ReverseAntiPrimaryGap
+ -inf
+    0
 
 # Primary Edit Costs
 
@@ -43,16 +55,35 @@ GapExtendCostVector
  A C G T N
  1 1 1 1 1
 
-# Secondary Edit Costs
+# Secondary Forward Edit Costs
 
 SubstitutionCostTable
   |  A  C  G  T  N
 --+---------------
-A |  0  4  4  4  0
-C |  4  0  4  4  0
-G |  4  4  0  4  0
-T |  4  4  4  0  0
-N |  0  0  0  0  0
+A |  0  4  4  4  1
+C |  4  0  4  4  1
+G |  4  4  0  4  1
+T |  4  4  4  0  1
+N |  1  1  1  1  1
+
+GapOpenCostVector
+ A C G T N
+ 3 3 3 3 3
+
+GapExtendCostVector
+ A C G T N
+ 2 2 2 2 2
+
+# Secondary Reverse Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T  N
+--+---------------
+A |  0  4  4  4  1
+C |  4  0  4  4  1
+G |  4  4  0  4  1
+T |  4  4  4  0  1
+N |  1  1  1  1  1
 
 GapOpenCostVector
  A C G T N
