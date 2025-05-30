@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter, Result, Write};
 
 use a_star_sequences::SequencePair;
-use alignment::{Alignment, stream::AlignmentStream};
+use alignment::Alignment;
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStarResult, cost::AStarCost};
 use log::{trace, warn};
@@ -392,7 +392,6 @@ impl<Cost: AStarCost + From<u64>>
             return;
         }
 
-        let mut stream = AlignmentStream::new();
         let reference_offset = range
             .as_ref()
             .map(|range| range.reference_offset())
@@ -403,7 +402,6 @@ impl<Cost: AStarCost + From<u64>>
             .unwrap_or(0);
 
         for i in 0..alignment.inner_mut().len() {
-            let multiplicity = alignment.inner_mut()[i].0;
             let alignment_type = alignment.inner_mut()[i].1;
 
             match alignment_type {
@@ -552,8 +550,6 @@ impl<Cost: AStarCost + From<u64>>
                 }
                 _ => { /* Do nothing. */ }
             }
-
-            stream.push(multiplicity, alignment_type);
         }
     }
 }
