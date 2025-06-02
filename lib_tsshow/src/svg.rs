@@ -768,6 +768,7 @@ fn render_source_char(
         SourceChar::Gap { copy_depth } => {
             Character::new_char('-', CharacterData::new_colored(copy_color(copy_depth)))
         }
+        SourceChar::Separator => Character::new_char_with_default('|'),
         SourceChar::Hidden { .. } | SourceChar::Spacer | SourceChar::Blank => {
             Character::new_char_with_default(' ')
         }

@@ -64,6 +64,7 @@ impl TsComplementArrangement {
                         ..
                     }
                     | SourceChar::Gap { .. }
+                    | SourceChar::Separator
                     | SourceChar::Spacer
                     | SourceChar::Blank => {
                         sequence_c.push(ComplementChar::Blank);
@@ -73,6 +74,11 @@ impl TsComplementArrangement {
         }
 
         result
+    }
+
+    pub fn width(&self) -> usize {
+        debug_assert_eq!(self.reference_c.len(), self.query_c.len());
+        self.reference_c.len()
     }
 
     pub fn secondary_complement(

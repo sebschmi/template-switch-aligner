@@ -26,7 +26,7 @@
      showgrid="false"
      inkscape:zoom="22.378226"
      inkscape:cx="17.24891"
-     inkscape:cy="9.4511513"
+     inkscape:cy="5.8762477"
      inkscape:window-width="1854"
      inkscape:window-height="1011"
      inkscape:window-x="0"
@@ -548,12 +548,13 @@
          id="path437" />
     </g>
     <g
-       aria-label="_"
-       id="text454"
+       aria-label="|"
+       id="text347"
        style="font-size:3.175px;font-family:monospace;-inkscape-font-specification:monospace;stroke-width:0.264583">
       <path
-         d="M 1.9115112,0.62476806 V 0.74879149 H 0 V 0.62476806 Z"
-         id="path560" />
+         d="m 1.0185425,-1.8572509 -0.00155,2.17196037 q 0,0.0465088 -0.0186035,0.0666626 -0.0170532,0.0201538 -0.0465088,0.0201538 -0.0279053,0 -0.0465088,-0.0201538 -0.0186035,-0.0201538 -0.0186035,-0.0666626 V -1.8572509 q 0,-0.048059 0.0186035,-0.068213 0.0186035,-0.020154 0.0465088,-0.020154 0.0294556,0 0.0480591,0.020154 0.0186035,0.020154 0.0186035,0.068213 z"
+         style="font-family:'Courier New';-inkscape-font-specification:'Courier New'"
+         id="path349" />
     </g>
   </g>
 </svg>

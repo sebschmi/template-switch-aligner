@@ -2,6 +2,7 @@ use std::sync::LazyLock;
 
 use super::Font;
 
+/// Font: monospace
 pub static FONT: LazyLock<Font> = LazyLock::new(|| {
     Font::new(
         [
