@@ -26,7 +26,7 @@
      showgrid="false"
      inkscape:zoom="22.378226"
      inkscape:cx="17.24891"
-     inkscape:cy="9.4511513"
+     inkscape:cy="5.8762477"
      inkscape:window-width="1854"
      inkscape:window-height="1011"
      inkscape:window-x="0"
@@ -554,6 +554,14 @@
       <path
          d="M 1.9115112,0.62476806 V 0.74879149 H 0 V 0.62476806 Z"
          id="path560" />
+    </g>
+    <g
+       aria-label="|"
+       id="text237"
+       style="font-size:3.175px;font-family:monospace;-inkscape-font-specification:monospace;stroke-width:0.264583">
+      <path
+         d="M 1.0883056,-2.4262085 V 0.74879149 H 0.82165526 V -2.4262085 Z"
+         id="path289" />
     </g>
   </g>
 </svg>
