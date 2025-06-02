@@ -40,6 +40,10 @@ pub enum SourceChar {
     Gap {
         copy_depth: Option<usize>,
     },
+    /// Separates the aligned section of the sequences from the unaligned section.
+    ///
+    /// This is used when the alignment is only computed on a substring of the reference and the query.
+    Separator,
     /// Like a blank, but not treated as an empty column.
     Spacer,
     Blank,
@@ -56,13 +60,42 @@ impl TsSourceArrangement {
     ) -> Result<Self> {
         let mut ts_index = 0;
         let mut alignment = alignment.into_iter();
+
+        // Insert the source sequences with blanks to the left to make sure their alignments start at the same arrangement column.
+        let reference_left_blank_count =
+            query_alignment_offset.saturating_sub(reference_alignment_offset);
+        let query_left_blank_count =
+            reference_alignment_offset.saturating_sub(query_alignment_offset);
         let mut result = Self {
-            reference: FromIterator::from_iter((0..reference_length).map(SourceChar::new_source)),
-            query: FromIterator::from_iter((0..query_length).map(SourceChar::new_source)),
+            reference: FromIterator::from_iter(
+                iter::repeat_n(SourceChar::Blank, reference_left_blank_count)
+                    .chain((0..reference_length).map(SourceChar::new_source)),
+            ),
+            query: FromIterator::from_iter(
+                iter::repeat_n(SourceChar::Blank, query_left_blank_count)
+                    .chain((0..query_length).map(SourceChar::new_source)),
+            ),
         };
 
-        let mut current_reference_index = ArrangementColumn::from(reference_alignment_offset);
-        let mut current_query_index = ArrangementColumn::from(query_alignment_offset);
+        let mut current_reference_index =
+            ArrangementColumn::from(reference_left_blank_count + reference_alignment_offset);
+        let mut current_query_index =
+            ArrangementColumn::from(query_left_blank_count + query_alignment_offset);
+        debug_assert_eq!(current_reference_index, current_query_index);
+
+        // If there are further characters to the left of the alignment, we insert a separator into both sequences.
+        if reference_alignment_offset > 0 || query_alignment_offset > 0 {
+            result
+                .reference
+                .insert(current_reference_index, SourceChar::Separator);
+            current_reference_index += 1;
+
+            result
+                .query
+                .insert(current_query_index, SourceChar::Separator);
+            current_query_index += 1;
+        }
+        debug_assert_eq!(current_reference_index, current_query_index);
 
         while let Some(alignment_type) = alignment.next() {
             match alignment_type {
@@ -127,6 +160,36 @@ impl TsSourceArrangement {
             }
         }
 
+        debug_assert_eq!(current_reference_index, current_query_index);
+
+        // If there are further source chars right of the alignment, we insert a separator into both sequences.
+        if result.reference_arrangement_to_source_column(current_reference_index)
+            < SourceColumn::new(reference_length - 1)
+            || result.query_arrangement_to_source_column(current_query_index)
+                < SourceColumn::new(query_length - 1)
+        {
+            result
+                .reference
+                .insert(current_reference_index, SourceChar::Separator);
+            current_reference_index += 1;
+
+            result
+                .query
+                .insert(current_query_index, SourceChar::Separator);
+            current_query_index += 1;
+        }
+
+        debug_assert_eq!(current_reference_index, current_query_index);
+
+        // Fill the back with blanks to ensure equal length.
+        while result.reference.len() < result.query.len() {
+            result.reference.push(SourceChar::Blank);
+        }
+        while result.query.len() < result.reference.len() {
+            result.query.push(SourceChar::Blank);
+        }
+
+        debug_assert_eq!(result.reference.len(), result.query.len());
         Ok(result)
     }
 
@@ -147,12 +210,24 @@ impl TsSourceArrangement {
         let sp1_query = self.query_arrangement_to_arrangement_char_column(*current_query_index);
         let sp2_secondary = match ts_secondary {
             TemplateSwitchSecondary::Reference => {
-                self.reference_arrangement_to_source_column(*current_reference_index)
+                let source_current_reference_index =
+                    self.reference_arrangement_to_source_column(*current_reference_index);
+                trace!(
+                    "current_reference_index: {current_reference_index} -> {source_current_reference_index}"
+                );
+                source_current_reference_index
             }
             TemplateSwitchSecondary::Query => {
-                self.query_arrangement_to_source_column(*current_query_index)
+                let source_current_query_index =
+                    self.query_arrangement_to_source_column(*current_query_index);
+                trace!(
+                    "current_query_index: {current_query_index} -> {source_current_query_index}"
+                );
+                source_current_query_index
             }
         } + first_offset;
+        trace!("first_offset: {first_offset}");
+        trace!("sp2_secondary: {sp2_secondary}");
 
         let mut sp3_secondary = sp2_secondary;
         let mut primary_inner_length = 0;
@@ -333,6 +408,7 @@ impl TsSourceArrangement {
     }
 
     pub fn width(&self) -> usize {
+        debug_assert_eq!(self.reference.len(), self.query.len());
         self.reference.len()
     }
 
@@ -574,7 +650,7 @@ impl SourceChar {
             Self::Source { copy_depth, .. }
             | Self::Hidden { copy_depth, .. }
             | Self::Gap { copy_depth } => copy_depth.is_some(),
-            Self::Spacer | Self::Blank => panic!("Blank has no copy property"),
+            Self::Separator | Self::Spacer | Self::Blank => panic!("Blank has no copy property"),
         }
     }
 
@@ -582,14 +658,18 @@ impl SourceChar {
         match self {
             Self::Source { copy_depth, .. } | Self::Hidden { copy_depth, .. } => *copy_depth,
             Self::Gap { copy_depth } => *copy_depth,
-            Self::Spacer | Self::Blank => panic!("Blank has no copy property"),
+            Self::Separator | Self::Spacer | Self::Blank => panic!("Blank has no copy property"),
         }
     }
 
     pub fn to_lower_case(&mut self) {
         match self {
             Self::Source { lower_case, .. } => *lower_case = true,
-            Self::Hidden { .. } | Self::Gap { .. } | Self::Spacer | Self::Blank => {
+            Self::Hidden { .. }
+            | Self::Gap { .. }
+            | Self::Separator
+            | Self::Spacer
+            | Self::Blank => {
                 panic!("Not lowercasable: {self:?}")
             }
         }
@@ -598,7 +678,11 @@ impl SourceChar {
     pub fn to_upper_case(&mut self) {
         match self {
             Self::Source { lower_case, .. } => *lower_case = false,
-            Self::Hidden { .. } | Self::Gap { .. } | Self::Spacer | Self::Blank => {
+            Self::Hidden { .. }
+            | Self::Gap { .. }
+            | Self::Separator
+            | Self::Spacer
+            | Self::Blank => {
                 panic!("Not uppercasable: {self:?}")
             }
         }
@@ -618,7 +702,7 @@ impl SourceChar {
                 };
             }
             Self::Hidden { .. } => unreachable!("Already hidden"),
-            Self::Gap { .. } | Self::Spacer | Self::Blank => {
+            Self::Gap { .. } | Self::Separator | Self::Spacer | Self::Blank => {
                 unreachable!("Cannot be hidden: {self:?}")
             }
         }
@@ -637,7 +721,7 @@ impl SourceChar {
                 column: *column,
                 copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
             },
-            Self::Gap { .. } | Self::Spacer | Self::Blank => {
+            Self::Gap { .. } | Self::Separator | Self::Spacer | Self::Blank => {
                 panic!("Should never be copied: {self:?}")
             }
         }
@@ -648,7 +732,7 @@ impl Char for SourceChar {
     fn source_column(&self) -> SourceColumn {
         match self {
             Self::Source { column, .. } | Self::Hidden { column, .. } => *column,
-            Self::Gap { .. } | Self::Spacer | Self::Blank => panic!("Not a char"),
+            Self::Gap { .. } | Self::Separator | Self::Spacer | Self::Blank => panic!("Not a char"),
         }
     }
 

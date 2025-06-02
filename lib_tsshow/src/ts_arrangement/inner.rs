@@ -49,6 +49,12 @@ impl TsInnerArrangement {
             inners: Default::default(),
         };
 
+        trace!(
+            "source width: {}; complement width: {}",
+            source_arrangement.width(),
+            complement_arrangement.width(),
+        );
+
         for ts in template_switches {
             trace!("source_inner: {:?}", ts.inner);
 
@@ -63,6 +69,12 @@ impl TsInnerArrangement {
                 ),
             };
             let forward = sp2_secondary < sp3_secondary;
+            trace!(
+                "sp2_secondary: {} -> {sp2_secondary}; sp3_secondary: {} -> {sp3_secondary}; {}",
+                ts.sp2_secondary,
+                ts.sp3_secondary,
+                if forward { "forward" } else { "reverse" }
+            );
 
             let mut source_inner = ts.inner.iter().copied();
             let mut inner = TaggedVec::<ArrangementColumn, _>::default();
@@ -395,7 +407,7 @@ impl From<SourceChar> for InnerChar {
                 panic!("Cannot be translated into InnerChar")
             }
             SourceChar::Gap { copy_depth } => Self::Gap { copy_depth },
-            SourceChar::Spacer | SourceChar::Blank => Self::Blank,
+            SourceChar::Separator | SourceChar::Spacer | SourceChar::Blank => Self::Blank,
         }
     }
 }
