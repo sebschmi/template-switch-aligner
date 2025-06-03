@@ -163,10 +163,18 @@ impl TsSourceArrangement {
         debug_assert_eq!(current_reference_index, current_query_index);
 
         // If there are further source chars right of the alignment, we insert a separator into both sequences.
-        if result.reference_arrangement_to_source_column(current_reference_index)
-            < SourceColumn::new(reference_length - 1)
-            || result.query_arrangement_to_source_column(current_query_index)
-                < SourceColumn::new(query_length - 1)
+        if result
+            .try_reference_arrangement_to_source_column(current_reference_index)
+            .map(|source_current_reference_index| {
+                source_current_reference_index < SourceColumn::new(reference_length - 1)
+            })
+            .unwrap_or(false)
+            || result
+                .try_query_arrangement_to_source_column(current_query_index)
+                .map(|source_current_query_index| {
+                    source_current_query_index < SourceColumn::new(query_length - 1)
+                })
+                .unwrap_or(false)
         {
             result
                 .reference
@@ -589,6 +597,13 @@ impl TsSourceArrangement {
         Self::arrangement_to_source_column(&self.reference, arrangement_column)
     }
 
+    pub fn try_reference_arrangement_to_source_column(
+        &self,
+        arrangement_column: ArrangementColumn,
+    ) -> Option<SourceColumn> {
+        Self::try_arrangement_to_source_column(&self.reference, arrangement_column)
+    }
+
     pub fn query_arrangement_to_source_column(
         &self,
         arrangement_column: ArrangementColumn,
@@ -596,18 +611,38 @@ impl TsSourceArrangement {
         Self::arrangement_to_source_column(&self.query, arrangement_column)
     }
 
+    pub fn try_query_arrangement_to_source_column(
+        &self,
+        arrangement_column: ArrangementColumn,
+    ) -> Option<SourceColumn> {
+        Self::try_arrangement_to_source_column(&self.query, arrangement_column)
+    }
+
     fn arrangement_to_source_column(
         sequence: &TaggedVec<ArrangementColumn, SourceChar>,
         arrangement_column: ArrangementColumn,
     ) -> SourceColumn {
+        Self::try_arrangement_to_source_column(sequence, arrangement_column).unwrap()
+    }
+
+    fn try_arrangement_to_source_column(
+        sequence: &TaggedVec<ArrangementColumn, SourceChar>,
+        arrangement_column: ArrangementColumn,
+    ) -> Option<SourceColumn> {
+        if arrangement_column.primitive() >= sequence.len() {
+            return None;
+        }
+
         // This may also be called on a non-source char.
         assert!(sequence[arrangement_column].is_char());
-        sequence
-            .iter_values()
-            .take(arrangement_column.into())
-            .filter(|c| c.is_source_char())
-            .count()
-            .into()
+        Some(
+            sequence
+                .iter_values()
+                .take(arrangement_column.into())
+                .filter(|c| c.is_source_char())
+                .count()
+                .into(),
+        )
     }
 
     pub fn reference_arrangement_char_to_arrangement_column(
