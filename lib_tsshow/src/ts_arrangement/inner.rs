@@ -62,34 +62,18 @@ impl TsInnerArrangement {
                 TemplateSwitchSecondary::Reference => (
                     source_arrangement
                         .try_reference_source_to_arrangement_column(ts.sp2_secondary)
-                        .unwrap_or_else(|| {
-                            source_arrangement
-                                .reference_source_to_arrangement_column(ts.sp2_secondary - 1)
-                                + 1usize
-                        }),
+                        .unwrap_or_else(|| source_arrangement.reference().len().into()),
                     source_arrangement
                         .try_reference_source_to_arrangement_column(ts.sp3_secondary)
-                        .unwrap_or_else(|| {
-                            source_arrangement
-                                .reference_source_to_arrangement_column(ts.sp3_secondary - 1)
-                                + 1usize
-                        }),
+                        .unwrap_or_else(|| source_arrangement.reference().len().into()),
                 ),
                 TemplateSwitchSecondary::Query => (
                     source_arrangement
                         .try_query_source_to_arrangement_column(ts.sp2_secondary)
-                        .unwrap_or_else(|| {
-                            source_arrangement
-                                .query_source_to_arrangement_column(ts.sp2_secondary - 1)
-                                + 1usize
-                        }),
+                        .unwrap_or_else(|| source_arrangement.query().len().into()),
                     source_arrangement
                         .try_query_source_to_arrangement_column(ts.sp3_secondary)
-                        .unwrap_or_else(|| {
-                            source_arrangement
-                                .query_source_to_arrangement_column(ts.sp3_secondary - 1)
-                                + 1usize
-                        }),
+                        .unwrap_or_else(|| source_arrangement.query().len().into()),
                 ),
             };
             let forward = sp2_secondary < sp3_secondary;
@@ -115,22 +99,25 @@ impl TsInnerArrangement {
                 for alignment_type in ts.inner_alignment.iter_flat_cloned() {
                     match alignment_type {
                         AlignmentType::SecondaryInsertion => {
-                            loop {
+                            let is_gap = loop {
+                                if source_arrangement.secondary(ts.secondary).len()
+                                    <= current_arrangement_column.primitive()
+                                {
+                                    break false;
+                                }
+
                                 let c = source_arrangement.secondary(ts.secondary)
                                     [current_arrangement_column];
 
                                 if c.is_gap() || c.is_source_char() {
-                                    break;
+                                    break c.is_gap();
                                 }
 
                                 inner.push(InnerChar::Blank);
                                 current_arrangement_column += 1;
-                            }
+                            };
 
-                            if !source_arrangement.secondary(ts.secondary)
-                                [current_arrangement_column]
-                                .is_gap()
-                            {
+                            if !is_gap {
                                 source_arrangement.insert_secondary_gap_with_minimum_copy_depth(
                                     ts.secondary,
                                     current_arrangement_column,
@@ -191,8 +178,9 @@ impl TsInnerArrangement {
                 }
 
                 // We skip further secondary non-source chars for the assertion below.
-                while !source_arrangement.secondary(ts.secondary)[current_arrangement_column]
-                    .is_source_char()
+                while current_arrangement_column.primitive() < source_arrangement.width()
+                    && !source_arrangement.secondary(ts.secondary)[current_arrangement_column]
+                        .is_source_char()
                 {
                     current_arrangement_column += 1;
                 }
@@ -201,24 +189,32 @@ impl TsInnerArrangement {
                 // Align inner against source complement in reverse.
                 let mut source_inner = source_inner.rev();
                 for alignment_type in ts.inner_alignment.iter_flat_cloned().rev() {
+                    trace!("Processing inner alignment {alignment_type}");
+
                     match alignment_type {
                         AlignmentType::SecondaryInsertion => {
-                            loop {
+                            let is_gap = loop {
+                                if complement_arrangement
+                                    .secondary_complement(ts.secondary)
+                                    .len()
+                                    <= current_arrangement_column.primitive()
+                                {
+                                    break false;
+                                }
+
                                 let c = complement_arrangement.secondary_complement(ts.secondary)
                                     [current_arrangement_column];
 
                                 if c.is_gap() || c.is_source_char() {
-                                    break;
+                                    break c.is_gap();
                                 }
 
+                                trace!("Skipping inner character");
                                 inner.push(InnerChar::Blank);
                                 current_arrangement_column += 1;
-                            }
+                            };
 
-                            if !complement_arrangement.secondary_complement(ts.secondary)
-                                [current_arrangement_column]
-                                .is_gap()
-                            {
+                            if !is_gap {
                                 complement_arrangement.insert_secondary_complement_gap(
                                     ts.secondary,
                                     current_arrangement_column,
@@ -284,8 +280,9 @@ impl TsInnerArrangement {
                 }
 
                 // We skip further secondary non-source chars for the assertion below.
-                while !source_arrangement.secondary(ts.secondary)[current_arrangement_column]
-                    .is_source_char()
+                while current_arrangement_column.primitive() < source_arrangement.width()
+                    && !source_arrangement.secondary(ts.secondary)[current_arrangement_column]
+                        .is_source_char()
                 {
                     current_arrangement_column += 1;
                 }
