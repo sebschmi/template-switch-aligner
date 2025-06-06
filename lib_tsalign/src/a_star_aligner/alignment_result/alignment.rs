@@ -42,22 +42,22 @@ impl<AlignmentType> Alignment<AlignmentType> {
 }
 
 impl<AlignmentType: IAlignmentType> Alignment<AlignmentType> {
-    pub fn iter_compact(&self) -> CompactAlignmentIter<AlignmentType> {
+    pub fn iter_compact(&self) -> CompactAlignmentIter<'_, AlignmentType> {
         CompactAlignmentIter::new(&self.alignment)
     }
 
-    pub fn iter_compact_cloned(&self) -> CompactAlignmentIterCloned<AlignmentType>
+    pub fn iter_compact_cloned(&self) -> CompactAlignmentIterCloned<'_, AlignmentType>
     where
         AlignmentType: Clone,
     {
         CompactAlignmentIterCloned::new(&self.alignment)
     }
 
-    pub fn iter_flat(&self) -> FlatAlignmentIter<AlignmentType> {
+    pub fn iter_flat(&self) -> FlatAlignmentIter<'_, AlignmentType> {
         FlatAlignmentIter::new(&self.alignment)
     }
 
-    pub fn iter_flat_cloned(&self) -> FlatAlignmentIterCloned<AlignmentType>
+    pub fn iter_flat_cloned(&self) -> FlatAlignmentIterCloned<'_, AlignmentType>
     where
         AlignmentType: Clone,
     {
