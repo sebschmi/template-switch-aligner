@@ -60,12 +60,36 @@ impl TsInnerArrangement {
 
             let (mut sp2_secondary, mut sp3_secondary) = match ts.secondary {
                 TemplateSwitchSecondary::Reference => (
-                    source_arrangement.reference_source_to_arrangement_column(ts.sp2_secondary),
-                    source_arrangement.reference_source_to_arrangement_column(ts.sp3_secondary),
+                    source_arrangement
+                        .try_reference_source_to_arrangement_column(ts.sp2_secondary)
+                        .unwrap_or_else(|| {
+                            source_arrangement
+                                .reference_source_to_arrangement_column(ts.sp2_secondary - 1)
+                                + 1usize
+                        }),
+                    source_arrangement
+                        .try_reference_source_to_arrangement_column(ts.sp3_secondary)
+                        .unwrap_or_else(|| {
+                            source_arrangement
+                                .reference_source_to_arrangement_column(ts.sp3_secondary - 1)
+                                + 1usize
+                        }),
                 ),
                 TemplateSwitchSecondary::Query => (
-                    source_arrangement.query_source_to_arrangement_column(ts.sp2_secondary),
-                    source_arrangement.query_source_to_arrangement_column(ts.sp3_secondary),
+                    source_arrangement
+                        .try_query_source_to_arrangement_column(ts.sp2_secondary)
+                        .unwrap_or_else(|| {
+                            source_arrangement
+                                .query_source_to_arrangement_column(ts.sp2_secondary - 1)
+                                + 1usize
+                        }),
+                    source_arrangement
+                        .try_query_source_to_arrangement_column(ts.sp3_secondary)
+                        .unwrap_or_else(|| {
+                            source_arrangement
+                                .query_source_to_arrangement_column(ts.sp3_secondary - 1)
+                                + 1usize
+                        }),
                 ),
             };
             let forward = sp2_secondary < sp3_secondary;
@@ -83,6 +107,8 @@ impl TsInnerArrangement {
                 sp3_secondary.min(sp2_secondary).into(),
             ));
             let mut current_arrangement_column = sp3_secondary.min(sp2_secondary);
+            debug_assert!(current_arrangement_column.primitive() < source_arrangement.width());
+            debug_assert!(current_arrangement_column.primitive() < complement_arrangement.width());
 
             if forward {
                 // Align inner against source.

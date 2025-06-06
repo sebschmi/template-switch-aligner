@@ -541,14 +541,36 @@ impl TsSourceArrangement {
         Self::source_to_arrangement_column(&self.reference, column)
     }
 
+    pub fn try_reference_source_to_arrangement_column(
+        &self,
+        column: SourceColumn,
+    ) -> Option<ArrangementColumn> {
+        Self::try_source_to_arrangement_column(&self.reference, column)
+    }
+
     pub fn query_source_to_arrangement_column(&self, column: SourceColumn) -> ArrangementColumn {
         Self::source_to_arrangement_column(&self.query, column)
+    }
+
+    pub fn try_query_source_to_arrangement_column(
+        &self,
+        column: SourceColumn,
+    ) -> Option<ArrangementColumn> {
+        Self::try_source_to_arrangement_column(&self.query, column)
     }
 
     fn source_to_arrangement_column(
         sequence: &TaggedVec<ArrangementColumn, SourceChar>,
         source_column: SourceColumn,
     ) -> ArrangementColumn {
+        Self::try_source_to_arrangement_column(sequence, source_column)
+            .unwrap_or_else(|| panic!("Source column {source_column} has no matching arrangement column. There are {} source columns in the arrangement.", sequence.iter_values().filter(|c| matches!(c, SourceChar::Source {  .. } | SourceChar::Hidden {  .. })).count()))
+    }
+
+    fn try_source_to_arrangement_column(
+        sequence: &TaggedVec<ArrangementColumn, SourceChar>,
+        source_column: SourceColumn,
+    ) -> Option<ArrangementColumn> {
         sequence
             .iter()
             .filter_map(|(i, c)| match c {
@@ -560,7 +582,6 @@ impl TsSourceArrangement {
                 _ => None,
             })
             .next()
-            .unwrap_or_else(|| panic!("Source column {source_column} has no matching arrangement column. There are {} source columns in the arrangement.", sequence.iter_values().filter(|c| matches!(c, SourceChar::Source {  .. } | SourceChar::Hidden {  .. })).count()))
     }
 
     pub fn reference_arrangement_to_arrangement_char_column(
