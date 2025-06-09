@@ -1,6 +1,6 @@
 use std::{borrow::Borrow, collections::HashMap, fmt::Debug};
 
-use svg::node::element::{Group, Path};
+use svg::node::element::{Group, Path, Text};
 
 use crate::plain_text::mutlipair_alignment_renderer::{Character, NoCharacterData};
 
@@ -91,6 +91,19 @@ where
             font,
         ));
     }
+    group
+}
+
+/// Renders text with non-monospace sans-serif font.
+/// The width of the text depends on the font used by the SVG renderer.
+pub fn svg_text(text: impl Into<String>, location: &SvgLocation) -> Group {
+    let mut group = Group::new();
+    group = group.set("transform", location.as_transform());
+    group = group.add(
+        Text::new(text)
+            .set("font-family", "sans-serif")
+            .set("font-size", "3"),
+    );
     group
 }
 

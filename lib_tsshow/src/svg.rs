@@ -20,6 +20,7 @@ use svg::{
 use crate::{
     error::{Error, Result},
     plain_text::mutlipair_alignment_renderer::Character,
+    svg::font::svg_text,
     ts_arrangement::{
         TsArrangement,
         character::Char,
@@ -913,26 +914,14 @@ fn legend(reference_name: &str, query_name: &str, scale: f32) -> (Group, f32, f3
     let label_width = label_width + typewriter::FONT.character_width;
     y = headline_height;
 
-    result = result.add(svg_string(
-        reference_name
-            .chars()
-            .map(Character::<CharacterData>::new_char_with_default),
-        &SvgLocation { x: label_width, y },
-        &sans_serif_mono::FONT,
-    ));
+    result = result.add(svg_text(reference_name, &SvgLocation { x: label_width, y }));
     explanation_width = explanation_width
         .max(reference_name.chars().count() as f32 * sans_serif_mono::FONT.character_width);
     y += typewriter::FONT
         .character_height
         .max(sans_serif_mono::FONT.character_height);
 
-    result = result.add(svg_string(
-        query_name
-            .chars()
-            .map(Character::<CharacterData>::new_char_with_default),
-        &SvgLocation { x: label_width, y },
-        &sans_serif_mono::FONT,
-    ));
+    result = result.add(svg_text(query_name, &SvgLocation { x: label_width, y }));
     explanation_width = explanation_width
         .max(query_name.chars().count() as f32 * sans_serif_mono::FONT.character_width);
     y += typewriter::FONT

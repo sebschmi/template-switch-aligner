@@ -1,3 +1,5 @@
+use resvg::usvg::Options;
+
 pub mod error;
 pub mod plain_text;
 pub mod svg;
@@ -6,7 +8,9 @@ pub mod ts_arrangement;
 pub fn svg_to_png(svg_in: &[u8], zoom: f32) -> Vec<u8> {
     log::info!("Converting SVG to PNG");
 
-    let svg = resvg::usvg::Tree::from_data(svg_in, &Default::default()).unwrap();
+    let mut options = Options::default();
+    options.fontdb_mut().load_system_fonts();
+    let svg = resvg::usvg::Tree::from_data(svg_in, &options).unwrap();
 
     let raster_image_size = svg.size();
     let raster_image_width = (raster_image_size.width().ceil() * zoom) as u32;
