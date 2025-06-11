@@ -1,16 +1,19 @@
 use std::{marker::PhantomData, mem};
 
+use compact_genome::interface::alphabet::Alphabet;
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::cost::AStarCost;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
 use rustc_hash::{FxHashMapSeed, FxSeededState};
+use template_switch_error_free_inners::MatchTable;
 
 use crate::a_star_aligner::template_switch_distance::{AlignmentType, TemplateSwitchDirection};
 use crate::a_star_aligner::template_switch_distance::{
     Context, Identifier, Node,
     identifier::{GapType, TemplateSwitchPrimary, TemplateSwitchSecondary},
 };
+use crate::config::TemplateSwitchConfig;
 
 use super::primary_match::PrimaryMatchStrategy;
 use super::{AlignmentStrategy, AlignmentStrategySelector};
@@ -19,16 +22,20 @@ pub trait TemplateSwitchMinLengthStrategy<Cost>: AlignmentStrategy {
     /// The type used to memorise lookahead results.
     type Memory: Reset;
 
-    fn initialise_memory() -> Self::Memory;
+    fn initialise_memory<
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    >(
+        reference: &SubsequenceType,
+        query: &SubsequenceType,
+        config: &TemplateSwitchConfig<AlphabetType, Cost>,
+    ) -> Self::Memory;
 
     /// Takes the template switch entrance node and provides a lower bound for its costs depending on the minimum length of a template switch.
     /// The modified entrance node is returned in the iterator along with further nodes that were created while computing the lower bound.
     fn template_switch_min_length_lookahead<
         Strategies: AlignmentStrategySelector<Cost = Cost, TemplateSwitchMinLength = Self>,
-        SubsequenceType: compact_genome::interface::sequence::GenomeSequence<
-                Strategies::Alphabet,
-                SubsequenceType,
-            > + ?Sized,
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
         secondary_root_node: Node<Strategies>,
@@ -68,14 +75,19 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
 {
     type Memory = ();
 
-    fn initialise_memory() -> Self::Memory {}
+    fn initialise_memory<
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    >(
+        _reference: &SubsequenceType,
+        _query: &SubsequenceType,
+        _config: &TemplateSwitchConfig<AlphabetType, Cost>,
+    ) -> Self::Memory {
+    }
 
     fn template_switch_min_length_lookahead<
         Strategies: AlignmentStrategySelector<Cost = Cost, TemplateSwitchMinLength = Self>,
-        SubsequenceType: compact_genome::interface::sequence::GenomeSequence<
-                Strategies::Alphabet,
-                SubsequenceType,
-            > + ?Sized,
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
         secondary_root_node: Node<Strategies>,
@@ -99,7 +111,14 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
 {
     type Memory = FxHashMapSeed<LookaheadMemoryKey, Cost>;
 
-    fn initialise_memory() -> Self::Memory {
+    fn initialise_memory<
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    >(
+        _reference: &SubsequenceType,
+        _query: &SubsequenceType,
+        _config: &TemplateSwitchConfig<AlphabetType, Cost>,
+    ) -> Self::Memory {
         FxHashMapSeed::with_hasher(FxSeededState::with_seed(0))
     }
 
@@ -177,14 +196,26 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
 impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
     for PreprocessedTemplateSwitchMinLengthStrategy<Cost>
 {
-    type Memory = ();
+    type Memory = Option<MatchTable>;
+
+    fn initialise_memory<
+        AlphabetType: Alphabet,
+        SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
+    >(
+        reference: &SubsequenceType,
+        query: &SubsequenceType,
+        config: &TemplateSwitchConfig<AlphabetType, Cost>,
+    ) -> Self::Memory {
+        Some(MatchTable::new(
+            reference,
+            query,
+            config.template_switch_min_length,
+        ))
+    }
 
     fn template_switch_min_length_lookahead<
         Strategies: AlignmentStrategySelector<Cost = Cost, TemplateSwitchMinLength = Self>,
-        SubsequenceType: compact_genome::interface::sequence::GenomeSequence<
-                Strategies::Alphabet,
-                SubsequenceType,
-            > + ?Sized,
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
         _secondary_root_node: Node<Strategies>,

@@ -171,10 +171,9 @@ where
     debug!("Query sequence: {}", query.as_string());
 
     let memory = Memory {
-        template_switch_min_length:
-            <Strategies::TemplateSwitchMinLength as TemplateSwitchMinLengthStrategy<
-                Strategies::Cost,
-            >>::initialise_memory(),
+        template_switch_min_length: <<Strategies as AlignmentStrategySelector>::TemplateSwitchMinLength as
+            TemplateSwitchMinLengthStrategy<<Strategies as AlignmentStrategySelector>::Cost,
+        >>::initialise_memory(reference, query, config),
         chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy<
             <Strategies as AlignmentStrategySelector>::Cost,
         >>::initialise_memory(reference, query, config, 20),

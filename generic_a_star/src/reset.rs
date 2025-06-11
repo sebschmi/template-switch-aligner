@@ -8,6 +8,12 @@ impl Reset for () {
     fn reset(&mut self) {}
 }
 
+impl<T> Reset for Option<T> {
+    fn reset(&mut self) {
+        *self = None;
+    }
+}
+
 impl<Key, Value> Reset for FxHashMapSeed<Key, Value> {
     fn reset(&mut self) {
         self.clear();
