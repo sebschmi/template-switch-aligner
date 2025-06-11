@@ -54,7 +54,8 @@ pub struct LookaheadTemplateSwitchMinLengthStrategy<Cost> {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct PreprocessedTemplateSwitchMinLengthStrategy<Cost> {
+pub struct PreprocessedTemplateSwitchMinLengthStrategy<const FILTER_MISMATCHING_ENTRIES: bool, Cost>
+{
     phantom_data: PhantomData<Cost>,
 }
 
@@ -193,8 +194,8 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
     }
 }
 
-impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
-    for PreprocessedTemplateSwitchMinLengthStrategy<Cost>
+impl<const FILTER_MISMATCHING_ENTRIES: bool, Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
+    for PreprocessedTemplateSwitchMinLengthStrategy<FILTER_MISMATCHING_ENTRIES, Cost>
 {
     type Memory = Option<MatchTable>;
 
@@ -218,11 +219,73 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     >(
         &self,
-        _secondary_root_node: Node<Strategies>,
-        _context: &mut Context<SubsequenceType, Strategies>,
+        mut secondary_root_node: Node<Strategies>,
+        context: &mut Context<SubsequenceType, Strategies>,
     ) -> impl IntoIterator<Item = Node<Strategies>> {
-        #[expect(unreachable_code)]
-        Some(todo!())
+        let Identifier::Secondary {
+            template_switch_primary,
+            template_switch_secondary,
+            template_switch_direction,
+            length: 0,
+            primary_index,
+            secondary_index,
+            gap_type: GapType::None,
+            ..
+        } = *secondary_root_node.identifier()
+        else {
+            unreachable!("Only called with a secondary root node.");
+        };
+
+        if template_switch_direction == TemplateSwitchDirection::Forward {
+            // TODO implement also forward direction filter.
+            Some(secondary_root_node)
+        } else {
+            let is_min_length_match = if secondary_index < context.config.template_switch_min_length
+            {
+                // There are not enough characters in the secondary sequence for a match of minimum length.
+                return None;
+            } else {
+                let secondary_rc_index = match template_switch_secondary {
+                    TemplateSwitchSecondary::Reference => context
+                        .reference
+                        .len()
+                        .checked_sub(secondary_index)
+                        .unwrap(),
+                    TemplateSwitchSecondary::Query => {
+                        context.query.len().checked_sub(secondary_index).unwrap()
+                    }
+                };
+
+                match (template_switch_primary, template_switch_secondary) {
+                    (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Reference) => {
+                        context
+                            .memory
+                            .template_switch_min_length
+                            .as_ref()
+                            .unwrap()
+                            .has_reference_reference_match(primary_index, secondary_rc_index)
+                    }
+                    (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Query) => todo!(),
+                    (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Reference) => todo!(),
+                    (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => todo!(),
+                }
+            };
+
+            if is_min_length_match {
+                Some(secondary_root_node)
+            } else if FILTER_MISMATCHING_ENTRIES {
+                None
+            } else {
+                secondary_root_node.node_data.a_star_lower_bound =
+                    secondary_root_node.node_data.a_star_lower_bound.max(
+                        context
+                            .config
+                            .secondary_edit_costs(template_switch_direction)
+                            .min_non_match_cost(),
+                    );
+                Some(secondary_root_node)
+            }
+        }
     }
 }
 
@@ -284,7 +347,9 @@ impl<Cost: AStarCost> AlignmentStrategy for LookaheadTemplateSwitchMinLengthStra
     }
 }
 
-impl<Cost: AStarCost> AlignmentStrategy for PreprocessedTemplateSwitchMinLengthStrategy<Cost> {
+impl<const FILTER_MISMATCHING_ENTRIES: bool, Cost: AStarCost> AlignmentStrategy
+    for PreprocessedTemplateSwitchMinLengthStrategy<FILTER_MISMATCHING_ENTRIES, Cost>
+{
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
