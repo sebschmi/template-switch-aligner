@@ -237,6 +237,7 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
 impl<Cost: AStarCost + From<u64>>
     AlignmentResult<super::template_switch_distance::AlignmentType, Cost>
 {
+    #[allow(clippy::too_many_lines)]
     pub fn extend_beyond_range_with_equal_cost<
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -248,6 +249,7 @@ impl<Cost: AStarCost + From<u64>>
         config: &TemplateSwitchConfig<AlphabetType, Cost>,
     ) {
         let Some(range) = range else {
+            trace!("No range given to extend beyond.");
             return;
         };
         let Self::WithTarget {
@@ -255,6 +257,7 @@ impl<Cost: AStarCost + From<u64>>
             statistics,
         } = self
         else {
+            trace!("There is no alignment, therefore we cannot postprocess it.");
             return;
         };
         if config.left_flank_length > 0 || config.right_flank_length > 0 {
@@ -263,7 +266,7 @@ impl<Cost: AStarCost + From<u64>>
         }
 
         // Compute cost before extending.
-        let initial_cost = alignment.compute_cost(
+        let mut current_cost = alignment.compute_cost(
             reference,
             query,
             range.reference_offset(),
@@ -271,18 +274,18 @@ impl<Cost: AStarCost + From<u64>>
             config,
         );
         let alignment_cost = (statistics.cost.round().raw() as u64).into();
-        assert_eq!(
-            initial_cost,
+        debug_assert_eq!(
+            current_cost,
             alignment_cost,
-            "computed cost {initial_cost} != alignment cost {alignment_cost}; {}",
+            "computed cost {current_cost} != alignment cost {alignment_cost}; {}",
             alignment.cigar()
         );
 
         // Extend left with equal cost.
-        while range.reference_offset() > 0 && range.query_offset() > 0 {
+        while let Some(new_range) = range.move_offsets_left() {
             // Determine extension alignment type.
-            let reference_character = reference[range.reference_offset() - 1].clone();
-            let query_character = query[range.query_offset() - 1].clone();
+            let reference_character = reference[new_range.reference_offset()].clone();
+            let query_character = query[new_range.query_offset()].clone();
             let alignment_type = if reference_character == query_character {
                 AlignmentType::PrimaryMatch
             } else {
@@ -290,14 +293,15 @@ impl<Cost: AStarCost + From<u64>>
             };
 
             // Insert alignment type at beginning of alignment.
-            if alignment.inner_mut()[0].1 == alignment_type {
+            if alignment
+                .inner_mut()
+                .first()
+                .is_some_and(|(_, ty)| *ty == alignment_type)
+            {
                 alignment.inner_mut()[0].0 += 1;
             } else {
                 alignment.inner_mut().insert(0, (1, alignment_type));
             }
-
-            // Update ranges.
-            let new_range = range.move_offsets_left();
 
             // Compute cost.
             let new_cost = alignment.compute_cost(
@@ -308,25 +312,29 @@ impl<Cost: AStarCost + From<u64>>
                 config,
             );
 
-            if new_cost > initial_cost {
+            if new_cost > current_cost {
                 // If cost is not equal, revert alignment and break.
                 alignment.inner_mut()[0].0 -= 1;
                 if alignment.inner_mut()[0].0 == 0 {
                     alignment.inner_mut().remove(0);
                 }
                 break;
-            } else {
-                // If cost is equal, commit range and continue.
-                *range = new_range;
-                assert_eq!(new_cost, initial_cost);
             }
+            current_cost = new_cost;
+            *range = new_range;
         }
 
         // Extend right with equal cost.
         while range.reference_limit() < reference.len() && range.query_limit() < query.len() {
+            // Update ranges.
+            let Some(new_range) = range.move_limits_right() else {
+                // Never occurs due to loop invariant
+                break;
+            };
+
             // Determine extension alignment type.
-            let reference_character = reference[range.reference_limit()].clone();
-            let query_character = query[range.query_limit()].clone();
+            let reference_character = reference[new_range.reference_limit() - 1].clone();
+            let query_character = query[new_range.query_limit() - 1].clone();
             let alignment_type = if reference_character == query_character {
                 AlignmentType::PrimaryMatch
             } else {
@@ -334,14 +342,18 @@ impl<Cost: AStarCost + From<u64>>
             };
 
             // Insert alignment type at end of alignment.
-            if alignment.inner_mut().last().unwrap().1 == alignment_type {
-                alignment.inner_mut().last_mut().unwrap().0 += 1;
+            if alignment
+                .inner_mut()
+                .last()
+                .is_some_and(|(_, ty)| *ty == alignment_type)
+            {
+                let Some((n, _)) = alignment.inner_mut().last_mut() else {
+                    unreachable!("Due to if condition")
+                };
+                *n += 1;
             } else {
                 alignment.inner_mut().push((1, alignment_type));
             }
-
-            // Update ranges.
-            let new_range = range.move_limits_right();
 
             // Compute cost.
             let new_cost = alignment.compute_cost(
@@ -352,24 +364,26 @@ impl<Cost: AStarCost + From<u64>>
                 config,
             );
 
-            if new_cost > initial_cost {
+            if new_cost > current_cost {
                 // If cost is not equal, revert alignment and break.
-                alignment.inner_mut().last_mut().unwrap().0 -= 1;
-                if alignment.inner_mut().last().unwrap().0 == 0 {
+                let Some((n, _)) = alignment.inner_mut().last_mut() else {
+                    unreachable!("As we have just added at least one element")
+                };
+                *n -= 1;
+                if *n == 0 {
                     alignment.inner_mut().pop();
                 }
-                break;
-            } else {
-                // If cost is equal, commit range and continue.
-                *range = new_range;
-                assert_eq!(new_cost, initial_cost);
             }
+            current_cost = new_cost;
+            *range = new_range;
         }
 
+        // Update statistics from updated range
         statistics.reference_offset = range.reference_offset();
         statistics.query_offset = range.query_offset();
     }
 
+    #[allow(clippy::too_many_lines)]
     pub fn compute_ts_equal_cost_ranges<
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -385,6 +399,7 @@ impl<Cost: AStarCost + From<u64>>
             statistics,
         } = self
         else {
+            trace!("There is no alignment, therefore we cannot postprocess it.");
             return;
         };
         if config.left_flank_length > 0 || config.right_flank_length > 0 {
@@ -392,163 +407,161 @@ impl<Cost: AStarCost + From<u64>>
             return;
         }
 
-        let reference_offset = range
-            .as_ref()
-            .map(|range| range.reference_offset())
-            .unwrap_or(0);
+        let reference_offset = range.as_ref().map_or(
+            0,
+            super::alignment_geometry::AlignmentRange::reference_offset,
+        );
         let query_offset = range
             .as_ref()
-            .map(|range| range.query_offset())
-            .unwrap_or(0);
+            .map_or(0, super::alignment_geometry::AlignmentRange::query_offset);
 
         for i in 0..alignment.inner_mut().len() {
             let alignment_type = alignment.inner_mut()[i].1;
 
-            match alignment_type {
-                super::template_switch_distance::AlignmentType::TemplateSwitchEntrance {
-                    mut equal_cost_range,
-                    ..
-                } => {
-                    equal_cost_range.min_start = 0;
-                    equal_cost_range.max_start = 0;
-                    equal_cost_range.min_end = 0;
-                    equal_cost_range.max_end = 0;
+            if let super::template_switch_distance::AlignmentType::TemplateSwitchEntrance {
+                mut equal_cost_range,
+                ..
+            } = alignment_type
+            {
+                equal_cost_range.min_start = 0;
+                equal_cost_range.max_start = 0;
+                equal_cost_range.min_end = 0;
+                equal_cost_range.max_end = 0;
 
-                    let initial_cost = alignment.compute_cost(
+                // Keep track of the current cost, which might get less while extending but never increase
+                let mut current_cost = alignment.compute_cost(
+                    reference,
+                    query,
+                    reference_offset,
+                    query_offset,
+                    config,
+                );
+                debug_assert_eq!(current_cost, (statistics.cost.round().raw() as u64).into());
+
+                // Move start to the left
+                {
+                    let mut min_start_alignment = alignment.clone();
+                    let mut i = i;
+
+                    while min_start_alignment.move_template_switch_start_backwards(
                         reference,
                         query,
                         reference_offset,
                         query_offset,
-                        config,
-                    );
-                    assert_eq!(initial_cost, (statistics.cost.round().raw() as u64).into());
-
-                    {
-                        let mut min_start_alignment = alignment.clone();
-                        let mut i = i;
-
-                        while min_start_alignment.move_template_switch_start_backwards(
+                        &mut i,
+                    ) {
+                        let new_cost = min_start_alignment.compute_cost(
                             reference,
                             query,
                             reference_offset,
                             query_offset,
-                            &mut i,
-                        ) {
-                            let new_cost = min_start_alignment.compute_cost(
-                                reference,
-                                query,
-                                reference_offset,
-                                query_offset,
-                                config,
+                            config,
+                        );
+                        if new_cost > current_cost {
+                            trace!(
+                                "Stopping moving TS start backwards because cost {new_cost} > {current_cost} with alignment {min_start_alignment}"
                             );
-                            if new_cost > initial_cost {
-                                trace!(
-                                    "Stopping moving TS start backwards because cost {new_cost} > {initial_cost} with alignment {min_start_alignment}"
-                                );
-                                break;
-                            } else {
-                                assert_eq!(new_cost, initial_cost);
-                                equal_cost_range.min_start -= 1;
-                            }
+                            break;
                         }
+                        current_cost = new_cost;
+                        equal_cost_range.min_start -= 1;
                     }
-
-                    {
-                        let mut max_start_alignment = alignment.clone();
-                        let mut i = i;
-
-                        while max_start_alignment.move_template_switch_start_forwards(
-                            reference,
-                            query,
-                            reference_offset,
-                            query_offset,
-                            &mut i,
-                        ) {
-                            let new_cost = max_start_alignment.compute_cost(
-                                reference,
-                                query,
-                                reference_offset,
-                                query_offset,
-                                config,
-                            );
-                            if new_cost > initial_cost {
-                                trace!(
-                                    "Stopping moving TS start forwards because cost {new_cost} > {initial_cost} with alignment {max_start_alignment}"
-                                );
-                                break;
-                            } else {
-                                assert_eq!(new_cost, initial_cost);
-                                equal_cost_range.max_start += 1;
-                            }
-                        }
-                    }
-
-                    {
-                        let mut min_end_alignment = alignment.clone();
-                        while min_end_alignment.move_template_switch_end_backwards(
-                            reference,
-                            query,
-                            reference_offset,
-                            query_offset,
-                            i,
-                        ) {
-                            let new_cost = min_end_alignment.compute_cost(
-                                reference,
-                                query,
-                                reference_offset,
-                                query_offset,
-                                config,
-                            );
-                            if new_cost > initial_cost {
-                                trace!(
-                                    "Stopping moving TS end backwards because cost {new_cost} > {initial_cost} with alignment {min_end_alignment}"
-                                );
-                                break;
-                            } else {
-                                assert_eq!(new_cost, initial_cost);
-                                equal_cost_range.min_end -= 1;
-                            }
-                        }
-                    }
-
-                    {
-                        let mut max_end_alignment = alignment.clone();
-                        while max_end_alignment.move_template_switch_end_forwards(
-                            reference,
-                            query,
-                            reference_offset,
-                            query_offset,
-                            i,
-                        ) {
-                            let new_cost = max_end_alignment.compute_cost(
-                                reference,
-                                query,
-                                reference_offset,
-                                query_offset,
-                                config,
-                            );
-                            if new_cost > initial_cost {
-                                trace!(
-                                    "Stopping moving TS end forwards because cost {new_cost} > {initial_cost} with alignment {max_end_alignment}"
-                                );
-                                break;
-                            } else {
-                                assert_eq!(new_cost, initial_cost);
-                                equal_cost_range.max_end += 1;
-                            }
-                        }
-                    }
-
-                    let super::template_switch_distance::AlignmentType::TemplateSwitchEntrance {
-                        equal_cost_range: alignment_equal_cost_range,
-                        ..
-                    } = &mut alignment.inner_mut()[i].1
-                    else {
-                        unreachable!()
-                    };
-                    *alignment_equal_cost_range = equal_cost_range;
                 }
-                _ => { /* Do nothing. */ }
+
+                // Move start to the right
+                {
+                    let mut max_start_alignment = alignment.clone();
+                    let mut i = i;
+
+                    while max_start_alignment.move_template_switch_start_forwards(
+                        reference,
+                        query,
+                        reference_offset,
+                        query_offset,
+                        &mut i,
+                    ) {
+                        let new_cost = max_start_alignment.compute_cost(
+                            reference,
+                            query,
+                            reference_offset,
+                            query_offset,
+                            config,
+                        );
+                        if new_cost > current_cost {
+                            trace!(
+                                "Stopping moving TS start forwards because cost {new_cost} > {current_cost} with alignment {max_start_alignment}"
+                            );
+                            break;
+                        }
+                        current_cost = new_cost;
+                        equal_cost_range.max_start += 1;
+                    }
+                }
+
+                // Move end to the left
+                {
+                    let mut min_end_alignment = alignment.clone();
+                    while min_end_alignment.move_template_switch_end_backwards(
+                        reference,
+                        query,
+                        reference_offset,
+                        query_offset,
+                        i,
+                    ) {
+                        let new_cost = min_end_alignment.compute_cost(
+                            reference,
+                            query,
+                            reference_offset,
+                            query_offset,
+                            config,
+                        );
+                        if new_cost > current_cost {
+                            trace!(
+                                "Stopping moving TS end backwards because cost {new_cost} > {current_cost} with alignment {min_end_alignment}"
+                            );
+                            break;
+                        }
+                        current_cost = new_cost;
+                        equal_cost_range.min_end -= 1;
+                    }
+                }
+
+                // Move end to the right
+                {
+                    let mut max_end_alignment = alignment.clone();
+                    while max_end_alignment.move_template_switch_end_forwards(
+                        reference,
+                        query,
+                        reference_offset,
+                        query_offset,
+                        i,
+                    ) {
+                        let new_cost = max_end_alignment.compute_cost(
+                            reference,
+                            query,
+                            reference_offset,
+                            query_offset,
+                            config,
+                        );
+                        if new_cost > current_cost {
+                            trace!(
+                                "Stopping moving TS end forwards because cost {new_cost} > {current_cost} with alignment {max_end_alignment}"
+                            );
+                            break;
+                        }
+                        current_cost = new_cost;
+                        equal_cost_range.max_end += 1;
+                    }
+                }
+
+                let super::template_switch_distance::AlignmentType::TemplateSwitchEntrance {
+                    equal_cost_range: alignment_equal_cost_range,
+                    ..
+                } = &mut alignment.inner_mut()[i].1
+                else {
+                    unreachable!()
+                };
+                *alignment_equal_cost_range = equal_cost_range;
             }
         }
     }

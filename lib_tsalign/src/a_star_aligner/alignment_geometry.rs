@@ -52,41 +52,55 @@ impl AlignmentRange {
         self.offset.query..self.limit.query
     }
 
-    pub fn move_offsets_left(&self) -> Self {
-        Self::new_offset_limit(
+    #[must_use]
+    pub fn move_offsets_left(&self) -> Option<Self> {
+        Some(Self::new_offset_limit(
             AlignmentCoordinates::new(
-                self.offset.reference.checked_sub(1).unwrap(),
-                self.offset.query.checked_sub(1).unwrap(),
+                self.offset.reference.checked_sub(1)?,
+                self.offset.query.checked_sub(1)?,
             ),
             self.limit,
-        )
+        ))
     }
 
-    pub fn move_offsets_right(&self) -> Self {
-        assert!(self.offset.reference < self.limit.reference);
-        assert!(self.offset.query < self.limit.query);
+    #[must_use]
+    pub fn move_offsets_right(&self) -> Option<Self> {
+        let new_ref_offset = self.offset.reference.checked_add(1)?;
+        let new_qry_offset = self.offset.query.checked_add(1)?;
 
-        Self::new_offset_limit(
-            AlignmentCoordinates::new(self.offset.reference + 1, self.offset.query + 1),
+        if new_ref_offset > self.limit.reference || new_qry_offset > self.limit.query {
+            return None;
+        }
+
+        Some(Self::new_offset_limit(
+            AlignmentCoordinates::new(new_ref_offset, new_qry_offset),
             self.limit,
-        )
+        ))
     }
 
-    pub fn move_limits_left(&self) -> Self {
-        assert!(self.offset.reference < self.limit.reference);
-        assert!(self.offset.query < self.limit.query);
+    #[must_use]
+    pub fn move_limits_left(&self) -> Option<Self> {
+        let new_ref_limit = self.limit.reference.checked_sub(1)?;
+        let new_qry_limit = self.limit.query.checked_sub(1)?;
 
-        Self::new_offset_limit(
+        if new_ref_limit < self.offset.reference || new_qry_limit > self.offset.query {
+            return None;
+        }
+        Some(Self::new_offset_limit(
             self.offset,
-            AlignmentCoordinates::new(self.limit.reference - 1, self.limit.query - 1),
-        )
+            AlignmentCoordinates::new(new_ref_limit, new_qry_limit),
+        ))
     }
 
-    pub fn move_limits_right(&self) -> Self {
-        Self::new_offset_limit(
+    #[must_use]
+    pub fn move_limits_right(&self) -> Option<Self> {
+        Some(Self::new_offset_limit(
             self.offset,
-            AlignmentCoordinates::new(self.limit.reference + 1, self.limit.query + 1),
-        )
+            AlignmentCoordinates::new(
+                self.limit.reference.checked_add(1)?,
+                self.limit.query.checked_add(1)?,
+            ),
+        ))
     }
 }
 
