@@ -6,6 +6,7 @@ use deterministic_default_hasher::DeterministicDefaultHasher;
 use generic_a_star::cost::AStarCost;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
+use log::info;
 use template_switch_error_free_inners::MatchTable;
 
 use crate::a_star_aligner::template_switch_distance::{AlignmentType, TemplateSwitchDirection};
@@ -207,6 +208,7 @@ impl<const FILTER_MISMATCHING_ENTRIES: bool, Cost: AStarCost> TemplateSwitchMinL
         query: &SubsequenceType,
         config: &TemplateSwitchConfig<AlphabetType, Cost>,
     ) -> Self::Memory {
+        info!("Collecting template switch matching candidates");
         Some(MatchTable::new(
             reference,
             query,

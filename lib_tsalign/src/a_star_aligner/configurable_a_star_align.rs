@@ -22,6 +22,7 @@ use crate::{
         template_switch_distance::strategies::{
             AlignmentStrategySelection, primary_range::NoPrunePrimaryRangeStrategy,
             secondary_deletion::AllowSecondaryDeletionStrategy, shortcut::NoShortcutStrategy,
+            template_switch_min_length::PreprocessedTemplateSwitchMinLengthStrategy,
         },
         template_switch_distance_a_star_align,
     },
@@ -122,6 +123,10 @@ pub enum NodeOrdStrategySelector {
 pub enum MinLengthStrategySelector {
     None,
     Lookahead,
+    /// Preprocess the min length of inner alignments, and adjust the A* lower bound accordingly.
+    PreprocessPrice,
+    /// Ignore possible template switches who don't start with a sequence of matches according to the template switch minimum length.
+    PreprocessFilter,
 }
 
 #[derive(Debug)]
@@ -227,6 +232,18 @@ fn a_star_align_select_template_switch_min_length_strategy<
             _,
             NodeOrd,
             LookaheadTemplateSwitchMinLengthStrategy<U64Cost>,
+        >(reference, query, config, costs),
+        MinLengthStrategySelector::PreprocessPrice => a_star_align_select_chaining_strategy::<
+            _,
+            _,
+            NodeOrd,
+            PreprocessedTemplateSwitchMinLengthStrategy<false, U64Cost>,
+        >(reference, query, config, costs),
+        MinLengthStrategySelector::PreprocessFilter => a_star_align_select_chaining_strategy::<
+            _,
+            _,
+            NodeOrd,
+            PreprocessedTemplateSwitchMinLengthStrategy<true, U64Cost>,
         >(reference, query, config, costs),
     }
 }
