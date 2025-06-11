@@ -15,7 +15,10 @@ use template_switch_distance::{
 };
 use traitsequence::interface::Sequence;
 
-use crate::config;
+use crate::{
+    a_star_aligner::template_switch_distance::strategies::template_switch_min_length::TemplateSwitchMinLengthStrategy,
+    config,
+};
 
 pub mod alignment_geometry;
 pub mod alignment_result;
@@ -167,7 +170,9 @@ where
     Strategies::Cost: From<u64>,
 {
     let memory = Memory {
-        template_switch_min_length: Default::default(),
+        template_switch_min_length: <<Strategies as AlignmentStrategySelector>::TemplateSwitchMinLength as
+            TemplateSwitchMinLengthStrategy<<Strategies as AlignmentStrategySelector>::Cost,
+        >>::initialise_memory(reference, query, &config),
         chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy<
             <Strategies as AlignmentStrategySelector>::Cost,
         >>::initialise_memory(reference, query, &config, 20),
