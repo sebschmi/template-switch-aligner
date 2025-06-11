@@ -46,6 +46,11 @@ pub struct LookaheadTemplateSwitchMinLengthStrategy<Cost> {
     phantom_data: PhantomData<Cost>,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct PreprocessedTemplateSwitchMinLengthStrategy<Cost> {
+    phantom_data: PhantomData<Cost>,
+}
+
 struct TemplateSwitchMinLengthContext<
     'reference,
     'query,
@@ -169,6 +174,27 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
     }
 }
 
+impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
+    for PreprocessedTemplateSwitchMinLengthStrategy<Cost>
+{
+    type Memory = ();
+
+    fn template_switch_min_length_lookahead<
+        Strategies: AlignmentStrategySelector<Cost = Cost, TemplateSwitchMinLength = Self>,
+        SubsequenceType: compact_genome::interface::sequence::GenomeSequence<
+                Strategies::Alphabet,
+                SubsequenceType,
+            > + ?Sized,
+    >(
+        &self,
+        _secondary_root_node: Node<Strategies>,
+        _context: &mut Context<SubsequenceType, Strategies>,
+    ) -> impl IntoIterator<Item = Node<Strategies>> {
+        #[expect(unreachable_code)]
+        Some(todo!())
+    }
+}
+
 impl<Cost: AStarCost> AlignmentStrategy for NoTemplateSwitchMinLengthStrategy<Cost> {
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
@@ -199,6 +225,35 @@ impl<Cost: AStarCost> AlignmentStrategy for NoTemplateSwitchMinLengthStrategy<Co
 }
 
 impl<Cost: AStarCost> AlignmentStrategy for LookaheadTemplateSwitchMinLengthStrategy<Cost> {
+    fn create_root<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector,
+    >(
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
+        Self {
+            phantom_data: PhantomData,
+        }
+    }
+
+    fn generate_successor<
+        SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
+        Strategies: AlignmentStrategySelector,
+    >(
+        &self,
+        _identifier: Identifier<
+            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
+                <Strategies as AlignmentStrategySelector>::Cost,
+            >>::IdentifierPrimaryExtraData,
+        >,
+        _alignment_type: AlignmentType,
+        _context: &Context<'_, '_, SubsequenceType, Strategies>,
+    ) -> Self {
+        *self
+    }
+}
+
+impl<Cost: AStarCost> AlignmentStrategy for PreprocessedTemplateSwitchMinLengthStrategy<Cost> {
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
         Strategies: AlignmentStrategySelector,
