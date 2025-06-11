@@ -5,6 +5,7 @@ use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::cost::AStarCost;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
+use log::info;
 use rustc_hash::{FxHashMapSeed, FxSeededState};
 use template_switch_error_free_inners::MatchTable;
 
@@ -207,6 +208,7 @@ impl<const FILTER_MISMATCHING_ENTRIES: bool, Cost: AStarCost> TemplateSwitchMinL
         query: &SubsequenceType,
         config: &TemplateSwitchConfig<AlphabetType, Cost>,
     ) -> Self::Memory {
+        info!("Collecting template switch matching candidates");
         Some(MatchTable::new(
             reference,
             query,
