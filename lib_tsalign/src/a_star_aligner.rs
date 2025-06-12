@@ -211,6 +211,7 @@ where
     );
     info!("Alignment ranges after extension {range}");
 
+    info!("Extending template switches");
     result.compute_ts_equal_cost_ranges(reference, query, &range, config);
     result
 }
