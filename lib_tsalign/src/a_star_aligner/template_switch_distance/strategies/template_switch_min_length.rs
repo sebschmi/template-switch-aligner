@@ -257,19 +257,21 @@ impl<const FILTER_MISMATCHING_ENTRIES: bool, Cost: AStarCost> TemplateSwitchMinL
                         context.query.len().checked_sub(secondary_index).unwrap()
                     }
                 };
+                let match_table = context.memory.template_switch_min_length.as_ref().unwrap();
 
                 match (template_switch_primary, template_switch_secondary) {
                     (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Reference) => {
-                        context
-                            .memory
-                            .template_switch_min_length
-                            .as_ref()
-                            .unwrap()
-                            .has_reference_reference_match(primary_index, secondary_rc_index)
+                        match_table.has_reference_reference_match(primary_index, secondary_rc_index)
                     }
-                    (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Query) => todo!(),
-                    (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Reference) => todo!(),
-                    (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => todo!(),
+                    (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Query) => {
+                        match_table.has_reference_query_match(primary_index, secondary_rc_index)
+                    }
+                    (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Reference) => {
+                        match_table.has_query_reference_match(primary_index, secondary_rc_index)
+                    }
+                    (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => {
+                        match_table.has_query_query_match(primary_index, secondary_rc_index)
+                    }
                 }
             };
 
