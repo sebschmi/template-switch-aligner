@@ -238,57 +238,64 @@ impl<const FILTER_MISMATCHING_ENTRIES: bool, Cost: AStarCost> TemplateSwitchMinL
             unreachable!("Only called with a secondary root node.");
         };
 
-        if template_switch_direction == TemplateSwitchDirection::Forward {
+        let is_min_length_match = if template_switch_direction == TemplateSwitchDirection::Forward {
             // TODO implement also forward direction filter.
-            Some(secondary_root_node)
-        } else {
-            let is_min_length_match = if secondary_index < context.config.template_switch_min_length
-            {
-                // There are not enough characters in the secondary sequence for a match of minimum length.
-                return None;
-            } else {
-                let secondary_rc_index = match template_switch_secondary {
-                    TemplateSwitchSecondary::Reference => context
-                        .reference
-                        .len()
-                        .checked_sub(secondary_index)
-                        .unwrap(),
-                    TemplateSwitchSecondary::Query => {
-                        context.query.len().checked_sub(secondary_index).unwrap()
+            return Some(secondary_root_node);
+        } else if secondary_index < context.config.template_switch_min_length
+            || primary_index
+                > match template_switch_primary {
+                    TemplateSwitchPrimary::Reference => {
+                        context.reference.len() - context.config.template_switch_min_length
                     }
-                };
-                let match_table = context.memory.template_switch_min_length.as_ref().unwrap();
-
-                match (template_switch_primary, template_switch_secondary) {
-                    (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Reference) => {
-                        match_table.has_reference_reference_match(primary_index, secondary_rc_index)
-                    }
-                    (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Query) => {
-                        match_table.has_reference_query_match(primary_index, secondary_rc_index)
-                    }
-                    (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Reference) => {
-                        match_table.has_query_reference_match(primary_index, secondary_rc_index)
-                    }
-                    (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => {
-                        match_table.has_query_query_match(primary_index, secondary_rc_index)
+                    TemplateSwitchPrimary::Query => {
+                        context.query.len() - context.config.template_switch_min_length
                     }
                 }
+        {
+            // There are not enough characters in the primary or secondary sequence for a match of minimum length.
+            false
+        } else {
+            let secondary_rc_index = match template_switch_secondary {
+                TemplateSwitchSecondary::Reference => context
+                    .reference
+                    .len()
+                    .checked_sub(secondary_index)
+                    .unwrap(),
+                TemplateSwitchSecondary::Query => {
+                    context.query.len().checked_sub(secondary_index).unwrap()
+                }
             };
+            let match_table = context.memory.template_switch_min_length.as_ref().unwrap();
 
-            if is_min_length_match {
-                Some(secondary_root_node)
-            } else if FILTER_MISMATCHING_ENTRIES {
-                None
-            } else {
-                secondary_root_node.node_data.a_star_lower_bound =
-                    secondary_root_node.node_data.a_star_lower_bound.max(
-                        context
-                            .config
-                            .secondary_edit_costs(template_switch_direction)
-                            .min_non_match_cost(),
-                    );
-                Some(secondary_root_node)
+            match (template_switch_primary, template_switch_secondary) {
+                (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Reference) => {
+                    match_table.has_reference_reference_match(primary_index, secondary_rc_index)
+                }
+                (TemplateSwitchPrimary::Reference, TemplateSwitchSecondary::Query) => {
+                    match_table.has_reference_query_match(primary_index, secondary_rc_index)
+                }
+                (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Reference) => {
+                    match_table.has_query_reference_match(primary_index, secondary_rc_index)
+                }
+                (TemplateSwitchPrimary::Query, TemplateSwitchSecondary::Query) => {
+                    match_table.has_query_query_match(primary_index, secondary_rc_index)
+                }
             }
+        };
+
+        if is_min_length_match {
+            Some(secondary_root_node)
+        } else if FILTER_MISMATCHING_ENTRIES {
+            None
+        } else {
+            secondary_root_node.node_data.a_star_lower_bound =
+                secondary_root_node.node_data.a_star_lower_bound.max(
+                    context
+                        .config
+                        .secondary_edit_costs(template_switch_direction)
+                        .min_non_match_cost(),
+                );
+            Some(secondary_root_node)
         }
     }
 }
