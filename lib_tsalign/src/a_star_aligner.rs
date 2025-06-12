@@ -198,11 +198,12 @@ where
     ));
     debug!("CIGAR before extending: {}", result.cigar());
 
-    info!("Extending template switches");
+    info!("Extending alignment with matches");
     let mut range = range;
     result.extend_beyond_range_with_equal_cost(reference, query, &mut range, &config);
     let range = range;
 
+    info!("Extending template switches");
     result.compute_ts_equal_cost_ranges(reference, query, &range, &config);
     result
 }
