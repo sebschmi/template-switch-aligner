@@ -13,6 +13,7 @@ use compare::Compare;
 use cost::AStarCost;
 use deterministic_default_hasher::DeterministicDefaultHasher;
 use extend_map::ExtendFilter;
+use get_size::GetSize;
 use num_traits::{Bounded, Zero};
 use reset::Reset;
 
@@ -23,7 +24,7 @@ pub mod reset;
 /// A node of the A* graph.
 /// The node must implement [`Ord`], ordering it by its cost plus A* cost, ascending.
 /// The graph defined by the node type must be cycle-free.
-pub trait AStarNode: Sized + Ord + Debug + Display {
+pub trait AStarNode: Sized + Ord + Debug + Display + GetSize {
     /// A unique identifier of the node.
     ///
     /// For example, in case of traditional edit distance, this would be the tuple (i, j) indicating which alignment matrix cell this node belongs to.
@@ -117,22 +118,164 @@ pub enum AStarState<NodeIdentifier, Cost> {
 }
 
 #[derive(Debug)]
+struct ClosedList<I, N> {
+    inner: HashMap<I, N, DeterministicDefaultHasher>,
+    heap_memory: usize,
+}
+
+impl<I: std::hash::Hash + Eq, N: GetSize> ClosedList<I, N> {
+    fn insert(&mut self, key: I, value: N) -> Option<N> {
+        self.heap_memory += std::mem::size_of::<I>() + value.get_size();
+        let res = self.inner.insert(key, value);
+        if let Some(old) = &res {
+            self.heap_memory -= std::mem::size_of::<I>() + old.get_size();
+        }
+        res
+    }
+
+    fn contains_key(&self, key: &I) -> bool {
+        self.inner.contains_key(key)
+    }
+
+    fn clear(&mut self) {
+        self.inner.clear();
+        self.heap_memory = 0;
+    }
+
+    fn get(&self, key: &I) -> Option<&N> {
+        self.inner.get(key)
+    }
+}
+
+impl<I, N> GetSize for ClosedList<I, N> {
+    fn get_heap_size(&self) -> usize {
+        // Custom impl to avoid iteration through all items
+        let mut total = self.heap_memory;
+        let additional: usize = self.inner.capacity() - self.inner.len();
+        total += additional * std::mem::size_of::<I>();
+        total += additional * std::mem::size_of::<N>();
+        total
+    }
+}
+
+impl<I, N> Default for ClosedList<I, N> {
+    fn default() -> Self {
+        Self {
+            inner: HashMap::default(),
+            heap_memory: 0,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct OpenList<N>
+where
+    AStarNodeComparator: Compare<N>,
+{
+    inner: BinaryHeap<N, AStarNodeComparator>,
+    heap_memory: usize,
+}
+
+impl<N> OpenList<N>
+where
+    N: GetSize,
+    AStarNodeComparator: Compare<N>,
+{
+    fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    fn push(&mut self, item: N) {
+        self.heap_memory += item.get_size();
+        self.inner.push(item);
+    }
+
+    fn pop(&mut self) -> Option<N> {
+        if let Some(item) = self.inner.pop() {
+            self.heap_memory -= item.get_size();
+            Some(item)
+        } else {
+            None
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    fn clear(&mut self) {
+        self.inner.clear();
+        self.heap_memory = 0;
+    }
+}
+
+impl<N> GetSize for OpenList<N>
+where
+    comparator::AStarNodeComparator: compare::Compare<N>,
+{
+    fn get_heap_size(&self) -> usize {
+        // Custom impl to avoid iteration through all items
+        let mut total = 0;
+        let additional: usize = self.inner.capacity() - self.inner.len();
+        total += additional * std::mem::size_of::<N>();
+        total
+    }
+}
+
+impl<N> Extend<N> for OpenList<N>
+where
+    N: GetSize,
+    comparator::AStarNodeComparator: compare::Compare<N>,
+{
+    fn extend<T: IntoIterator<Item = N>>(&mut self, iter: T) {
+        let mut size = 0;
+        self.inner.extend(iter.into_iter().inspect(|n| {
+            size += n.get_size();
+        }));
+        self.heap_memory += size;
+    }
+}
+
+impl<N> Default for OpenList<N>
+where
+    AStarNodeComparator: Compare<N>,
+{
+    fn default() -> Self {
+        Self {
+            inner: BinaryHeap::from_vec(Vec::new()),
+            heap_memory: 0,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct AStar<Context: AStarContext> {
     state: AStarState<<Context::Node as AStarNode>::Identifier, <Context::Node as AStarNode>::Cost>,
     context: Context,
-    closed_list: HashMap<
-        <Context::Node as AStarNode>::Identifier,
-        Context::Node,
-        DeterministicDefaultHasher,
-    >,
-    open_list: BinaryHeap<Context::Node, AStarNodeComparator>,
+    closed_list: ClosedList<<Context::Node as AStarNode>::Identifier, Context::Node>,
+    open_list: OpenList<Context::Node>,
     performance_counters: AStarPerformanceCounters,
 }
 
 #[derive(Debug)]
-pub struct AStarBuffers<NodeIdentifier, Node> {
-    closed_list: HashMap<NodeIdentifier, Node, DeterministicDefaultHasher>,
-    open_list: BinaryHeap<Node, AStarNodeComparator>,
+pub struct AStarBuffers<NodeIdentifier, Node>
+where
+    AStarNodeComparator: Compare<Node>,
+{
+    closed_list: ClosedList<NodeIdentifier, Node>,
+    open_list: OpenList<Node>,
+}
+
+impl<I, N> Default for AStarBuffers<I, N>
+where
+    comparator::AStarNodeComparator: compare::Compare<N>,
+{
+    fn default() -> Self {
+        Self {
+            closed_list: ClosedList::default(),
+            open_list: OpenList::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash)]
@@ -174,9 +317,9 @@ impl<Context: AStarContext> AStar<Context> {
         Self {
             state: AStarState::Empty,
             context,
-            closed_list: Default::default(),
-            open_list: BinaryHeap::from_vec(Vec::new()),
-            performance_counters: Default::default(),
+            closed_list: ClosedList::default(),
+            open_list: OpenList::default(),
+            performance_counters: AStarPerformanceCounters::default(),
         }
     }
 
@@ -191,7 +334,7 @@ impl<Context: AStarContext> AStar<Context> {
             context,
             closed_list: buffers.closed_list,
             open_list: buffers.open_list,
-            performance_counters: Default::default(),
+            performance_counters: AStarPerformanceCounters::default(),
         }
     }
 
@@ -235,13 +378,15 @@ impl<Context: AStarContext> AStar<Context> {
         self.context.reset();
         self.closed_list.clear();
         self.open_list.clear();
-        self.performance_counters = Default::default();
+        self.performance_counters = AStarPerformanceCounters::default();
     }
 
     pub fn initialise(&mut self) {
-        self.initialise_with(|context| context.create_root());
+        self.initialise_with(AStarContext::create_root);
     }
 
+    /// # Panics
+    /// Will panic if the current state is not `AStarState::Empty`.
     pub fn initialise_with(&mut self, node: impl FnOnce(&Context) -> Context::Node) {
         assert_eq!(self.state, AStarState::Empty);
 
@@ -253,9 +398,10 @@ impl<Context: AStarContext> AStar<Context> {
         &mut self,
     ) -> AStarResult<<Context::Node as AStarNode>::Identifier, <Context::Node as AStarNode>::Cost>
     {
-        self.search_until(|context, node| context.is_target(node))
+        self.search_until(AStarContext::is_target)
     }
 
+    #[allow(clippy::too_many_lines)]
     pub fn search_until(
         &mut self,
         mut is_target: impl FnMut(&Context, &Context::Node) -> bool,
@@ -272,10 +418,6 @@ impl<Context: AStarContext> AStar<Context> {
             .unwrap_or(<Context::Node as AStarNode>::Cost::max_value());
         let mut applied_cost_limit = false;
         let memory_limit = self.context.memory_limit().unwrap_or(usize::MAX);
-        // The factor of 2.3 is determined empirically.
-        let node_count_limit =
-            (memory_limit as f64 / std::mem::size_of::<Context::Node>() as f64 / 2.3).round()
-                as usize;
 
         if self.open_list.is_empty() {
             return AStarResult::NoTarget;
@@ -316,7 +458,7 @@ impl<Context: AStarContext> AStar<Context> {
             }
 
             // Check memory limit.
-            if self.closed_list.len() + self.open_list.len() > node_count_limit {
+            if self.closed_list.get_size() + self.open_list.get_size() > memory_limit {
                 self.state = AStarState::Terminated {
                     result: AStarResult::ExceededMemoryLimit {
                         max_cost: node.cost(),
@@ -591,15 +733,6 @@ impl<Context: AStarContext> Iterator for BacktrackingIteratorWithCost<'_, Contex
             Some((predecessor_edge_type, cost))
         } else {
             None
-        }
-    }
-}
-
-impl<NodeIdentifier, Node: AStarNode> Default for AStarBuffers<NodeIdentifier, Node> {
-    fn default() -> Self {
-        Self {
-            closed_list: Default::default(),
-            open_list: BinaryHeap::from_vec(Vec::new()),
         }
     }
 }
