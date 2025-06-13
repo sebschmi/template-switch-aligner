@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStarContext, AStarNode, cost::AStarCost, reset::Reset};
+use get_size::GetSize;
 
 use super::{
     AlignmentContext, alignment_geometry::AlignmentRange, alignment_result::IAlignmentType,
@@ -13,6 +14,10 @@ pub struct Node<Cost> {
     predecessor: Option<Identifier>,
     predecessor_edge_type: AlignmentType,
     cost: Cost,
+}
+
+impl<Cost> GetSize for Node<Cost> {
+    // Default impl assumes everything is allocated on stack -- sufficient in this case
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

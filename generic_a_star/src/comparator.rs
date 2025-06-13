@@ -21,6 +21,7 @@ mod tests {
     use std::fmt::Display;
 
     use compare::Compare;
+    use get_size::GetSize;
 
     use crate::{AStarNode, cost::U64Cost};
 
@@ -32,6 +33,8 @@ mod tests {
         lower_bound: U64Cost,
         secondary_maximisable_score: usize,
     }
+
+    impl GetSize for Node {}
 
     impl Node {
         fn new(cost: u64, lower_bound: u64, secondary_maximisable_score: usize) -> Self {

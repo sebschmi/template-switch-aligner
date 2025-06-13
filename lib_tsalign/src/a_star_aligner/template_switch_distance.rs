@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::{AStarNode, cost::AStarCost};
+use get_size::GetSize;
 use identifier::GapType;
 use num_traits::{Bounded, Zero};
 use strategies::{
@@ -35,6 +36,11 @@ pub struct Node<Strategies: AlignmentStrategySelector> {
         <Strategies as AlignmentStrategySelector>::Cost,
     >,
     strategies: AlignmentStrategiesNodeMemory<Strategies>,
+}
+
+impl<S: AlignmentStrategySelector> GetSize for Node<S> {
+    // Default impl assumes that no heap allocations are made from Node.
+    // If any type like Vec<...> or so is used in the node data or strategy memory, this needs to be reflected here.
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

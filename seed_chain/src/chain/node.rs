@@ -1,4 +1,5 @@
 use generic_a_star::{AStarNode, cost::AStarCost};
+use get_size::GetSize;
 
 use crate::seed::ChainingAnchor;
 
@@ -16,6 +17,10 @@ pub struct Node<Cost> {
     identifier: Identifier,
     predecessor: Option<Identifier>,
     cost: Cost,
+}
+
+impl<Cost> GetSize for Node<Cost> {
+    // Default impl assumes everything is allocated on stack -- sufficient in this case
 }
 
 #[derive(Debug, Clone)]
