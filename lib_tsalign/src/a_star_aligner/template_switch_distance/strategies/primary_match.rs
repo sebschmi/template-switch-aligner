@@ -5,6 +5,7 @@ use std::{
 
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::cost::AStarCost;
+use get_size2::GetSize;
 use num_traits::Bounded;
 
 use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Identifier};
@@ -12,8 +13,8 @@ use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Id
 use super::AlignmentStrategySelector;
 
 pub trait PrimaryMatchStrategy<Cost>: Eq + Clone + Debug + Display {
-    type Memory;
-    type IdentifierPrimaryExtraData: Eq + Copy + Debug + Ord + Hash;
+    type Memory: GetSize;
+    type IdentifierPrimaryExtraData: Eq + Copy + Debug + Ord + Hash + GetSize;
 
     fn create_root<
         SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
@@ -83,6 +84,7 @@ pub struct AllowPrimaryMatchStrategy;
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct MaxConsecutivePrimaryMatchStrategy;
 
+#[derive(GetSize)]
 pub struct MaxConsecutivePrimaryMatchMemory<Cost> {
     pub max_consecutive_primary_matches: usize,
     pub root_available_primary_matches: usize,

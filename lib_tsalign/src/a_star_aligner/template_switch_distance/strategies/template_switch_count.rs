@@ -1,11 +1,12 @@
 use compact_genome::interface::sequence::GenomeSequence;
+use get_size2::GetSize;
 
 use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Identifier};
 
 use super::{AlignmentStrategy, AlignmentStrategySelector, primary_match::PrimaryMatchStrategy};
 
 pub trait TemplateSwitchCountStrategy: AlignmentStrategy {
-    type Memory;
+    type Memory: GetSize;
 
     /// Called when a template switch has ended.
     fn increment_count(&mut self);

@@ -1,9 +1,10 @@
 use std::ops::Range;
 
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
+use get_size2::GetSize;
 use log::info;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, GetSize)]
 pub struct ChainingAnchors {
     anchors: Vec<ChainingAnchor>,
 }
@@ -13,6 +14,8 @@ pub struct ChainingAnchor {
     reference_block: Range<usize>,
     query_block: Range<usize>,
 }
+
+impl GetSize for ChainingAnchor {}
 
 impl ChainingAnchors {
     /// Compute a set of anchors for the given reference and query sequences.

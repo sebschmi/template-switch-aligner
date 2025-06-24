@@ -1,5 +1,6 @@
 use compact_genome::interface::alphabet::Alphabet;
 use generic_a_star::cost::AStarCost;
+use get_size2::GetSize;
 use num_traits::{Bounded, bounds::UpperBounded};
 
 use crate::{
@@ -12,7 +13,8 @@ use crate::{
 
 pub mod io;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, GetSize)]
+#[get_size(ignore(AlphabetType))]
 pub struct TemplateSwitchConfig<AlphabetType, Cost> {
     // Limits
     pub left_flank_length: isize,
@@ -37,7 +39,7 @@ pub struct TemplateSwitchConfig<AlphabetType, Cost> {
     pub reverse_anti_primary_gap_costs: CostFunction<isize, Cost>,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, GetSize)]
 pub struct BaseCost<Cost> {
     /// Primary: reference; secondary: reference; direction: forward.
     pub rrf: Cost,

@@ -9,6 +9,7 @@ use compact_genome::{
     interface::{alphabet::Alphabet, sequence::GenomeSequence},
 };
 use generic_a_star::{AStar, AStarNode, AStarResult, cost::AStarCost};
+use get_size2::GetSize;
 use log::{debug, info, trace};
 use ndarray::Array2;
 
@@ -44,6 +45,12 @@ use super::template_switch::TemplateSwitchLowerBoundMatrix;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
     matrix: Array2<Cost>,
+}
+
+impl<Cost: GetSize> GetSize for TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
+    fn get_heap_size(&self) -> usize {
+        self.matrix.len()
+    }
 }
 
 type TSALBAlignmentStrategies<AlphabetType, Cost> = AlignmentStrategySelection<

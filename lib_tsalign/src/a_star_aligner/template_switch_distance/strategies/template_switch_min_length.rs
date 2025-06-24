@@ -5,6 +5,8 @@ use deterministic_default_hasher::DeterministicDefaultHasher;
 use generic_a_star::cost::AStarCost;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
+use get_size2::GetSize;
+use memtally::Tracked;
 
 use crate::a_star_aligner::template_switch_distance::{AlignmentType, TemplateSwitchDirection};
 use crate::a_star_aligner::template_switch_distance::{
@@ -17,7 +19,7 @@ use super::{AlignmentStrategy, AlignmentStrategySelector};
 
 pub trait TemplateSwitchMinLengthStrategy<Cost>: AlignmentStrategy {
     /// The type used to memorise lookahead results.
-    type Memory: Default + Reset;
+    type Memory: Default + Reset + GetSize;
 
     /// Takes the template switch entrance node and provides a lower bound for its costs depending on the minimum length of a template switch.
     /// The modified entrance node is returned in the iterator along with further nodes that were created while computing the lower bound.
@@ -44,6 +46,8 @@ pub struct LookaheadTemplateSwitchMinLengthStrategy<Cost> {
     phantom_data: PhantomData<Cost>,
 }
 
+#[derive(GetSize)]
+#[get_size(ignore(SubsequenceType, Strategies))]
 struct TemplateSwitchMinLengthContext<
     'reference,
     'query,
@@ -76,7 +80,7 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, GetSize)]
 pub struct LookaheadMemoryKey {
     template_switch_primary: TemplateSwitchPrimary,
     template_switch_secondary: TemplateSwitchSecondary,
@@ -88,7 +92,7 @@ pub struct LookaheadMemoryKey {
 impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
     for LookaheadTemplateSwitchMinLengthStrategy<Cost>
 {
-    type Memory = HashMap<LookaheadMemoryKey, Cost, DeterministicDefaultHasher>;
+    type Memory = Tracked<HashMap<LookaheadMemoryKey, Cost, DeterministicDefaultHasher>>;
 
     fn template_switch_min_length_lookahead<
         Strategies: AlignmentStrategySelector<Cost = Cost, TemplateSwitchMinLength = Self>,

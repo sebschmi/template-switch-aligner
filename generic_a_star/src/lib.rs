@@ -11,8 +11,9 @@ use binary_heap_plus::BinaryHeap;
 use comparator::AStarNodeComparator;
 use compare::Compare;
 use cost::AStarCost;
-use deterministic_default_hasher::DeterministicDefaultHasher;
 use extend_map::ExtendFilter;
+use get_size2::GetSize;
+use memtally::Tracked;
 use num_traits::{Bounded, Zero};
 use reset::Reset;
 
@@ -27,7 +28,7 @@ pub trait AStarNode: Sized + Ord + Debug + Display {
     /// A unique identifier of the node.
     ///
     /// For example, in case of traditional edit distance, this would be the tuple (i, j) indicating which alignment matrix cell this node belongs to.
-    type Identifier: Debug + Clone + Eq + Hash;
+    type Identifier: Debug + Clone + Eq + Hash + GetSize;
 
     /// The type collecting possible edge types.
     ///
@@ -59,9 +60,9 @@ pub trait AStarNode: Sized + Ord + Debug + Display {
     fn predecessor_edge_type(&self) -> Option<Self::EdgeType>;
 }
 
-pub trait AStarContext: Reset {
+pub trait AStarContext: Reset + GetSize {
     /// The node type used by the A* algorithm.
-    type Node: AStarNode;
+    type Node: AStarNode + GetSize;
 
     /// Create the root node of the A* graph.
     fn create_root(&self) -> Self::Node;
@@ -94,7 +95,7 @@ pub trait AStarContext: Reset {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, GetSize)]
 pub struct AStarPerformanceCounters {
     pub opened_nodes: usize,
     /// Opened nodes that do not have optimal costs.
@@ -116,23 +117,40 @@ pub enum AStarState<NodeIdentifier, Cost> {
     },
 }
 
-#[derive(Debug)]
+impl<NodeIdentifier, Cost> GetSize for AStarState<NodeIdentifier, Cost> {
+    // Assume that everything is on the stack
+}
+
+#[derive(Debug, GetSize)]
 pub struct AStar<Context: AStarContext> {
     state: AStarState<<Context::Node as AStarNode>::Identifier, <Context::Node as AStarNode>::Cost>,
     context: Context,
-    closed_list: HashMap<
-        <Context::Node as AStarNode>::Identifier,
-        Context::Node,
-        DeterministicDefaultHasher,
-    >,
-    open_list: BinaryHeap<Context::Node, AStarNodeComparator>,
+    closed_list: Tracked<HashMap<<Context::Node as AStarNode>::Identifier, Context::Node>>,
+    open_list: Tracked<BinaryHeap<Context::Node, AStarNodeComparator>>,
     performance_counters: AStarPerformanceCounters,
 }
 
-#[derive(Debug)]
-pub struct AStarBuffers<NodeIdentifier, Node> {
-    closed_list: HashMap<NodeIdentifier, Node, DeterministicDefaultHasher>,
-    open_list: BinaryHeap<Node, AStarNodeComparator>,
+#[derive(Debug, GetSize)]
+pub struct AStarBuffers<NodeIdentifier, Node>
+where
+    AStarNodeComparator: Compare<Node>,
+{
+    closed_list: Tracked<HashMap<NodeIdentifier, Node>>,
+    open_list: Tracked<BinaryHeap<Node, AStarNodeComparator>>,
+}
+
+impl<NodeIdentifier, Node> Default for AStarBuffers<NodeIdentifier, Node>
+where
+    AStarNodeComparator: Compare<Node>,
+    NodeIdentifier: GetSize,
+    Node: GetSize,
+{
+    fn default() -> Self {
+        Self {
+            closed_list: HashMap::default().into(),
+            open_list: BinaryHeap::from_vec(vec![]).into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash)]
@@ -174,9 +192,9 @@ impl<Context: AStarContext> AStar<Context> {
         Self {
             state: AStarState::Empty,
             context,
-            closed_list: Default::default(),
-            open_list: BinaryHeap::from_vec(Vec::new()),
-            performance_counters: Default::default(),
+            closed_list: Tracked::default(),
+            open_list: BinaryHeap::from_vec(Vec::new()).into(),
+            performance_counters: AStarPerformanceCounters::default(),
         }
     }
 
@@ -191,7 +209,7 @@ impl<Context: AStarContext> AStar<Context> {
             context,
             closed_list: buffers.closed_list,
             open_list: buffers.open_list,
-            performance_counters: Default::default(),
+            performance_counters: AStarPerformanceCounters::default(),
         }
     }
 
@@ -235,13 +253,15 @@ impl<Context: AStarContext> AStar<Context> {
         self.context.reset();
         self.closed_list.clear();
         self.open_list.clear();
-        self.performance_counters = Default::default();
+        self.performance_counters = AStarPerformanceCounters::default();
     }
 
     pub fn initialise(&mut self) {
-        self.initialise_with(|context| context.create_root());
+        self.initialise_with(AStarContext::create_root);
     }
 
+    /// # Panics
+    /// Will panic if the current state is not `AStarState::Empty`.
     pub fn initialise_with(&mut self, node: impl FnOnce(&Context) -> Context::Node) {
         assert_eq!(self.state, AStarState::Empty);
 
@@ -253,9 +273,10 @@ impl<Context: AStarContext> AStar<Context> {
         &mut self,
     ) -> AStarResult<<Context::Node as AStarNode>::Identifier, <Context::Node as AStarNode>::Cost>
     {
-        self.search_until(|context, node| context.is_target(node))
+        self.search_until(AStarContext::is_target)
     }
 
+    #[allow(clippy::too_many_lines)]
     pub fn search_until(
         &mut self,
         mut is_target: impl FnMut(&Context, &Context::Node) -> bool,
@@ -272,10 +293,6 @@ impl<Context: AStarContext> AStar<Context> {
             .unwrap_or(<Context::Node as AStarNode>::Cost::max_value());
         let mut applied_cost_limit = false;
         let memory_limit = self.context.memory_limit().unwrap_or(usize::MAX);
-        // The factor of 2.3 is determined empirically.
-        let node_count_limit =
-            (memory_limit as f64 / std::mem::size_of::<Context::Node>() as f64 / 2.3).round()
-                as usize;
 
         if self.open_list.is_empty() {
             return AStarResult::NoTarget;
@@ -316,7 +333,7 @@ impl<Context: AStarContext> AStar<Context> {
             }
 
             // Check memory limit.
-            if self.closed_list.len() + self.open_list.len() > node_count_limit {
+            if (*self).get_size() > memory_limit {
                 self.state = AStarState::Terminated {
                     result: AStarResult::ExceededMemoryLimit {
                         max_cost: node.cost(),
@@ -591,15 +608,6 @@ impl<Context: AStarContext> Iterator for BacktrackingIteratorWithCost<'_, Contex
             Some((predecessor_edge_type, cost))
         } else {
             None
-        }
-    }
-}
-
-impl<NodeIdentifier, Node: AStarNode> Default for AStarBuffers<NodeIdentifier, Node> {
-    fn default() -> Self {
-        Self {
-            closed_list: Default::default(),
-            open_list: BinaryHeap::from_vec(Vec::new()),
         }
     }
 }

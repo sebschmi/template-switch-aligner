@@ -1,11 +1,12 @@
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
+use get_size2::GetSize;
 
 use super::{
     AlignmentType, Context,
     strategies::{AlignmentStrategySelector, primary_match::PrimaryMatchStrategy},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash, GetSize)]
 pub enum Identifier<PrimaryExtraData> {
     Primary {
         reference_index: usize,
@@ -56,7 +57,7 @@ pub enum Identifier<PrimaryExtraData> {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash, GetSize)]
 pub enum GapType {
     Insertion,
     Deletion,
@@ -64,7 +65,7 @@ pub enum GapType {
 }
 
 /// The primary sequence is the sequence for which the template switch does not jump.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash, GetSize)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TemplateSwitchPrimary {
     Reference,
@@ -72,7 +73,7 @@ pub enum TemplateSwitchPrimary {
 }
 
 /// The secondary sequence is the sequence for which the template switch jumps.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash, GetSize)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TemplateSwitchSecondary {
     Reference,
@@ -80,7 +81,7 @@ pub enum TemplateSwitchSecondary {
 }
 
 /// The secondary sequence is the sequence for which the template switch jumps.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash, GetSize)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TemplateSwitchDirection {
     Forward,

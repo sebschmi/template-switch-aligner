@@ -1,10 +1,11 @@
 use generic_a_star::{AStarNode, cost::AStarCost};
+use get_size2::GetSize;
 
 use crate::seed::ChainingAnchor;
 
 pub mod display;
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, GetSize)]
 pub enum Identifier {
     Root,
     Anchor { anchor: ChainingAnchor },
@@ -16,6 +17,10 @@ pub struct Node<Cost> {
     identifier: Identifier,
     predecessor: Option<Identifier>,
     cost: Cost,
+}
+
+impl<Cost> GetSize for Node<Cost> {
+    // Default impl assumes everything is allocated on stack -- sufficient in this case
 }
 
 #[derive(Debug, Clone)]
