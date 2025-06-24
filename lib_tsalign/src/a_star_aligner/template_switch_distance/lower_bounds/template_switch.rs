@@ -9,6 +9,7 @@ use compact_genome::{
     interface::{alphabet::Alphabet, sequence::GenomeSequence},
 };
 use generic_a_star::{AStar, AStarNode, AStarResult, cost::AStarCost};
+use get_size2::GetSize;
 use log::{debug, info, trace};
 
 use crate::{
@@ -33,14 +34,14 @@ use crate::{
     costs::gap_affine::GapAffineAlignmentCostTable,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, GetSize)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TemplateSwitchLowerBoundMatrix<Cost> {
     entries: Vec<TSLBMatrixEntry<Cost>>,
     min_distance_between_two_template_switches: usize,
 }
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, GetSize)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TSLBMatrixEntry<Cost> {
     x: isize,

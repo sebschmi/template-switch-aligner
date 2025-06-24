@@ -2,13 +2,13 @@ use std::marker::PhantomData;
 
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStarContext, AStarNode, cost::AStarCost, reset::Reset};
-use get_size::GetSize;
+use get_size2::GetSize;
 
 use super::{
     AlignmentContext, alignment_geometry::AlignmentRange, alignment_result::IAlignmentType,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, GetSize)]
 pub struct Node<Cost> {
     identifier: Identifier,
     predecessor: Option<Identifier>,
@@ -16,25 +16,21 @@ pub struct Node<Cost> {
     cost: Cost,
 }
 
-impl<Cost> GetSize for Node<Cost> {
-    // Default impl assumes everything is allocated on stack -- sufficient in this case
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, GetSize)]
 pub struct Identifier {
     reference_index: usize,
     query_index: usize,
     gap_type: GapType,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, GetSize)]
 enum GapType {
     Insertion,
     Deletion,
     None,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, GetSize)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AlignmentType {
     /// The query contains a base that is missing from the reference.
@@ -49,7 +45,7 @@ pub enum AlignmentType {
     Root,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, GetSize)]
 pub struct ScoringTable<Cost> {
     pub match_cost: Cost,
     pub substitution_cost: Cost,
@@ -57,7 +53,8 @@ pub struct ScoringTable<Cost> {
     pub gap_extend_cost: Cost,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, GetSize)]
+#[get_size(ignore(AlphabetType, SubsequenceType))]
 pub struct Context<
     'reference,
     'query,
@@ -65,11 +62,14 @@ pub struct Context<
     Cost: AStarCost,
     SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
 > {
+    #[get_size(ignore)]
     reference: &'reference SubsequenceType,
+    #[get_size(ignore)]
     query: &'query SubsequenceType,
     range: AlignmentRange,
 
     scoring_table: ScoringTable<Cost>,
+    #[get_size(ignore)]
     phantom_data: PhantomData<AlphabetType>,
 }
 

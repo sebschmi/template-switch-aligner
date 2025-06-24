@@ -22,11 +22,12 @@ package.repository = "https://github.com/sebschmi/template-switch-aligner"
 
 [workspace.dependencies]
 serde = "1.0.219"
-compact-genome = "12.3.0"
+compact-genome = { git = "https://github.com/jeeeesper/compact-genome-rs.git", branch = "add-get-size", features = [ "get-size2" ] }
 traitsequence = "8.1.2"
 log = "0.4.27"
 num-traits = "0.2.19"
-get-size = { version = "0.1.4", features = ["derive"] }
+memtally = { version = "0.1.1", features = ["get-size2", "binary-heap-plus"] }
+get-size2 = { version = "0.4.1", features = ["derive"] }
 
 [profile.release]
 debug = true

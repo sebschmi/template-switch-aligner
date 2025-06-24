@@ -1,4 +1,5 @@
 use generic_a_star::{AStarContext, AStarNode, cost::AStarCost, reset::Reset};
+use get_size2::GetSize;
 
 use crate::seed::ChainingAnchors;
 
@@ -13,12 +14,13 @@ pub trait ChainingCostsProvider {
     fn chaining_costs(&self, from: &Identifier, to: &Identifier) -> Self::Cost;
 }
 
+#[derive(GetSize)]
 pub struct Context<ChainingCosts: ChainingCostsProvider> {
     chaining_costs: ChainingCosts,
     chaining_anchors: ChainingAnchors,
 }
 
-impl<ChainingCosts: ChainingCostsProvider> AStarContext for Context<ChainingCosts> {
+impl<ChainingCosts: ChainingCostsProvider + GetSize> AStarContext for Context<ChainingCosts> {
     type Node = Node<<ChainingCosts as ChainingCostsProvider>::Cost>;
 
     fn create_root(&self) -> Self::Node {

@@ -2,6 +2,7 @@ use std::{fmt::Debug, marker::PhantomData};
 
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::cost::AStarCost;
+use get_size2::GetSize;
 use log::debug;
 use seed_chain::{
     chain::{Chain, ChainingCostsProvider},
@@ -23,7 +24,7 @@ use crate::{
 use super::{AlignmentStrategy, AlignmentStrategySelector, primary_match::PrimaryMatchStrategy};
 
 pub trait ChainingStrategy<Cost>: AlignmentStrategy {
-    type Memory;
+    type Memory: GetSize;
 
     fn initialise_memory<
         AlphabetType: Alphabet,
@@ -44,7 +45,8 @@ pub trait ChainingStrategy<Cost>: AlignmentStrategy {
     ) -> Node<Strategies>;
 }
 
-#[expect(dead_code)]
+#[derive(GetSize)]
+#[allow(dead_code)] // The compiler won't recognize this as dead code since the memory estimation is using it, but it factually is dead code.
 pub struct ChainingMemory<Cost> {
     ts_lower_bounds: TemplateSwitchLowerBoundMatrix<Cost>,
     tsa_lower_bounds: TemplateSwitchAlignmentLowerBoundMatrix<Cost>,
@@ -67,6 +69,7 @@ pub struct LowerBoundChainingStrategy<Cost> {
     phantom_data: PhantomData<Cost>,
 }
 
+#[derive(GetSize)]
 struct TemplateSwitchAlignmentLowerBoundChainingCosts<'a, Cost> {
     matrix: &'a TemplateSwitchAlignmentLowerBoundMatrix<Cost>,
     reference_length: usize,

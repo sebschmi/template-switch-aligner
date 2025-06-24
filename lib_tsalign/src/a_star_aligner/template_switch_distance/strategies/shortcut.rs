@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
 use generic_a_star::{AStarContext, AStarNode, cost::AStarCost};
+use get_size2::GetSize;
 
 use crate::{
     a_star_aligner::template_switch_distance::{
@@ -14,7 +15,7 @@ use crate::{
 use super::{AlignmentStrategy, AlignmentStrategySelector, primary_match::PrimaryMatchStrategy};
 
 pub trait ShortcutStrategy<Cost>: AlignmentStrategy {
-    type Memory;
+    type Memory: GetSize;
 
     fn initialise_memory<AlphabetType: Alphabet>(
         config: &TemplateSwitchConfig<AlphabetType, Cost>,

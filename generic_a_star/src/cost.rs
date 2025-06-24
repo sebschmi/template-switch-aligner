@@ -5,6 +5,7 @@ use std::{
     str::FromStr,
 };
 
+use get_size2::GetSize;
 use num_traits::{Bounded, CheckedAdd, CheckedSub, SaturatingSub, Zero};
 
 /// The cost of an A* node.
@@ -27,6 +28,7 @@ pub trait AStarCost:
     + Eq
     + Hash
     + Copy
+    + GetSize
 {
     type CostType;
 
@@ -43,6 +45,8 @@ macro_rules! primitive_cost {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         pub struct $name($primitive);
+
+        impl GetSize for $name {}
 
         impl $crate::cost::AStarCost for $name {
             type CostType = $primitive;

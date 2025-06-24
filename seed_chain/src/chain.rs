@@ -1,5 +1,6 @@
 use context::Context;
 use generic_a_star::{AStar, cost::AStarCost};
+use get_size2::GetSize;
 use log::info;
 use node::EdgeType;
 
@@ -12,17 +13,19 @@ mod context;
 mod display;
 mod node;
 
+#[derive(GetSize)]
 pub struct Chain<Cost> {
     chain: Vec<ChainLink<Cost>>,
 }
 
+#[derive(GetSize)]
 pub struct ChainLink<Cost> {
     identifier: Identifier,
     cost: Cost,
 }
 
 impl<Cost: AStarCost> Chain<Cost> {
-    pub fn compute_chain<ChainingCosts: ChainingCostsProvider<Cost = Cost>>(
+    pub fn compute_chain<ChainingCosts: ChainingCostsProvider<Cost = Cost> + GetSize>(
         chaining_costs: ChainingCosts,
         chaining_anchors: ChainingAnchors,
     ) -> Self {

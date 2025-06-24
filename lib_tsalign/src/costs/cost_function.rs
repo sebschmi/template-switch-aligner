@@ -1,5 +1,6 @@
 use std::ops::{Add, Bound, RangeBounds, Sub};
 
+use get_size2::GetSize;
 use num_traits::{Bounded, One, Zero};
 
 use crate::error::Error;
@@ -17,7 +18,7 @@ pub mod io;
 /// * `f(x) = 3` for `2 <= x`.
 ///
 /// The function can be evaluated via its [`evaluate`](Self::evaluate) function.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, GetSize)]
 pub struct CostFunction<SourceType, Cost> {
     function: Vec<(SourceType, Cost)>,
 }

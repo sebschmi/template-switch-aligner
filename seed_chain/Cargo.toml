@@ -14,4 +14,4 @@ compact-genome.workspace = true
 log.workspace = true
 generic_a_star = { version = "0.18.1", path = "../generic_a_star" }
 num-traits.workspace = true
-get-size.workspace = true
+get-size2.workspace = true

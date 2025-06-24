@@ -5,6 +5,7 @@ use compact_genome::interface::sequence::GenomeSequence;
 use extend_map::ExtendMap;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStarBuffers, AStarContext};
+use get_size2::GetSize;
 use num_traits::{Bounded, Zero};
 
 use crate::a_star_aligner::template_switch_distance::strategies::primary_range::PrimaryRangeStrategy;
@@ -23,13 +24,17 @@ use super::strategies::template_switch_total_length::TemplateSwitchTotalLengthSt
 use super::strategies::{AlignmentStrategiesNodeMemory, AlignmentStrategySelector};
 use super::{AlignmentType, Identifier, NodeData};
 
+#[derive(GetSize)]
+#[get_size(ignore(SubsequenceType, Strategies))]
 pub struct Context<
     'reference,
     'query,
     SubsequenceType: GenomeSequence<Strategies::Alphabet, SubsequenceType> + ?Sized,
     Strategies: AlignmentStrategySelector,
 > {
+    #[get_size(ignore)]
     pub reference: &'reference SubsequenceType,
+    #[get_size(ignore)]
     pub query: &'query SubsequenceType,
     pub reference_name: String,
     pub query_name: String,
@@ -57,6 +62,8 @@ pub struct Context<
     force_label_correcting: bool,
 }
 
+#[derive(GetSize)]
+#[get_size(ignore(Strategies))]
 pub struct Memory<Strategies: AlignmentStrategySelector> {
     pub template_switch_min_length: <<Strategies as AlignmentStrategySelector>::TemplateSwitchMinLength as TemplateSwitchMinLengthStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::Memory,
     pub chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy<<Strategies as AlignmentStrategySelector>::Cost>>::Memory,

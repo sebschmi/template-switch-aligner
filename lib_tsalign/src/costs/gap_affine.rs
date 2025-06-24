@@ -2,6 +2,7 @@ use std::{iter, marker::PhantomData};
 
 use compact_genome::interface::alphabet::{Alphabet, AlphabetCharacter};
 use generic_a_star::cost::AStarCost;
+use get_size2::GetSize;
 
 pub mod io;
 
@@ -12,6 +13,16 @@ pub struct GapAffineAlignmentCostTable<AlphabetType, Cost> {
     gap_open_cost_vector: Vec<Cost>,
     gap_extend_cost_vector: Vec<Cost>,
     phantom_data: PhantomData<AlphabetType>,
+}
+
+impl<AlphabetType, Cost> GetSize for GapAffineAlignmentCostTable<AlphabetType, Cost> {
+    fn get_heap_size(&self) -> usize {
+        self.name.capacity()
+            + std::mem::size_of::<Cost>()
+                * (self.substitution_cost_table.capacity()
+                    + self.gap_open_cost_vector.capacity()
+                    + self.gap_extend_cost_vector.capacity())
+    }
 }
 
 impl<AlphabetType: Alphabet, Cost: AStarCost> GapAffineAlignmentCostTable<AlphabetType, Cost> {

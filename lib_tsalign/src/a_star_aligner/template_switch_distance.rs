@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::{AStarNode, cost::AStarCost};
-use get_size::GetSize;
+use get_size2::GetSize;
 use identifier::GapType;
 use num_traits::{Bounded, Zero};
 use strategies::{

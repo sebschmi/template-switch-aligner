@@ -1,11 +1,11 @@
 use generic_a_star::{AStarNode, cost::AStarCost};
-use get_size::GetSize;
+use get_size2::GetSize;
 
 use crate::seed::ChainingAnchor;
 
 pub mod display;
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, GetSize)]
 pub enum Identifier {
     Root,
     Anchor { anchor: ChainingAnchor },

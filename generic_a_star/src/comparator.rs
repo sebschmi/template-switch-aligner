@@ -21,7 +21,7 @@ mod tests {
     use std::fmt::Display;
 
     use compare::Compare;
-    use get_size::GetSize;
+    use get_size2::GetSize;
 
     use crate::{AStarNode, cost::U64Cost};
 
