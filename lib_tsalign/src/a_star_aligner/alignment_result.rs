@@ -209,7 +209,7 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
             suboptimal_opened_nodes_ratio: (suboptimal_opened_nodes as f64
                 / (opened_nodes - suboptimal_opened_nodes) as f64)
                 .try_into()
-                .unwrap(),
+                .unwrap_or(/* NaN or Inf -- fallback */ R64::zero()),
             template_switch_amount: r64(alignment
                 .as_ref()
                 .map(|alignment| {
