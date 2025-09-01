@@ -73,6 +73,10 @@ mod tests {
         fn predecessor_edge_type(&self) -> Option<Self::EdgeType> {
             unimplemented!()
         }
+
+        fn required_memory() -> usize {
+            unimplemented!()
+        }
     }
 
     impl Display for Node {
