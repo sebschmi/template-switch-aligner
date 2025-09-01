@@ -5,7 +5,7 @@ use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::cost::AStarCost;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
-use log::info;
+use log::{info, warn};
 use rustc_hash::{FxHashMapSeed, FxSeededState};
 use template_switch_error_free_inners::MatchTable;
 
@@ -240,6 +240,9 @@ impl<const FILTER_MISMATCHING_ENTRIES: bool, Cost: AStarCost> TemplateSwitchMinL
 
         let is_min_length_match = if template_switch_direction == TemplateSwitchDirection::Forward {
             // TODO implement also forward direction filter.
+            warn!(
+                "Forward direction not yet supported in PreprocessedTemplateSwitchMinLengthStrategy"
+            );
             return Some(secondary_root_node);
         } else if secondary_index < context.config.template_switch_min_length
             || primary_index
