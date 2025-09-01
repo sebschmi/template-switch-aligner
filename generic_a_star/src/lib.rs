@@ -57,6 +57,13 @@ pub trait AStarNode: Sized + Ord + Debug + Display {
 
     /// Returns the edge type used to reach this node from the predecessor, or `None` if this is a root node.
     fn predecessor_edge_type(&self) -> Option<Self::EdgeType>;
+
+    /// Returns the size of a node in bytes, including any owned pointees.
+    ///
+    /// The default implementation uses [`std::mem::size_of()`] to determine the size.
+    fn required_memory() -> usize {
+        std::mem::size_of::<Self>()
+    }
 }
 
 pub trait AStarContext: Reset {
@@ -274,8 +281,7 @@ impl<Context: AStarContext> AStar<Context> {
         let memory_limit = self.context.memory_limit().unwrap_or(usize::MAX);
         // The factor of 2.3 is determined empirically.
         let node_count_limit =
-            (memory_limit as f64 / std::mem::size_of::<Context::Node>() as f64 / 2.3).round()
-                as usize;
+            (memory_limit as f64 / Context::Node::required_memory() as f64 / 2.3).round() as usize;
 
         if self.open_list.is_empty() {
             return AStarResult::NoTarget;
@@ -655,5 +661,9 @@ impl<T: AStarNode> AStarNode for Box<T> {
 
     fn predecessor_edge_type(&self) -> Option<Self::EdgeType> {
         <T as AStarNode>::predecessor_edge_type(self)
+    }
+
+    fn required_memory() -> usize {
+        <T as AStarNode>::required_memory() + std::mem::size_of::<Box<()>>()
     }
 }
