@@ -155,7 +155,7 @@ pub fn template_switch_distance_a_star_align<
     reference_name: &str,
     query_name: &str,
     range: Option<AlignmentRange>,
-    config: config::TemplateSwitchConfig<
+    config: &config::TemplateSwitchConfig<
         Strategies::Alphabet,
         <Strategies as AlignmentStrategySelector>::Cost,
     >,
@@ -174,7 +174,7 @@ where
             >>::initialise_memory(),
         chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy<
             <Strategies as AlignmentStrategySelector>::Cost,
-        >>::initialise_memory(reference, query, &config, 20),
+        >>::initialise_memory(reference, query, config, 20),
         template_switch_count: template_switch_count_memory,
         shortcut: (),
         primary_match: (),
@@ -199,9 +199,9 @@ where
 
     info!("Extending template switches");
     let mut range = range;
-    result.extend_beyond_range_with_equal_cost(reference, query, &mut range, &config);
+    result.extend_beyond_range_with_equal_cost(reference, query, &mut range, config);
     let range = range;
 
-    result.compute_ts_equal_cost_ranges(reference, query, &range, &config);
+    result.compute_ts_equal_cost_ranges(reference, query, &range, config);
     result
 }
