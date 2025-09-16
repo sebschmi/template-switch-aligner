@@ -1,19 +1,8 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, str::FromStr};
 
 use compact_genome::{
-    implementation::{
-        alphabets::{
-            dna_alphabet::DnaAlphabet, dna_alphabet_or_n::DnaAlphabetOrN,
-            dna_iupac_nucleic_acid_alphabet::DnaIupacNucleicAcidAlphabet,
-            rna_alphabet::RnaAlphabet, rna_alphabet_or_n::RnaAlphabetOrN,
-            rna_iupac_nucleic_acid_alphabet::RnaIupacNucleicAcidAlphabet,
-        },
-        vec_sequence::VectorGenome,
-    },
-    interface::{
-        alphabet::Alphabet,
-        sequence::{GenomeSequence, OwnedGenomeSequence},
-    },
+    implementation::{alphabets::dna_alphabet_or_n::DnaAlphabetOrN, vec_sequence::VectorGenome},
+    interface::sequence::{GenomeSequence, OwnedGenomeSequence},
 };
 use generic_a_star::cost::U64Cost;
 
@@ -35,7 +24,7 @@ use super::{
         AlignmentType,
         strategies::{
             chaining::{ChainingStrategy, LowerBoundChainingStrategy, NoChainingStrategy},
-            node_ord::{AntiDiagonalNodeOrdStrategy, NodeOrdStrategy},
+            node_ord::AntiDiagonalNodeOrdStrategy,
             primary_match::AllowPrimaryMatchStrategy,
             template_switch_count::{
                 MaxTemplateSwitchCountStrategy, NoTemplateSwitchCountStrategy,
@@ -53,344 +42,251 @@ use super::{
     },
 };
 
-#[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
-pub struct Config {
-    pub alphabet: InputAlphabet,
-    pub reference_name: String,
-    pub query_name: String,
-    /// Costs specification in plain text format.
-    ///
-    /// This is the same format that the `.tsa` config files use.
-    pub costs: String,
+pub use compact_genome::implementation::alphabets;
+pub use compact_genome::interface::alphabet::Alphabet;
 
-    pub node_ord_strategy: NodeOrdStrategySelector,
-    pub min_length_strategy: MinLengthStrategySelector,
-    pub chaining_strategy: ChainingStrategySelector,
-    pub total_length_strategy: TotalLengthStrategySelector,
-    pub no_ts: bool,
-
-    pub cost_limit: Option<U64Cost>,
-    /// Approximate memory limit in bytes.
-    pub memory_limit: Option<usize>,
-    pub range: Option<AlignmentRange>,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            alphabet: InputAlphabet::DnaN,
-            reference_name: "reference".to_owned(),
-            query_name: "query".to_owned(),
-            costs: TemplateSwitchConfig::<DnaAlphabetOrN, U64Cost>::default().to_string(),
-            node_ord_strategy: NodeOrdStrategySelector::AntiDiagonal,
-            min_length_strategy: MinLengthStrategySelector::Lookahead,
-            chaining_strategy: ChainingStrategySelector::None,
-            total_length_strategy: TotalLengthStrategySelector::Maximise,
-            no_ts: false,
-            cost_limit: None,
-            memory_limit: None,
-            range: None,
-        }
-    }
-}
-
-#[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
-pub enum InputAlphabet {
-    Dna,
-    DnaN,
-    Rna,
-    RnaN,
-    DnaIupac,
-    RnaIupac,
-}
-
-#[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
-pub enum NodeOrdStrategySelector {
-    // CostOnly,
-    AntiDiagonal,
-}
-
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum MinLengthStrategySelector {
     None,
+    #[default]
     Lookahead,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum ChainingStrategySelector {
+    #[default]
     None,
     // PrecomputeOnly,
     LowerBound,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum TotalLengthStrategySelector {
     None,
+    #[default]
     Maximise,
 }
 
-/// Align `query` to `reference` with the given `config`.
-///
-/// `query` and `reference` must be ASCII strings restricted to the characters specified by `config.alphabet`.
-pub fn a_star_align(
-    reference: &[u8],
-    query: &[u8],
-    config: &Config,
-) -> AlignmentResult<AlignmentType, U64Cost> {
-    match config.alphabet {
-        InputAlphabet::Dna => {
-            a_star_align_select_node_ord_strategy::<DnaAlphabet>(reference, query, config)
-        }
-        InputAlphabet::DnaN => {
-            a_star_align_select_node_ord_strategy::<DnaAlphabetOrN>(reference, query, config)
-        }
-        InputAlphabet::Rna => {
-            a_star_align_select_node_ord_strategy::<RnaAlphabet>(reference, query, config)
-        }
-        InputAlphabet::RnaN => {
-            a_star_align_select_node_ord_strategy::<RnaAlphabetOrN>(reference, query, config)
-        }
-        InputAlphabet::DnaIupac => a_star_align_select_node_ord_strategy::<
-            DnaIupacNucleicAcidAlphabet,
-        >(reference, query, config),
-        InputAlphabet::RnaIupac => a_star_align_select_node_ord_strategy::<
-            RnaIupacNucleicAcidAlphabet,
-        >(reference, query, config),
-    }
+/// Just used in this file to bundle the query parameters to make the code more readable
+struct QueryData<'a> {
+    reference_name: &'a str,
+    reference: &'a [u8],
+    query_name: &'a str,
+    query: &'a [u8],
+    ranges: Option<AlignmentRange>,
+    cost_limit: Option<u64>,
+    memory_limit: Option<usize>,
 }
 
-fn a_star_align_select_node_ord_strategy<AlphabetType: Alphabet + Debug + Clone + Eq>(
-    reference: &[u8],
-    query: &[u8],
-    config: &Config,
-) -> AlignmentResult<AlignmentType, U64Cost> {
-    let reference = VectorGenome::<AlphabetType>::from_slice_u8(reference).unwrap();
-    let query = VectorGenome::from_slice_u8(query).unwrap();
-    let costs = TemplateSwitchConfig::read_plain(config.costs.as_bytes()).unwrap();
-
-    match config.node_ord_strategy {
-        /*NodeOrdStrategySelector::CostOnly => {
-            a_star_align_select_template_switch_min_length_strategy::<_, _, CostOnlyNodeOrdStrategy>(
-                reference.as_genome_subsequence(),
-                query.as_genome_subsequence(),
-                config,
-                costs,
-            )
-            unimplemented!("The other option appears to always be better.");
-        }*/
-        NodeOrdStrategySelector::AntiDiagonal => {
-            a_star_align_select_template_switch_min_length_strategy::<
-                _,
-                _,
-                AntiDiagonalNodeOrdStrategy,
-            >(
-                reference.as_genome_subsequence(),
-                query.as_genome_subsequence(),
-                config,
-                costs,
-            )
-        }
-    }
-}
-
-fn a_star_align_select_template_switch_min_length_strategy<
-    AlphabetType: Alphabet + Debug + Clone + Eq,
-    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
->(
-    reference: &SubsequenceType,
-    query: &SubsequenceType,
-    config: &Config,
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))] // Mostly used for kwargs in python bindings
+#[cfg_attr(feature = "serde", serde(default))]
+pub struct Aligner<AlphabetType: Alphabet = DnaAlphabetOrN> {
+    #[cfg_attr(feature = "serde", serde(skip))] // Not deserializable
     costs: TemplateSwitchConfig<AlphabetType, U64Cost>,
-) -> AlignmentResult<AlignmentType, U64Cost> {
-    match config.min_length_strategy {
-        MinLengthStrategySelector::None => a_star_align_select_chaining_strategy::<
-            _,
-            _,
-            NodeOrd,
-            NoTemplateSwitchMinLengthStrategy<U64Cost>,
-        >(reference, query, config, costs),
-        MinLengthStrategySelector::Lookahead => a_star_align_select_chaining_strategy::<
-            _,
-            _,
-            NodeOrd,
-            LookaheadTemplateSwitchMinLengthStrategy<U64Cost>,
-        >(reference, query, config, costs),
+
+    // ↓ Settings for how the alignment (definition)
+    min_length_strategy: MinLengthStrategySelector,
+    chaining_strategy: ChainingStrategySelector,
+    total_length_strategy: TotalLengthStrategySelector,
+    no_ts: bool,
+}
+
+impl Aligner<DnaAlphabetOrN> {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
-fn a_star_align_select_chaining_strategy<
-    AlphabetType: Alphabet + Debug + Clone + Eq,
-    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
-    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<U64Cost>,
->(
-    reference: &SubsequenceType,
-    query: &SubsequenceType,
-    config: &Config,
-    costs: TemplateSwitchConfig<AlphabetType, U64Cost>,
-) -> AlignmentResult<AlignmentType, U64Cost> {
-    match config.chaining_strategy {
-        ChainingStrategySelector::None => a_star_align_select_no_ts_strategy::<
-            _,
-            _,
-            NodeOrd,
-            TemplateSwitchMinLength,
-            NoChainingStrategy<U64Cost>,
-        >(reference, query, config, costs),
-        /*ChainingStrategySelector::PrecomputeOnly => {
-            a_star_align_select_no_ts_strategy::<
-                _,
-                _,
-                NodeOrd,
-                TemplateSwitchMinLength,
-                PrecomputeOnlyChainingStrategy<U64Cost>,
-            >(reference, query, config, costs)
-            unimplemented!("No reason to precompute without using the information.");
-        }*/
-        ChainingStrategySelector::LowerBound => a_star_align_select_no_ts_strategy::<
-            _,
-            _,
-            NodeOrd,
-            TemplateSwitchMinLength,
-            LowerBoundChainingStrategy<U64Cost>,
-        >(reference, query, config, costs),
+/// We implement this ourselves to avoid the overly restrictive trait bound
+/// `AlphabetType: Default` that would be generated with the derive macro
+impl<AlphabetType: Alphabet> Default for Aligner<AlphabetType> {
+    fn default() -> Self {
+        Self {
+            costs: TemplateSwitchConfig::<AlphabetType, U64Cost>::default(),
+            min_length_strategy: MinLengthStrategySelector::default(),
+            chaining_strategy: ChainingStrategySelector::default(),
+            total_length_strategy: TotalLengthStrategySelector::default(),
+            no_ts: false,
+        }
     }
 }
 
-fn a_star_align_select_no_ts_strategy<
-    AlphabetType: Alphabet + Debug + Clone + Eq,
-    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
-    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<U64Cost>,
-    Chaining: ChainingStrategy<U64Cost>,
->(
-    reference: &SubsequenceType,
-    query: &SubsequenceType,
-    config: &Config,
-    costs: TemplateSwitchConfig<AlphabetType, U64Cost>,
-) -> AlignmentResult<AlignmentType, U64Cost> {
-    if config.no_ts {
-        a_star_align_select_total_length_strategy::<
-            _,
-            _,
-            NodeOrd,
-            TemplateSwitchMinLength,
-            Chaining,
-            MaxTemplateSwitchCountStrategy,
-        >(reference, query, config, costs, 0)
-    } else {
-        a_star_align_select_total_length_strategy::<
-            _,
-            _,
-            NodeOrd,
-            TemplateSwitchMinLength,
-            Chaining,
-            NoTemplateSwitchCountStrategy,
-        >(reference, query, config, costs, ())
+impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
+    /// Parse a cost string and update the aligner cost
+    ///
+    /// # Errors
+    /// Returns an error if the string cannot be parsed as `TemplateSwitchConfig<AlphabetType>`
+    pub fn set_costs_parse(&mut self, costs: &str) -> Result<&mut Self, crate::error::Error> {
+        self.costs = TemplateSwitchConfig::from_str(costs)?;
+        Ok(self)
     }
-}
 
-fn a_star_align_select_total_length_strategy<
-    AlphabetType: Alphabet + Debug + Clone + Eq,
-    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
-    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<U64Cost>,
-    Chaining: ChainingStrategy<U64Cost>,
-    TemplateSwitchCount: TemplateSwitchCountStrategy,
->(
-    reference: &SubsequenceType,
-    query: &SubsequenceType,
-    config: &Config,
-    costs: TemplateSwitchConfig<AlphabetType, U64Cost>,
-    template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
-) -> AlignmentResult<AlignmentType, U64Cost> {
-    match config.total_length_strategy {
-        TotalLengthStrategySelector::None => a_star_align_call::<
-            _,
-            _,
-            NodeOrd,
-            TemplateSwitchMinLength,
-            Chaining,
-            TemplateSwitchCount,
-            NoTemplateSwitchTotalLengthStrategy,
-        >(
+    pub fn set_costs(&mut self, costs: TemplateSwitchConfig<AlphabetType, U64Cost>) -> &mut Self {
+        self.costs = costs;
+        self
+    }
+
+    pub fn set_min_length_strategy(
+        &mut self,
+        min_length_strategy: MinLengthStrategySelector,
+    ) -> &mut Self {
+        self.min_length_strategy = min_length_strategy;
+        self
+    }
+
+    pub fn set_chaining_strategy(
+        &mut self,
+        chaining_strategy: ChainingStrategySelector,
+    ) -> &mut Self {
+        self.chaining_strategy = chaining_strategy;
+        self
+    }
+
+    pub fn set_total_length_strategy(
+        &mut self,
+        total_length_strategy: TotalLengthStrategySelector,
+    ) -> &mut Self {
+        self.total_length_strategy = total_length_strategy;
+        self
+    }
+
+    pub fn set_no_ts(&mut self, no_ts: bool) -> &mut Self {
+        self.no_ts = no_ts;
+        self
+    }
+
+    /// This performs the actual alignment and is, depending on the inputs, potentially taking quite long.
+    /// Consider spawning tasks to not block the user application.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "For now, this is the intended API"
+    )]
+    #[must_use]
+    pub fn align(
+        &self,
+        reference_name: &str,
+        reference: &[u8],
+        query_name: &str,
+        query: &[u8],
+        ranges: Option<AlignmentRange>,
+        cost_limit: Option<u64>,
+        memory_limit: Option<usize>,
+    ) -> AlignmentResult<AlignmentType, U64Cost> {
+        let data = QueryData {
+            reference_name,
             reference,
+            query_name,
             query,
-            config,
-            costs,
-            template_switch_count_memory,
-        ),
-        TotalLengthStrategySelector::Maximise => a_star_align_call::<
-            _,
-            _,
-            NodeOrd,
-            TemplateSwitchMinLength,
-            Chaining,
-            TemplateSwitchCount,
-            MaxTemplateSwitchTotalLengthStrategy,
-        >(
-            reference,
-            query,
-            config,
-            costs,
-            template_switch_count_memory,
-        ),
+            ranges,
+            cost_limit,
+            memory_limit,
+        };
+        self.align_select_min_length_strategy(data)
     }
-}
 
-fn a_star_align_call<
-    AlphabetType: Alphabet + Debug + Clone + Eq,
-    SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
-    NodeOrd: NodeOrdStrategy<U64Cost, AllowPrimaryMatchStrategy>,
-    TemplateSwitchMinLength: TemplateSwitchMinLengthStrategy<U64Cost>,
-    Chaining: ChainingStrategy<U64Cost>,
-    TemplateSwitchCount: TemplateSwitchCountStrategy,
-    TemplateSwitchTotalLength: TemplateSwitchTotalLengthStrategy,
->(
-    reference: &SubsequenceType,
-    query: &SubsequenceType,
-    config: &Config,
-    costs: TemplateSwitchConfig<AlphabetType, U64Cost>,
-    template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
-) -> AlignmentResult<AlignmentType, U64Cost> {
-    template_switch_distance_a_star_align::<
-        AlignmentStrategySelection<
-            AlphabetType,
-            U64Cost,
-            NodeOrd,
-            TemplateSwitchMinLength,
-            Chaining,
-            TemplateSwitchCount,
-            AllowSecondaryDeletionStrategy,
-            NoShortcutStrategy<U64Cost>,
-            AllowPrimaryMatchStrategy,
-            NoPrunePrimaryRangeStrategy,
-            TemplateSwitchTotalLength,
-        >,
-        _,
+    fn align_select_min_length_strategy(
+        &self,
+        data: QueryData,
+    ) -> AlignmentResult<AlignmentType, U64Cost> {
+        match self.min_length_strategy {
+            MinLengthStrategySelector::None => self
+                .align_select_chaining_strategy::<NoTemplateSwitchMinLengthStrategy<U64Cost>>(data),
+            MinLengthStrategySelector::Lookahead => self.align_select_chaining_strategy::<LookaheadTemplateSwitchMinLengthStrategy<U64Cost>>(data),
+        }
+    }
+
+    fn align_select_chaining_strategy<ML: TemplateSwitchMinLengthStrategy<U64Cost>>(
+        &self,
+        data: QueryData,
+    ) -> AlignmentResult<AlignmentType, U64Cost> {
+        match self.chaining_strategy {
+            ChainingStrategySelector::None => {
+                self.align_select_total_length_strategy::<ML, NoChainingStrategy<U64Cost>>(data)
+            }
+            ChainingStrategySelector::LowerBound => self
+                .align_select_total_length_strategy::<ML, LowerBoundChainingStrategy<U64Cost>>(
+                    data,
+                ),
+        }
+    }
+
+    fn align_select_total_length_strategy<
+        ML: TemplateSwitchMinLengthStrategy<U64Cost>,
+        CH: ChainingStrategy<U64Cost>,
     >(
-        reference,
-        query,
-        &config.reference_name,
-        &config.query_name,
-        config.range.clone(),
-        costs,
-        config.cost_limit,
-        config.memory_limit,
-        false,
-        template_switch_count_memory,
-    )
+        &self,
+        data: QueryData,
+    ) -> AlignmentResult<AlignmentType, U64Cost> {
+        match self.total_length_strategy {
+            TotalLengthStrategySelector::None => self
+                .align_select_no_ts_strategy::<ML, CH, NoTemplateSwitchTotalLengthStrategy>(data),
+            TotalLengthStrategySelector::Maximise => self
+                .align_select_no_ts_strategy::<ML, CH, MaxTemplateSwitchTotalLengthStrategy>(data),
+        }
+    }
+
+    fn align_select_no_ts_strategy<
+        ML: TemplateSwitchMinLengthStrategy<U64Cost>,
+        CH: ChainingStrategy<U64Cost>,
+        TL: TemplateSwitchTotalLengthStrategy,
+    >(
+        &self,
+        data: QueryData,
+    ) -> AlignmentResult<AlignmentType, U64Cost> {
+        if self.no_ts {
+            self.align_call::<ML, CH, TL, MaxTemplateSwitchCountStrategy>(data, 0)
+        } else {
+            self.align_call::<ML, CH, TL, NoTemplateSwitchCountStrategy>(data, ())
+        }
+    }
+
+    fn align_call<
+        ML: TemplateSwitchMinLengthStrategy<U64Cost>,
+        CH: ChainingStrategy<U64Cost>,
+        TL: TemplateSwitchTotalLengthStrategy,
+        TC: TemplateSwitchCountStrategy,
+    >(
+        &self,
+        data: QueryData,
+        count_strategy_memory: TC::Memory,
+    ) -> AlignmentResult<AlignmentType, U64Cost> {
+        // TODO error handling
+        let reference = VectorGenome::<AlphabetType>::from_slice_u8(data.reference).unwrap();
+        let query = VectorGenome::from_slice_u8(data.query).unwrap();
+        let cost_limit = data.cost_limit.map(U64Cost::from);
+        template_switch_distance_a_star_align::<
+            AlignmentStrategySelection<
+                AlphabetType,
+                U64Cost,
+                AntiDiagonalNodeOrdStrategy,
+                ML,
+                CH,
+                TC,
+                AllowSecondaryDeletionStrategy,
+                NoShortcutStrategy<U64Cost>,
+                AllowPrimaryMatchStrategy,
+                NoPrunePrimaryRangeStrategy,
+                TL,
+            >,
+            _,
+        >(
+            reference.as_genome_subsequence(),
+            query.as_genome_subsequence(),
+            data.reference_name,
+            data.query_name,
+            data.ranges,
+            &self.costs,
+            cost_limit,
+            data.memory_limit,
+            false,
+            count_strategy_memory,
+        )
+    }
 }
