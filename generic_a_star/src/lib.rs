@@ -11,10 +11,10 @@ use binary_heap_plus::BinaryHeap;
 use comparator::AStarNodeComparator;
 use compare::Compare;
 use cost::AStarCost;
-use deterministic_default_hasher::DeterministicDefaultHasher;
 use extend_map::ExtendFilter;
 use num_traits::{Bounded, Zero};
 use reset::Reset;
+use rustc_hash::FxSeededState;
 
 mod comparator;
 pub mod cost;
@@ -127,18 +127,14 @@ pub enum AStarState<NodeIdentifier, Cost> {
 pub struct AStar<Context: AStarContext> {
     state: AStarState<<Context::Node as AStarNode>::Identifier, <Context::Node as AStarNode>::Cost>,
     context: Context,
-    closed_list: HashMap<
-        <Context::Node as AStarNode>::Identifier,
-        Context::Node,
-        DeterministicDefaultHasher,
-    >,
+    closed_list: HashMap<<Context::Node as AStarNode>::Identifier, Context::Node, FxSeededState>,
     open_list: BinaryHeap<Context::Node, AStarNodeComparator>,
     performance_counters: AStarPerformanceCounters,
 }
 
 #[derive(Debug)]
 pub struct AStarBuffers<NodeIdentifier, Node> {
-    closed_list: HashMap<NodeIdentifier, Node, DeterministicDefaultHasher>,
+    closed_list: HashMap<NodeIdentifier, Node, FxSeededState>,
     open_list: BinaryHeap<Node, AStarNodeComparator>,
 }
 
@@ -182,7 +178,7 @@ impl<Context: AStarContext> AStar<Context> {
         Self {
             state: AStarState::Empty,
             context,
-            closed_list: Default::default(),
+            closed_list: HashMap::with_hasher(FxSeededState::with_seed(0)),
             open_list: BinaryHeap::from_vec(Vec::new()),
             performance_counters: Default::default(),
         }
@@ -605,7 +601,7 @@ impl<Context: AStarContext> Iterator for BacktrackingIteratorWithCost<'_, Contex
 impl<NodeIdentifier, Node: AStarNode> Default for AStarBuffers<NodeIdentifier, Node> {
     fn default() -> Self {
         Self {
-            closed_list: Default::default(),
+            closed_list: HashMap::with_hasher(FxSeededState::with_seed(0)),
             open_list: BinaryHeap::from_vec(Vec::new()),
         }
     }
