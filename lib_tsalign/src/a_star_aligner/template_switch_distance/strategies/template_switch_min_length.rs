@@ -1,10 +1,10 @@
-use std::{collections::HashMap, marker::PhantomData, mem};
+use std::{marker::PhantomData, mem};
 
 use compact_genome::interface::sequence::GenomeSequence;
-use deterministic_default_hasher::DeterministicDefaultHasher;
 use generic_a_star::cost::AStarCost;
 use generic_a_star::reset::Reset;
 use generic_a_star::{AStar, AStarContext, AStarNode, AStarResult};
+use rustc_hash::{FxHashMapSeed, FxSeededState};
 
 use crate::a_star_aligner::template_switch_distance::{AlignmentType, TemplateSwitchDirection};
 use crate::a_star_aligner::template_switch_distance::{
@@ -17,7 +17,9 @@ use super::{AlignmentStrategy, AlignmentStrategySelector};
 
 pub trait TemplateSwitchMinLengthStrategy<Cost>: AlignmentStrategy {
     /// The type used to memorise lookahead results.
-    type Memory: Default + Reset;
+    type Memory: Reset;
+
+    fn initialise_memory() -> Self::Memory;
 
     /// Takes the template switch entrance node and provides a lower bound for its costs depending on the minimum length of a template switch.
     /// The modified entrance node is returned in the iterator along with further nodes that were created while computing the lower bound.
@@ -61,6 +63,8 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
 {
     type Memory = ();
 
+    fn initialise_memory() -> Self::Memory {}
+
     fn template_switch_min_length_lookahead<
         Strategies: AlignmentStrategySelector<Cost = Cost, TemplateSwitchMinLength = Self>,
         SubsequenceType: compact_genome::interface::sequence::GenomeSequence<
@@ -88,7 +92,11 @@ pub struct LookaheadMemoryKey {
 impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
     for LookaheadTemplateSwitchMinLengthStrategy<Cost>
 {
-    type Memory = HashMap<LookaheadMemoryKey, Cost, DeterministicDefaultHasher>;
+    type Memory = FxHashMapSeed<LookaheadMemoryKey, Cost>;
+
+    fn initialise_memory() -> Self::Memory {
+        FxHashMapSeed::with_hasher(FxSeededState::with_seed(0))
+    }
 
     fn template_switch_min_length_lookahead<
         Strategies: AlignmentStrategySelector<Cost = Cost, TemplateSwitchMinLength = Self>,
