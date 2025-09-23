@@ -3,6 +3,7 @@ use compact_genome::interface::{
     sequence::GenomeSequence,
 };
 use generic_a_star::cost::AStarCost;
+use log::error;
 
 use crate::{
     a_star_aligner::{
@@ -20,10 +21,12 @@ impl Alignment<AlignmentType> {
     /// Moves the start of a template switch one character pair to the left if possible, moving the character pair into the template switch.
     ///
     /// Only works if the alignment preceding the template switch is a match or substitution, and not a flank.
-    /// In this case it returns true, and otherwise false.
+    ///
+    /// In case of success, it returns true, and otherwise false.
     ///
     /// Compact index identifies the start of the template switch in terms of the compact representation of the alignment.
     /// See [`Self::iter_compact`].
+    #[allow(clippy::too_many_lines)]
     pub fn move_template_switch_start_backwards<
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -35,24 +38,32 @@ impl Alignment<AlignmentType> {
         query_offset: usize,
         compact_index: &mut usize,
     ) -> bool {
-        let AlignmentType::TemplateSwitchEntrance {
-            first_offset,
-            primary,
-            secondary,
-            direction,
-            ..
-        } = self.alignment[*compact_index].1
+        let Some(&(
+            _,
+            AlignmentType::TemplateSwitchEntrance {
+                first_offset,
+                primary,
+                secondary,
+                direction,
+                ..
+            },
+        )) = self.alignment.get(*compact_index)
         else {
-            panic!()
+            error!(
+                "(Programming) Error: compact index {compact_index} does not point to a template switch entrance"
+            );
+            return false;
         };
 
-        if matches!(
-            self.alignment.get(compact_index.saturating_sub(1)),
-            Some((
-                _,
-                AlignmentType::PrimaryMatch | AlignmentType::PrimarySubstitution
-            ))
-        ) {
+        if *compact_index > 0
+            && matches!(
+                self.alignment.get(*compact_index - 1),
+                Some((
+                    _,
+                    AlignmentType::PrimaryMatch | AlignmentType::PrimarySubstitution
+                ))
+            )
+        {
             // Compute TS inner first indices.
             let mut stream = AlignmentStream::new_with_offset(reference_offset, query_offset);
             stream.push_all(self.iter_compact_cloned().take(*compact_index));
@@ -60,34 +71,39 @@ impl Alignment<AlignmentType> {
                 TemplateSwitchPrimary::Reference => stream.head_coordinates().reference(),
                 TemplateSwitchPrimary::Query => stream.head_coordinates().query(),
             };
-            let ts_inner_secondary_index = usize::try_from(
-                isize::try_from(match secondary {
-                    TemplateSwitchSecondary::Reference => stream.head_coordinates().reference(),
-                    TemplateSwitchSecondary::Query => stream.head_coordinates().query(),
-                })
-                .unwrap()
-                .checked_add(first_offset)
-                .unwrap(),
-            )
-            .unwrap();
+            if ts_inner_primary_index == 0 {
+                // We cannot extend more backwards.
+                return false;
+            }
+            let Some(ts_inner_secondary_index) = isize::try_from(match secondary {
+                TemplateSwitchSecondary::Reference => stream.head_coordinates().reference(),
+                TemplateSwitchSecondary::Query => stream.head_coordinates().query(),
+            })
+            .ok()
+            .and_then(|i| usize::try_from(i.checked_add(first_offset)?).ok()) else {
+                error!(
+                    "(Programming) Error: finding inner secondary index -- integer math does not check out"
+                );
+                return false;
+            };
 
             // Check if indices can be moved while staying in bounds.
             match direction {
-                TemplateSwitchDirection::Forward => {
-                    if ts_inner_secondary_index == 0 {
-                        return false;
-                    }
+                TemplateSwitchDirection::Forward if ts_inner_secondary_index == 0 => return false,
+                TemplateSwitchDirection::Reverse
+                    if ts_inner_secondary_index >= secondary.get(reference, query).len() =>
+                {
+                    return false;
                 }
-                TemplateSwitchDirection::Reverse => {
-                    if ts_inner_secondary_index >= secondary.get(reference, query).len() {
-                        return false;
-                    }
-                }
+                _ => {}
             }
 
             // Remove one match or substitution from before the TS.
             let multiplicity = &mut self.alignment[*compact_index - 1].0;
-            assert!(*multiplicity > 0);
+            if *multiplicity == 0 {
+                error!("Invalid input alignment! Cannot have multiplicity of 0.");
+                return false;
+            }
             *multiplicity -= 1;
 
             // Remove the alignment entry if it has zero multiplicity.
@@ -97,9 +113,11 @@ impl Alignment<AlignmentType> {
             }
 
             // Check if the new inner pair is a match or a substitution.
+            // ts_inner_primary_index > 0, otherwise we would've returned false earlier
             let primary_char = primary.get(reference, query)[ts_inner_primary_index - 1].clone();
             let secondary_char = match direction {
                 TemplateSwitchDirection::Forward => {
+                    // ts_inner_secondary_index > 0, otherwise we would've returned false earlier
                     secondary.get(reference, query)[ts_inner_secondary_index - 1].clone()
                 }
                 TemplateSwitchDirection::Reverse => {
@@ -113,7 +131,11 @@ impl Alignment<AlignmentType> {
             };
 
             // Insert new inner alignment.
-            if self.alignment[*compact_index + 1].1 == inner_alignment_type {
+            if self
+                .alignment
+                .get(*compact_index + 1)
+                .is_some_and(|(_, ty)| *ty == inner_alignment_type)
+            {
                 self.alignment[*compact_index + 1].0 += 1;
             } else {
                 self.alignment
@@ -126,7 +148,7 @@ impl Alignment<AlignmentType> {
                 let AlignmentType::TemplateSwitchEntrance { first_offset, .. } =
                     &mut self.alignment[*compact_index].1
                 else {
-                    unreachable!();
+                    unreachable!("reborrow of already borrowed element, definitely exists");
                 };
                 *first_offset += 2;
             }
@@ -137,7 +159,7 @@ impl Alignment<AlignmentType> {
                 .iter_mut()
                 .find(|(_, alignment_type)| alignment_type.is_template_switch_exit())
             else {
-                unreachable!();
+                unreachable!("There should be a TS exit..");
             };
             *anti_primary_gap += 1;
 
@@ -170,22 +192,30 @@ impl Alignment<AlignmentType> {
         let AlignmentType::TemplateSwitchEntrance { direction, .. } =
             self.alignment[*compact_index].1
         else {
-            panic!()
+            error!(
+                "Error: compact index {compact_index} does not point to a template switch entrance"
+            );
+            return false;
         };
 
         // Assert that no flanks are involved.
-        assert!(
-            self.alignment
+        if *compact_index != 0
+            && !self
+                .alignment
                 .get(*compact_index - 1)
-                .map(|(_, alignment_type)| !matches!(
-                    alignment_type,
-                    AlignmentType::PrimaryFlankDeletion
-                        | AlignmentType::PrimaryFlankInsertion
-                        | AlignmentType::PrimaryFlankSubstitution
-                        | AlignmentType::PrimaryFlankMatch
-                ))
-                .unwrap_or(true)
-        );
+                .is_none_or(|(_, alignment_type)| {
+                    !matches!(
+                        alignment_type,
+                        AlignmentType::PrimaryFlankDeletion
+                            | AlignmentType::PrimaryFlankInsertion
+                            | AlignmentType::PrimaryFlankSubstitution
+                            | AlignmentType::PrimaryFlankMatch
+                    )
+                })
+        {
+            error!("We did not want flanks to get involved...");
+            return false;
+        }
 
         if let Some((_, AlignmentType::SecondaryMatch | AlignmentType::SecondarySubstitution)) =
             self.alignment.get(*compact_index + 1)
@@ -202,8 +232,12 @@ impl Alignment<AlignmentType> {
             }
 
             // Remove one match or substitution from inside the TS.
+            // compact_index + 1 is valid since the index points to the TS entrance, and that is certainly not the last entry
             let multiplicity = &mut self.alignment[*compact_index + 1].0;
-            assert!(*multiplicity > 0);
+            if *multiplicity == 0 {
+                error!("Invalid input alignment! Cannot have multiplicity of 0.");
+                return false;
+            }
             *multiplicity -= 1;
 
             // Remove the alignment entry if it has zero multiplicity.
@@ -221,7 +255,9 @@ impl Alignment<AlignmentType> {
             };
 
             // Insert new outer alignment.
-            if self.alignment.get(*compact_index - 1).map(|t| t.1) == Some(outer_alignment_type) {
+            if *compact_index != 0
+                && self.alignment.get(*compact_index - 1).map(|t| t.1) == Some(outer_alignment_type)
+            {
                 self.alignment[*compact_index - 1].0 += 1;
             } else {
                 self.alignment
@@ -235,7 +271,7 @@ impl Alignment<AlignmentType> {
                 let AlignmentType::TemplateSwitchEntrance { first_offset, .. } =
                     &mut self.alignment[*compact_index].1
                 else {
-                    unreachable!();
+                    unreachable!("Merely a reborrow");
                 };
                 *first_offset -= 2;
             }
@@ -263,6 +299,7 @@ impl Alignment<AlignmentType> {
     ///
     /// Compact index identifies the start of the template switch in terms of the compact representation of the alignment.
     /// See [`Self::iter_compact`].
+    #[allow(clippy::too_many_lines)]
     pub fn move_template_switch_end_forwards<
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
@@ -282,19 +319,22 @@ impl Alignment<AlignmentType> {
             ..
         } = self.alignment[compact_index].1
         else {
-            panic!()
+            error!(
+                "Error: compact index {compact_index} does not point to a template switch entrance"
+            );
+            return false;
         };
-        let mut exit_index = compact_index
-            + self
-                .alignment
-                .iter()
-                .skip(compact_index)
-                .enumerate()
-                .find(|(_, (_, alignment_type))| {
+        let Some((exit_index_offset, _)) =
+            self.alignment.iter().skip(compact_index).enumerate().find(
+                |(_, (_, alignment_type))| {
                     matches!(alignment_type, AlignmentType::TemplateSwitchExit { .. })
-                })
-                .unwrap()
-                .0;
+                },
+            )
+        else {
+            error!("There should be a TS exit after the TS entrance");
+            return false;
+        };
+        let mut exit_index = compact_index + exit_index_offset;
         let inner_secondary_length = self
             .alignment
             .iter()
@@ -327,21 +367,26 @@ impl Alignment<AlignmentType> {
                 TemplateSwitchPrimary::Reference => stream.head_coordinates().reference(),
                 TemplateSwitchPrimary::Query => stream.head_coordinates().query(),
             };
-            let ts_inner_secondary_index = usize::try_from(
-                isize::try_from(match secondary {
-                    TemplateSwitchSecondary::Reference => stream.tail_coordinates().reference(),
-                    TemplateSwitchSecondary::Query => stream.tail_coordinates().query(),
-                })
-                .unwrap()
-                .checked_add(first_offset)
-                .unwrap(),
-            )
-            .unwrap();
+
+            let Some(ts_inner_secondary_index) = isize::try_from(match secondary {
+                TemplateSwitchSecondary::Reference => stream.tail_coordinates().reference(),
+                TemplateSwitchSecondary::Query => stream.tail_coordinates().query(),
+            })
+            .ok()
+            .and_then(|i| usize::try_from(i.checked_add(first_offset)?).ok()) else {
+                error!("Error finding inner secondary index -- integer math does not check out");
+                return false;
+            };
             let ts_inner_secondary_index = match direction {
                 TemplateSwitchDirection::Forward => {
-                    let ts_inner_secondary_index = ts_inner_secondary_index
-                        .checked_add(inner_secondary_length)
-                        .unwrap();
+                    let Some(ts_inner_secondary_index) =
+                        ts_inner_secondary_index.checked_add(inner_secondary_length)
+                    else {
+                        error!(
+                            "ts_inner_secondary_index {ts_inner_secondary_index} should be at least {inner_secondary_length} away from any boundary"
+                        );
+                        return false;
+                    };
                     // Check if indices can be moved while staying in bounds.
                     if ts_inner_secondary_index >= secondary.get(reference, query).len() {
                         return false;
@@ -349,9 +394,14 @@ impl Alignment<AlignmentType> {
                     ts_inner_secondary_index
                 }
                 TemplateSwitchDirection::Reverse => {
-                    let ts_inner_secondary_index = ts_inner_secondary_index
-                        .checked_sub(inner_secondary_length)
-                        .unwrap();
+                    let Some(ts_inner_secondary_index) =
+                        ts_inner_secondary_index.checked_sub(inner_secondary_length)
+                    else {
+                        error!(
+                            "ts_inner_secondary_index {ts_inner_secondary_index} should be at least {inner_secondary_length} away from any boundary"
+                        );
+                        return false;
+                    };
                     // Check if indices can be moved while staying in bounds.
                     if ts_inner_secondary_index == 0 {
                         return false;
@@ -362,7 +412,10 @@ impl Alignment<AlignmentType> {
 
             // Remove one match or substitution from after the TS.
             let multiplicity = &mut self.alignment[exit_index + 1].0;
-            assert!(*multiplicity > 0);
+            if *multiplicity == 0 {
+                error!("Invalid input alignment! Cannot have multiplicity of 0.");
+                return false;
+            }
             *multiplicity -= 1;
 
             // Remove the alignment entry if it has zero multiplicity.
@@ -377,6 +430,7 @@ impl Alignment<AlignmentType> {
                     secondary.get(reference, query)[ts_inner_secondary_index].clone()
                 }
                 TemplateSwitchDirection::Reverse => {
+                    // ts_inner_secondary_index > 0 since we checked that earlier and would have returned otherwise.
                     secondary.get(reference, query)[ts_inner_secondary_index - 1].complement()
                 }
             };
@@ -398,7 +452,7 @@ impl Alignment<AlignmentType> {
             let AlignmentType::TemplateSwitchExit { anti_primary_gap } =
                 &mut self.alignment[exit_index].1
             else {
-                unreachable!();
+                unreachable!("Merely a reborrow");
             };
             *anti_primary_gap += 1;
 
@@ -428,35 +482,44 @@ impl Alignment<AlignmentType> {
         query_offset: usize,
         compact_index: usize,
     ) -> bool {
-        assert!(matches!(
+        if !matches!(
             self.alignment[compact_index].1,
             AlignmentType::TemplateSwitchEntrance { .. }
-        ));
-        let mut exit_index = compact_index
-            + self
-                .alignment
-                .iter()
-                .skip(compact_index)
-                .enumerate()
-                .find(|(_, (_, alignment_type))| {
+        ) {
+            error!(
+                "Error: compact index {compact_index} does not point to a template switch entrance"
+            );
+            return false;
+        }
+        let Some((exit_index_offset, _)) =
+            self.alignment.iter().skip(compact_index).enumerate().find(
+                |(_, (_, alignment_type))| {
                     matches!(alignment_type, AlignmentType::TemplateSwitchExit { .. })
-                })
-                .unwrap()
-                .0;
+                },
+            )
+        else {
+            error!("There must be a TS exit after the TS entrance!");
+            return false;
+        };
+        let mut exit_index = compact_index + exit_index_offset;
 
         // Assert that no flanks are involved.
-        assert!(
-            self.alignment
-                .get(exit_index + 1)
-                .map(|(_, alignment_type)| !matches!(
+        if !self
+            .alignment
+            .get(exit_index + 1)
+            .is_none_or(|(_, alignment_type)| {
+                !matches!(
                     alignment_type,
                     AlignmentType::PrimaryFlankDeletion
                         | AlignmentType::PrimaryFlankInsertion
                         | AlignmentType::PrimaryFlankSubstitution
                         | AlignmentType::PrimaryFlankMatch
-                ))
-                .unwrap_or(true)
-        );
+                )
+            })
+        {
+            error!("We have some unexpected flanks!");
+            return false;
+        }
 
         if let Some((_, AlignmentType::SecondaryMatch | AlignmentType::SecondarySubstitution)) =
             self.alignment.get(exit_index - 1)
@@ -474,7 +537,10 @@ impl Alignment<AlignmentType> {
 
             // Remove one match or substitution from inside the TS.
             let multiplicity = &mut self.alignment[exit_index - 1].0;
-            assert!(*multiplicity > 0);
+            if *multiplicity == 0 {
+                error!("Invalid input alignment! Cannot have multiplicity of 0.");
+                return false;
+            }
             *multiplicity -= 1;
 
             // Remove the alignment entry if it has zero multiplicity.
@@ -506,7 +572,7 @@ impl Alignment<AlignmentType> {
                 .iter_mut()
                 .find(|(_, alignment_type)| alignment_type.is_template_switch_exit())
             else {
-                unreachable!();
+                unreachable!("Just a reborrow");
             };
             *anti_primary_gap -= 1;
 
