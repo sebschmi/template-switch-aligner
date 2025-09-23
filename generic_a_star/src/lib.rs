@@ -142,7 +142,7 @@ pub struct AStarBuffers<NodeIdentifier, Node> {
     open_list: BinaryHeap<Node, AStarNodeComparator>,
 }
 
-#[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(tag = "astar_result_type"))]
 pub enum AStarResult<NodeIdentifier, Cost> {
@@ -163,6 +163,7 @@ pub enum AStarResult<NodeIdentifier, Cost> {
     },
 
     /// The algorithm terminated, but did not find a target.
+    #[default]
     NoTarget,
 }
 
@@ -623,12 +624,6 @@ impl<NodeIdentifier, Cost: Display> Display for AStarResult<NodeIdentifier, Cost
             ),
             AStarResult::NoTarget => write!(f, "Found no target"),
         }
-    }
-}
-
-impl<NodeIdentifier, Cost> Default for AStarResult<NodeIdentifier, Cost> {
-    fn default() -> Self {
-        Self::NoTarget
     }
 }
 
