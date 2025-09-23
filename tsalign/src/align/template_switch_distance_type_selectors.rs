@@ -323,7 +323,7 @@ fn align_a_star_template_switch_distance_call<
         reference_name,
         query_name,
         range,
-        costs,
+        &costs,
         cli.cost_limit,
         cli.memory_limit,
         cli.force_label_correcting,
