@@ -11,6 +11,7 @@ use template_switch_distance::{
         AlignmentStrategySelector, chaining::ChainingStrategy,
         primary_match::AllowPrimaryMatchStrategy, shortcut::NoShortcutStrategy,
         template_switch_count::TemplateSwitchCountStrategy,
+        template_switch_min_length::TemplateSwitchMinLengthStrategy,
     },
 };
 use traitsequence::interface::Sequence;
@@ -167,7 +168,10 @@ where
     Strategies::Cost: From<u64>,
 {
     let memory = Memory {
-        template_switch_min_length: Default::default(),
+        template_switch_min_length:
+            <Strategies::TemplateSwitchMinLength as TemplateSwitchMinLengthStrategy<
+                Strategies::Cost,
+            >>::initialise_memory(),
         chaining: <<Strategies as AlignmentStrategySelector>::Chaining as ChainingStrategy<
             <Strategies as AlignmentStrategySelector>::Cost,
         >>::initialise_memory(reference, query, &config, 20),
