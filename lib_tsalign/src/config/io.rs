@@ -258,6 +258,18 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> std::fmt::Display
     }
 }
 
+impl<AlphabetType: Alphabet, Cost: AStarCost> FromStr for TemplateSwitchConfig<AlphabetType, Cost> {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let result = Self::parse_plain(s)
+            .map(|(_, result)| result)
+            .map_err(translate_nom_error)?;
+        result.verify()?;
+        Ok(result)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use compact_genome::implementation::alphabets::dna_alphabet_or_n::DnaAlphabetOrN;
