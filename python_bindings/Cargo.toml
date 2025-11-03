@@ -2,7 +2,10 @@
 name = "py_lib_tsalign"
 description = "Python Bindings for `lib_tsalign`"
 license.workspace = true
-authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>", "Jasper Krauter <jasper.krauter@helsinki.fi>"]
+authors = [
+    "Sebastian Schmidt <sebastian.schmidt@helsinki.fi>",
+    "Jasper Krauter <jasper.krauter@helsinki.fi>",
+]
 version = "0.3.1"
 edition.workspace = true
 rust-version.workspace = true
