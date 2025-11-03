@@ -2,7 +2,10 @@
 name = "py_lib_tsalign"
 description = "Python Bindings for `lib_tsalign`"
 license.workspace = true
-authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>", "Jasper Krauter <jasper.krauter@helsinki.fi>"]
+authors = [
+    "Sebastian Schmidt <sebastian.schmidt@helsinki.fi>",
+    "Jasper Krauter <jasper.krauter@helsinki.fi>",
+]
 version = "0.3.1"
 edition.workspace = true
 rust-version.workspace = true
@@ -14,9 +17,11 @@ doc = false
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.24.0"
-lib_tsalign = { version = "0.18.1", path = "../lib_tsalign", features = ["serde"] }
+pyo3 = "0.26.0"
+lib_tsalign = { version = "0.18.1", path = "../lib_tsalign", features = [
+    "serde",
+] }
 lib_tsshow = { version = "0.18.1", path = "../lib_tsshow" }
 serde.workspace = true
-pythonize = "0.24.0"
-pyo3-log = "0.12.3"
+pythonize = "0.26.0"
+pyo3-log = "0.13.2"

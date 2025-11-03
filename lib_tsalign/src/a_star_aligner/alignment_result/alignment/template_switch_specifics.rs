@@ -172,7 +172,8 @@ impl Alignment<AlignmentType> {
     /// Moves the start of a template switch one character pair to the right if possible, moving the character pair out of the template switch.
     ///
     /// Only works if the first alignment inside the template switch is a match or substitution.
-    /// In this case it returns true, and otherwise false.
+    ///
+    /// In case of success, it returns true, and otherwise false.
     ///
     /// Assumes that the template switch is not preceded by a flank.
     ///
@@ -295,7 +296,8 @@ impl Alignment<AlignmentType> {
     /// Moves the end of a template switch one character pair to the right if possible, moving the character pair into the template switch.
     ///
     /// Only works if the alignment preceding the template switch is a match or substitution, and not a flank.
-    /// In this case it returns true, and otherwise false.
+    ///
+    /// In case of success, it returns true, and otherwise false.
     ///
     /// Compact index identifies the start of the template switch in terms of the compact representation of the alignment.
     /// See [`Self::iter_compact`].
@@ -465,7 +467,8 @@ impl Alignment<AlignmentType> {
     /// Moves the end of a template switch one character pair to the left if possible, moving the character pair out of the template switch.
     ///
     /// Only works if the last alignment inside the template switch is a match or substitution.
-    /// In this case it returns true, and otherwise false.
+    ///
+    /// In case of success, it returns true, and otherwise false.
     ///
     /// Assumes that the template switch is not succeeded by a flank.
     ///
