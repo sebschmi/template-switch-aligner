@@ -253,12 +253,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "deterministic_default_hasher"
-version = "0.14.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae65f7e8e3580cb22a297790831a22567a52ddcf8a5367e70991512ec1d01716"
-
-[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -374,9 +368,9 @@ version = "0.18.1"
 dependencies = [
  "binary-heap-plus",
  "compare",
- "deterministic_default_hasher",
  "extend_map",
  "num-traits",
+ "rustc-hash",
  "serde",
 ]
 
@@ -472,7 +466,6 @@ version = "0.18.1"
 dependencies = [
  "binary-heap-plus",
  "compact-genome",
- "deterministic_default_hasher",
  "extend_map",
  "generic_a_star",
  "log",
@@ -480,6 +473,7 @@ dependencies = [
  "noisy_float",
  "nom",
  "num-traits",
+ "rustc-hash",
  "seed_chain",
  "serde",
  "thiserror",
@@ -874,6 +868,12 @@ name = "roxmltree"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
+
+[[package]]
+name = "rustc-hash"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d"
 
 [[package]]
 name = "rustybuzz"
