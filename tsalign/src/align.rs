@@ -5,7 +5,7 @@ use std::{
     path::PathBuf,
 };
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use clap::{Args, Parser, ValueEnum};
 use compact_genome::{
     implementation::{
@@ -34,6 +34,9 @@ use template_switch_distance_type_selectors::{
     align_a_star_template_switch_distance,
 };
 
+use crate::align::fasta_parser::{parse_pair_fasta_file, parse_single_fasta_file};
+
+mod fasta_parser;
 mod template_switch_distance_type_selectors;
 
 #[derive(Parser)]
@@ -143,6 +146,15 @@ pub struct Cli {
     /// Template switch inners can still align to the full sequence.
     #[clap(long)]
     rq_ranges: Option<String>,
+
+    /// Use the ranges for alignment that are embedded in the fasta file(s).
+    ///
+    /// The start and end of the range must be delimited by '|' characters in the fasta file.
+    /// Both reference and query must contain exactly two delimiters each.
+    /// 
+    /// Template switch inners can still align to the full sequence.
+    #[clap(long)]
+    use_embedded_rq_ranges: bool,
 }
 
 #[derive(Args)]
@@ -202,82 +214,43 @@ pub fn cli(cli: Cli) -> Result<()> {
     if cli.alignment_method != AlignmentMethod::AStarTemplateSwitch
         && cli.alphabet != InputAlphabet::Dna
     {
+        // Only A*-TS algo supports alphabets other than DNA.
         panic!("Unsupported alphabet type: {:?}", cli.alphabet);
     }
 
     match cli.alphabet {
-        InputAlphabet::Dna => execute_with_alphabet::<DnaAlphabet>(cli),
-        InputAlphabet::DnaN => execute_with_alphabet::<DnaAlphabetOrN>(cli),
-        InputAlphabet::Rna => execute_with_alphabet::<RnaAlphabet>(cli),
-        InputAlphabet::RnaN => execute_with_alphabet::<RnaAlphabetOrN>(cli),
-        InputAlphabet::DnaIupac => execute_with_alphabet::<DnaIupacNucleicAcidAlphabet>(cli),
-        InputAlphabet::RnaIupac => execute_with_alphabet::<RnaIupacNucleicAcidAlphabet>(cli),
+        InputAlphabet::Dna => execute_with_alphabet::<DnaAlphabet>(cli)?,
+        InputAlphabet::DnaN => execute_with_alphabet::<DnaAlphabetOrN>(cli)?,
+        InputAlphabet::Rna => execute_with_alphabet::<RnaAlphabet>(cli)?,
+        InputAlphabet::RnaN => execute_with_alphabet::<RnaAlphabetOrN>(cli)?,
+        InputAlphabet::DnaIupac => execute_with_alphabet::<DnaIupacNucleicAcidAlphabet>(cli)?,
+        InputAlphabet::RnaIupac => execute_with_alphabet::<RnaIupacNucleicAcidAlphabet>(cli)?,
     }
 
     Ok(())
 }
 
-fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(cli: Cli) {
-    let mut skip_characters = Vec::new();
-    for character in cli.skip_characters.bytes().map(usize::from) {
-        if skip_characters.len() <= character {
-            skip_characters.resize(character + 1, false);
-        }
-        skip_characters[character] = true;
-    }
-    let skip_characters = skip_characters;
-
-    let mut sequence_store = VectorSequenceStore::<AlphabetType>::new();
-    let sequences = if let Some(CliPairInput { pair_fasta }) = &cli.input.pair_input {
-        info!("Loading pair file {pair_fasta:?}");
-        let sequences = read_fasta_file(
-            pair_fasta,
-            &mut sequence_store,
-            false,
-            true,
-            &skip_characters,
-        )
-        .unwrap_or_else(|error| panic!("Error loading pair file: {error}"));
-
-        assert_eq!(
-            sequences.len(),
-            2,
-            "Pair sequence file contains not exactly two records"
-        );
-
-        sequences
+fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
+    cli: Cli,
+) -> Result<()> {
+    let (raw_reference, raw_query) = if let Some(CliPairInput { pair_fasta }) = &cli.input.pair_input {
+        info!("Loading pair fail {pair_fasta:?}");
+        parse_pair_fasta_file(pair_fasta)?
     } else if let Some(CliSeparateInput { reference, query }) = &cli.input.separate_input {
         info!("Loading reference file {reference:?}");
-        let mut sequences = read_fasta_file(
-            reference,
-            &mut sequence_store,
-            false,
-            true,
-            &skip_characters,
-        )
-        .unwrap();
-        assert_eq!(
-            sequences.len(),
-            1,
-            "Reference sequence file contains not exactly one record, but {}",
-            sequences.len()
-        );
+        let reference = parse_single_fasta_file(reference)?;
 
         info!("Loading query file {query:?}");
-        sequences.extend(
-            read_fasta_file(query, &mut sequence_store, false, true, &skip_characters).unwrap(),
-        );
-        assert_eq!(
-            sequences.len(),
-            2,
-            "Query sequence file contains not exactly one record, but {}",
-            sequences.len() - 1,
-        );
+        let query = parse_single_fasta_file(query)?;
 
-        sequences
+        (reference, query)
     } else {
-        panic!("No fasta input file given")
+        return Err(anyhow!("No fasta input file given"));
     };
+
+    let skip_characters = cli.skip_characters.chars().collect::<Vec<_>>();
+    let mut sequence_store = VectorSequenceStore::<AlphabetType>::new();
+    
 
     let reference = sequence_store.get(&sequences[0].sequence_handle);
     let query = sequence_store.get(&sequences[1].sequence_handle);
@@ -296,6 +269,8 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
             &format!("{} {}", sequences[1].id, sequences[1].comment),
         ),
     }
+
+    Ok(())
 }
 
 fn align_matrix<

@@ -1232,6 +1232,7 @@ dependencies = [
  "simplelog",
  "toml",
  "traitsequence",
+ "utf8-chars",
 ]
 
 [[package]]
@@ -1325,6 +1326,15 @@ dependencies = [
  "unicode-script",
  "unicode-vo",
  "xmlwriter",
+]
+
+[[package]]
+name = "utf8-chars"
+version = "3.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f598f797138b219a4560b4e9c53c255e872e267c9e3fdcc75aa59a2a90953bcd"
+dependencies = [
+ "arrayvec",
 ]
 
 [[package]]
