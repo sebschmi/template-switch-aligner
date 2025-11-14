@@ -309,21 +309,17 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
         );
         query_record.sequence_handle = query_record.sequence_handle.replace('|', "");
 
-        Some(AlignmentRange::new_offset_limit(
+        AlignmentRange::new_offset_limit(
             AlignmentCoordinates::new(reference_offset, query_offset),
             AlignmentCoordinates::new(reference_limit, query_limit),
-        ))
+        )
     } else {
-        Some(parse_range(
+        parse_range(
             &cli,
             reference_record.sequence_handle.len(),
             query_record.sequence_handle.len(),
-        ))
+        )
     };
-    ensure!(
-        range.is_none() || cli.alignment_method == AlignmentMethod::AStarTemplateSwitch,
-        "Alignment ranges only supported for TS alignments"
-    );
 
     // Move sequences into sequence store.
     let mut sequence_store = VectorSequenceStore::<AlphabetType>::new();

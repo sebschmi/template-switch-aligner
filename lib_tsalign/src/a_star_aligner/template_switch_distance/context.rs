@@ -80,7 +80,7 @@ impl<
         query: &'query SubsequenceType,
         reference_name: &str,
         query_name: &str,
-        range: Option<AlignmentRange>,
+        range: AlignmentRange,
         config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
         memory: Memory<Strategies>,
         cost_limit: Option<Strategies::Cost>,
@@ -92,8 +92,7 @@ impl<
             query,
             reference_name: reference_name.to_owned(),
             query_name: query_name.to_owned(),
-            range: range
-                .unwrap_or_else(|| AlignmentRange::new_complete(reference.len(), query.len())),
+            range,
             config,
             a_star_buffers: Default::default(),
             memory,

@@ -67,7 +67,7 @@ pub fn align_a_star_template_switch_distance<
     cli: Cli,
     reference: &SubsequenceType,
     query: &SubsequenceType,
-    range: Option<AlignmentRange>,
+    range: AlignmentRange,
     reference_name: &str,
     query_name: &str,
 ) {
@@ -88,7 +88,7 @@ fn align_a_star_template_switch_distance_select_node_ord_strategy<
     cli: Cli,
     reference: &SubsequenceType,
     query: &SubsequenceType,
-    range: Option<AlignmentRange>,
+    range: AlignmentRange,
     reference_name: &str,
     query_name: &str,
 ) {
@@ -119,7 +119,7 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
     cli: Cli,
     reference: &SubsequenceType,
     query: &SubsequenceType,
-    range: Option<AlignmentRange>,
+    range: AlignmentRange,
     reference_name: &str,
     query_name: &str,
 ) {
@@ -152,7 +152,7 @@ fn align_a_star_template_switch_select_chaining_strategy<
     cli: Cli,
     reference: &SubsequenceType,
     query: &SubsequenceType,
-    range: Option<AlignmentRange>,
+    range: AlignmentRange,
     reference_name: &str,
     query_name: &str,
 ) {
@@ -198,7 +198,7 @@ fn align_a_star_template_switch_select_no_ts_strategy<
     cli: Cli,
     reference: &SubsequenceType,
     query: &SubsequenceType,
-    range: Option<AlignmentRange>,
+    range: AlignmentRange,
     reference_name: &str,
     query_name: &str,
 ) {
@@ -234,7 +234,7 @@ fn align_a_star_template_switch_select_template_switch_total_length_strategy<
     cli: Cli,
     reference: &SubsequenceType,
     query: &SubsequenceType,
-    range: Option<AlignmentRange>,
+    range: AlignmentRange,
     reference_name: &str,
     query_name: &str,
     template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
@@ -293,7 +293,7 @@ fn align_a_star_template_switch_distance_call<
     cli: Cli,
     reference: &SubsequenceType,
     query: &SubsequenceType,
-    range: Option<AlignmentRange>,
+    range: AlignmentRange,
     reference_name: &str,
     query_name: &str,
     template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
@@ -309,7 +309,6 @@ fn align_a_star_template_switch_distance_call<
     let costs = TemplateSwitchConfig::read_plain(config_file)
         .unwrap_or_else(|error| panic!("Error parsing template switch config:\n{error}"));
 
-    info!("Calling aligner...");
     let alignment = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<
             AlphabetType,
