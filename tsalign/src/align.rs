@@ -5,7 +5,7 @@ use std::{
     path::PathBuf,
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, ensure};
 use clap::{Args, Parser, ValueEnum};
 use compact_genome::{
     implementation::{
@@ -15,13 +15,20 @@ use compact_genome::{
             rna_alphabet::RnaAlphabet, rna_alphabet_or_n::RnaAlphabetOrN,
             rna_iupac_nucleic_acid_alphabet::RnaIupacNucleicAcidAlphabet,
         },
+        vec_sequence::VectorGenome,
         vec_sequence_store::VectorSequenceStore,
     },
-    interface::{alphabet::Alphabet, sequence::GenomeSequence, sequence_store::SequenceStore},
-    io::fasta::read_fasta_file,
+    interface::{
+        alphabet::Alphabet,
+        sequence::{GenomeSequence, OwnedGenomeSequence},
+        sequence_store::SequenceStore,
+    },
 };
 use lib_tsalign::{
-    a_star_aligner::{gap_affine_edit_distance, gap_affine_edit_distance_a_star_align},
+    a_star_aligner::{
+        alignment_geometry::{AlignmentCoordinates, AlignmentRange},
+        gap_affine_edit_distance, gap_affine_edit_distance_a_star_align,
+    },
     alignment_configuration::AlignmentConfiguration,
     alignment_matrix::AlignmentMatrix,
     costs::U64Cost,
@@ -151,7 +158,7 @@ pub struct Cli {
     ///
     /// The start and end of the range must be delimited by '|' characters in the fasta file.
     /// Both reference and query must contain exactly two delimiters each.
-    /// 
+    ///
     /// Template switch inners can still align to the full sequence.
     #[clap(long)]
     use_embedded_rq_ranges: bool,
@@ -233,40 +240,123 @@ pub fn cli(cli: Cli) -> Result<()> {
 fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
     cli: Cli,
 ) -> Result<()> {
-    let (raw_reference, raw_query) = if let Some(CliPairInput { pair_fasta }) = &cli.input.pair_input {
-        info!("Loading pair fail {pair_fasta:?}");
-        parse_pair_fasta_file(pair_fasta)?
-    } else if let Some(CliSeparateInput { reference, query }) = &cli.input.separate_input {
-        info!("Loading reference file {reference:?}");
-        let reference = parse_single_fasta_file(reference)?;
+    // Load input sequences.
+    let (mut reference_record, mut query_record) =
+        if let Some(CliPairInput { pair_fasta }) = &cli.input.pair_input {
+            info!("Loading pair file {pair_fasta:?}");
+            parse_pair_fasta_file(pair_fasta)?
+        } else if let Some(CliSeparateInput { reference, query }) = &cli.input.separate_input {
+            info!("Loading reference file {reference:?}");
+            let reference = parse_single_fasta_file(reference)?;
 
-        info!("Loading query file {query:?}");
-        let query = parse_single_fasta_file(query)?;
+            info!("Loading query file {query:?}");
+            let query = parse_single_fasta_file(query)?;
 
-        (reference, query)
-    } else {
-        return Err(anyhow!("No fasta input file given"));
-    };
+            (reference, query)
+        } else {
+            return Err(anyhow!("No fasta input file given"));
+        };
 
+    // Remove skip characters.
     let skip_characters = cli.skip_characters.chars().collect::<Vec<_>>();
-    let mut sequence_store = VectorSequenceStore::<AlphabetType>::new();
-    
+    ensure!(
+        !cli.use_embedded_rq_ranges || !skip_characters.contains(&'|'),
+        "Using embedded RQ ranges, but '|' is part of the skip characters"
+    );
+    reference_record
+        .sequence_handle
+        .retain(|c| !skip_characters.contains(&c));
+    query_record
+        .sequence_handle
+        .retain(|c| !skip_characters.contains(&c));
 
-    let reference = sequence_store.get(&sequences[0].sequence_handle);
-    let query = sequence_store.get(&sequences[1].sequence_handle);
+    // Parse RQ ranges.
+    let range = if cli.use_embedded_rq_ranges {
+        ensure!(
+            cli.rq_ranges.is_none()
+                && cli.reference_offset.is_none()
+                && cli.reference_limit.is_none()
+                && cli.query_offset.is_none()
+                && cli.query_limit.is_none(),
+            "Redundant specification of RQ ranges"
+        );
+
+        let reference_offset = reference_record.sequence_handle.find('|').ok_or_else(|| {
+            anyhow!("Using embedded RQ ranges, but reference sequence contains no '|' character.")
+        })?;
+        let reference_limit = reference_offset + reference_record.sequence_handle[reference_offset+1..].find('|').ok_or_else(|| {
+            anyhow!("Using embedded RQ ranges, but reference sequence contains only one '|' character.")
+        })?;
+        ensure!(
+            reference_record.sequence_handle[reference_limit + 2..]
+                .find('|')
+                .is_none(),
+            "Using embedded RQ ranges, but reference sequence contains more than two '|' characters"
+        );
+        reference_record.sequence_handle = reference_record.sequence_handle.replace('|', "");
+
+        let query_offset = query_record.sequence_handle.find('|').ok_or_else(|| {
+            anyhow!("Using embedded RQ ranges, but query sequence contains no '|' character.")
+        })?;
+        let query_limit = query_offset + query_record.sequence_handle[query_offset+1..].find('|').ok_or_else(|| {
+            anyhow!("Using embedded RQ ranges, but query sequence contains only one '|' character.")
+        })?;
+        ensure!(
+            query_record.sequence_handle[query_limit + 2..]
+                .find('|')
+                .is_none(),
+            "Using embedded RQ ranges, but query sequence contains more than two '|' characters"
+        );
+        query_record.sequence_handle = query_record.sequence_handle.replace('|', "");
+
+        Some(AlignmentRange::new_offset_limit(
+            AlignmentCoordinates::new(reference_offset, query_offset),
+            AlignmentCoordinates::new(reference_limit, query_limit),
+        ))
+    } else {
+        Some(parse_range(
+            &cli,
+            reference_record.sequence_handle.len(),
+            query_record.sequence_handle.len(),
+        ))
+    };
+    ensure!(
+        range.is_none() || cli.alignment_method == AlignmentMethod::AStarTemplateSwitch,
+        "Alignment ranges only supported for TS alignments"
+    );
+
+    // Move sequences into sequence store.
+    let mut sequence_store = VectorSequenceStore::<AlphabetType>::new();
+    let reference_record =
+        reference_record.try_transform_handle::<_, anyhow::Error>(|sequence| {
+            Ok(sequence_store.add(
+                &VectorGenome::from_slice_u8(sequence.as_bytes()).map_err(|error| {
+                    anyhow!("Reference contains non-alphabet character: {error}")
+                })?,
+            ))
+        })?;
+    let query_record = query_record.try_transform_handle::<_, anyhow::Error>(|sequence| {
+        Ok(sequence_store.add(
+            &VectorGenome::from_slice_u8(sequence.as_bytes())
+                .map_err(|error| anyhow!("Query contains non-alphabet character: {error}"))?,
+        ))
+    })?;
+    let reference_sequence = sequence_store.get(&reference_record.sequence_handle);
+    let query_sequence = sequence_store.get(&query_record.sequence_handle);
 
     debug!("Choosing alignment method...");
     match cli.alignment_method {
-        AlignmentMethod::Matrix => align_matrix(cli, reference, query),
+        AlignmentMethod::Matrix => align_matrix(cli, reference_sequence, query_sequence),
         AlignmentMethod::AStarGapAffine => {
-            align_a_star_gap_affine_edit_distance(cli, reference, query)
+            align_a_star_gap_affine_edit_distance(cli, reference_sequence, query_sequence)
         }
         AlignmentMethod::AStarTemplateSwitch => align_a_star_template_switch_distance(
             cli,
-            reference,
-            query,
-            &format!("{} {}", sequences[0].id, sequences[0].comment),
-            &format!("{} {}", sequences[1].id, sequences[1].comment),
+            reference_sequence,
+            query_sequence,
+            range,
+            &format!("{} {}", reference_record.id, reference_record.comment),
+            &format!("{} {}", query_record.id, query_record.comment),
         ),
     }
 
@@ -353,4 +443,89 @@ fn align_a_star_gap_affine_edit_distance<
     }
 
     println!("{alignment}");
+}
+
+fn parse_range(cli: &Cli, reference_length: usize, query_length: usize) -> AlignmentRange {
+    let complete_reference_range = 0..reference_length;
+    let complete_query_range = 0..query_length;
+
+    let (reference_range, query_range) = if let Some(rq_ranges) = cli.rq_ranges.as_ref() {
+        let mut rq_ranges = rq_ranges.chars().peekable();
+
+        let mut reference_range = None;
+        let mut query_range = None;
+
+        while rq_ranges.peek().is_some() {
+            let rq = rq_ranges.next().unwrap();
+
+            while let Some(c) = rq_ranges.peek() {
+                if c.is_whitespace() {
+                    rq_ranges.next().unwrap();
+                } else {
+                    break;
+                }
+            }
+
+            let mut offset = String::new();
+            while let Some(c) = rq_ranges.peek() {
+                if c.is_numeric() {
+                    offset.push(rq_ranges.next().unwrap());
+                } else {
+                    break;
+                }
+            }
+
+            // Parse ..
+            assert_eq!(rq_ranges.next(), Some('.'));
+            assert_eq!(rq_ranges.next(), Some('.'));
+
+            let mut limit = String::new();
+            while let Some(c) = rq_ranges.peek() {
+                if c.is_numeric() {
+                    limit.push(rq_ranges.next().unwrap());
+                } else {
+                    break;
+                }
+            }
+
+            let offset = offset.parse().unwrap();
+            let limit = limit.parse().unwrap();
+
+            match rq {
+                'R' => {
+                    assert!(reference_range.is_none());
+                    reference_range = Some(offset..limit)
+                }
+                'Q' => {
+                    assert!(query_range.is_none());
+                    query_range = Some(offset..limit)
+                }
+                _ => panic!(),
+            }
+        }
+
+        assert!(
+            reference_range.is_none()
+                || (cli.reference_offset.is_none() && cli.reference_limit.is_none())
+        );
+        assert!(query_range.is_none() || (cli.query_offset.is_none() && cli.query_limit.is_none()));
+
+        (
+            reference_range.unwrap_or(complete_reference_range),
+            query_range.unwrap_or(complete_query_range),
+        )
+    } else {
+        (complete_reference_range, complete_query_range)
+    };
+
+    AlignmentRange::new_offset_limit(
+        AlignmentCoordinates::new(
+            cli.reference_offset.unwrap_or(reference_range.start),
+            cli.query_offset.unwrap_or(query_range.start),
+        ),
+        AlignmentCoordinates::new(
+            cli.reference_limit.unwrap_or(reference_range.end),
+            cli.query_limit.unwrap_or(query_range.end),
+        ),
+    )
 }

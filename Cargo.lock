@@ -199,9 +199,9 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 
 [[package]]
 name = "compact-genome"
-version = "12.3.0"
+version = "12.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "503cda65a29118e687d71d64d7a3c1e4d21f235a3aa55b22cd2902a99d04d9ff"
+checksum = "96e9ce285aba3fadbf01e81018d11cf97fd7c2399f15def73084e04e991e67e9"
 dependencies = [
  "bitvec",
  "enum-iterator",
