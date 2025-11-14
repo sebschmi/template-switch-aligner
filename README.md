@@ -45,3 +45,34 @@ Hence, for updating, it is enough to do a `git pull`.
 ## Usage
 
 Run the installed tool with `--help` (e.g. `tsalign --help` if installed via cargo) to get an overview of the available options.
+
+### Setting the alignment range
+
+When searching for template switches, researchers are often interested in specific mutation hotspots that are only tens of characters long, while the 2-3-alignment of the template switch may also align outside of the mutation hotspot.
+This requires to pass longer sequences to tsalign, to make the context around the mutation hotspot available for alignment.
+However, since tsalign's performance is very sensitive to the lengths of the input sequences, it is important to specify the range of the mutation hotspot, such that tsalign computes the alignment only of this shorter region, while only allowing 2-3-alignments of template switches to align outside of the region.
+
+For an example, consider the following input sequences:
+
+Original `input.fa`.
+```fasta
+>reference
+ACACACCCAACGCGGG
+>query
+ACAAACGTGTCGCGCG
+```
+
+We want to check if the substitution of `CCAA` to `GTGT` can be better explained with a template switch.
+Therefore, we want tsalign to focus on this region.
+We can insert `|` characters to mark the focus region, including an extra character at the beginning and the end for good measure.
+
+Modified `input.delimited.fa`.
+```fasta
+>reference
+ACACA|CCCAAC|GCGGG
+>query
+ACAAA|CGTGTC|GCGCG
+```
+
+Now we can run `tsalign align -p input.delimited.fa --use-embedded-rq-ranges`.
+Now, tsalign will use much less resources, as it can ignore the non-matches before and after the focus region.
