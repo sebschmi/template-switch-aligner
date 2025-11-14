@@ -10,9 +10,11 @@ use compact_genome::{
 };
 use generic_a_star::{AStar, AStarNode, AStarResult, cost::AStarCost};
 use log::{debug, info, trace};
+use traitsequence::interface::Sequence;
 
 use crate::{
     a_star_aligner::{
+        alignment_geometry::AlignmentRange,
         alignment_result::IAlignmentType,
         template_switch_distance::{
             Context, Identifier, Node,
@@ -93,7 +95,7 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
                     genome.as_genome_subsequence(),
                     "",
                     "",
-                    None,
+                    AlignmentRange::new_complete(genome.len(), genome.len()),
                     lower_bound_config.clone(),
                     Memory {
                         template_switch_min_length: (),

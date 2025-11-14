@@ -237,32 +237,31 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
 impl<Cost: AStarCost + From<u64>>
     AlignmentResult<super::template_switch_distance::AlignmentType, Cost>
 {
+    /// Heuristically extend the alignment beyond the alignment range as long as this does not increase the alignment cost.
+    ///
+    /// Returns the amount of steps the alignment was extended.
     #[allow(clippy::too_many_lines)]
-    pub fn extend_beyond_range_with_equal_cost<
+    pub fn extend_beyond_range_without_increasing_cost<
         AlphabetType: Alphabet,
         SubsequenceType: GenomeSequence<AlphabetType, SubsequenceType> + ?Sized,
     >(
         &mut self,
         reference: &SubsequenceType,
         query: &SubsequenceType,
-        range: &mut Option<AlignmentRange>,
+        range: &mut AlignmentRange,
         config: &TemplateSwitchConfig<AlphabetType, Cost>,
-    ) {
-        let Some(range) = range else {
-            trace!("No range given to extend beyond.");
-            return;
-        };
+    ) -> usize {
         let Self::WithTarget {
             alignment,
             statistics,
         } = self
         else {
             trace!("There is no alignment, therefore we cannot postprocess it.");
-            return;
+            return 0;
         };
         if config.left_flank_length > 0 || config.right_flank_length > 0 {
             warn!("Alignment extension does not support flanks");
-            return;
+            return 0;
         }
 
         // Compute cost before extending.
@@ -280,6 +279,7 @@ impl<Cost: AStarCost + From<u64>>
             "computed cost {current_cost} != alignment cost {alignment_cost}; {}",
             alignment.cigar()
         );
+        let mut extension_steps = 0;
 
         // Extend left with equal cost.
         while let Some(new_range) = range.move_offsets_left() {
@@ -312,8 +312,10 @@ impl<Cost: AStarCost + From<u64>>
                 config,
             );
 
+            trace!("Extending left to {new_range}. Cost {current_cost} -> {new_cost}");
+
             if new_cost > current_cost {
-                // If cost is not equal, revert alignment and break.
+                // If cost is increasing, revert alignment and break.
                 alignment.inner_mut()[0].0 -= 1;
                 if alignment.inner_mut()[0].0 == 0 {
                     alignment.inner_mut().remove(0);
@@ -322,6 +324,7 @@ impl<Cost: AStarCost + From<u64>>
             }
             current_cost = new_cost;
             *range = new_range;
+            extension_steps += 1;
         }
 
         // Extend right with equal cost.
@@ -364,8 +367,10 @@ impl<Cost: AStarCost + From<u64>>
                 config,
             );
 
+            trace!("Extending right to {new_range}. Cost {current_cost} -> {new_cost}");
+
             if new_cost > current_cost {
-                // If cost is not equal, revert alignment and break.
+                // If cost is increasing, revert alignment and break.
                 let Some((n, _)) = alignment.inner_mut().last_mut() else {
                     unreachable!("As we have just added at least one element")
                 };
@@ -373,14 +378,17 @@ impl<Cost: AStarCost + From<u64>>
                 if *n == 0 {
                     alignment.inner_mut().pop();
                 }
+                break;
             }
             current_cost = new_cost;
             *range = new_range;
+            extension_steps += 1;
         }
 
         // Update statistics from updated range
         statistics.reference_offset = range.reference_offset();
         statistics.query_offset = range.query_offset();
+        extension_steps
     }
 
     #[allow(clippy::too_many_lines)]
@@ -391,7 +399,7 @@ impl<Cost: AStarCost + From<u64>>
         &mut self,
         reference: &SubsequenceType,
         query: &SubsequenceType,
-        range: &Option<AlignmentRange>,
+        range: &AlignmentRange,
         config: &TemplateSwitchConfig<AlphabetType, Cost>,
     ) {
         let Self::WithTarget {
@@ -407,13 +415,8 @@ impl<Cost: AStarCost + From<u64>>
             return;
         }
 
-        let reference_offset = range.as_ref().map_or(
-            0,
-            super::alignment_geometry::AlignmentRange::reference_offset,
-        );
-        let query_offset = range
-            .as_ref()
-            .map_or(0, super::alignment_geometry::AlignmentRange::query_offset);
+        let reference_offset = range.reference_offset();
+        let query_offset = range.query_offset();
 
         for i in 0..alignment.inner_mut().len() {
             let alignment_type = alignment.inner_mut()[i].1;

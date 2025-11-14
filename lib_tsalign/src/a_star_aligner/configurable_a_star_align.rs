@@ -5,6 +5,7 @@ use compact_genome::{
     interface::sequence::{GenomeSequence, OwnedGenomeSequence},
 };
 use generic_a_star::cost::U64Cost;
+use traitsequence::interface::Sequence;
 
 use crate::{
     a_star_aligner::{
@@ -281,7 +282,8 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
             query.as_genome_subsequence(),
             data.reference_name,
             data.query_name,
-            data.ranges,
+            data.ranges
+                .unwrap_or_else(|| AlignmentRange::new_complete(reference.len(), query.len())),
             &self.costs,
             cost_limit,
             data.memory_limit,

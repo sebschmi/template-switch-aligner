@@ -21,3 +21,4 @@ toml = "0.8.19"
 log.workspace = true
 simplelog = "0.12.2"
 anyhow = "1.0.97"
+utf8-chars = "3.0.5"

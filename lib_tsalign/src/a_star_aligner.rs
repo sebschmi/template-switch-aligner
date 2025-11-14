@@ -154,7 +154,7 @@ pub fn template_switch_distance_a_star_align<
     query: &SubsequenceType,
     reference_name: &str,
     query_name: &str,
-    range: Option<AlignmentRange>,
+    range: AlignmentRange,
     config: &config::TemplateSwitchConfig<
         Strategies::Alphabet,
         <Strategies as AlignmentStrategySelector>::Cost,
@@ -167,6 +167,9 @@ pub fn template_switch_distance_a_star_align<
 where
     Strategies::Cost: From<u64>,
 {
+    debug!("Reference sequence: {}", reference.as_string());
+    debug!("Query sequence: {}", query.as_string());
+
     let memory = Memory {
         template_switch_min_length:
             <Strategies::TemplateSwitchMinLength as TemplateSwitchMinLengthStrategy<
@@ -180,6 +183,7 @@ where
         primary_match: (),
     };
 
+    info!("Calling aligner...");
     let mut result = a_star_align(template_switch_distance::Context::<
         SubsequenceType,
         Strategies,
@@ -195,12 +199,18 @@ where
         memory_limit,
         force_label_correcting,
     ));
-    debug!("CIGAR before extending: {}", result.cigar());
+    info!("Main alignment finished");
 
     info!("Extending template switches");
+    debug!("CIGAR before extending: {}", result.cigar());
     let mut range = range;
-    result.extend_beyond_range_with_equal_cost(reference, query, &mut range, config);
+    let extension_steps =
+        result.extend_beyond_range_without_increasing_cost(reference, query, &mut range, config);
     let range = range;
+    info!(
+        "Extended alignment {extension_steps} steps beyond the alignment range without increasing alignment costs"
+    );
+    info!("Alignment ranges after extension {range}");
 
     result.compute_ts_equal_cost_ranges(reference, query, &range, config);
     result
