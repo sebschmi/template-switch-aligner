@@ -25,5 +25,5 @@ fn test_align_with_memory_limit() -> Result<()> {
 
 #[test]
 fn test_align_with_embedded_rq_ranges() -> Result<()> {
-    run_in_repo_root("align -p test_files/twin_embedded.fa")
+    run_in_repo_root("align -p test_files/twin_embedded.fa --use-embedded-rq-ranges")
 }
