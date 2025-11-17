@@ -20,7 +20,6 @@
 * Align two genomic sequences while allowing for template switches.
 * Visualise the alignment with template switch jumps.
 
-
 ## Installation
 
 ### Via Cargo (Preferred)
@@ -48,6 +47,8 @@ Hence, for updating, it is enough to do a `git pull`.
 
 ## Usage
 
+For a brief overview of the available subcommands, run `tsalign --help`.
+For a brief overview of the available options of each subcommand, run `tsalign <subcommand> --help`.
 
 ### Aligning
 
@@ -80,7 +81,41 @@ Available alphabets are:
 * **dna-iupac**: ABCDGHKMNRSTVWY
 * **rna-iupac**: ABCDGHKMNRSUVWY
 
+#### Skip characters
+
+If your input file(s) contain characters outside of the alphabet you specified, such as `-` characters marking an existing alignment, you must mark them as ignored using the `--skip-characters` parameter.
+This does not pertain the special `|` character if `--use-embedded-rq-ranges` is used as explained below.
+
+#### Disabling template switches
+
+If you want to compute an alignment without template switches, you can use the `--no-ts` parameter.
+This can be useful for comparing the optimal template switching alignment with the optimal alignment without template switches.
+
 ### Visualisation
+
+To visualise the alignment, you can use the `tsalign show` subcommand.
+For an optimal experience, compute both the alignment with template switches and the alignment without template switches.
+For example:
+
+```bash
+tsalign align -p pair.fa -o alignment.toml -c sample_tsa_config --memory-limit 1000000000
+tsalign align -p pair.fa -o alignment-no-ts.toml -c sample_tsa_config --memory-limit 1000000000 --no-ts
+```
+
+Then, create the visualisation as follows:
+
+```bash
+tsalign show -i alignment.toml -n alignment-no-ts.toml
+```
+
+If you want more than just a simple command-line visualisation, use the parameter `-s visualisation.svg` to render the visualisation as SVG.
+Since SVGs are not always well supported, you can also use the switch `-p` to render the visualisation also as PNG.
+Note that the `-p` switch requires setting the `-s` parameter.
+
+There are some switches to add more detail to the SVG and PNG visualisation.
+
+* `-a` adds arrows for the jumps of the alignments
+* `-c` renders more of the complements of the input sequences
 
 ### Setting the alignment range
 
@@ -91,6 +126,7 @@ However, since tsalign's performance is very sensitive to the lengths of the inp
 For an example, consider the following input sequences:
 
 Original `input.fa`.
+
 ```fasta
 >reference
 ACACACCCAACGCGGG
@@ -103,6 +139,7 @@ Therefore, we want tsalign to focus on this region.
 We can insert `|` characters to mark the focus region, including an extra character at the beginning and the end for good measure.
 
 Modified `input.delimited.fa`.
+
 ```fasta
 >reference
 ACACA|CCCAAC|GCGGG
