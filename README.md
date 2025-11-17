@@ -15,7 +15,10 @@
  </tr>
 </table>
 
-Align two genomic sequences while allowing for template switches.
+## Features
+
+* Align two genomic sequences while allowing for template switches.
+* Visualise the alignment with template switch jumps.
 
 ## Installation
 
@@ -44,4 +47,105 @@ Hence, for updating, it is enough to do a `git pull`.
 
 ## Usage
 
-Run the installed tool with `--help` (e.g. `tsalign --help` if installed via cargo) to get an overview of the available options.
+For a brief overview of the available subcommands, run `tsalign --help`.
+For a brief overview of the available options of each subcommand, run `tsalign <subcommand> --help`.
+
+### Aligning
+
+Tsalign takes as input either a single fasta file with two fasta records, or two separate fasta files.
+The output is a toml file which contains alignment statistics and can be used to visualise the alignment.
+
+The alignment metric can be configured via a config file named `config.tsa`.
+The path to the file can be passed via the `-c` parameter.
+Only pass the directory that contains the file, and not the file itself.
+
+Note that tsalign is very resource-intensive, so it often makes sense to use the `--memory-limit` parameter, which takes a memory limit in bytes.
+This limit is applied approximately, with an accuracy of about a factor of two.
+
+If you have two sequences in a file `pair.fa`, computing an alignment could look as follows.
+
+```bash
+tsalign align -p pair.fa -o alignment.toml -c sample_tsa_config --memory-limit 1000000000
+```
+
+#### Choosing a different alphabet
+
+If you want to align strings with an alphabet other than the default DNA alphabet, consider using the parameter `-a`.
+Remember to also update the `config.tsa` file with a metric that corresponds to the characters available in the alphabet.
+Available alphabets are:
+
+* **dna**: ACGT
+* **dna-n**: ACGTN
+* **rna**: ACGU
+* **rna-n**: ACGUN
+* **dna-iupac**: ABCDGHKMNRSTVWY
+* **rna-iupac**: ABCDGHKMNRSUVWY
+
+#### Skip characters
+
+If your input file(s) contain characters outside of the alphabet you specified, such as `-` characters marking an existing alignment, you must mark them as ignored using the `--skip-characters` parameter.
+This does not pertain the special `|` character if `--use-embedded-rq-ranges` is used as explained below.
+
+#### Disabling template switches
+
+If you want to compute an alignment without template switches, you can use the `--no-ts` parameter.
+This can be useful for comparing the optimal template switching alignment with the optimal alignment without template switches.
+
+### Visualisation
+
+To visualise the alignment, you can use the `tsalign show` subcommand.
+For an optimal experience, compute both the alignment with template switches and the alignment without template switches.
+For example:
+
+```bash
+tsalign align -p pair.fa -o alignment.toml -c sample_tsa_config --memory-limit 1000000000
+tsalign align -p pair.fa -o alignment-no-ts.toml -c sample_tsa_config --memory-limit 1000000000 --no-ts
+```
+
+Then, create the visualisation as follows:
+
+```bash
+tsalign show -i alignment.toml -n alignment-no-ts.toml
+```
+
+If you want more than just a simple command-line visualisation, use the parameter `-s visualisation.svg` to render the visualisation as SVG.
+Since SVGs are not always well supported, you can also use the switch `-p` to render the visualisation also as PNG.
+Note that the `-p` switch requires setting the `-s` parameter.
+
+There are some switches to add more detail to the SVG and PNG visualisation.
+
+* `-a` adds arrows for the jumps of the alignments
+* `-c` renders more of the complements of the input sequences
+
+### Setting the alignment range
+
+When searching for template switches, researchers are often interested in specific mutation hotspots that are only tens of characters long, while the 2-3-alignment of the template switch may also align outside of the mutation hotspot.
+This requires to pass longer sequences to tsalign, to make the context around the mutation hotspot available for alignment.
+However, since tsalign's performance is very sensitive to the lengths of the input sequences, it is important to specify the range of the mutation hotspot, such that tsalign computes the alignment only of this shorter region, while only allowing 2-3-alignments of template switches to align outside of the region.
+
+For an example, consider the following input sequences:
+
+Original `input.fa`.
+
+```fasta
+>reference
+ACACACCCAACGCGGG
+>query
+ACAAACGTGTCGCGCG
+```
+
+We want to check if the substitution of `CCAA` to `GTGT` can be better explained with a template switch.
+Therefore, we want tsalign to focus on this region.
+We can insert `|` characters to mark the focus region, including an extra character at the beginning and the end for good measure.
+
+Modified `input.delimited.fa`.
+
+```fasta
+>reference
+ACACA|CCCAAC|GCGGG
+>query
+ACAAA|CGTGTC|GCGCG
+```
+
+Now we can run `tsalign align -p input.delimited.fa --use-embedded-rq-ranges`.
+Now, tsalign will use much less resources, as it can ignore the non-matches before and after the focus region.
