@@ -15,7 +15,11 @@
  </tr>
 </table>
 
-Align two genomic sequences while allowing for template switches.
+## Features
+
+* Align two genomic sequences while allowing for template switches.
+* Visualise the alignment with template switch jumps.
+
 
 ## Installation
 
@@ -44,7 +48,39 @@ Hence, for updating, it is enough to do a `git pull`.
 
 ## Usage
 
-Run the installed tool with `--help` (e.g. `tsalign --help` if installed via cargo) to get an overview of the available options.
+
+### Aligning
+
+Tsalign takes as input either a single fasta file with two fasta records, or two separate fasta files.
+The output is a toml file which contains alignment statistics and can be used to visualise the alignment.
+
+The alignment metric can be configured via a config file named `config.tsa`.
+The path to the file can be passed via the `-c` parameter.
+Only pass the directory that contains the file, and not the file itself.
+
+Note that tsalign is very resource-intensive, so it often makes sense to use the `--memory-limit` parameter, which takes a memory limit in bytes.
+This limit is applied approximately, with an accuracy of about a factor of two.
+
+If you have two sequences in a file `pair.fa`, computing an alignment could look as follows.
+
+```bash
+tsalign align -p pair.fa -o alignment.toml -c sample_tsa_config --memory-limit 1000000000
+```
+
+#### Choosing a different alphabet
+
+If you want to align strings with an alphabet other than the default DNA alphabet, consider using the parameter `-a`.
+Remember to also update the `config.tsa` file with a metric that corresponds to the characters available in the alphabet.
+Available alphabets are:
+
+* **dna**: ACGT
+* **dna-n**: ACGTN
+* **rna**: ACGU
+* **rna-n**: ACGUN
+* **dna-iupac**: ABCDGHKMNRSTVWY
+* **rna-iupac**: ABCDGHKMNRSUVWY
+
+### Visualisation
 
 ### Setting the alignment range
 
