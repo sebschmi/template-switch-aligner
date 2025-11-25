@@ -158,7 +158,10 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
         let secondary_root_node = if let Some(a_star_lower_bound) =
             context.memory.template_switch_min_length.get(&memory_key)
         {
-            secondary_root_node.node_data.a_star_lower_bound += *a_star_lower_bound;
+            secondary_root_node.node_data.a_star_lower_bound = secondary_root_node
+                .node_data
+                .a_star_lower_bound
+                .max(*a_star_lower_bound);
             secondary_root_node
         } else {
             let buffers = mem::take(&mut context.a_star_buffers);
