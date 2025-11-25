@@ -1,3 +1,4 @@
+use std::sync::atomic::AtomicBool;
 use std::{marker::PhantomData, mem};
 
 use compact_genome::interface::alphabet::Alphabet;
@@ -240,9 +241,13 @@ impl<const FILTER_MISMATCHING_ENTRIES: bool, Cost: AStarCost> TemplateSwitchMinL
 
         let is_min_length_match = if template_switch_direction == TemplateSwitchDirection::Forward {
             // TODO implement also forward direction filter.
-            warn!(
-                "Forward direction not yet supported in PreprocessedTemplateSwitchMinLengthStrategy"
-            );
+            static NOT_YET_WARNED: AtomicBool = AtomicBool::new(true);
+            if NOT_YET_WARNED.load(std::sync::atomic::Ordering::Relaxed) {
+                NOT_YET_WARNED.store(false, std::sync::atomic::Ordering::Relaxed);
+                warn!(
+                    "Forward direction not yet supported in PreprocessedTemplateSwitchMinLengthStrategy"
+                );
+            }
             return Some(secondary_root_node);
         } else if secondary_index < context.config.template_switch_min_length
             || primary_index
