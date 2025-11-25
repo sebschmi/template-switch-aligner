@@ -19,6 +19,7 @@ use lib_tsalign::{
             },
             template_switch_min_length::{
                 LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
+                PreprocessedLookaheadTemplateSwitchMinLengthStrategy,
                 PreprocessedTemplateSwitchMinLengthStrategy, TemplateSwitchMinLengthStrategy,
             },
             template_switch_total_length::{
@@ -45,10 +46,12 @@ pub enum TemplateSwitchNodeOrdStrategySelector {
 pub enum TemplateSwitchMinLengthStrategySelector {
     None,
     Lookahead,
-    /// Preprocess the min length of inner alignments, and adjust the A* lower bound accordingly.
+    /// Check for perfect matches of minimum length and compute a lower bound for imperfect matches.
     PreprocessPrice,
-    /// Ignore possible template switches who don't start with a sequence of matches according to the template switch minimum length.
+    /// Check for perfect matches of minimum length and filter out imperfect matches.
     PreprocessFilter,
+    /// Check for perfect matches of minimum length and cache the costs of imperfect matches.
+    PreprocessLookahead,
 }
 
 #[derive(Clone, ValueEnum)]
@@ -158,6 +161,14 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
                 _,
                 NodeOrd,
                 PreprocessedTemplateSwitchMinLengthStrategy<true, U64Cost>,
+            >(cli, reference, query, range, reference_name, query_name)
+        }
+        TemplateSwitchMinLengthStrategySelector::PreprocessLookahead => {
+            align_a_star_template_switch_select_chaining_strategy::<
+                _,
+                _,
+                NodeOrd,
+                PreprocessedLookaheadTemplateSwitchMinLengthStrategy<U64Cost>,
             >(cli, reference, query, range, reference_name, query_name)
         }
     }
