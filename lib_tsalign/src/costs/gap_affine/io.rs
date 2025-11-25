@@ -163,13 +163,12 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> GapAffineAlignmentCostTable<Alphab
 
         let name = name.unwrap_or("").to_string();
 
-        let cost_table = Self {
+        let cost_table = Self::new(
             name,
             substitution_cost_table,
             gap_open_cost_vector,
             gap_extend_cost_vector,
-            phantom_data: Default::default(),
-        };
+        );
 
         Ok((input, cost_table))
     }

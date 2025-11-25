@@ -752,6 +752,8 @@ impl<AlignmentType: Display + IAlignmentType, Cost: Display> Display
 impl<Cost: Display> Display for AlignmentStatistics<Cost> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         writeln!(f, "{}", self.result)?;
+        writeln!(f, "Reference offset: {}", self.reference_offset)?;
+        writeln!(f, "Query offset: {}", self.query_offset)?;
         writeln!(f, "Cost per base: {:.2}", self.cost_per_base)?;
         writeln!(f, "Opened nodes: {}", self.opened_nodes)?;
         writeln!(f, "Closed nodes: {}", self.closed_nodes)?;

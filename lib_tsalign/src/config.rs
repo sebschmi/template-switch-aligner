@@ -17,6 +17,8 @@ pub struct TemplateSwitchConfig<AlphabetType, Cost> {
     // Limits
     pub left_flank_length: isize,
     pub right_flank_length: isize,
+    /// The minimum length of a template switch is the first length for which
+    /// the length costs are finite.
     pub template_switch_min_length: usize,
 
     // Base cost

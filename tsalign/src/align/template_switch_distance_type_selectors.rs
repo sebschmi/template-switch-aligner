@@ -19,7 +19,8 @@ use lib_tsalign::{
             },
             template_switch_min_length::{
                 LookaheadTemplateSwitchMinLengthStrategy, NoTemplateSwitchMinLengthStrategy,
-                TemplateSwitchMinLengthStrategy,
+                PreprocessedLookaheadTemplateSwitchMinLengthStrategy,
+                PreprocessedTemplateSwitchMinLengthStrategy, TemplateSwitchMinLengthStrategy,
             },
             template_switch_total_length::{
                 MaxTemplateSwitchTotalLengthStrategy, NoTemplateSwitchTotalLengthStrategy,
@@ -45,6 +46,12 @@ pub enum TemplateSwitchNodeOrdStrategySelector {
 pub enum TemplateSwitchMinLengthStrategySelector {
     None,
     Lookahead,
+    /// Check for perfect matches of minimum length and compute a lower bound for imperfect matches.
+    PreprocessPrice,
+    /// Check for perfect matches of minimum length and filter out imperfect matches.
+    PreprocessFilter,
+    /// Check for perfect matches of minimum length and cache the costs of imperfect matches.
+    PreprocessLookahead,
 }
 
 #[derive(Clone, ValueEnum)]
@@ -138,6 +145,30 @@ fn align_a_star_template_switch_distance_select_template_switch_min_length_strat
                 _,
                 NodeOrd,
                 LookaheadTemplateSwitchMinLengthStrategy<U64Cost>,
+            >(cli, reference, query, range, reference_name, query_name)
+        }
+        TemplateSwitchMinLengthStrategySelector::PreprocessPrice => {
+            align_a_star_template_switch_select_chaining_strategy::<
+                _,
+                _,
+                NodeOrd,
+                PreprocessedTemplateSwitchMinLengthStrategy<false, U64Cost>,
+            >(cli, reference, query, range, reference_name, query_name)
+        }
+        TemplateSwitchMinLengthStrategySelector::PreprocessFilter => {
+            align_a_star_template_switch_select_chaining_strategy::<
+                _,
+                _,
+                NodeOrd,
+                PreprocessedTemplateSwitchMinLengthStrategy<true, U64Cost>,
+            >(cli, reference, query, range, reference_name, query_name)
+        }
+        TemplateSwitchMinLengthStrategySelector::PreprocessLookahead => {
+            align_a_star_template_switch_select_chaining_strategy::<
+                _,
+                _,
+                NodeOrd,
+                PreprocessedLookaheadTemplateSwitchMinLengthStrategy<U64Cost>,
             >(cli, reference, query, range, reference_name, query_name)
         }
     }

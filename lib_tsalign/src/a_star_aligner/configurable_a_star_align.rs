@@ -10,8 +10,14 @@ use traitsequence::interface::Sequence;
 use crate::{
     a_star_aligner::{
         template_switch_distance::strategies::{
-            AlignmentStrategySelection, primary_range::NoPrunePrimaryRangeStrategy,
-            secondary_deletion::AllowSecondaryDeletionStrategy, shortcut::NoShortcutStrategy,
+            AlignmentStrategySelection,
+            primary_range::NoPrunePrimaryRangeStrategy,
+            secondary_deletion::AllowSecondaryDeletionStrategy,
+            shortcut::NoShortcutStrategy,
+            template_switch_min_length::{
+                PreprocessedLookaheadTemplateSwitchMinLengthStrategy,
+                PreprocessedTemplateSwitchMinLengthStrategy,
+            },
         },
         template_switch_distance_a_star_align,
     },
@@ -53,6 +59,12 @@ pub enum MinLengthStrategySelector {
     None,
     #[default]
     Lookahead,
+    /// Check for perfect matches of minimum length and compute a lower bound for imperfect matches.
+    PreprocessPrice,
+    /// Check for perfect matches of minimum length and filter out imperfect matches.
+    PreprocessFilter,
+    /// Check for perfect matches of minimum length and cache the costs of imperfect matches.
+    PreprocessLookahead,
 }
 
 #[derive(Debug, Default)]
@@ -200,6 +212,9 @@ impl<AlphabetType: Alphabet> Aligner<AlphabetType> {
             MinLengthStrategySelector::None => self
                 .align_select_chaining_strategy::<NoTemplateSwitchMinLengthStrategy<U64Cost>>(data),
             MinLengthStrategySelector::Lookahead => self.align_select_chaining_strategy::<LookaheadTemplateSwitchMinLengthStrategy<U64Cost>>(data),
+            MinLengthStrategySelector::PreprocessPrice => self.align_select_chaining_strategy::<PreprocessedTemplateSwitchMinLengthStrategy<false, U64Cost>>(data),
+            MinLengthStrategySelector::PreprocessFilter => self.align_select_chaining_strategy::<PreprocessedTemplateSwitchMinLengthStrategy<true, U64Cost>>(data),
+            MinLengthStrategySelector::PreprocessLookahead => self.align_select_chaining_strategy::<PreprocessedLookaheadTemplateSwitchMinLengthStrategy<U64Cost>>(data),
         }
     }
 
