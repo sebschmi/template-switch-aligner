@@ -4,6 +4,7 @@ members = [
     "generic_a_star",
     "seed_chain",
     "lib_tsalign",
+    "lib_ts_chainalign",
     "lib_tsshow",
     "tsalign",
 
@@ -11,7 +12,7 @@ members = [
     "python_bindings",
 
     # Internal
-    "tsalign-tests", "lib_ts_chainalign",
+    "tsalign-tests",
 ]
 resolver = "2"
 

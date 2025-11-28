@@ -9,4 +9,6 @@ rust-version.workspace = true
 repository.workspace = true
 
 [dependencies]
-generic_a_star = {version = "0.19.1", path = "../generic_a_star"}
+generic_a_star = { version = "0.19.1", path = "../generic_a_star" }
+ndarray = "0.17.1"
+num-traits.workspace = true
