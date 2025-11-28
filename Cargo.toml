@@ -11,7 +11,7 @@ members = [
     "python_bindings",
 
     # Internal
-    "tsalign-tests",
+    "tsalign-tests", "lib_ts_chainalign",
 ]
 resolver = "2"
 
