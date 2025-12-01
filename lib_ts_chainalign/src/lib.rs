@@ -14,7 +14,12 @@ fn compute_lower_bounds<Cost: AStarCost>(
     max_match_run: u32,
     costs: &AlignmentCosts<Cost>,
 ) {
-    let _gap_affine_lower_bounds =
+    let gap_affine_lower_bounds =
         GapAffineLowerBounds::new(max_n, max_match_run, &costs.primary_costs);
-    let _ts_jump_lower_bounds = TsJumpLowerBounds::new(max_n, max_match_run, costs);
+    let ts_jump_lower_bounds = TsJumpLowerBounds::new(max_n, max_match_run, costs);
+
+    // Remove dead code warnings
+    gap_affine_lower_bounds.lower_bound(0, 0);
+    ts_jump_lower_bounds.lower_bound_12(0);
+    ts_jump_lower_bounds.lower_bound_34(0);
 }
