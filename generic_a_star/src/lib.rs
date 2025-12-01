@@ -512,6 +512,20 @@ impl<Context: AStarContext> AStar<Context> {
             None
         }
     }
+
+    /// Reconstruct the path from a root node to the target node.
+    pub fn reconstruct_path(&self) -> Vec<<Context::Node as AStarNode>::EdgeType> {
+        let AStarState::Terminated {
+            result: AStarResult::FoundTarget { .. },
+        } = &self.state
+        else {
+            panic!("Cannot reconstruct path since no target was found.")
+        };
+
+        let mut result = self.backtrack().collect::<Vec<_>>();
+        result.reverse();
+        result
+    }
 }
 
 impl<NodeIdentifier, Cost: Copy> AStarResult<NodeIdentifier, Cost> {

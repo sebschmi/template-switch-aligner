@@ -5,8 +5,10 @@ use crate::{
     lower_bounds::{gap_affine::GapAffineLowerBounds, ts_jump::TsJumpLowerBounds},
 };
 
-mod costs;
-mod lower_bounds;
+pub mod alignment;
+pub mod costs;
+pub mod gap_filling;
+pub mod lower_bounds;
 
 #[expect(dead_code)]
 fn compute_lower_bounds<Cost: AStarCost>(

@@ -1,107 +1,108 @@
 use std::fmt::Display;
 
-use generic_a_star::{
-    AStarContext, AStarNode,
-    cost::{AStarCost, OrderedPairCost, U32Cost},
-    reset::Reset,
-};
-use num_traits::Zero;
+use generic_a_star::{AStarContext, AStarNode, cost::AStarCost, reset::Reset};
 
 use crate::{
-    alignment::{GapType, coordinates::AlignmentCoordinates},
+    alignment::{
+        AlignmentType, GapType, coordinates::AlignmentCoordinates, sequences::AlignmentSequences,
+    },
     costs::GapAffineCosts,
 };
 
-pub struct Context<'a, Cost> {
-    costs: &'a GapAffineCosts<Cost>,
-    max_match_run: u32,
-    max_n: usize,
+pub struct Context<'costs, 'sequences, Cost> {
+    costs: &'costs GapAffineCosts<Cost>,
+    sequences: &'sequences AlignmentSequences,
+    start: AlignmentCoordinates,
+    end: AlignmentCoordinates,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Node<Cost> {
     pub identifier: Identifier,
+    pub predecessor: Option<Identifier>,
+    pub predecessor_alignment_type: Option<AlignmentType>,
     pub cost: Cost,
-    pub match_run: u32,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Identifier {
     pub coordinates: AlignmentCoordinates,
-    /// True if this node was reached via at least one non-match.
-    pub has_non_match: bool,
     gap_type: GapType,
 }
 
-impl<'a, Cost> Context<'a, Cost> {
-    pub fn new(costs: &'a GapAffineCosts<Cost>, max_match_run: u32, max_n: usize) -> Self {
+impl<'costs, 'sequences, Cost> Context<'costs, 'sequences, Cost> {
+    pub fn new(
+        costs: &'costs GapAffineCosts<Cost>,
+        sequences: &'sequences AlignmentSequences,
+        start: AlignmentCoordinates,
+        end: AlignmentCoordinates,
+    ) -> Self {
         Self {
             costs,
-            max_match_run,
-            max_n,
+            sequences,
+            start,
+            end,
         }
     }
 }
 
-impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
+impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
     type Node = Node<Cost>;
 
     fn create_root(&self) -> Self::Node {
         Node {
             identifier: Identifier {
-                coordinates: AlignmentCoordinates::new_forwards(0, 0),
-                has_non_match: false,
+                coordinates: self.start,
                 gap_type: GapType::None,
             },
+            predecessor: None,
+            predecessor_alignment_type: None,
             cost: Cost::zero(),
-            match_run: 0,
         }
     }
 
     fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {
         let Node {
-            identifier:
-                Identifier {
-                    coordinates,
-                    has_non_match,
-                    gap_type,
-                },
-            cost,
-            match_run,
+            identifier, cost, ..
         } = node;
+        let predecessor = Some(*identifier);
+        let Identifier {
+            coordinates,
+            gap_type,
+        } = *identifier;
 
-        if coordinates.seq1().can_increment(0..self.max_n)
-            && coordinates.seq2().can_increment(0..self.max_n)
-        {
-            if *match_run < self.max_match_run {
+        if coordinates.can_increment_both(self.start, self.end) {
+            let (c1, c2) = self.sequences.characters(coordinates);
+            let is_match = c1 == c2;
+
+            if is_match {
                 // Match
                 let new_cost = *cost;
                 output.extend(std::iter::once(Node {
                     identifier: Identifier {
                         coordinates: coordinates.increment_both(),
-
-                        has_non_match: *has_non_match,
                         gap_type: GapType::None,
                     },
+                    predecessor,
+                    predecessor_alignment_type: Some(AlignmentType::Match),
                     cost: new_cost,
-                    match_run: match_run + 1,
+                }));
+            } else {
+                // Substitution
+                let new_cost = *cost + self.costs.substitution;
+                output.extend(std::iter::once(Node {
+                    identifier: Identifier {
+                        coordinates: coordinates.increment_both(),
+                        gap_type: GapType::None,
+                    },
+                    predecessor,
+                    predecessor_alignment_type: Some(AlignmentType::Substitution),
+                    cost: new_cost,
                 }));
             }
-
-            // Substitution
-            let new_cost = *cost + self.costs.substitution;
-            output.extend(std::iter::once(Node {
-                identifier: Identifier {
-                    coordinates: coordinates.increment_both(),
-                    has_non_match: true,
-                    gap_type: GapType::None,
-                },
-                cost: new_cost,
-                match_run: 0,
-            }));
         }
 
-        if coordinates.seq1().can_increment(0..self.max_n) {
+        if coordinates.can_increment_1(self.start, self.end) {
             // Gap in 2
             let new_cost = *cost
                 + match gap_type {
@@ -111,15 +112,15 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
             output.extend(std::iter::once(Node {
                 identifier: Identifier {
                     coordinates: coordinates.increment_1(),
-                    has_non_match: true,
                     gap_type: GapType::In2,
                 },
+                predecessor,
+                predecessor_alignment_type: Some(AlignmentType::Gap2),
                 cost: new_cost,
-                match_run: 0,
             }));
         }
 
-        if coordinates.seq2().can_increment(0..self.max_n) {
+        if coordinates.can_increment_2(self.start, self.end) {
             // Gap in 1
             let new_cost = *cost
                 + match gap_type {
@@ -129,18 +130,17 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
             output.extend(std::iter::once(Node {
                 identifier: Identifier {
                     coordinates: coordinates.increment_2(),
-                    has_non_match: true,
                     gap_type: GapType::In1,
                 },
+                predecessor,
+                predecessor_alignment_type: Some(AlignmentType::Gap1),
                 cost: new_cost,
-                match_run: 0,
             }));
         }
     }
 
-    fn is_target(&self, _node: &Self::Node) -> bool {
-        // Run until whole matrix is filled
-        false
+    fn is_target(&self, node: &Self::Node) -> bool {
+        node.identifier.coordinates == self.end
     }
 
     fn cost_limit(&self) -> Option<<Self::Node as generic_a_star::AStarNode>::Cost> {
@@ -152,7 +152,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
     }
 }
 
-impl<Cost> Reset for Context<'_, Cost> {
+impl<Cost> Reset for Context<'_, '_, Cost> {
     fn reset(&mut self) {
         unimplemented!()
     }
@@ -161,21 +161,21 @@ impl<Cost> Reset for Context<'_, Cost> {
 impl<Cost: AStarCost> AStarNode for Node<Cost> {
     type Identifier = Identifier;
 
-    type EdgeType = ();
+    type EdgeType = AlignmentType;
 
     // Use match run as secondary cost
-    type Cost = OrderedPairCost<Cost, U32Cost>;
+    type Cost = Cost;
 
     fn identifier(&self) -> &Self::Identifier {
         &self.identifier
     }
 
     fn cost(&self) -> Self::Cost {
-        OrderedPairCost(self.cost, U32Cost::from_primitive(self.match_run))
+        self.cost
     }
 
     fn a_star_lower_bound(&self) -> Self::Cost {
-        OrderedPairCost(Cost::zero(), U32Cost::zero())
+        Cost::zero()
     }
 
     fn secondary_maximisable_score(&self) -> usize {
@@ -183,13 +183,11 @@ impl<Cost: AStarCost> AStarNode for Node<Cost> {
     }
 
     fn predecessor(&self) -> Option<&Self::Identifier> {
-        // Backtracking not supported
-        None
+        self.predecessor.as_ref()
     }
 
     fn predecessor_edge_type(&self) -> Option<Self::EdgeType> {
-        // Backtracking not supported
-        None
+        self.predecessor_alignment_type
     }
 }
 
@@ -203,11 +201,10 @@ impl Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "({}, {}, {}, {})",
+            "({}, {}, {})",
             self.coordinates.seq1(),
             self.coordinates.seq2(),
-            self.gap_type,
-            self.has_non_match
+            self.gap_type
         )
     }
 }
@@ -220,8 +217,6 @@ impl<Cost: Ord> PartialOrd for Node<Cost> {
 
 impl<Cost: Ord> Ord for Node<Cost> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.cost
-            .cmp(&other.cost)
-            .then_with(|| self.match_run.cmp(&other.match_run))
+        self.cost.cmp(&other.cost)
     }
 }
