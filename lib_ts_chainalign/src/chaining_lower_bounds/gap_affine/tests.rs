@@ -1,7 +1,7 @@
 use generic_a_star::cost::{AStarCost, U32Cost};
 use ndarray::Array2;
 
-use crate::{costs::GapAffineCosts, lower_bounds::gap_affine::GapAffineLowerBounds};
+use crate::{chaining_lower_bounds::gap_affine::GapAffineLowerBounds, costs::GapAffineCosts};
 
 #[test]
 fn test_max_match_run_0() {

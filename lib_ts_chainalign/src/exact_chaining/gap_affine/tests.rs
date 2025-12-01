@@ -1,7 +1,7 @@
 use generic_a_star::cost::U32Cost;
 
 use crate::alignment::AlignmentType;
-use crate::gap_filling::gap_affine::{AlignmentCoordinates, GapAffineAlignment};
+use crate::exact_chaining::gap_affine::{AlignmentCoordinates, GapAffineAlignment};
 use crate::{alignment::sequences::AlignmentSequences, costs::GapAffineCosts};
 
 #[test]

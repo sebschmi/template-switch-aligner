@@ -1,7 +1,7 @@
 use generic_a_star::cost::AStarCost;
 use ndarray::Array1;
 
-use crate::{costs::AlignmentCosts, lower_bounds::gap_affine::GapAffineLowerBounds};
+use crate::{chaining_lower_bounds::gap_affine::GapAffineLowerBounds, costs::AlignmentCosts};
 
 #[cfg(test)]
 mod tests;

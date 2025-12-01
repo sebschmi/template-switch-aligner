@@ -1,14 +1,14 @@
 use generic_a_star::cost::AStarCost;
 
 use crate::{
+    chaining_lower_bounds::{gap_affine::GapAffineLowerBounds, ts_jump::TsJumpLowerBounds},
     costs::AlignmentCosts,
-    lower_bounds::{gap_affine::GapAffineLowerBounds, ts_jump::TsJumpLowerBounds},
 };
 
 pub mod alignment;
+pub mod chaining_lower_bounds;
 pub mod costs;
-pub mod gap_filling;
-pub mod lower_bounds;
+pub mod exact_chaining;
 
 #[expect(dead_code)]
 fn compute_lower_bounds<Cost: AStarCost>(

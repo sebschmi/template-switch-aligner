@@ -1,8 +1,8 @@
 use generic_a_star::cost::{AStarCost, U32Cost};
 
 use crate::{
+    chaining_lower_bounds::ts_jump::TsJumpLowerBounds,
     costs::{AlignmentCosts, GapAffineCosts, TsLimits},
-    lower_bounds::ts_jump::TsJumpLowerBounds,
 };
 
 #[test]

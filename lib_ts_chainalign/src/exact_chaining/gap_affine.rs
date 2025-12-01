@@ -3,7 +3,7 @@ use generic_a_star::{AStar, AStarResult, cost::AStarCost};
 use crate::{
     alignment::{Alignment, coordinates::AlignmentCoordinates, sequences::AlignmentSequences},
     costs::GapAffineCosts,
-    gap_filling::gap_affine::algo::Context,
+    exact_chaining::gap_affine::algo::Context,
 };
 
 mod algo;

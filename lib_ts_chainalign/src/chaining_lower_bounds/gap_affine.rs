@@ -1,7 +1,7 @@
 use generic_a_star::{AStar, AStarNode, cost::AStarCost};
 use ndarray::{Array1, Array2};
 
-use crate::{costs::GapAffineCosts, lower_bounds::gap_affine::algo::Context};
+use crate::{chaining_lower_bounds::gap_affine::algo::Context, costs::GapAffineCosts};
 
 mod algo;
 #[cfg(test)]
