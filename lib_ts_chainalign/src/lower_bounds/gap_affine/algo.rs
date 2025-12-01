@@ -7,10 +7,10 @@ use generic_a_star::{
 };
 use num_traits::Zero;
 
-use crate::lower_bounds::gap_affine::GapAffineLowerBoundCostTable;
+use crate::costs::GapAffineCosts;
 
 pub struct Context<'a, Cost> {
-    costs: &'a GapAffineLowerBoundCostTable<Cost>,
+    costs: &'a GapAffineCosts<Cost>,
     max_match_run: u32,
     max_n: usize,
 }
@@ -39,11 +39,7 @@ pub enum GapType {
 }
 
 impl<'a, Cost> Context<'a, Cost> {
-    pub fn new(
-        costs: &'a GapAffineLowerBoundCostTable<Cost>,
-        max_match_run: u32,
-        max_n: usize,
-    ) -> Self {
+    pub fn new(costs: &'a GapAffineCosts<Cost>, max_match_run: u32, max_n: usize) -> Self {
         Self {
             costs,
             max_match_run,

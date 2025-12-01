@@ -1,30 +1,19 @@
 use generic_a_star::{AStar, AStarNode, cost::AStarCost};
-use ndarray::Array2;
+use ndarray::{Array1, Array2};
 
-use crate::lower_bounds::gap_affine::algo::Context;
+use crate::{costs::GapAffineCosts, lower_bounds::gap_affine::algo::Context};
 
 mod algo;
 #[cfg(test)]
 mod tests;
 
 pub struct GapAffineLowerBounds<Cost> {
-    max_n: usize,
     lower_bounds: Array2<Cost>,
-}
-
-pub struct GapAffineLowerBoundCostTable<Cost> {
-    pub substitution: Cost,
-    pub gap_open: Cost,
-    pub gap_extend: Cost,
+    variable_gap2_lower_bounds: Array1<Cost>,
 }
 
 impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
-    #[expect(dead_code)]
-    pub fn new(
-        max_n: usize,
-        max_match_run: u32,
-        cost_table: &GapAffineLowerBoundCostTable<Cost>,
-    ) -> Self {
+    pub fn new(max_n: usize, max_match_run: u32, cost_table: &GapAffineCosts<Cost>) -> Self {
         let mut lower_bounds = Array2::<Cost>::from_elem((max_n + 1, max_n + 1), Cost::max_value());
         lower_bounds[[0, 0]] = Cost::zero();
         let context = Context::new(cost_table, max_match_run, max_n);
@@ -37,24 +26,29 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
             }
             false
         });
+        let variable_gap2_lower_bounds = Array1::from_iter((0..=max_n).map(|gap1| {
+            (0..=max_n)
+                .map(|gap2| lower_bounds[[gap1, gap2]])
+                .min()
+                .unwrap()
+        }));
 
         Self {
-            max_n,
             lower_bounds,
+            variable_gap2_lower_bounds,
         }
     }
 }
 
-impl<Cost> GapAffineLowerBounds<Cost> {
-    #[expect(dead_code)]
-    pub fn max_n(&self) -> usize {
-        self.max_n
-    }
-}
-
 impl<Cost: Copy> GapAffineLowerBounds<Cost> {
-    #[expect(dead_code)]
-    pub fn lower_bound(&self, a: usize, b: usize) -> Cost {
-        self.lower_bounds[[a, b]]
+    /// A lower bound of the cost for chaining two anchors with the given gaps.
+    /// The lower bound is symmetric, so the order of the gaps does not matter.
+    pub fn lower_bound(&self, gap1: usize, gap2: usize) -> Cost {
+        self.lower_bounds[[gap1, gap2]]
+    }
+
+    /// A lower bound of the cost for chaining two anchors with only one specified gap length.
+    pub fn variable_gap2_lower_bound(&self, gap: usize) -> Cost {
+        self.variable_gap2_lower_bounds[[gap]]
     }
 }

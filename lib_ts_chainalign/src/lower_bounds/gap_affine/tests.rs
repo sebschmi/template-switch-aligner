@@ -1,19 +1,17 @@
 use generic_a_star::cost::{AStarCost, U32Cost};
 use ndarray::Array2;
 
-use crate::lower_bounds::gap_affine::{GapAffineLowerBoundCostTable, GapAffineLowerBounds};
+use crate::{costs::GapAffineCosts, lower_bounds::gap_affine::GapAffineLowerBounds};
 
 #[test]
 fn test_max_match_run_0() {
-    let cost_table = GapAffineLowerBoundCostTable {
+    let cost_table = GapAffineCosts {
         substitution: U32Cost::from(2u8),
         gap_open: U32Cost::from(3u8),
         gap_extend: U32Cost::from(1u8),
     };
     let max_n = 2;
     let lower_bounds = GapAffineLowerBounds::new(max_n, 0, &cost_table);
-
-    assert_eq!(lower_bounds.max_n(), max_n);
 
     #[rustfmt::skip]
     let exepcted_lower_bounds = Array2::from_shape_vec(
@@ -41,15 +39,13 @@ fn test_max_match_run_0() {
 
 #[test]
 fn test_max_match_run_1() {
-    let cost_table = GapAffineLowerBoundCostTable {
+    let cost_table = GapAffineCosts {
         substitution: U32Cost::from(2u8),
         gap_open: U32Cost::from(3u8),
         gap_extend: U32Cost::from(1u8),
     };
     let max_n = 4;
     let lower_bounds = GapAffineLowerBounds::new(max_n, 1, &cost_table);
-
-    assert_eq!(lower_bounds.max_n(), max_n);
 
     #[rustfmt::skip]
     let exepcted_lower_bounds = Array2::from_shape_vec(
@@ -79,15 +75,13 @@ fn test_max_match_run_1() {
 
 #[test]
 fn test_max_match_run_2() {
-    let cost_table = GapAffineLowerBoundCostTable {
+    let cost_table = GapAffineCosts {
         substitution: U32Cost::from(2u8),
         gap_open: U32Cost::from(3u8),
         gap_extend: U32Cost::from(1u8),
     };
     let max_n = 6;
     let lower_bounds = GapAffineLowerBounds::new(max_n, 2, &cost_table);
-
-    assert_eq!(lower_bounds.max_n(), max_n);
 
     #[rustfmt::skip]
     let exepcted_lower_bounds = Array2::from_shape_vec(
