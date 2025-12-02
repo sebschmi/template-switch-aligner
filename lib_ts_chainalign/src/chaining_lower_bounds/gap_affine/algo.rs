@@ -195,7 +195,7 @@ impl<Cost: AStarCost> AStarNode for Node<Cost> {
 
 impl<Cost: Display> Display for Node<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.identifier, self.cost)
+        write!(f, "{}: {}, {}", self.identifier, self.cost, self.match_run)
     }
 }
 

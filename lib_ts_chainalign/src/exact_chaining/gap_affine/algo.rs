@@ -1,6 +1,11 @@
 use std::fmt::Display;
 
-use generic_a_star::{AStarContext, AStarNode, cost::AStarCost, reset::Reset};
+use generic_a_star::{
+    AStarContext, AStarNode,
+    cost::{AStarCost, OrderedPairCost, U32Cost},
+    reset::Reset,
+};
+use num_traits::Zero;
 
 use crate::{
     alignment::{
@@ -14,6 +19,7 @@ pub struct Context<'costs, 'sequences, Cost> {
     sequences: &'sequences AlignmentSequences,
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
+    max_match_run: u32,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -22,6 +28,7 @@ pub struct Node<Cost> {
     pub predecessor: Option<Identifier>,
     pub predecessor_alignment_type: Option<AlignmentType>,
     pub cost: Cost,
+    pub match_run: u32,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -36,12 +43,14 @@ impl<'costs, 'sequences, Cost> Context<'costs, 'sequences, Cost> {
         sequences: &'sequences AlignmentSequences,
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
+        max_match_run: u32,
     ) -> Self {
         Self {
             costs,
             sequences,
             start,
             end,
+            max_match_run,
         }
     }
 }
@@ -58,12 +67,16 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
             predecessor: None,
             predecessor_alignment_type: None,
             cost: Cost::zero(),
+            match_run: 0,
         }
     }
 
     fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {
         let Node {
-            identifier, cost, ..
+            identifier,
+            cost,
+            match_run,
+            ..
         } = node;
         let predecessor = Some(*identifier);
         let Identifier {
@@ -76,17 +89,22 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
             let is_match = c1 == c2;
 
             if is_match {
-                // Match
-                let new_cost = *cost;
-                output.extend(std::iter::once(Node {
-                    identifier: Identifier {
-                        coordinates: coordinates.increment_both(),
-                        gap_type: GapType::None,
-                    },
-                    predecessor,
-                    predecessor_alignment_type: Some(AlignmentType::Match),
-                    cost: new_cost,
-                }));
+                // Disallow runs of matches longer than the maximum.
+                // This is because we do not want the exact chaining to find new anchors (which actually already exist).
+                if *match_run < self.max_match_run {
+                    // Match
+                    let new_cost = *cost;
+                    output.extend(std::iter::once(Node {
+                        identifier: Identifier {
+                            coordinates: coordinates.increment_both(),
+                            gap_type: GapType::None,
+                        },
+                        predecessor,
+                        predecessor_alignment_type: Some(AlignmentType::Match),
+                        cost: new_cost,
+                        match_run: match_run + 1,
+                    }));
+                }
             } else {
                 // Substitution
                 let new_cost = *cost + self.costs.substitution;
@@ -98,6 +116,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                     predecessor,
                     predecessor_alignment_type: Some(AlignmentType::Substitution),
                     cost: new_cost,
+                    match_run: 0,
                 }));
             }
         }
@@ -117,6 +136,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                 predecessor,
                 predecessor_alignment_type: Some(AlignmentType::Gap2),
                 cost: new_cost,
+                match_run: 0,
             }));
         }
 
@@ -135,6 +155,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                 predecessor,
                 predecessor_alignment_type: Some(AlignmentType::Gap1),
                 cost: new_cost,
+                match_run: 0,
             }));
         }
     }
@@ -164,18 +185,18 @@ impl<Cost: AStarCost> AStarNode for Node<Cost> {
     type EdgeType = AlignmentType;
 
     // Use match run as secondary cost
-    type Cost = Cost;
+    type Cost = OrderedPairCost<Cost, U32Cost>;
 
     fn identifier(&self) -> &Self::Identifier {
         &self.identifier
     }
 
     fn cost(&self) -> Self::Cost {
-        self.cost
+        OrderedPairCost(self.cost, U32Cost::from_primitive(self.match_run))
     }
 
     fn a_star_lower_bound(&self) -> Self::Cost {
-        Cost::zero()
+        OrderedPairCost(Cost::zero(), U32Cost::zero())
     }
 
     fn secondary_maximisable_score(&self) -> usize {
@@ -193,7 +214,7 @@ impl<Cost: AStarCost> AStarNode for Node<Cost> {
 
 impl<Cost: Display> Display for Node<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.identifier, self.cost)
+        write!(f, "{}: {}, {}", self.identifier, self.cost, self.match_run)
     }
 }
 
@@ -217,6 +238,8 @@ impl<Cost: Ord> PartialOrd for Node<Cost> {
 
 impl<Cost: Ord> Ord for Node<Cost> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.cost.cmp(&other.cost)
+        self.cost
+            .cmp(&other.cost)
+            .then_with(|| self.match_run.cmp(&other.match_run))
     }
 }

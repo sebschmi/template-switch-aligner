@@ -23,8 +23,9 @@ impl<Cost: AStarCost> GapAffineAlignment<Cost> {
         end: AlignmentCoordinates,
         sequences: &AlignmentSequences,
         cost_table: &GapAffineCosts<Cost>,
+        max_match_run: u32,
     ) -> Self {
-        let context = Context::new(cost_table, sequences, start, end);
+        let context = Context::new(cost_table, sequences, start, end, max_match_run);
         let mut a_star = AStar::new(context);
         a_star.initialise();
         match a_star.search() {
@@ -32,7 +33,7 @@ impl<Cost: AStarCost> GapAffineAlignment<Cost> {
                 start,
                 end,
                 alignment: a_star.reconstruct_path().into(),
-                cost,
+                cost: cost.0,
             },
             AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
