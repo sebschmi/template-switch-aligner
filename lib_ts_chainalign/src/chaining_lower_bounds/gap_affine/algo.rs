@@ -69,10 +69,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
             cost,
             match_run,
         } = node;
-        let start = AlignmentCoordinates::new_primary(0, 0);
         let end = AlignmentCoordinates::new_primary(self.max_n, self.max_n);
 
-        if coordinates.can_increment_both(start, end) {
+        if coordinates.can_increment_both(end) {
             if *match_run < self.max_match_run {
                 // Match
                 let new_cost = *cost;
@@ -101,7 +100,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
             }));
         }
 
-        if coordinates.can_increment_a(start, end) {
+        if coordinates.can_increment_a(end) {
             // Gap in b
             let new_cost = *cost
                 + match gap_type {

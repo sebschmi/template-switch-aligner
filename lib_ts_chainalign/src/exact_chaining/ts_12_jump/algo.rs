@@ -14,9 +14,10 @@ use crate::{
     costs::AlignmentCosts,
 };
 
-pub struct Context<'costs, 'sequences, Cost> {
+pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
     costs: &'costs AlignmentCosts<Cost>,
     sequences: &'sequences AlignmentSequences,
+    rc_fn: &'rc_fn dyn Fn(u8) -> u8,
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
     max_match_run: u32,
@@ -46,10 +47,11 @@ pub enum Identifier {
     },
 }
 
-impl<'costs, 'sequences, Cost> Context<'costs, 'sequences, Cost> {
+impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost> {
     pub fn new(
         costs: &'costs AlignmentCosts<Cost>,
         sequences: &'sequences AlignmentSequences,
+        rc_fn: &'rc_fn dyn Fn(u8) -> u8,
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
         max_match_run: u32,
@@ -60,6 +62,7 @@ impl<'costs, 'sequences, Cost> Context<'costs, 'sequences, Cost> {
         Self {
             costs,
             sequences,
+            rc_fn,
             start,
             end,
             max_match_run,
@@ -67,7 +70,7 @@ impl<'costs, 'sequences, Cost> Context<'costs, 'sequences, Cost> {
     }
 }
 
-impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
+impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
     type Node = Node<Cost>;
 
     fn create_root(&self) -> Self::Node {
@@ -102,8 +105,8 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
         };
 
         // Generate gap-affine successors.
-        if coordinates.can_increment_both(self.start, self.end) {
-            let (ca, cb) = self.sequences.characters(coordinates);
+        if coordinates.can_increment_both(self.end) {
+            let (ca, cb) = self.sequences.characters(coordinates, self.rc_fn);
             let is_match = ca == cb;
 
             if is_match {
@@ -141,7 +144,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
             }
         }
 
-        if coordinates.can_increment_a(self.start, self.end) {
+        if coordinates.can_increment_a(self.end) {
             // Gap in b
             let new_cost = *cost
                 + match gap_type {
@@ -216,7 +219,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
     }
 }
 
-impl<Cost> Reset for Context<'_, '_, Cost> {
+impl<Cost> Reset for Context<'_, '_, '_, Cost> {
     fn reset(&mut self) {
         unimplemented!()
     }

@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::alignment::{TsAncestor, TsDescendant, TsKind};
+use crate::alignment::ts_kind::{TsAncestor, TsDescendant, TsKind};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum AlignmentCoordinates {
@@ -18,6 +18,14 @@ pub enum AlignmentCoordinates {
 impl AlignmentCoordinates {
     pub fn new_primary(a: usize, b: usize) -> Self {
         Self::Primary { a, b }
+    }
+
+    pub fn new_secondary(ancestor: usize, descendant: usize, ts_kind: TsKind) -> Self {
+        Self::Secondary {
+            ancestor,
+            descendant,
+            ts_kind,
+        }
     }
 
     pub fn primary_ordinate_a(&self) -> Option<usize> {
@@ -64,28 +72,24 @@ impl AlignmentCoordinates {
     }
 
     /// Checks if ordinate a can be incremented.
-    /// In secondary alignments, ordinate b is the ancestor.
+    /// In secondary alignments, ordinate a is the ancestor.
     ///
     /// If ordinate a and the boundary have the same TS kind (possibly `None`), then the check is performed normally.
     /// If the TS kinds differ, then there is a jump before the boundary, and ordinate a can always be incremented.
-    pub fn can_increment_a(&self, start: AlignmentCoordinates, end: AlignmentCoordinates) -> bool {
-        match self {
-            AlignmentCoordinates::Primary { a, .. } => {
-                if self.ts_kind() == end.ts_kind() {
+    pub fn can_increment_a(&self, end: AlignmentCoordinates) -> bool {
+        if self.ts_kind() == end.ts_kind() {
+            match self {
+                AlignmentCoordinates::Primary { a, .. } => {
                     // Incrementing primary ordinate a is always a plus operation, so we only need to check the upper bound.
                     (..end.primary_ordinate_a().unwrap()).contains(a)
-                } else {
-                    true
                 }
-            }
-            AlignmentCoordinates::Secondary { ancestor, .. } => {
-                if self.ts_kind() == start.ts_kind() {
+                AlignmentCoordinates::Secondary { ancestor, .. } => {
                     // Incrementing the secondary ancestor is always a minus operation, so we only need to check the lower bound.
-                    (start.secondary_ordinate_ancestor().unwrap()..).contains(ancestor)
-                } else {
-                    true
+                    (end.secondary_ordinate_ancestor().unwrap()..).contains(ancestor)
                 }
             }
+        } else {
+            true
         }
     }
 
@@ -110,12 +114,8 @@ impl AlignmentCoordinates {
         }
     }
 
-    pub fn can_increment_both(
-        &self,
-        start: AlignmentCoordinates,
-        end: AlignmentCoordinates,
-    ) -> bool {
-        self.can_increment_a(start, end) && self.can_increment_b(end)
+    pub fn can_increment_both(&self, end: AlignmentCoordinates) -> bool {
+        self.can_increment_a(end) && self.can_increment_b(end)
     }
 
     pub fn increment_a(&self) -> Self {

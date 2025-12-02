@@ -1,4 +1,7 @@
-use crate::alignment::{TsAncestor, TsDescendant, coordinates::AlignmentCoordinates};
+use crate::alignment::{
+    coordinates::AlignmentCoordinates,
+    ts_kind::{TsAncestor, TsDescendant},
+};
 
 pub struct AlignmentSequences {
     seq1: Vec<u8>,
@@ -10,7 +13,11 @@ impl AlignmentSequences {
         Self { seq1, seq2 }
     }
 
-    pub fn characters(&self, coordinates: AlignmentCoordinates) -> (u8, u8) {
+    pub fn characters(
+        &self,
+        coordinates: AlignmentCoordinates,
+        rc_fn: &dyn Fn(u8) -> u8,
+    ) -> (u8, u8) {
         match coordinates {
             AlignmentCoordinates::Primary { a, b } => (self.seq1[a], self.seq2[b]),
             AlignmentCoordinates::Secondary {
@@ -22,10 +29,10 @@ impl AlignmentSequences {
                     TsAncestor::Seq1 => self.seq1[ancestor],
                     TsAncestor::Seq2 => self.seq2[ancestor],
                 },
-                match ts_kind.descendant {
+                rc_fn(match ts_kind.descendant {
                     TsDescendant::Seq1 => self.seq1[descendant],
                     TsDescendant::Seq2 => self.seq2[descendant],
-                },
+                }),
             ),
         }
     }

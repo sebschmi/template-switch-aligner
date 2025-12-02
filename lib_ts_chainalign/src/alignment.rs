@@ -2,8 +2,11 @@
 
 use std::fmt::Display;
 
+use crate::alignment::ts_kind::TsKind;
+
 pub mod coordinates;
 pub mod sequences;
+pub mod ts_kind;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum AlignmentType {
@@ -13,24 +16,6 @@ pub enum AlignmentType {
     GapB,
     TsStart { jump: isize, ts_kind: TsKind },
     TsEnd,
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub enum TsAncestor {
-    Seq1,
-    Seq2,
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub enum TsDescendant {
-    Seq1,
-    Seq2,
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct TsKind {
-    ancestor: TsAncestor,
-    descendant: TsDescendant,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]

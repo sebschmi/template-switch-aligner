@@ -1,8 +1,19 @@
 use generic_a_star::cost::U32Cost;
 
 use crate::alignment::AlignmentType;
+use crate::alignment::ts_kind::TsKind;
 use crate::exact_chaining::gap_affine::{AlignmentCoordinates, GapAffineAlignment};
 use crate::{alignment::sequences::AlignmentSequences, costs::GapAffineCosts};
+
+fn rc_fn(c: u8) -> u8 {
+    match c {
+        b'A' => b'T',
+        b'C' => b'G',
+        b'G' => b'C',
+        b'T' => b'A',
+        c => unimplemented!("Unsupported character {c}"),
+    }
+}
 
 #[test]
 fn test_start_end() {
@@ -14,7 +25,7 @@ fn test_start_end() {
 
     let start = AlignmentCoordinates::new_primary(0, 0);
     let end = AlignmentCoordinates::new_primary(4, 5);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, u32::MAX);
+    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
 
     assert_eq!(alignment.start(), start);
     assert_eq!(alignment.end(), end);
@@ -35,7 +46,7 @@ fn test_partial_alignment() {
 
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(4, 4);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, u32::MAX);
+    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
 
     assert_eq!(alignment.start(), start);
     assert_eq!(alignment.end(), end);
@@ -60,7 +71,7 @@ fn test_gap_directions() {
 
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(11, 11);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, u32::MAX);
+    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
 
     assert_eq!(alignment.start(), start);
     assert_eq!(alignment.end(), end);
@@ -87,7 +98,7 @@ fn test_extremity_gaps() {
 
     let start = AlignmentCoordinates::new_primary(3, 3);
     let end = AlignmentCoordinates::new_primary(10, 10);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, u32::MAX);
+    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
 
     assert_eq!(alignment.start(), start);
     assert_eq!(alignment.end(), end);
@@ -112,7 +123,7 @@ fn test_extremity_substitutions() {
 
     let start = AlignmentCoordinates::new_primary(0, 0);
     let end = AlignmentCoordinates::new_primary(5, 5);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, u32::MAX);
+    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
 
     assert_eq!(alignment.start(), start);
     assert_eq!(alignment.end(), end);
@@ -137,7 +148,7 @@ fn test_substitutions_as_gaps() {
 
     let start = AlignmentCoordinates::new_primary(0, 0);
     let end = AlignmentCoordinates::new_primary(20, 20);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, u32::MAX);
+    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
 
     assert_eq!(alignment.start(), start);
     assert_eq!(alignment.end(), end);
@@ -160,7 +171,7 @@ fn test_max_match_run_0() {
 
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(9, 9);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, 0);
+    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, 0);
 
     assert_eq!(alignment.start(), start);
     assert_eq!(alignment.end(), end);
@@ -183,7 +194,7 @@ fn test_max_match_run_1() {
 
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(9, 9);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, 1);
+    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, 1);
 
     assert_eq!(alignment.start(), start);
     assert_eq!(alignment.end(), end);
@@ -213,7 +224,7 @@ fn test_max_match_run_2() {
 
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(9, 9);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, 2);
+    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, 2);
 
     assert_eq!(alignment.start(), start);
     assert_eq!(alignment.end(), end);
@@ -228,4 +239,46 @@ fn test_max_match_run_2() {
         ]
     );
     assert_eq!(alignment.cost(), U32Cost::from(6u8));
+}
+
+#[test]
+fn test_secondary_12() {
+    let seq1 = b"AAAAAAAAAA".to_vec();
+    let seq2 = b"TTTTTTTTTT".to_vec();
+    let sequences = AlignmentSequences::new(seq1, seq2);
+    let cost_table =
+        GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
+
+    let start = AlignmentCoordinates::new_secondary(9, 1, TsKind::TS12);
+    let end = AlignmentCoordinates::new_secondary(1, 9, TsKind::TS12);
+    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
+
+    assert_eq!(alignment.start(), start);
+    assert_eq!(alignment.end(), end);
+    assert_eq!(
+        alignment.alignment().alignment,
+        vec![(8, AlignmentType::Match),]
+    );
+    assert_eq!(alignment.cost(), U32Cost::from(0u8));
+}
+
+#[test]
+fn test_secondary_21() {
+    let seq1 = b"AAAAAAAAAA".to_vec();
+    let seq2 = b"TTTTTTTTTT".to_vec();
+    let sequences = AlignmentSequences::new(seq1, seq2);
+    let cost_table =
+        GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
+
+    let start = AlignmentCoordinates::new_secondary(9, 1, TsKind::TS21);
+    let end = AlignmentCoordinates::new_secondary(1, 9, TsKind::TS21);
+    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
+
+    assert_eq!(alignment.start(), start);
+    assert_eq!(alignment.end(), end);
+    assert_eq!(
+        alignment.alignment().alignment,
+        vec![(8, AlignmentType::Match),]
+    );
+    assert_eq!(alignment.cost(), U32Cost::from(0u8));
 }

@@ -23,13 +23,14 @@ impl<Cost: AStarCost> GapAffineAlignment<Cost> {
         end: AlignmentCoordinates,
         sequences: &AlignmentSequences,
         cost_table: &GapAffineCosts<Cost>,
+        rc_fn: &dyn Fn(u8) -> u8,
         max_match_run: u32,
     ) -> Self {
         assert!(
             start.is_primary() && end.is_primary() || start.is_secondary() && end.is_secondary()
         );
 
-        let context = Context::new(cost_table, sequences, start, end, max_match_run);
+        let context = Context::new(cost_table, sequences, rc_fn, start, end, max_match_run);
         let mut a_star = AStar::new(context);
         a_star.initialise();
         match a_star.search() {
