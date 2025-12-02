@@ -2,32 +2,31 @@ use generic_a_star::{AStar, AStarResult, cost::AStarCost};
 
 use crate::{
     alignment::{Alignment, coordinates::AlignmentCoordinates, sequences::AlignmentSequences},
-    costs::GapAffineCosts,
-    exact_chaining::gap_affine::algo::Context,
+    costs::AlignmentCosts,
+    exact_chaining::ts_12_jump::algo::Context,
 };
 
 mod algo;
 #[cfg(test)]
 mod tests;
 
-pub struct GapAffineAlignment<Cost> {
+pub struct Ts12JumpAlignment<Cost> {
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
     alignment: Alignment,
     cost: Cost,
 }
 
-impl<Cost: AStarCost> GapAffineAlignment<Cost> {
+impl<Cost: AStarCost> Ts12JumpAlignment<Cost> {
     pub fn new(
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
         sequences: &AlignmentSequences,
-        cost_table: &GapAffineCosts<Cost>,
+        cost_table: &AlignmentCosts<Cost>,
         max_match_run: u32,
     ) -> Self {
-        assert!(
-            start.is_primary() && end.is_primary() || start.is_secondary() && end.is_secondary()
-        );
+        assert!(start.is_primary());
+        assert!(end.is_secondary());
 
         let context = Context::new(cost_table, sequences, start, end, max_match_run);
         let mut a_star = AStar::new(context);
@@ -42,13 +41,13 @@ impl<Cost: AStarCost> GapAffineAlignment<Cost> {
             AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::NoTarget => {
-                panic!("No gap-affine alignment found between the given coordinates")
+                panic!("No TS 12-jump alignment found between the given coordinates")
             }
         }
     }
 }
 
-impl<Cost> GapAffineAlignment<Cost> {
+impl<Cost> Ts12JumpAlignment<Cost> {
     pub fn start(&self) -> AlignmentCoordinates {
         self.start
     }
@@ -62,7 +61,7 @@ impl<Cost> GapAffineAlignment<Cost> {
     }
 }
 
-impl<Cost: Copy> GapAffineAlignment<Cost> {
+impl<Cost: Copy> Ts12JumpAlignment<Cost> {
     pub fn cost(&self) -> Cost {
         self.cost
     }

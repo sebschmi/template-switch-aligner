@@ -39,8 +39,8 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         a_star.search_until(|_, node| {
             if node.identifier.has_non_match || allow_all_match_run {
                 let lower_bound = &mut lower_bounds[[
-                    node.identifier.coordinates.seq1().ordinate(),
-                    node.identifier.coordinates.seq2().ordinate(),
+                    node.identifier.coordinates.primary_ordinate_a().unwrap(),
+                    node.identifier.coordinates.primary_ordinate_b().unwrap(),
                 ]];
                 *lower_bound = (*lower_bound).min(node.cost().0);
             }

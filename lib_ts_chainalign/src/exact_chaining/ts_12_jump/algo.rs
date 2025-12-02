@@ -11,11 +11,11 @@ use crate::{
     alignment::{
         AlignmentType, GapType, coordinates::AlignmentCoordinates, sequences::AlignmentSequences,
     },
-    costs::GapAffineCosts,
+    costs::AlignmentCosts,
 };
 
 pub struct Context<'costs, 'sequences, Cost> {
-    costs: &'costs GapAffineCosts<Cost>,
+    costs: &'costs AlignmentCosts<Cost>,
     sequences: &'sequences AlignmentSequences,
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
@@ -32,14 +32,24 @@ pub struct Node<Cost> {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct Identifier {
-    pub coordinates: AlignmentCoordinates,
-    gap_type: GapType,
+pub enum Identifier {
+    Primary {
+        coordinates: AlignmentCoordinates,
+        gap_type: GapType,
+    },
+    Jump12 {
+        coordinates: AlignmentCoordinates,
+        jump: isize,
+    },
+    Secondary {
+        coordinates: AlignmentCoordinates,
+        gap_type: GapType,
+    },
 }
 
 impl<'costs, 'sequences, Cost> Context<'costs, 'sequences, Cost> {
     pub fn new(
-        costs: &'costs GapAffineCosts<Cost>,
+        costs: &'costs AlignmentCosts<Cost>,
         sequences: &'sequences AlignmentSequences,
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
@@ -60,7 +70,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
 
     fn create_root(&self) -> Self::Node {
         Node {
-            identifier: Identifier {
+            identifier: Identifier::Primary {
                 coordinates: self.start,
                 gap_type: GapType::None,
             },
@@ -79,11 +89,17 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
             ..
         } = node;
         let predecessor = Some(*identifier);
-        let Identifier {
-            coordinates,
-            gap_type,
-        } = *identifier;
 
+        let coordinates = identifier.coordinates();
+        let gap_type = identifier.gap_type();
+        let is_primary = matches!(identifier, Identifier::Primary { .. });
+        let gap_affine_costs = if is_primary {
+            &self.costs.primary_costs
+        } else {
+            &self.costs.secondary_costs
+        };
+
+        // Generate gap-affine successors.
         if coordinates.can_increment_both(self.start, self.end) {
             let (ca, cb) = self.sequences.characters(coordinates);
             let is_match = ca == cb;
@@ -95,10 +111,11 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                     // Match
                     let new_cost = *cost;
                     output.extend(std::iter::once(Node {
-                        identifier: Identifier {
-                            coordinates: coordinates.increment_both(),
-                            gap_type: GapType::None,
-                        },
+                        identifier: Identifier::new_primary_secondary(
+                            is_primary,
+                            coordinates.increment_both(),
+                            GapType::None,
+                        ),
                         predecessor,
                         predecessor_alignment_type: Some(AlignmentType::Match),
                         cost: new_cost,
@@ -107,12 +124,13 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                 }
             } else {
                 // Substitution
-                let new_cost = *cost + self.costs.substitution;
+                let new_cost = *cost + gap_affine_costs.substitution;
                 output.extend(std::iter::once(Node {
-                    identifier: Identifier {
-                        coordinates: coordinates.increment_both(),
-                        gap_type: GapType::None,
-                    },
+                    identifier: Identifier::new_primary_secondary(
+                        is_primary,
+                        coordinates.increment_both(),
+                        GapType::None,
+                    ),
                     predecessor,
                     predecessor_alignment_type: Some(AlignmentType::Substitution),
                     cost: new_cost,
@@ -125,14 +143,15 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
             // Gap in b
             let new_cost = *cost
                 + match gap_type {
-                    GapType::InB => self.costs.gap_extend,
-                    _ => self.costs.gap_open,
+                    GapType::InB => gap_affine_costs.gap_extend,
+                    _ => gap_affine_costs.gap_open,
                 };
             output.extend(std::iter::once(Node {
-                identifier: Identifier {
-                    coordinates: coordinates.increment_a(),
-                    gap_type: GapType::InB,
-                },
+                identifier: Identifier::new_primary_secondary(
+                    is_primary,
+                    coordinates.increment_a(),
+                    GapType::InB,
+                ),
                 predecessor,
                 predecessor_alignment_type: Some(AlignmentType::Gap2),
                 cost: new_cost,
@@ -144,24 +163,30 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
             // Gap in a
             let new_cost = *cost
                 + match gap_type {
-                    GapType::InA => self.costs.gap_extend,
-                    _ => self.costs.gap_open,
+                    GapType::InA => gap_affine_costs.gap_extend,
+                    _ => gap_affine_costs.gap_open,
                 };
             output.extend(std::iter::once(Node {
-                identifier: Identifier {
-                    coordinates: coordinates.increment_b(),
-                    gap_type: GapType::InA,
-                },
+                identifier: Identifier::new_primary_secondary(
+                    is_primary,
+                    coordinates.increment_b(),
+                    GapType::InA,
+                ),
                 predecessor,
                 predecessor_alignment_type: Some(AlignmentType::Gap1),
                 cost: new_cost,
                 match_run: 0,
             }));
         }
+
+        // Generate jump successors.
+        if is_primary {
+            //let coordinates = coordinates.jump_12(self.end.ts_kind());
+        }
     }
 
     fn is_target(&self, node: &Self::Node) -> bool {
-        node.identifier.coordinates == self.end
+        node.identifier.coordinates() == self.end
     }
 
     fn cost_limit(&self) -> Option<<Self::Node as generic_a_star::AStarNode>::Cost> {
@@ -212,6 +237,42 @@ impl<Cost: AStarCost> AStarNode for Node<Cost> {
     }
 }
 
+impl Identifier {
+    pub fn new_primary_secondary(
+        is_primary: bool,
+        coordinates: AlignmentCoordinates,
+        gap_type: GapType,
+    ) -> Self {
+        if is_primary {
+            Identifier::Primary {
+                coordinates,
+                gap_type,
+            }
+        } else {
+            Identifier::Secondary {
+                coordinates,
+                gap_type,
+            }
+        }
+    }
+
+    pub fn coordinates(&self) -> AlignmentCoordinates {
+        match self {
+            Identifier::Primary { coordinates, .. } => *coordinates,
+            Identifier::Jump12 { coordinates, .. } => *coordinates,
+            Identifier::Secondary { coordinates, .. } => *coordinates,
+        }
+    }
+
+    pub fn gap_type(&self) -> GapType {
+        match self {
+            Identifier::Primary { gap_type, .. } => *gap_type,
+            Identifier::Jump12 { .. } => GapType::None,
+            Identifier::Secondary { gap_type, .. } => *gap_type,
+        }
+    }
+}
+
 impl<Cost: Display> Display for Node<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: {}, {}", self.identifier, self.cost, self.match_run)
@@ -220,7 +281,17 @@ impl<Cost: Display> Display for Node<Cost> {
 
 impl Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}, {})", self.coordinates, self.gap_type)
+        write!(
+            f,
+            "{}({}, {})",
+            match self {
+                Identifier::Primary { .. } => "P".to_string(),
+                Identifier::Jump12 { jump, .. } => format!("J12[{jump}]"),
+                Identifier::Secondary { .. } => "S".to_string(),
+            },
+            self.coordinates(),
+            self.gap_type(),
+        )
     }
 }
 

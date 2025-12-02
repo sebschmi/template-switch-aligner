@@ -49,7 +49,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
     fn create_root(&self) -> Self::Node {
         Node {
             identifier: Identifier {
-                coordinates: AlignmentCoordinates::new_forwards(0, 0),
+                coordinates: AlignmentCoordinates::new_primary(0, 0),
                 has_non_match: false,
                 gap_type: GapType::None,
             },
@@ -69,10 +69,10 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
             cost,
             match_run,
         } = node;
+        let start = AlignmentCoordinates::new_primary(0, 0);
+        let end = AlignmentCoordinates::new_primary(self.max_n, self.max_n);
 
-        if coordinates.seq1().can_increment(0..self.max_n)
-            && coordinates.seq2().can_increment(0..self.max_n)
-        {
+        if coordinates.can_increment_both(start, end) {
             if *match_run < self.max_match_run {
                 // Match
                 let new_cost = *cost;
@@ -101,36 +101,36 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
             }));
         }
 
-        if coordinates.seq1().can_increment(0..self.max_n) {
-            // Gap in 2
+        if coordinates.can_increment_a(start, end) {
+            // Gap in b
             let new_cost = *cost
                 + match gap_type {
-                    GapType::In2 => self.costs.gap_extend,
+                    GapType::InB => self.costs.gap_extend,
                     _ => self.costs.gap_open,
                 };
             output.extend(std::iter::once(Node {
                 identifier: Identifier {
-                    coordinates: coordinates.increment_1(),
+                    coordinates: coordinates.increment_a(),
                     has_non_match: true,
-                    gap_type: GapType::In2,
+                    gap_type: GapType::InB,
                 },
                 cost: new_cost,
                 match_run: 0,
             }));
         }
 
-        if coordinates.seq2().can_increment(0..self.max_n) {
-            // Gap in 1
+        if coordinates.can_increment_b(start, end) {
+            // Gap in a
             let new_cost = *cost
                 + match gap_type {
-                    GapType::In1 => self.costs.gap_extend,
+                    GapType::InA => self.costs.gap_extend,
                     _ => self.costs.gap_open,
                 };
             output.extend(std::iter::once(Node {
                 identifier: Identifier {
-                    coordinates: coordinates.increment_2(),
+                    coordinates: coordinates.increment_b(),
                     has_non_match: true,
-                    gap_type: GapType::In1,
+                    gap_type: GapType::InA,
                 },
                 cost: new_cost,
                 match_run: 0,
@@ -204,8 +204,8 @@ impl Display for Identifier {
         write!(
             f,
             "({}, {}, {}, {})",
-            self.coordinates.seq1(),
-            self.coordinates.seq2(),
+            self.coordinates.primary_ordinate_a().unwrap(),
+            self.coordinates.primary_ordinate_b().unwrap(),
             self.gap_type,
             self.has_non_match
         )

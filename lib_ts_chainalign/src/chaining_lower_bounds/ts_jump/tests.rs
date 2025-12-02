@@ -23,6 +23,7 @@ fn test_max_match_run_0() {
             jump_12: -100..100,
             jump_34: -100..100,
             length_23: 0..200,
+            ancestor_gap: -100..100,
         },
     };
 
@@ -67,6 +68,7 @@ fn test_max_match_run_1() {
             jump_12: -100..100,
             jump_34: -100..100,
             length_23: 0..200,
+            ancestor_gap: -100..100,
         },
     };
 
@@ -111,6 +113,7 @@ fn test_max_match_run_2() {
             jump_12: -100..100,
             jump_34: -100..100,
             length_23: 0..200,
+            ancestor_gap: -100..100,
         },
     };
 

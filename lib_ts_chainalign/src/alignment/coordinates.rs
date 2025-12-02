@@ -1,41 +1,98 @@
-use std::{fmt::Display, ops::Range};
+use std::fmt::Display;
+
+use crate::alignment::TsKind;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct AlignmentCoordinates {
-    seq1: SequenceOrdinate,
-    seq2: SequenceOrdinate,
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct SequenceOrdinate {
-    ordinate: usize,
-    rc: bool,
+pub enum AlignmentCoordinates {
+    Primary {
+        a: usize,
+        b: usize,
+    },
+    Secondary {
+        ancestor: usize,
+        descendant: usize,
+        ts_kind: TsKind,
+    },
 }
 
 impl AlignmentCoordinates {
-    pub fn new_forwards(seq1: usize, seq2: usize) -> Self {
-        Self {
-            seq1: SequenceOrdinate::new(seq1, false),
-            seq2: SequenceOrdinate::new(seq2, false),
+    pub fn new_primary(a: usize, b: usize) -> Self {
+        Self::Primary { a, b }
+    }
+
+    pub fn primary_ordinate_a(&self) -> Option<usize> {
+        match self {
+            AlignmentCoordinates::Primary { a, .. } => Some(*a),
+            AlignmentCoordinates::Secondary { .. } => None,
         }
     }
 
-    pub fn seq1(&self) -> SequenceOrdinate {
-        self.seq1
+    pub fn primary_ordinate_b(&self) -> Option<usize> {
+        match self {
+            AlignmentCoordinates::Primary { b, .. } => Some(*b),
+            AlignmentCoordinates::Secondary { .. } => None,
+        }
     }
 
-    pub fn seq2(&self) -> SequenceOrdinate {
-        self.seq2
+    pub fn secondary_ordinate_ancestor(&self) -> Option<usize> {
+        match self {
+            AlignmentCoordinates::Secondary { ancestor, .. } => Some(*ancestor),
+            AlignmentCoordinates::Primary { .. } => None,
+        }
     }
 
-    pub fn can_increment_1(&self, start: AlignmentCoordinates, end: AlignmentCoordinates) -> bool {
-        self.seq1()
-            .can_increment(start.seq1().ordinate()..end.seq1().ordinate())
+    pub fn secondary_ordinate_descendant(&self) -> Option<usize> {
+        match self {
+            AlignmentCoordinates::Secondary { descendant, .. } => Some(*descendant),
+            AlignmentCoordinates::Primary { .. } => None,
+        }
     }
 
-    pub fn can_increment_2(&self, start: AlignmentCoordinates, end: AlignmentCoordinates) -> bool {
-        self.seq2()
-            .can_increment(start.seq2().ordinate()..end.seq2().ordinate())
+    pub fn ts_kind(&self) -> Option<TsKind> {
+        match self {
+            AlignmentCoordinates::Secondary { ts_kind, .. } => Some(*ts_kind),
+            AlignmentCoordinates::Primary { .. } => None,
+        }
+    }
+
+    pub fn is_primary(&self) -> bool {
+        matches!(self, AlignmentCoordinates::Primary { .. })
+    }
+
+    pub fn is_secondary(&self) -> bool {
+        matches!(self, AlignmentCoordinates::Secondary { .. })
+    }
+
+    pub fn can_increment_a(&self, start: AlignmentCoordinates, end: AlignmentCoordinates) -> bool {
+        assert_eq!(self.ts_kind(), start.ts_kind());
+        assert_eq!(self.ts_kind(), end.ts_kind());
+
+        match self {
+            AlignmentCoordinates::Primary { a, .. } => {
+                (start.primary_ordinate_a().unwrap()..end.primary_ordinate_a().unwrap()).contains(a)
+            }
+            AlignmentCoordinates::Secondary { ancestor, .. } => {
+                (start.secondary_ordinate_ancestor().unwrap()
+                    ..end.secondary_ordinate_ancestor().unwrap())
+                    .contains(ancestor)
+            }
+        }
+    }
+
+    pub fn can_increment_b(&self, start: AlignmentCoordinates, end: AlignmentCoordinates) -> bool {
+        assert_eq!(self.ts_kind(), start.ts_kind());
+        assert_eq!(self.ts_kind(), end.ts_kind());
+
+        match self {
+            AlignmentCoordinates::Primary { b, .. } => {
+                (start.primary_ordinate_b().unwrap()..end.primary_ordinate_b().unwrap()).contains(b)
+            }
+            AlignmentCoordinates::Secondary { descendant, .. } => {
+                (start.secondary_ordinate_descendant().unwrap()
+                    ..end.secondary_ordinate_descendant().unwrap())
+                    .contains(descendant)
+            }
+        }
     }
 
     pub fn can_increment_both(
@@ -43,65 +100,57 @@ impl AlignmentCoordinates {
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
     ) -> bool {
-        self.can_increment_1(start, end) && self.can_increment_2(start, end)
+        self.can_increment_a(start, end) && self.can_increment_b(start, end)
     }
 
-    pub fn increment_1(&self) -> Self {
-        Self {
-            seq1: SequenceOrdinate::new(
-                if self.seq1.is_rc() {
-                    self.seq1.ordinate().wrapping_sub(1)
-                } else {
-                    self.seq1.ordinate() + 1
-                },
-                self.seq1.is_rc(),
-            ),
-            seq2: self.seq2,
+    pub fn increment_a(&self) -> Self {
+        match self {
+            AlignmentCoordinates::Primary { a, b } => {
+                AlignmentCoordinates::Primary { a: a + 1, b: *b }
+            }
+            AlignmentCoordinates::Secondary {
+                ancestor,
+                descendant,
+                ts_kind,
+            } => AlignmentCoordinates::Secondary {
+                ancestor: ancestor - 1,
+                descendant: *descendant,
+                ts_kind: *ts_kind,
+            },
         }
     }
 
-    pub fn increment_2(&self) -> Self {
-        Self {
-            seq1: self.seq1,
-            seq2: SequenceOrdinate::new(
-                if self.seq2.is_rc() {
-                    self.seq2.ordinate().wrapping_sub(1)
-                } else {
-                    self.seq2.ordinate() + 1
-                },
-                self.seq2.is_rc(),
-            ),
+    pub fn increment_b(&self) -> Self {
+        match self {
+            AlignmentCoordinates::Primary { a, b } => {
+                AlignmentCoordinates::Primary { a: *a, b: b + 1 }
+            }
+            AlignmentCoordinates::Secondary {
+                ancestor,
+                descendant,
+                ts_kind,
+            } => AlignmentCoordinates::Secondary {
+                ancestor: *ancestor,
+                descendant: descendant + 1,
+                ts_kind: *ts_kind,
+            },
         }
     }
 
     pub fn increment_both(&self) -> Self {
-        self.increment_1().increment_2()
+        self.increment_a().increment_b()
     }
 }
 
-impl SequenceOrdinate {
-    pub fn new(ordinate: usize, rc: bool) -> Self {
-        Self { ordinate, rc }
-    }
-
-    /// Returns the sequence index of this ordinate.
-    ///
-    /// If the index runs over the end of the sequence, it may roll around to `usize::MAX` in reverse complements.
-    pub fn ordinate(&self) -> usize {
-        self.ordinate
-    }
-
-    pub fn is_rc(&self) -> bool {
-        self.rc
-    }
-
-    pub fn can_increment(&self, range: Range<usize>) -> bool {
-        range.contains(&self.ordinate)
-    }
-}
-
-impl Display for SequenceOrdinate {
+impl Display for AlignmentCoordinates {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}", self.ordinate, if self.rc { "rc" } else { "" })
+        match self {
+            AlignmentCoordinates::Primary { a, b } => write!(f, "({}, {})", a, b),
+            AlignmentCoordinates::Secondary {
+                ancestor,
+                descendant,
+                ts_kind,
+            } => write!(f, "({}, {}, {:?})", ancestor, descendant, ts_kind),
+        }
     }
 }

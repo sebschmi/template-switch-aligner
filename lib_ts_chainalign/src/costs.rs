@@ -10,6 +10,7 @@ pub struct TsLimits {
     pub jump_12: Range<isize>,
     pub jump_34: Range<isize>,
     pub length_23: Range<usize>,
+    pub ancestor_gap: Range<isize>,
 }
 
 pub struct AlignmentCosts<Cost> {

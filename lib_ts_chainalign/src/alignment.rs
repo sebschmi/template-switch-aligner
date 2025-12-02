@@ -11,17 +11,38 @@ pub enum AlignmentType {
     Substitution,
     Gap1,
     Gap2,
-    TsStart,
+    TsStart {
+        ancestor: TsAncestor,
+        descendant: TsDescendant,
+    },
     TsEnd,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub enum TsAncestor {
+    Seq1,
+    Seq2,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub enum TsDescendant {
+    Seq1,
+    Seq2,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub struct TsKind {
+    ancestor: TsAncestor,
+    descendant: TsDescendant,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum GapType {
     None,
     /// A gap in sequence 1, meaning that sequence 2 has characters that are missing from sequence 1.
-    In1,
+    InA,
     /// A gap in sequence 2, meaning that sequence 1 has characters that are missing from sequence 2.
-    In2,
+    InB,
 }
 
 pub struct Alignment {
@@ -32,8 +53,8 @@ impl Display for GapType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             GapType::None => write!(f, "M/S"),
-            GapType::In1 => write!(f, "GA"),
-            GapType::In2 => write!(f, "GB"),
+            GapType::InA => write!(f, "GA"),
+            GapType::InB => write!(f, "GB"),
         }
     }
 }
