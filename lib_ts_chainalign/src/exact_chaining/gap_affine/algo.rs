@@ -134,13 +134,13 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                     gap_type: GapType::InB,
                 },
                 predecessor,
-                predecessor_alignment_type: Some(AlignmentType::Gap2),
+                predecessor_alignment_type: Some(AlignmentType::GapB),
                 cost: new_cost,
                 match_run: 0,
             }));
         }
 
-        if coordinates.can_increment_b(self.start, self.end) {
+        if coordinates.can_increment_b(self.end) {
             // Gap in a
             let new_cost = *cost
                 + match gap_type {
@@ -153,7 +153,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                     gap_type: GapType::InA,
                 },
                 predecessor,
-                predecessor_alignment_type: Some(AlignmentType::Gap1),
+                predecessor_alignment_type: Some(AlignmentType::GapA),
                 cost: new_cost,
                 match_run: 0,
             }));

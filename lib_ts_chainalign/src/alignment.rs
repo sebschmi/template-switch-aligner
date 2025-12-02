@@ -9,12 +9,9 @@ pub mod sequences;
 pub enum AlignmentType {
     Match,
     Substitution,
-    Gap1,
-    Gap2,
-    TsStart {
-        ancestor: TsAncestor,
-        descendant: TsDescendant,
-    },
+    GapA,
+    GapB,
+    TsStart { jump: isize, ts_kind: TsKind },
     TsEnd,
 }
 

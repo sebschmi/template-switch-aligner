@@ -29,4 +29,12 @@ impl AlignmentSequences {
             ),
         }
     }
+
+    pub fn start(&self) -> AlignmentCoordinates {
+        AlignmentCoordinates::new_primary(0, 0)
+    }
+
+    pub fn end(&self) -> AlignmentCoordinates {
+        AlignmentCoordinates::new_primary(self.seq1.len(), self.seq2.len())
+    }
 }

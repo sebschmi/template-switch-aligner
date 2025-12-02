@@ -20,7 +20,7 @@ fn test_start_end() {
     assert_eq!(alignment.end(), end);
     assert_eq!(
         alignment.alignment().alignment,
-        vec![(4, AlignmentType::Match), (1, AlignmentType::Gap1)]
+        vec![(4, AlignmentType::Match), (1, AlignmentType::GapA)]
     );
     assert_eq!(alignment.cost(), U32Cost::from(3u8));
 }
@@ -68,9 +68,9 @@ fn test_gap_directions() {
         alignment.alignment().alignment,
         vec![
             (2, AlignmentType::Match),
-            (2, AlignmentType::Gap2),
+            (2, AlignmentType::GapB),
             (5, AlignmentType::Match),
-            (2, AlignmentType::Gap1),
+            (2, AlignmentType::GapA),
             (1, AlignmentType::Match)
         ]
     );
@@ -94,9 +94,9 @@ fn test_extremity_gaps() {
     assert_eq!(
         alignment.alignment().alignment,
         vec![
-            (2, AlignmentType::Gap2),
+            (2, AlignmentType::GapB),
             (5, AlignmentType::Match),
-            (2, AlignmentType::Gap1),
+            (2, AlignmentType::GapA),
         ]
     );
     assert_eq!(alignment.cost(), U32Cost::from(8u8));
@@ -143,9 +143,9 @@ fn test_substitutions_as_gaps() {
     assert_eq!(alignment.end(), end);
     assert!(
         alignment.alignment().alignment
-            == vec![(20, AlignmentType::Gap1), (20, AlignmentType::Gap2),]
+            == vec![(20, AlignmentType::GapA), (20, AlignmentType::GapB),]
             || alignment.alignment().alignment
-                == vec![(20, AlignmentType::Gap2), (20, AlignmentType::Gap1),]
+                == vec![(20, AlignmentType::GapB), (20, AlignmentType::GapA),]
     );
     assert_eq!(alignment.cost(), U32Cost::from(44u8));
 }
@@ -166,9 +166,9 @@ fn test_max_match_run_0() {
     assert_eq!(alignment.end(), end);
     assert!(
         alignment.alignment().alignment
-            == vec![(8, AlignmentType::Gap1), (8, AlignmentType::Gap2),]
+            == vec![(8, AlignmentType::GapA), (8, AlignmentType::GapB),]
             || alignment.alignment().alignment
-                == vec![(8, AlignmentType::Gap2), (8, AlignmentType::Gap1),]
+                == vec![(8, AlignmentType::GapB), (8, AlignmentType::GapA),]
     );
     assert_eq!(alignment.cost(), U32Cost::from(20u8));
 }
@@ -193,11 +193,11 @@ fn test_max_match_run_1() {
             (1, AlignmentType::Match),
             (1, AlignmentType::Substitution),
             (1, AlignmentType::Match),
-            (1, AlignmentType::Gap2),
+            (1, AlignmentType::GapB),
             (1, AlignmentType::Match),
             (2, AlignmentType::Substitution),
             (1, AlignmentType::Match),
-            (1, AlignmentType::Gap1),
+            (1, AlignmentType::GapA),
         ]
     );
     assert_eq!(alignment.cost(), U32Cost::from(12u8));

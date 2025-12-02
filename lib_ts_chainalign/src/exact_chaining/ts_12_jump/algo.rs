@@ -39,7 +39,6 @@ pub enum Identifier {
     },
     Jump12 {
         coordinates: AlignmentCoordinates,
-        jump: isize,
     },
     Secondary {
         coordinates: AlignmentCoordinates,
@@ -55,6 +54,9 @@ impl<'costs, 'sequences, Cost> Context<'costs, 'sequences, Cost> {
         end: AlignmentCoordinates,
         max_match_run: u32,
     ) -> Self {
+        assert!(start.ts_kind().is_none());
+        assert!(end.ts_kind().is_some());
+
         Self {
             costs,
             sequences,
@@ -153,13 +155,13 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                     GapType::InB,
                 ),
                 predecessor,
-                predecessor_alignment_type: Some(AlignmentType::Gap2),
+                predecessor_alignment_type: Some(AlignmentType::GapB),
                 cost: new_cost,
                 match_run: 0,
             }));
         }
 
-        if coordinates.can_increment_b(self.start, self.end) {
+        if coordinates.can_increment_b(self.end) {
             // Gap in a
             let new_cost = *cost
                 + match gap_type {
@@ -173,7 +175,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                     GapType::InA,
                 ),
                 predecessor,
-                predecessor_alignment_type: Some(AlignmentType::Gap1),
+                predecessor_alignment_type: Some(AlignmentType::GapA),
                 cost: new_cost,
                 match_run: 0,
             }));
@@ -181,7 +183,23 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
 
         // Generate jump successors.
         if is_primary {
-            //let coordinates = coordinates.jump_12(self.end.ts_kind());
+            let new_cost = *cost + self.costs.ts_base_cost;
+
+            // This generates too many jumps, most of these are gonna be much too far.
+            output.extend(
+                coordinates
+                    .generate_12_jumps(self.end, self.sequences.end())
+                    .map(|(jump, coordinates)| Node {
+                        identifier: Identifier::Jump12 { coordinates },
+                        predecessor,
+                        predecessor_alignment_type: Some(AlignmentType::TsStart {
+                            jump,
+                            ts_kind: coordinates.ts_kind().unwrap(),
+                        }),
+                        cost: new_cost,
+                        match_run: 0,
+                    }),
+            );
         }
     }
 
@@ -286,7 +304,7 @@ impl Display for Identifier {
             "{}({}, {})",
             match self {
                 Identifier::Primary { .. } => "P".to_string(),
-                Identifier::Jump12 { jump, .. } => format!("J12[{jump}]"),
+                Identifier::Jump12 { .. } => "J".to_string(),
                 Identifier::Secondary { .. } => "S".to_string(),
             },
             self.coordinates(),

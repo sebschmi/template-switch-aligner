@@ -119,7 +119,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, Cost> {
             }));
         }
 
-        if coordinates.can_increment_b(start, end) {
+        if coordinates.can_increment_b(end) {
             // Gap in a
             let new_cost = *cost
                 + match gap_type {
