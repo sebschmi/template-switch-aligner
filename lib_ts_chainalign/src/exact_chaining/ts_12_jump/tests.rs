@@ -19,10 +19,9 @@ fn rc_fn(c: u8) -> u8 {
     }
 }
 
-#[ignore]
 #[test]
 fn test_start_end() {
-    let seq1 = b"AAGT".to_vec();
+    let seq1 = b"AAGG".to_vec();
     let seq2 = b"ACGTT".to_vec();
     let sequences = AlignmentSequences::new(seq1, seq2);
     let cost_table = AlignmentCosts {
@@ -46,7 +45,7 @@ fn test_start_end() {
     };
 
     let start = AlignmentCoordinates::new_primary(0, 0);
-    let end = AlignmentCoordinates::new_secondary(4, 0, TsKind::TS21);
+    let end = AlignmentCoordinates::new_secondary(0, 5, TsKind::TS12);
     let alignment = Ts12JumpAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
 
     assert_eq!(alignment.start(), start);
@@ -61,7 +60,7 @@ fn test_start_end() {
                 1,
                 AlignmentType::TsStart {
                     jump: -1,
-                    ts_kind: TsKind::TS21
+                    ts_kind: TsKind::TS12
                 }
             ),
             (2, AlignmentType::Match),

@@ -104,8 +104,10 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             &self.costs.secondary_costs
         };
 
+        println!("generate_successors of {node}");
+
         // Generate gap-affine successors.
-        if coordinates.can_increment_both(self.end) {
+        if coordinates.can_increment_both(self.end, Some(self.sequences)) {
             let (ca, cb) = self.sequences.characters(coordinates, self.rc_fn);
             let is_match = ca == cb;
 
@@ -144,7 +146,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             }
         }
 
-        if coordinates.can_increment_a(self.end) {
+        if coordinates.can_increment_a(self.end, Some(self.sequences)) {
             // Gap in b
             let new_cost = *cost
                 + match gap_type {
@@ -164,7 +166,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             }));
         }
 
-        if coordinates.can_increment_b(self.end) {
+        if coordinates.can_increment_b(self.end, Some(self.sequences)) {
             // Gap in a
             let new_cost = *cost
                 + match gap_type {
@@ -296,7 +298,18 @@ impl Identifier {
 
 impl<Cost: Display> Display for Node<Cost> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}, {}", self.identifier, self.cost, self.match_run)
+        write!(
+            f,
+            "{}{}: {}, {}",
+            self.identifier,
+            if let Some(predecessor) = &self.predecessor {
+                format!("<-{predecessor}")
+            } else {
+                "".to_string()
+            },
+            self.cost,
+            self.match_run
+        )
     }
 }
 

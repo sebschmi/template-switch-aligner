@@ -26,8 +26,8 @@ impl AlignmentSequences {
                 ts_kind,
             } => (
                 match ts_kind.ancestor {
-                    TsAncestor::Seq1 => self.seq1[ancestor],
-                    TsAncestor::Seq2 => self.seq2[ancestor],
+                    TsAncestor::Seq1 => self.seq1[ancestor - 1],
+                    TsAncestor::Seq2 => self.seq2[ancestor - 1],
                 },
                 rc_fn(match ts_kind.descendant {
                     TsDescendant::Seq1 => self.seq1[descendant],

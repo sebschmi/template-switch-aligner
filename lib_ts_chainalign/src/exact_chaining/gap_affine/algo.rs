@@ -87,7 +87,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             gap_type,
         } = *identifier;
 
-        if coordinates.can_increment_both(self.end) {
+        if coordinates.can_increment_both(self.end, Some(self.sequences)) {
             let (ca, cb) = self.sequences.characters(coordinates, self.rc_fn);
             let is_match = ca == cb;
 
@@ -124,7 +124,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             }
         }
 
-        if coordinates.can_increment_a(self.end) {
+        if coordinates.can_increment_a(self.end, Some(self.sequences)) {
             // Gap in b
             let new_cost = *cost
                 + match gap_type {
@@ -143,7 +143,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             }));
         }
 
-        if coordinates.can_increment_b(self.end) {
+        if coordinates.can_increment_b(self.end, Some(self.sequences)) {
             // Gap in a
             let new_cost = *cost
                 + match gap_type {

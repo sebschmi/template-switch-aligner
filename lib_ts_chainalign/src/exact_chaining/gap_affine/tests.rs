@@ -243,8 +243,8 @@ fn test_max_match_run_2() {
 
 #[test]
 fn test_secondary_12() {
-    let seq1 = b"AAAAAAAAAA".to_vec();
-    let seq2 = b"TTTTTTTTTT".to_vec();
+    let seq1 = b"GAAAAAAAAG".to_vec();
+    let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(seq1, seq2);
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
@@ -264,8 +264,8 @@ fn test_secondary_12() {
 
 #[test]
 fn test_secondary_21() {
-    let seq1 = b"AAAAAAAAAA".to_vec();
-    let seq2 = b"TTTTTTTTTT".to_vec();
+    let seq1 = b"GAAAAAAAAG".to_vec();
+    let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(seq1, seq2);
     let cost_table =
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
