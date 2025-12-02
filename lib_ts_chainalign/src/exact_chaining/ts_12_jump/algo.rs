@@ -104,8 +104,6 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             &self.costs.secondary_costs
         };
 
-        println!("generate_successors of {node}");
-
         // Generate gap-affine successors.
         if coordinates.can_increment_both(self.end, Some(self.sequences)) {
             let (ca, cb) = self.sequences.characters(coordinates, self.rc_fn);
