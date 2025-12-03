@@ -44,4 +44,12 @@ impl AlignmentSequences {
     pub fn end(&self) -> AlignmentCoordinates {
         AlignmentCoordinates::new_primary(self.seq1.len(), self.seq2.len())
     }
+
+    pub fn seq1(&self) -> &[u8] {
+        &self.seq1
+    }
+
+    pub fn seq2(&self) -> &[u8] {
+        &self.seq2
+    }
 }

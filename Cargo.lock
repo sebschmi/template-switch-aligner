@@ -492,7 +492,9 @@ version = "0.1.0"
 dependencies = [
  "compact-genome",
  "generic_a_star",
+ "itertools",
  "lib_tsalign",
+ "log",
  "ndarray 0.17.1",
  "num-traits",
  "serde",

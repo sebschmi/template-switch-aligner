@@ -17,6 +17,7 @@ pub struct ChainingLowerBounds<Cost> {
     secondary: GapAffineLowerBounds<Cost>,
     jump: TsJumpLowerBounds<Cost>,
     alignment_costs: AlignmentCosts<Cost>,
+    max_match_run: u32,
 }
 
 impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
@@ -40,6 +41,7 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
             ),
             jump: TsJumpLowerBounds::new(max_n, max_match_run, &alignment_costs),
             alignment_costs,
+            max_match_run,
         }
     }
 }
@@ -77,5 +79,9 @@ impl<Cost> ChainingLowerBounds<Cost> {
 
     pub fn alignment_costs(&self) -> &AlignmentCosts<Cost> {
         &self.alignment_costs
+    }
+
+    pub fn max_match_run(&self) -> u32 {
+        self.max_match_run
     }
 }

@@ -1,9 +1,12 @@
-use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
+use compact_genome::interface::{
+    alphabet::{Alphabet, AlphabetCharacter},
+    sequence::GenomeSequence,
+};
 use lib_ts_chainalign::costs::AlignmentCosts;
 use lib_tsalign::{
     a_star_aligner::alignment_geometry::AlignmentRange, config::TemplateSwitchConfig,
 };
-use log::{info, warn};
+use log::{debug, info, warn};
 use sha::{
     sha1::Sha1,
     utils::{Digest, DigestExt},
@@ -49,7 +52,7 @@ pub fn align_a_star_chain_ts<
         // so we square that and arrive at ceil(log_2(length_sum)).
         usize::BITS - ((reference.len() + query.len()) - 1).leading_zeros()
     });
-    info!("Using max_n = {max_n}");
+    debug!("Using max_n = {max_n}");
     info!("Using k = {k}");
     let max_match_run = k - 1;
     let cost_hash = Sha1::default()
@@ -57,7 +60,7 @@ pub fn align_a_star_chain_ts<
             &bincode::serde::encode_to_vec(&alignment_costs, bincode::config::standard()).unwrap(),
         )
         .to_hex();
-    info!("Using cost_hash = {cost_hash}");
+    debug!("Using cost_hash = {cost_hash}");
 
     let cache_file: PathBuf = [
         cache_directory,
@@ -87,11 +90,15 @@ pub fn align_a_star_chain_ts<
 
     let reference = reference.clone_as_vec();
     let query = query.clone_as_vec();
-    info!("Aligning...");
     let alignment = lib_ts_chainalign::align(
-        &reference,
-        &query,
+        reference,
+        query,
         range,
+        &|c| {
+            AlphabetType::character_to_ascii(
+                AlphabetType::ascii_to_character(c).unwrap().complement(),
+            )
+        },
         reference_name,
         query_name,
         &chaining_lower_bounds,

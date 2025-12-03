@@ -3,10 +3,15 @@ use lib_tsalign::a_star_aligner::{
     alignment_geometry::AlignmentRange, alignment_result::AlignmentResult,
     template_switch_distance::AlignmentType,
 };
+use log::{debug, info};
 
-use crate::{chaining_lower_bounds::ChainingLowerBounds, costs::AlignmentCosts};
+use crate::{
+    alignment::sequences::AlignmentSequences, anchors::Anchors,
+    chaining_lower_bounds::ChainingLowerBounds, costs::AlignmentCosts,
+};
 
 pub mod alignment;
+pub mod anchors;
 pub mod chaining_cost_function;
 pub mod chaining_lower_bounds;
 pub mod costs;
@@ -27,12 +32,25 @@ pub fn preprocess(
 }
 
 pub fn align(
-    _reference: &[u8],
-    _query: &[u8],
-    _range: AlignmentRange,
+    reference: Vec<u8>,
+    query: Vec<u8>,
+    range: AlignmentRange,
+    rc_fn: &dyn Fn(u8) -> u8,
     _reference_name: &str,
     _query_name: &str,
-    _chaining_lower_bounds: &ChainingLowerBounds<U32Cost>,
+    chaining_lower_bounds: &ChainingLowerBounds<U32Cost>,
 ) -> AlignmentResult<AlignmentType, U32Cost> {
+    debug!(
+        "Reference sequence: {}",
+        String::from_utf8_lossy(&reference)
+    );
+    debug!("Query sequence: {}", String::from_utf8_lossy(&query));
+    info!("Aligning on subsequence {}", range);
+
+    let sequences = AlignmentSequences::new(reference, query);
+    let k = chaining_lower_bounds.max_match_run() + 1;
+
+    let anchors = Anchors::new(&sequences, range, k, rc_fn);
+    println!("Anchors:\n{anchors}");
     todo!()
 }
