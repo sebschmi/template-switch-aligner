@@ -42,9 +42,12 @@ impl<Cost: AStarCost> GapAffineAlignment<Cost> {
             },
             AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
-            AStarResult::NoTarget => {
-                panic!("No gap-affine alignment found between the given coordinates")
-            }
+            AStarResult::NoTarget => Self {
+                start,
+                end,
+                alignment: Vec::new().into(),
+                cost: Cost::max_value(),
+            },
         }
     }
 }

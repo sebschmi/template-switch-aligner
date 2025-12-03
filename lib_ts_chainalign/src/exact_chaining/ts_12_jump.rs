@@ -41,9 +41,12 @@ impl<Cost: AStarCost> Ts12JumpAlignment<Cost> {
             },
             AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
-            AStarResult::NoTarget => {
-                panic!("No TS 12-jump alignment found between the given coordinates")
-            }
+            AStarResult::NoTarget => Self {
+                start,
+                end,
+                alignment: Vec::new().into(),
+                cost: Cost::max_value(),
+            },
         }
     }
 }
