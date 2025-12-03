@@ -1,4 +1,4 @@
-use std::ops::{Add, Bound, RangeBounds, Sub};
+use std::ops::{Add, Bound, Range, RangeBounds, Sub};
 
 use num_traits::{Bounded, One, Zero};
 
@@ -172,6 +172,46 @@ impl<SourceType: Bounded + Zero + Ord, Cost: Bounded + Ord> CostFunction<SourceT
                 || (window[0].0 < SourceType::zero() && window[0].1 >= window[1].1)
                 || (window[0].0 >= SourceType::zero() && window[0].1 <= window[1].1)
         })
+    }
+}
+
+impl<SourceType: Bounded + Clone, Cost: Bounded + Zero + Eq> CostFunction<SourceType, Cost> {
+    /// Returns the unique range at which this cost function is zero, if it is unique.
+    ///
+    /// Also, if there is a cost value that is neither zero nor infinite, `None` is returned.
+    pub fn zero_range(&self) -> Option<Range<SourceType>> {
+        let mut function = self.function.iter();
+
+        let first = function.next().unwrap();
+        let start = if first.1.is_zero() {
+            SourceType::min_value()
+        } else if first.1 == Cost::max_value() {
+            if let Some(first) = function.next() {
+                if first.1.is_zero() {
+                    first.0.clone()
+                } else {
+                    return None;
+                }
+            } else {
+                return None;
+            }
+        } else {
+            return None;
+        };
+        let end = if let Some(last) = function.next() {
+            if last.1 == Cost::max_value() {
+                last.0.clone()
+            } else {
+                return None;
+            }
+        } else {
+            SourceType::max_value()
+        };
+        if function.next().is_some() {
+            None
+        } else {
+            Some(start..end)
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 use generic_a_star::{AStar, AStarNode, cost::AStarCost};
 use ndarray::{Array1, Array2};
+use serde::{Deserialize, Serialize};
 
 use crate::{chaining_lower_bounds::gap_affine::algo::Context, costs::GapAffineCosts};
 
@@ -7,6 +8,7 @@ mod algo;
 #[cfg(test)]
 mod tests;
 
+#[derive(Serialize, Deserialize)]
 pub struct GapAffineLowerBounds<Cost> {
     lower_bounds: Array2<Cost>,
     variable_gap2_lower_bounds: Array1<Cost>,

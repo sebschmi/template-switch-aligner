@@ -228,6 +228,67 @@ impl<AlphabetType: Alphabet, Cost: AStarCost> GapAffineAlignmentCostTable<Alphab
             vec_into_min(self.gap_extend_cost_vector),
         )
     }
+
+    /// Return the unique match cost, if it is unique.
+    pub fn unique_match_cost(&self) -> Option<Cost> {
+        let mut match_costs =
+            AlphabetType::iter().map(|character| self.match_cost(character.clone(), character));
+        let match_cost = match_costs.next().unwrap();
+        for other_match_cost in match_costs {
+            if other_match_cost != match_cost {
+                return None;
+            }
+        }
+        Some(match_cost)
+    }
+
+    /// Return the unique substitution cost, if it is unique.
+    pub fn unique_substitution_cost(&self) -> Option<Cost> {
+        let mut substitution_costs = AlphabetType::iter().flat_map(|c1| {
+            iter::repeat(c1)
+                .zip(AlphabetType::iter())
+                .filter_map(|(c1, c2)| {
+                    if c1 != c2 {
+                        Some(self.substitution_cost(c1.clone(), c2))
+                    } else {
+                        None
+                    }
+                })
+        });
+        let substitution_cost = substitution_costs.next().unwrap();
+        for other_substitution_cost in substitution_costs {
+            if other_substitution_cost != substitution_cost {
+                return None;
+            }
+        }
+        Some(substitution_cost)
+    }
+
+    /// Return the unique gap open cost, if it is unique.
+    pub fn unique_gap_open_cost(&self) -> Option<Cost> {
+        let mut gap_open_costs =
+            AlphabetType::iter().map(|character| self.gap_open_cost(character));
+        let gap_open_cost = gap_open_costs.next().unwrap();
+        for other_gap_open_cost in gap_open_costs {
+            if other_gap_open_cost != gap_open_cost {
+                return None;
+            }
+        }
+        Some(gap_open_cost)
+    }
+
+    /// Return the unique gap extend cost, if it is unique.
+    pub fn unique_gap_extend_cost(&self) -> Option<Cost> {
+        let mut gap_extend_costs =
+            AlphabetType::iter().map(|character| self.gap_extend_cost(character));
+        let gap_extend_cost = gap_extend_costs.next().unwrap();
+        for other_gap_extend_cost in gap_extend_costs {
+            if other_gap_extend_cost != gap_extend_cost {
+                return None;
+            }
+        }
+        Some(gap_extend_cost)
+    }
 }
 
 fn vec_into_min<ValueType: Clone + Ord>(mut vec: Vec<ValueType>) -> Vec<ValueType> {

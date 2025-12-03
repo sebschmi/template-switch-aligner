@@ -1,13 +1,18 @@
 use std::ops::Range;
 
 use num_traits::Zero;
+use serde::{Deserialize, Serialize};
 
+mod compat;
+
+#[derive(Serialize, Deserialize)]
 pub struct GapAffineCosts<Cost> {
     pub substitution: Cost,
     pub gap_open: Cost,
     pub gap_extend: Cost,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct TsLimits {
     pub jump_12: Range<isize>,
     pub jump_34: Range<isize>,
@@ -15,6 +20,7 @@ pub struct TsLimits {
     pub ancestor_gap: Range<isize>,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct AlignmentCosts<Cost> {
     pub primary_costs: GapAffineCosts<Cost>,
     pub secondary_costs: GapAffineCosts<Cost>,

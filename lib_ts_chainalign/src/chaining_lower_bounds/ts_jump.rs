@@ -1,11 +1,13 @@
 use generic_a_star::cost::AStarCost;
 use ndarray::Array1;
+use serde::{Deserialize, Serialize};
 
 use crate::{chaining_lower_bounds::gap_affine::GapAffineLowerBounds, costs::AlignmentCosts};
 
 #[cfg(test)]
 mod tests;
 
+#[derive(Serialize, Deserialize)]
 pub struct TsJumpLowerBounds<Cost> {
     lower_bounds_12: Array1<Cost>,
     lower_bounds_34: Array1<Cost>,

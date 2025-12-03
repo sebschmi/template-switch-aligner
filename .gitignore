@@ -2,3 +2,4 @@
 /tsa_config
 /*.log
 /callgrind.out.*
+*.tsc

@@ -10,5 +10,8 @@ repository.workspace = true
 
 [dependencies]
 generic_a_star = { version = "0.19.1", path = "../generic_a_star" }
-ndarray = "0.17.1"
+lib_tsalign = { version = "0.19.1", path = "../lib_tsalign" }
+ndarray = { version = "0.17.1", features = ["serde"] }
 num-traits.workspace = true
+serde.workspace = true
+compact-genome.workspace = true
