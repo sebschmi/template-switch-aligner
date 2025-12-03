@@ -15,7 +15,7 @@ pub enum AlignmentType {
     GapA,
     GapB,
     TsStart { jump: isize, ts_kind: TsKind },
-    TsEnd,
+    TsEnd { jump: isize },
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]

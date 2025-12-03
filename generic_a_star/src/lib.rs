@@ -345,7 +345,7 @@ impl<Context: AStarContext> AStar<Context> {
                     debug_assert!(
                         previous_visit.cost() + previous_visit.a_star_lower_bound()
                             <= node.cost() + node.a_star_lower_bound(),
-                        "{}",
+                        "Revisiting node at lower costs:\n{}",
                         {
                             use std::fmt::Write;
                             let mut previous_visit = previous_visit;

@@ -77,8 +77,8 @@ impl AlignmentCoordinates {
     /// Checks if ordinate a can be incremented.
     /// In secondary alignments, ordinate a is the ancestor.
     ///
-    /// If ordinate a and the boundary have the same TS kind (possibly `None`), then the check is performed normally.
-    /// If the TS kinds differ, then there is a jump before the boundary, and ordinate a can be incremented until the end of the sequence.
+    /// If ordinate a and the `end` coordinates are both primary or both secondary, then the check is performed normally.
+    /// If they differ, then there is a jump before the `end` boundary.
     pub fn can_increment_a(
         &self,
         end: AlignmentCoordinates,
@@ -96,15 +96,20 @@ impl AlignmentCoordinates {
                 }
             }
         } else if let Some(sequences) = sequences {
+            assert_ne!(self.is_primary(), end.is_primary());
             match self {
                 AlignmentCoordinates::Primary { a, .. } => {
-                    *a < sequences.end().primary_ordinate_a().unwrap()
+                    match end.ts_kind().unwrap().descendant {
+                        // Descendant is a, so it is limited by the descendant ordinate.
+                        TsDescendant::Seq1 => *a < end.secondary_ordinate_descendant().unwrap(),
+                        // Descendant is b, so a can go until the end of the sequence.
+                        TsDescendant::Seq2 => *a < sequences.end().primary_ordinate_a().unwrap(),
+                    }
                 }
-                AlignmentCoordinates::Secondary { ancestor, .. } => {
-                    sequences.start().secondary_ordinate_ancestor().unwrap() < *ancestor
-                }
+                AlignmentCoordinates::Secondary { ancestor, .. } => 0 < *ancestor,
             }
         } else {
+            assert_ne!(self.is_primary(), end.is_primary());
             true
         }
     }
@@ -112,8 +117,8 @@ impl AlignmentCoordinates {
     /// Checks if ordinate b can be incremented.
     /// In secondary alignments, ordinate b is the descendant.
     ///
-    /// If ordinate b and the `end` boundary have the same TS kind (possibly `None`), then the check is performed normally.
-    /// If the TS kinds differ, then there is a jump before the `end` boundary, and ordinate b can be incremented until the end of the sequence.
+    /// If ordinate b and the `end` coordinates are both primary or both secondary, then the check is performed normally.
+    /// If the they differ, then there is a jump before the `end` boundary.
     pub fn can_increment_b(
         &self,
         end: AlignmentCoordinates,
@@ -128,15 +133,25 @@ impl AlignmentCoordinates {
                 }
             }
         } else if let Some(sequences) = sequences {
+            assert_ne!(self.is_primary(), end.is_primary());
             match self {
                 AlignmentCoordinates::Primary { b, .. } => {
-                    *b < sequences.end().primary_ordinate_b().unwrap()
+                    match end.ts_kind().unwrap().descendant {
+                        // Descendant is a, so b can go until the end of the sequence.
+                        TsDescendant::Seq1 => *b < sequences.end().primary_ordinate_b().unwrap(),
+                        // Descendant is b, so it is limited by the descendant ordinate.
+                        TsDescendant::Seq2 => *b < end.secondary_ordinate_descendant().unwrap(),
+                    }
                 }
                 AlignmentCoordinates::Secondary { descendant, .. } => {
-                    *descendant < sequences.end().secondary_ordinate_descendant().unwrap()
+                    match self.ts_kind().unwrap().descendant {
+                        TsDescendant::Seq1 => *descendant < end.primary_ordinate_a().unwrap(),
+                        TsDescendant::Seq2 => *descendant < end.primary_ordinate_b().unwrap(),
+                    }
                 }
             }
         } else {
+            assert_ne!(self.is_primary(), end.is_primary());
             true
         }
     }
@@ -189,10 +204,10 @@ impl AlignmentCoordinates {
 
     /// Generate all possible 12-jumps.
     ///
-    /// The TS kind is given by the start coordinates.
-    /// The left and right limits of the jump are given by the start and end coordinates.
-    /// The end coordinates must be in primary form and simply be the end of the aligned sequences.
-    /// The start coordinates are in secondary form.
+    /// The TS kind is given by the `start` coordinates.
+    /// The left and right limits of the jump are given by the `start` and `end` coordinates.
+    /// The `end` coordinates must be in primary form and simply be the end of the aligned sequences.
+    /// The `start` coordinates are in secondary form.
     pub fn generate_12_jumps(
         &self,
         start: AlignmentCoordinates,
@@ -225,6 +240,43 @@ impl AlignmentCoordinates {
                 },
             )
         })
+    }
+
+    /// Generate all possible 34-jumps.
+    ///
+    /// The `end` coordinates are in primary form and limit the jump to the left of (or into) them.
+    pub fn generate_34_jumps(
+        &self,
+        end: AlignmentCoordinates,
+    ) -> impl Iterator<Item = (isize, Self)> {
+        let Self::Secondary {
+            ancestor,
+            descendant,
+            ts_kind,
+        } = *self
+        else {
+            panic!("Can only generate 34-jumps from secondary coordinates");
+        };
+
+        (0..match ts_kind.descendant {
+            TsDescendant::Seq1 => end.primary_ordinate_b().unwrap(),
+            TsDescendant::Seq2 => end.primary_ordinate_a().unwrap(),
+        })
+            .map(move |new_ancestor| {
+                (
+                    new_ancestor as isize - ancestor as isize,
+                    match ts_kind.descendant {
+                        TsDescendant::Seq1 => Self::Primary {
+                            a: descendant,
+                            b: new_ancestor,
+                        },
+                        TsDescendant::Seq2 => Self::Primary {
+                            a: new_ancestor,
+                            b: descendant,
+                        },
+                    },
+                )
+            })
     }
 }
 

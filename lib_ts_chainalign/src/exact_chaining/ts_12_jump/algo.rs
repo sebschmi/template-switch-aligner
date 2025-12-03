@@ -56,8 +56,8 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
         end: AlignmentCoordinates,
         max_match_run: u32,
     ) -> Self {
-        assert!(start.ts_kind().is_none());
-        assert!(end.ts_kind().is_some());
+        assert!(start.is_primary());
+        assert!(end.is_secondary());
 
         Self {
             costs,

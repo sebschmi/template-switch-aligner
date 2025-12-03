@@ -1,5 +1,7 @@
 use std::ops::Range;
 
+use num_traits::Zero;
+
 pub struct GapAffineCosts<Cost> {
     pub substitution: Cost,
     pub gap_open: Cost,
@@ -30,6 +32,12 @@ impl<Cost> GapAffineCosts<Cost> {
     }
 }
 
+impl<Cost: Zero> GapAffineCosts<Cost> {
+    pub fn has_zero_cost(&self) -> bool {
+        self.substitution.is_zero() || self.gap_open.is_zero() || self.gap_extend.is_zero()
+    }
+}
+
 impl<Cost> AlignmentCosts<Cost> {
     pub fn new(
         primary_costs: GapAffineCosts<Cost>,
@@ -43,5 +51,13 @@ impl<Cost> AlignmentCosts<Cost> {
             ts_base_cost,
             ts_limits,
         }
+    }
+}
+
+impl<Cost: Zero> AlignmentCosts<Cost> {
+    pub fn has_zero_cost(&self) -> bool {
+        self.primary_costs.has_zero_cost()
+            || self.secondary_costs.has_zero_cost()
+            || self.ts_base_cost.is_zero()
     }
 }
