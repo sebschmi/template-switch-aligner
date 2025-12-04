@@ -7,8 +7,8 @@ use crate::{anchors::Anchors, chaining_cost_function::ChainingCostFunction};
 const DEBUG_CHAINER: bool = false;
 
 pub struct Context<'anchors, 'chaining_cost_function, Cost> {
-    anchors: &'anchors Anchors,
-    chaining_cost_function: &'chaining_cost_function mut ChainingCostFunction<Cost>,
+    pub anchors: &'anchors Anchors,
+    pub chaining_cost_function: &'chaining_cost_function mut ChainingCostFunction<Cost>,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

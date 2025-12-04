@@ -64,6 +64,9 @@ pub fn align(
         &sequences,
         start,
         end,
+        chaining_lower_bounds.alignment_costs(),
+        rc_fn,
+        chaining_lower_bounds.max_match_run(),
         &anchors,
         &mut chaining_cost_function,
     );

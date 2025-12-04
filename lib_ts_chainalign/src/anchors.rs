@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
-use log::debug;
+use log::trace;
 
 use crate::{
     alignment::{
@@ -102,8 +102,8 @@ impl Anchors {
         s2_rc_kmers.sort();
         let s2_rc_kmers = s2_rc_kmers;
 
-        debug!("s1_kmers: {s1_kmers:?}");
-        debug!("s2_kmers: {s2_kmers:?}");
+        trace!("s1_kmers: {s1_kmers:?}");
+        trace!("s2_kmers: {s2_kmers:?}");
 
         // Compute anchors.
         let mut primary: Vec<_> = find_kmer_matches(&s1_kmers, &s2_kmers)

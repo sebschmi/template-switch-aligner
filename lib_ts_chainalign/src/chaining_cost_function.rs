@@ -300,4 +300,43 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     pub fn start_to_end(&self) -> Cost {
         self.primary[[0, self.primary.dim().1 - 1]]
     }
+
+    pub fn update_primary(
+        &mut self,
+        from_primary_index: usize,
+        to_primary_index: usize,
+        cost: Cost,
+    ) -> bool {
+        let target = &mut self.primary[[from_primary_index + 1, to_primary_index + 1]];
+        assert!(*target <= cost);
+        let result = *target < cost;
+        *target = cost;
+        result
+    }
+
+    pub fn update_primary_from_start(&mut self, primary_index: usize, cost: Cost) -> bool {
+        let target = &mut self.primary[[0, primary_index + 1]];
+        assert!(*target <= cost);
+        let result = *target < cost;
+        *target = cost;
+        result
+    }
+
+    pub fn update_primary_to_end(&mut self, primary_index: usize, cost: Cost) -> bool {
+        let end_index = self.primary.dim().1 - 1;
+        let target = &mut self.primary[[primary_index + 1, end_index]];
+        assert!(*target <= cost);
+        let result = *target < cost;
+        *target = cost;
+        result
+    }
+
+    pub fn update_start_to_end(&mut self, cost: Cost) -> bool {
+        let end_index = self.primary.dim().1 - 1;
+        let target = &mut self.primary[[0, end_index]];
+        assert!(*target <= cost);
+        let result = *target < cost;
+        *target = cost;
+        result
+    }
 }
