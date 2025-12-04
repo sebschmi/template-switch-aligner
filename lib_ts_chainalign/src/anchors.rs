@@ -4,7 +4,11 @@ use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
 use log::debug;
 
 use crate::{
-    alignment::sequences::AlignmentSequences,
+    alignment::{
+        coordinates::AlignmentCoordinates,
+        sequences::AlignmentSequences,
+        ts_kind::{TsDescendant, TsKind},
+    },
     anchors::{
         kmer_matches::find_kmer_matches,
         kmers::{Kmer, KmerStore},
@@ -13,25 +17,30 @@ use crate::{
 
 pub mod kmer_matches;
 pub mod kmers;
+#[cfg(test)]
+mod tests;
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct Anchors {
-    pub primary_anchors: Vec<PrimaryAnchor>,
-    pub secondary_anchors_11: Vec<SecondaryAnchor>,
-    pub secondary_anchors_12: Vec<SecondaryAnchor>,
-    pub secondary_anchors_21: Vec<SecondaryAnchor>,
-    pub secondary_anchors_22: Vec<SecondaryAnchor>,
+    pub primary: Vec<PrimaryAnchor>,
+    pub secondary_11: Vec<SecondaryAnchor>,
+    pub secondary_12: Vec<SecondaryAnchor>,
+    pub secondary_21: Vec<SecondaryAnchor>,
+    pub secondary_22: Vec<SecondaryAnchor>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct PrimaryAnchor {
-    pub seq1: usize,
-    pub seq2: usize,
+    seq1: usize,
+    seq2: usize,
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct SecondaryAnchor {
-    /// Ancestor index in the reverse complement.
-    pub ancestor: usize,
-    /// Descendant index in the primary sequence.
-    pub descendant: usize,
+    /// Ancestor right index in the primary sequence.
+    ancestor: usize,
+    /// Descendant left index in the primary sequence.
+    descendant: usize,
 }
 
 impl Anchors {
@@ -97,62 +106,201 @@ impl Anchors {
         debug!("s2_kmers: {s2_kmers:?}");
 
         // Compute anchors.
-        let mut primary_anchors: Vec<_> = find_kmer_matches(&s1_kmers, &s2_kmers)
+        let mut primary: Vec<_> = find_kmer_matches(&s1_kmers, &s2_kmers)
             .into_iter()
             .map(|(seq1, seq2)| PrimaryAnchor { seq1, seq2 })
             .collect();
-        let mut secondary_anchors_11: Vec<_> = find_kmer_matches(&s1_rc_kmers, &s1_kmers)
+        let mut secondary_11: Vec<_> = find_kmer_matches(&s1_rc_kmers, &s1_kmers)
             .into_iter()
             .map(|(ancestor, descendant)| SecondaryAnchor {
-                ancestor,
+                ancestor: s1.len() - ancestor,
                 descendant,
             })
             .collect();
-        let mut secondary_anchors_12: Vec<_> = find_kmer_matches(&s1_rc_kmers, &s2_kmers)
+        let mut secondary_12: Vec<_> = find_kmer_matches(&s1_rc_kmers, &s2_kmers)
             .into_iter()
             .map(|(ancestor, descendant)| SecondaryAnchor {
-                ancestor,
+                ancestor: s1.len() - ancestor,
                 descendant,
             })
             .collect();
-        let mut secondary_anchors_21: Vec<_> = find_kmer_matches(&s2_rc_kmers, &s1_kmers)
+        let mut secondary_21: Vec<_> = find_kmer_matches(&s2_rc_kmers, &s1_kmers)
             .into_iter()
             .map(|(ancestor, descendant)| SecondaryAnchor {
-                ancestor,
+                ancestor: s2.len() - ancestor,
                 descendant,
             })
             .collect();
-        let mut secondary_anchors_22: Vec<_> = find_kmer_matches(&s2_rc_kmers, &s2_kmers)
+        let mut secondary_22: Vec<_> = find_kmer_matches(&s2_rc_kmers, &s2_kmers)
             .into_iter()
             .map(|(ancestor, descendant)| SecondaryAnchor {
-                ancestor,
+                ancestor: s2.len() - ancestor,
                 descendant,
             })
             .collect();
 
         // Sort anchors.
-        primary_anchors
-            .sort_unstable_by_key(|primary_anchor| primary_anchor.seq1.min(primary_anchor.seq2));
-        secondary_anchors_11.sort_unstable_by_key(|secondary_anchor| {
-            secondary_anchor.ancestor.min(secondary_anchor.descendant)
+        primary.sort_unstable_by_key(|primary_anchor| {
+            (
+                primary_anchor.seq1.min(primary_anchor.seq2),
+                primary_anchor.seq1,
+                primary_anchor.seq2,
+            )
         });
-        secondary_anchors_12.sort_unstable_by_key(|secondary_anchor| {
-            secondary_anchor.ancestor.min(secondary_anchor.descendant)
+        secondary_11.sort_unstable_by_key(|secondary_anchor| {
+            (
+                secondary_anchor.ancestor.min(secondary_anchor.descendant),
+                secondary_anchor.ancestor,
+                secondary_anchor.descendant,
+            )
         });
-        secondary_anchors_21.sort_unstable_by_key(|secondary_anchor| {
-            secondary_anchor.ancestor.min(secondary_anchor.descendant)
+        secondary_12.sort_unstable_by_key(|secondary_anchor| {
+            (
+                secondary_anchor.ancestor.min(secondary_anchor.descendant),
+                secondary_anchor.ancestor,
+                secondary_anchor.descendant,
+            )
         });
-        secondary_anchors_22.sort_unstable_by_key(|secondary_anchor| {
-            secondary_anchor.ancestor.min(secondary_anchor.descendant)
+        secondary_21.sort_unstable_by_key(|secondary_anchor| {
+            (
+                secondary_anchor.ancestor.min(secondary_anchor.descendant),
+                secondary_anchor.ancestor,
+                secondary_anchor.descendant,
+            )
+        });
+        secondary_22.sort_unstable_by_key(|secondary_anchor| {
+            (
+                secondary_anchor.ancestor.min(secondary_anchor.descendant),
+                secondary_anchor.ancestor,
+                secondary_anchor.descendant,
+            )
         });
 
         Self {
-            primary_anchors,
-            secondary_anchors_11,
-            secondary_anchors_12,
-            secondary_anchors_21,
-            secondary_anchors_22,
+            primary,
+            secondary_11,
+            secondary_12,
+            secondary_21,
+            secondary_22,
         }
+    }
+}
+
+impl PrimaryAnchor {
+    pub fn new(seq1: usize, seq2: usize) -> Self {
+        Self { seq1, seq2 }
+    }
+
+    pub fn start(&self) -> AlignmentCoordinates {
+        AlignmentCoordinates::Primary {
+            a: self.seq1,
+            b: self.seq2,
+        }
+    }
+
+    pub fn end(&self, k: usize) -> AlignmentCoordinates {
+        AlignmentCoordinates::Primary {
+            a: self.seq1 + k,
+            b: self.seq2 + k,
+        }
+    }
+
+    pub fn chaining_gaps(&self, second: &Self, k: usize) -> Option<(usize, usize)> {
+        let gap_start = self.end(k);
+        let gap_end = second.start();
+
+        let gap1 = gap_end
+            .primary_ordinate_a()
+            .unwrap()
+            .checked_sub(gap_start.primary_ordinate_a().unwrap())?;
+        let gap2 = gap_end
+            .primary_ordinate_b()
+            .unwrap()
+            .checked_sub(gap_start.primary_ordinate_b().unwrap())?;
+
+        Some((gap1, gap2))
+    }
+
+    pub fn chaining_jump_gap(
+        &self,
+        second: &SecondaryAnchor,
+        ts_kind: TsKind,
+        k: usize,
+    ) -> Option<usize> {
+        let gap_start = self.end(k);
+        let gap_end = second.start(ts_kind);
+
+        let gap_start = match ts_kind.descendant {
+            TsDescendant::Seq1 => gap_start.primary_ordinate_a().unwrap(),
+            TsDescendant::Seq2 => gap_start.primary_ordinate_b().unwrap(),
+        };
+        let gap_end = gap_end.secondary_ordinate_descendant().unwrap();
+
+        gap_end.checked_sub(gap_start)
+    }
+}
+
+impl SecondaryAnchor {
+    pub fn new(ancestor: usize, descendant: usize) -> Self {
+        Self {
+            ancestor,
+            descendant,
+        }
+    }
+
+    pub fn start(&self, ts_kind: TsKind) -> AlignmentCoordinates {
+        AlignmentCoordinates::Secondary {
+            ancestor: self.ancestor,
+            descendant: self.descendant,
+            ts_kind,
+        }
+    }
+
+    pub fn end(&self, ts_kind: TsKind, k: usize) -> AlignmentCoordinates {
+        AlignmentCoordinates::Secondary {
+            ancestor: self.ancestor.checked_sub(k).unwrap(),
+            descendant: self.descendant + k,
+            ts_kind,
+        }
+    }
+
+    pub fn chaining_gaps(
+        &self,
+        second: &Self,
+        ts_kind: TsKind,
+        k: usize,
+    ) -> Option<(usize, usize)> {
+        let gap_start = self.end(ts_kind, k);
+        let gap_end = second.start(ts_kind);
+
+        let gap1 = gap_start
+            .secondary_ordinate_ancestor()
+            .unwrap()
+            .checked_sub(gap_end.secondary_ordinate_ancestor().unwrap())?;
+        let gap2 = gap_end
+            .secondary_ordinate_descendant()
+            .unwrap()
+            .checked_sub(gap_start.secondary_ordinate_descendant().unwrap())?;
+
+        Some((gap1, gap2))
+    }
+
+    pub fn chaining_jump_gap(
+        &self,
+        second: &PrimaryAnchor,
+        ts_kind: TsKind,
+        k: usize,
+    ) -> Option<usize> {
+        let gap_start = self.end(ts_kind, k);
+        let gap_end = second.start();
+
+        let gap_start = gap_start.secondary_ordinate_descendant().unwrap();
+        let gap_end = match ts_kind.descendant {
+            TsDescendant::Seq1 => gap_end.primary_ordinate_a().unwrap(),
+            TsDescendant::Seq2 => gap_end.primary_ordinate_b().unwrap(),
+        };
+
+        gap_end.checked_sub(gap_start)
     }
 }
 
@@ -160,7 +308,7 @@ impl Display for Anchors {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "P: [")?;
         let mut once = true;
-        for primary_anchor in &self.primary_anchors {
+        for primary_anchor in &self.primary {
             if once {
                 once = false;
             } else {
@@ -172,7 +320,7 @@ impl Display for Anchors {
 
         write!(f, "S11: [")?;
         let mut once = true;
-        for secondary_anchor in &self.secondary_anchors_11 {
+        for secondary_anchor in &self.secondary_11 {
             if once {
                 once = false;
             } else {
@@ -184,7 +332,7 @@ impl Display for Anchors {
 
         write!(f, "S12: [")?;
         let mut once = true;
-        for secondary_anchor in &self.secondary_anchors_12 {
+        for secondary_anchor in &self.secondary_12 {
             if once {
                 once = false;
             } else {
@@ -196,7 +344,7 @@ impl Display for Anchors {
 
         write!(f, "S21: [")?;
         let mut once = true;
-        for secondary_anchor in &self.secondary_anchors_21 {
+        for secondary_anchor in &self.secondary_21 {
             if once {
                 once = false;
             } else {
@@ -208,7 +356,7 @@ impl Display for Anchors {
 
         write!(f, "S22: [")?;
         let mut once = true;
-        for secondary_anchor in &self.secondary_anchors_22 {
+        for secondary_anchor in &self.secondary_22 {
             if once {
                 once = false;
             } else {
@@ -231,5 +379,17 @@ impl Display for PrimaryAnchor {
 impl Display for SecondaryAnchor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}, {})", self.ancestor, self.descendant)
+    }
+}
+
+impl From<(usize, usize)> for PrimaryAnchor {
+    fn from(value: (usize, usize)) -> Self {
+        Self::new(value.0, value.1)
+    }
+}
+
+impl From<(usize, usize)> for SecondaryAnchor {
+    fn from(value: (usize, usize)) -> Self {
+        Self::new(value.0, value.1)
     }
 }
