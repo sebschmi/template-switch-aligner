@@ -208,17 +208,19 @@ impl PrimaryAnchor {
     pub fn chaining_gaps(&self, second: &Self, k: usize) -> Option<(usize, usize)> {
         let gap_start = self.end(k);
         let gap_end = second.start();
+        primary_chaining_gaps(gap_start, gap_end)
+    }
 
-        let gap1 = gap_end
-            .primary_ordinate_a()
-            .unwrap()
-            .checked_sub(gap_start.primary_ordinate_a().unwrap())?;
-        let gap2 = gap_end
-            .primary_ordinate_b()
-            .unwrap()
-            .checked_sub(gap_start.primary_ordinate_b().unwrap())?;
+    pub fn chaining_gaps_from_start(&self, start: AlignmentCoordinates) -> (usize, usize) {
+        let gap_end = self.start();
+        primary_chaining_gaps(start, gap_end)
+            .unwrap_or_else(|| panic!("self: {self}, start: {start}"))
+    }
 
-        Some((gap1, gap2))
+    pub fn chaining_gaps_to_end(&self, end: AlignmentCoordinates, k: usize) -> (usize, usize) {
+        let gap_start = self.end(k);
+        primary_chaining_gaps(gap_start, end)
+            .unwrap_or_else(|| panic!("self: {self}, end: {end}, k: {k}"))
     }
 
     pub fn chaining_jump_gap(
@@ -238,6 +240,26 @@ impl PrimaryAnchor {
 
         gap_end.checked_sub(gap_start)
     }
+
+    pub fn is_direct_predecessor_of(&self, successor: &Self) -> bool {
+        self.seq1 + 1 == successor.seq1 && self.seq2 + 1 == successor.seq2
+    }
+}
+
+fn primary_chaining_gaps(
+    gap_start: AlignmentCoordinates,
+    gap_end: AlignmentCoordinates,
+) -> Option<(usize, usize)> {
+    let gap1 = gap_end
+        .primary_ordinate_a()
+        .unwrap()
+        .checked_sub(gap_start.primary_ordinate_a().unwrap())?;
+    let gap2 = gap_end
+        .primary_ordinate_b()
+        .unwrap()
+        .checked_sub(gap_start.primary_ordinate_b().unwrap())?;
+
+    Some((gap1, gap2))
 }
 
 impl SecondaryAnchor {
@@ -301,6 +323,42 @@ impl SecondaryAnchor {
         };
 
         gap_end.checked_sub(gap_start)
+    }
+
+    pub fn chaining_jump_gap_from_start(
+        &self,
+        start: AlignmentCoordinates,
+        ts_kind: TsKind,
+    ) -> usize {
+        let gap_start = match ts_kind.descendant {
+            TsDescendant::Seq1 => start.primary_ordinate_a().unwrap(),
+            TsDescendant::Seq2 => start.primary_ordinate_b().unwrap(),
+        };
+        let gap_end = self.start(ts_kind).secondary_ordinate_descendant().unwrap();
+
+        gap_end.checked_sub(gap_start).unwrap()
+    }
+
+    pub fn chaining_jump_gap_to_end(
+        &self,
+        end: AlignmentCoordinates,
+        ts_kind: TsKind,
+        k: usize,
+    ) -> usize {
+        let gap_start = self
+            .end(ts_kind, k)
+            .secondary_ordinate_descendant()
+            .unwrap();
+        let gap_end = match ts_kind.descendant {
+            TsDescendant::Seq1 => end.primary_ordinate_a().unwrap(),
+            TsDescendant::Seq2 => end.primary_ordinate_b().unwrap(),
+        };
+
+        gap_end.checked_sub(gap_start).unwrap()
+    }
+
+    pub fn is_direct_predecessor_of(&self, successor: &Self) -> bool {
+        self.ancestor - 1 == successor.ancestor && self.descendant + 1 == successor.descendant
     }
 }
 

@@ -52,6 +52,8 @@ pub fn align_a_star_chain_ts<
         // so we square that and arrive at ceil(log_2(length_sum)).
         usize::BITS - ((reference.len() + query.len()) - 1).leading_zeros()
     });
+    // Decrease k a little, because we can hopefully afford a few more anchors.
+    let k = (k.saturating_sub(3)).max(2);
     debug!("Using max_n = {max_n}");
     info!("Using k = {k}");
     let max_match_run = k - 1;

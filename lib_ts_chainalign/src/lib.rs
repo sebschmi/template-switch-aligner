@@ -6,12 +6,16 @@ use lib_tsalign::a_star_aligner::{
 use log::{debug, info};
 
 use crate::{
-    alignment::sequences::AlignmentSequences, anchors::Anchors,
-    chaining_lower_bounds::ChainingLowerBounds, costs::AlignmentCosts,
+    alignment::{coordinates::AlignmentCoordinates, sequences::AlignmentSequences},
+    anchors::Anchors,
+    chaining_cost_function::ChainingCostFunction,
+    chaining_lower_bounds::ChainingLowerBounds,
+    costs::AlignmentCosts,
 };
 
 pub mod alignment;
 pub mod anchors;
+pub mod chain_align;
 pub mod chaining_cost_function;
 pub mod chaining_lower_bounds;
 pub mod costs;
@@ -50,7 +54,19 @@ pub fn align(
     let sequences = AlignmentSequences::new(reference, query);
     let k = chaining_lower_bounds.max_match_run() + 1;
 
-    let anchors = Anchors::new(&sequences, range, k, rc_fn);
-    println!("Anchors:\n{anchors}");
+    let anchors = Anchors::new(&sequences, range.clone(), k, rc_fn);
+    let start = AlignmentCoordinates::new_primary(range.reference_offset(), range.query_offset());
+    let end = AlignmentCoordinates::new_primary(range.reference_limit(), range.query_limit());
+    let mut chaining_cost_function =
+        ChainingCostFunction::new_from_lower_bounds(chaining_lower_bounds, &anchors, start, end);
+
+    chain_align::align(
+        &sequences,
+        start,
+        end,
+        &anchors,
+        &mut chaining_cost_function,
+    );
+
     todo!()
 }
