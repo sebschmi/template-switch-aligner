@@ -50,10 +50,10 @@ pub fn align_a_star_chain_ts<
         // However, the birthday paradoxon states that for avoiding collisions,
         // the amount of possible k-mers needs to grow in the square of the amount available k-mers,
         // so we square that and arrive at ceil(log_2(length_sum)).
-        usize::BITS - ((reference.len() + query.len()) - 1).leading_zeros()
+        let k = usize::BITS - ((reference.len() + query.len()) - 1).leading_zeros();
+        // Decrease k a little, because we can hopefully afford a few more anchors.
+        k.saturating_sub(3).max(2)
     });
-    // Decrease k a little, because we can hopefully afford a few more anchors.
-    let k = (k.saturating_sub(3)).max(2);
     debug!("Using max_n = {max_n}");
     info!("Using k = {k}");
     let max_match_run = k - 1;

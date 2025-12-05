@@ -51,6 +51,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     let k = usize::try_from(max_match_run + 1).unwrap();
     let context = Context::new(anchors, chaining_cost_function);
     let mut astar = AStar::new(context);
+    let mut chaining_execution_count = 0;
 
     let (alignments, result) = loop {
         let chaining_start_time = Instant::now();
@@ -58,9 +59,10 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
         astar.reset();
         astar.initialise();
         let result = astar.search();
+        chaining_execution_count += 1;
         let chain = match result {
             AStarResult::FoundTarget { cost, .. } => {
-                debug!("Found chain with cost {cost}");
+                trace!("Found chain with cost {cost}");
                 let mut chain = astar.reconstruct_path();
                 chain.push(Identifier::End);
                 trace!("Chain (len: {}):\n{}", chain.len(), {
@@ -376,6 +378,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
         }
     };
 
+    debug!("Computed {chaining_execution_count} chains");
     debug!("Chaining took {:.1}s", chaining_duration.as_secs_f64());
     debug!("Evaluation took {:.1}s", evaluation_duration.as_secs_f64());
 
