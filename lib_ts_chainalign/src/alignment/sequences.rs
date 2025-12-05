@@ -6,11 +6,27 @@ use crate::alignment::{
 pub struct AlignmentSequences {
     seq1: Vec<u8>,
     seq2: Vec<u8>,
+    seq1_name: String,
+    seq2_name: String,
 }
 
 impl AlignmentSequences {
     pub fn new(seq1: Vec<u8>, seq2: Vec<u8>) -> Self {
-        Self { seq1, seq2 }
+        Self {
+            seq1,
+            seq2,
+            seq1_name: "seq1".to_string(),
+            seq2_name: "seq2".to_string(),
+        }
+    }
+
+    pub fn new_named(seq1: Vec<u8>, seq2: Vec<u8>, seq1_name: String, seq2_name: String) -> Self {
+        Self {
+            seq1,
+            seq2,
+            seq1_name,
+            seq2_name,
+        }
     }
 
     pub fn characters(
@@ -51,5 +67,13 @@ impl AlignmentSequences {
 
     pub fn seq2(&self) -> &[u8] {
         &self.seq2
+    }
+
+    pub fn seq1_name(&self) -> &str {
+        &self.seq1_name
+    }
+
+    pub fn seq2_name(&self) -> &str {
+        &self.seq2_name
     }
 }

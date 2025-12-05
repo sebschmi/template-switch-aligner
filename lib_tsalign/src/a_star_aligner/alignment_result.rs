@@ -206,10 +206,13 @@ impl<AlignmentType: IAlignmentType, Cost: AStarCost> AlignmentResult<AlignmentTy
             opened_nodes: (opened_nodes as f64).try_into().unwrap(),
             closed_nodes: (closed_nodes as f64).try_into().unwrap(),
             suboptimal_opened_nodes: (suboptimal_opened_nodes as f64).try_into().unwrap(),
-            suboptimal_opened_nodes_ratio: (suboptimal_opened_nodes as f64
-                / (opened_nodes - suboptimal_opened_nodes) as f64)
-                .try_into()
-                .unwrap(),
+            suboptimal_opened_nodes_ratio: if opened_nodes == 0 && suboptimal_opened_nodes == 0 {
+                r64(0.0)
+            } else {
+                (suboptimal_opened_nodes as f64 / (opened_nodes - suboptimal_opened_nodes) as f64)
+                    .try_into()
+                    .unwrap()
+            },
             template_switch_amount: r64(alignment
                 .as_ref()
                 .map(|alignment| {

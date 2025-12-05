@@ -92,7 +92,7 @@ pub fn align_a_star_chain_ts<
 
     let reference = reference.clone_as_vec();
     let query = query.clone_as_vec();
-    let alignment = lib_ts_chainalign::align(
+    let alignment = lib_ts_chainalign::align::<AlphabetType>(
         reference,
         query,
         range,

@@ -1,5 +1,9 @@
 use std::fmt::Display;
 
+use lib_tsalign::a_star_aligner::template_switch_distance::{
+    TemplateSwitchPrimary, TemplateSwitchSecondary,
+};
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct TsKind {
     pub ancestor: TsAncestor,
@@ -35,6 +39,37 @@ impl TsKind {
         ancestor: TsAncestor::Seq2,
         descendant: TsDescendant::Seq2,
     };
+
+    pub fn iter() -> impl Iterator<Item = Self> {
+        [Self::TS11, Self::TS12, Self::TS21, Self::TS22].into_iter()
+    }
+
+    pub fn digits(&self) -> &'static str {
+        match (self.ancestor, self.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => "11",
+            (TsAncestor::Seq1, TsDescendant::Seq2) => "12",
+            (TsAncestor::Seq2, TsDescendant::Seq1) => "21",
+            (TsAncestor::Seq2, TsDescendant::Seq2) => "22",
+        }
+    }
+}
+
+impl TsAncestor {
+    pub fn into_tsalign_secondary(self) -> TemplateSwitchSecondary {
+        match self {
+            TsAncestor::Seq1 => TemplateSwitchSecondary::Reference,
+            TsAncestor::Seq2 => TemplateSwitchSecondary::Query,
+        }
+    }
+}
+
+impl TsDescendant {
+    pub fn into_tsalign_primary(self) -> TemplateSwitchPrimary {
+        match self {
+            TsDescendant::Seq1 => TemplateSwitchPrimary::Reference,
+            TsDescendant::Seq2 => TemplateSwitchPrimary::Query,
+        }
+    }
 }
 
 impl Display for TsKind {

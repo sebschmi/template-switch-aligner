@@ -1,3 +1,4 @@
+use compact_genome::interface::alphabet::Alphabet;
 use generic_a_star::cost::U32Cost;
 use lib_tsalign::a_star_aligner::{
     alignment_geometry::AlignmentRange, alignment_result::AlignmentResult,
@@ -35,13 +36,13 @@ pub fn preprocess(
     ChainingLowerBounds::new(max_n, max_match_run, alignment_costs)
 }
 
-pub fn align(
+pub fn align<AlphabetType: Alphabet>(
     reference: Vec<u8>,
     query: Vec<u8>,
     range: AlignmentRange,
     rc_fn: &dyn Fn(u8) -> u8,
-    _reference_name: &str,
-    _query_name: &str,
+    reference_name: &str,
+    query_name: &str,
     chaining_lower_bounds: &ChainingLowerBounds<U32Cost>,
 ) -> AlignmentResult<AlignmentType, U32Cost> {
     debug!(
@@ -51,7 +52,12 @@ pub fn align(
     debug!("Query sequence: {}", String::from_utf8_lossy(&query));
     info!("Aligning on subsequence {}", range);
 
-    let sequences = AlignmentSequences::new(reference, query);
+    let sequences = AlignmentSequences::new_named(
+        reference,
+        query,
+        reference_name.to_string(),
+        query_name.to_string(),
+    );
     let k = chaining_lower_bounds.max_match_run() + 1;
 
     let anchors = Anchors::new(&sequences, range.clone(), k, rc_fn);
@@ -60,7 +66,7 @@ pub fn align(
     let mut chaining_cost_function =
         ChainingCostFunction::new_from_lower_bounds(chaining_lower_bounds, &anchors, start, end);
 
-    chain_align::align(
+    chain_align::align::<AlphabetType, _>(
         &sequences,
         start,
         end,
@@ -69,7 +75,5 @@ pub fn align(
         chaining_lower_bounds.max_match_run(),
         &anchors,
         &mut chaining_cost_function,
-    );
-
-    todo!()
+    )
 }

@@ -2,7 +2,9 @@ use std::{fmt::Display, iter};
 
 use generic_a_star::{AStarContext, AStarNode, cost::AStarCost, reset::Reset};
 
-use crate::{anchors::Anchors, chaining_cost_function::ChainingCostFunction};
+use crate::{
+    alignment::ts_kind::TsKind, anchors::Anchors, chaining_cost_function::ChainingCostFunction,
+};
 
 const DEBUG_CHAINER: bool = false;
 
@@ -22,6 +24,7 @@ pub struct Node<Cost> {
 pub enum Identifier {
     Start,
     Primary { index: usize },
+    Secondary { index: usize, ts_kind: TsKind },
     End,
 }
 
@@ -85,6 +88,37 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                                 cost,
                             })
                         })
+                        .chain(TsKind::iter().flat_map(|ts_kind| {
+                            (0..self.anchors.secondary(ts_kind).len())
+                                .zip(iter::repeat(&self))
+                                .flat_map(move |(successor_index, context)| {
+                                    if DEBUG_CHAINER {
+                                        println!(
+                                            "Checking anchor S{}-{successor_index}: {}",
+                                            ts_kind.digits(),
+                                            context.anchors.secondary(ts_kind)[successor_index]
+                                        );
+                                    }
+
+                                    let cost = predecessor_cost.checked_add(
+                                        &context
+                                            .chaining_cost_function
+                                            .jump_12_from_start(successor_index, ts_kind),
+                                    )?;
+                                    if DEBUG_CHAINER {
+                                        println!("Cost: {cost}");
+                                    }
+
+                                    (cost != Cost::max_value()).then_some(Node {
+                                        identifier: Identifier::Secondary {
+                                            index: successor_index,
+                                            ts_kind,
+                                        },
+                                        predecessor,
+                                        cost,
+                                    })
+                                })
+                        }))
                         .chain(iter::once({
                             let cost = predecessor_cost
                                 .checked_add(&self.chaining_cost_function.start_to_end())
@@ -123,6 +157,39 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                             cost,
                         })
                     })
+                    .chain(TsKind::iter().flat_map(|ts_kind| {
+                        (0..self.anchors.secondary(ts_kind).len())
+                            .zip(iter::repeat(&self))
+                            .flat_map(move |(successor_index, context)| {
+                                if DEBUG_CHAINER {
+                                    println!(
+                                        "Checking anchor S{}-{successor_index}: {}",
+                                        ts_kind.digits(),
+                                        context.anchors.secondary(ts_kind)[successor_index]
+                                    );
+                                }
+
+                                let cost = predecessor_cost.checked_add(
+                                    &context.chaining_cost_function.jump_12(
+                                        index,
+                                        successor_index,
+                                        ts_kind,
+                                    ),
+                                )?;
+                                if DEBUG_CHAINER {
+                                    println!("Cost: {cost}");
+                                }
+
+                                (cost != Cost::max_value()).then_some(Node {
+                                    identifier: Identifier::Secondary {
+                                        index: successor_index,
+                                        ts_kind,
+                                    },
+                                    predecessor,
+                                    cost,
+                                })
+                            })
+                    }))
                     .chain(iter::once({
                         let cost = predecessor_cost
                             .checked_add(&self.chaining_cost_function.primary_to_end(index))
@@ -135,6 +202,75 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                         }
                     })),
             ),
+            Identifier::Secondary { index, ts_kind } => output.extend(
+                (0..self.anchors.secondary(ts_kind).len())
+                    .flat_map(|successor_index| {
+                        if DEBUG_CHAINER {
+                            println!(
+                                "Checking anchor S{}-{successor_index}: {}",
+                                ts_kind.digits(),
+                                self.anchors.secondary(ts_kind)[successor_index]
+                            );
+                        }
+
+                        let cost = predecessor_cost.checked_add(
+                            &self
+                                .chaining_cost_function
+                                .secondary(index, successor_index, ts_kind),
+                        )?;
+                        if DEBUG_CHAINER {
+                            println!("Cost: {cost}");
+                        }
+
+                        (cost != Cost::max_value()).then_some(Node {
+                            identifier: Identifier::Secondary {
+                                index: successor_index,
+                                ts_kind,
+                            },
+                            predecessor,
+                            cost,
+                        })
+                    })
+                    .chain((0..self.anchors.primary.len()).flat_map(|successor_index| {
+                        if DEBUG_CHAINER {
+                            println!(
+                                "Checking anchor P-{successor_index}: {}",
+                                self.anchors.primary[successor_index]
+                            );
+                        }
+
+                        let cost = predecessor_cost.checked_add(
+                            &self
+                                .chaining_cost_function
+                                .jump_34(index, successor_index, ts_kind),
+                        )?;
+                        if DEBUG_CHAINER {
+                            println!("Cost: {cost}");
+                        }
+
+                        (cost != Cost::max_value()).then_some(Node {
+                            identifier: Identifier::Primary {
+                                index: successor_index,
+                            },
+                            predecessor,
+                            cost,
+                        })
+                    }))
+                    .chain(iter::once({
+                        let cost = predecessor_cost
+                            .checked_add(
+                                &self.chaining_cost_function.jump_34_to_end(index, ts_kind),
+                            )
+                            .unwrap();
+                        debug_assert_ne!(cost, Cost::max_value());
+                        Node {
+                            identifier: Identifier::End,
+                            predecessor,
+                            cost,
+                        }
+                    })),
+            ),
+
             Identifier::End => { /* Has no successors */ }
         }
     }
@@ -213,6 +349,7 @@ impl Display for Identifier {
         match self {
             Identifier::Start => write!(f, "start"),
             Identifier::Primary { index } => write!(f, "P-{index}"),
+            Identifier::Secondary { index, ts_kind } => write!(f, "S{}-{index}", ts_kind.digits()),
             Identifier::End => write!(f, "end"),
         }
     }

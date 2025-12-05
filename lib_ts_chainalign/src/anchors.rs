@@ -7,7 +7,7 @@ use crate::{
     alignment::{
         coordinates::AlignmentCoordinates,
         sequences::AlignmentSequences,
-        ts_kind::{TsDescendant, TsKind},
+        ts_kind::{TsAncestor, TsDescendant, TsKind},
     },
     anchors::{
         kmer_matches::find_kmer_matches,
@@ -182,6 +182,15 @@ impl Anchors {
             secondary_12,
             secondary_21,
             secondary_22,
+        }
+    }
+
+    pub fn secondary(&self, ts_kind: TsKind) -> &[SecondaryAnchor] {
+        match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => &self.secondary_11,
+            (TsAncestor::Seq1, TsDescendant::Seq2) => &self.secondary_12,
+            (TsAncestor::Seq2, TsDescendant::Seq1) => &self.secondary_21,
+            (TsAncestor::Seq2, TsDescendant::Seq2) => &self.secondary_22,
         }
     }
 }

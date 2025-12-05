@@ -22,14 +22,14 @@ impl<Cost: AStarCost> Ts34JumpAlignment<Cost> {
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
         sequences: &AlignmentSequences,
-        cost_table: &AlignmentCosts<Cost>,
+        alignment_costs: &AlignmentCosts<Cost>,
         rc_fn: &dyn Fn(u8) -> u8,
         max_match_run: u32,
     ) -> Self {
         assert!(start.is_secondary());
         assert!(end.is_primary());
 
-        let context = Context::new(cost_table, sequences, rc_fn, start, end, max_match_run);
+        let context = Context::new(alignment_costs, sequences, rc_fn, start, end, max_match_run);
         let mut a_star = AStar::new(context);
         a_star.initialise();
         match a_star.search() {
@@ -39,7 +39,7 @@ impl<Cost: AStarCost> Ts34JumpAlignment<Cost> {
                 alignment: a_star.reconstruct_path().into(),
                 // The TS base cost is applied at the 12-jump, but we anyways apply it in this algorithm to make it label-setting if the base cost is non-zero.
                 // But since the 34-jump has zero cost, we subtract it again.
-                cost: cost.0 - cost_table.ts_base_cost,
+                cost: cost.0 - alignment_costs.ts_base_cost,
             },
             AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),

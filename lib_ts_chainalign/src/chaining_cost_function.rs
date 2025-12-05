@@ -2,7 +2,10 @@ use generic_a_star::cost::AStarCost;
 use ndarray::{Array, Array2};
 
 use crate::{
-    alignment::{coordinates::AlignmentCoordinates, ts_kind::TsKind},
+    alignment::{
+        coordinates::AlignmentCoordinates,
+        ts_kind::{TsAncestor, TsDescendant, TsKind},
+    },
     anchors::Anchors,
     chaining_lower_bounds::ChainingLowerBounds,
 };
@@ -236,35 +239,35 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        for (to_index, to_anchor) in anchors.secondary_11.iter().enumerate() {
-            let gap = to_anchor.chaining_jump_gap_from_start(start, TsKind::TS11);
-            jump_12_to_11[[0, to_index]] = chaining_lower_bounds.jump_12_lower_bound(gap);
-            let gap = to_anchor.chaining_jump_gap_to_end(end, TsKind::TS11, k);
-            jump_34_from_11[[to_index, anchors.primary.len() + 1]] =
+        for (index, anchor) in anchors.secondary_11.iter().enumerate() {
+            let gap = anchor.chaining_jump_gap_from_start(start, TsKind::TS11);
+            jump_12_to_11[[0, index]] = chaining_lower_bounds.jump_12_lower_bound(gap);
+            let gap = anchor.chaining_jump_gap_to_end(end, TsKind::TS11, k);
+            jump_34_from_11[[index, anchors.primary.len() + 1]] =
                 chaining_lower_bounds.jump_34_lower_bound(gap);
         }
 
-        for (to_index, to_anchor) in anchors.secondary_12.iter().enumerate() {
-            let gap = to_anchor.chaining_jump_gap_from_start(start, TsKind::TS12);
-            jump_12_to_12[[0, to_index]] = chaining_lower_bounds.jump_12_lower_bound(gap);
-            let gap = to_anchor.chaining_jump_gap_to_end(end, TsKind::TS12, k);
-            jump_34_from_12[[to_index, anchors.primary.len() + 1]] =
+        for (index, anchor) in anchors.secondary_12.iter().enumerate() {
+            let gap = anchor.chaining_jump_gap_from_start(start, TsKind::TS12);
+            jump_12_to_12[[0, index]] = chaining_lower_bounds.jump_12_lower_bound(gap);
+            let gap = anchor.chaining_jump_gap_to_end(end, TsKind::TS12, k);
+            jump_34_from_12[[index, anchors.primary.len() + 1]] =
                 chaining_lower_bounds.jump_34_lower_bound(gap);
         }
 
-        for (to_index, to_anchor) in anchors.secondary_21.iter().enumerate() {
-            let gap = to_anchor.chaining_jump_gap_from_start(start, TsKind::TS21);
-            jump_12_to_21[[0, to_index]] = chaining_lower_bounds.jump_12_lower_bound(gap);
-            let gap = to_anchor.chaining_jump_gap_to_end(end, TsKind::TS21, k);
-            jump_34_from_21[[to_index, anchors.primary.len() + 1]] =
+        for (index, anchor) in anchors.secondary_21.iter().enumerate() {
+            let gap = anchor.chaining_jump_gap_from_start(start, TsKind::TS21);
+            jump_12_to_21[[0, index]] = chaining_lower_bounds.jump_12_lower_bound(gap);
+            let gap = anchor.chaining_jump_gap_to_end(end, TsKind::TS21, k);
+            jump_34_from_21[[index, anchors.primary.len() + 1]] =
                 chaining_lower_bounds.jump_34_lower_bound(gap);
         }
 
-        for (to_index, to_anchor) in anchors.secondary_22.iter().enumerate() {
-            let gap = to_anchor.chaining_jump_gap_from_start(start, TsKind::TS22);
-            jump_12_to_22[[0, to_index]] = chaining_lower_bounds.jump_12_lower_bound(gap);
-            let gap = to_anchor.chaining_jump_gap_to_end(end, TsKind::TS22, k);
-            jump_34_from_22[[to_index, anchors.primary.len() + 1]] =
+        for (index, anchor) in anchors.secondary_22.iter().enumerate() {
+            let gap = anchor.chaining_jump_gap_from_start(start, TsKind::TS22);
+            jump_12_to_22[[0, index]] = chaining_lower_bounds.jump_12_lower_bound(gap);
+            let gap = anchor.chaining_jump_gap_to_end(end, TsKind::TS22, k);
+            jump_34_from_22[[index, anchors.primary.len() + 1]] =
                 chaining_lower_bounds.jump_34_lower_bound(gap);
         }
 
@@ -301,6 +304,138 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         self.primary[[0, self.primary.dim().1 - 1]]
     }
 
+    pub fn jump_12_to_11(&self, from_primary_index: usize, to_secondary_11_index: usize) -> Cost {
+        self.jump_12_to_11[[from_primary_index + 1, to_secondary_11_index]]
+    }
+
+    pub fn jump_12_to_12(&self, from_primary_index: usize, to_secondary_12_index: usize) -> Cost {
+        self.jump_12_to_12[[from_primary_index + 1, to_secondary_12_index]]
+    }
+
+    pub fn jump_12_to_21(&self, from_primary_index: usize, to_secondary_21_index: usize) -> Cost {
+        self.jump_12_to_21[[from_primary_index + 1, to_secondary_21_index]]
+    }
+
+    pub fn jump_12_to_22(&self, from_primary_index: usize, to_secondary_22_index: usize) -> Cost {
+        self.jump_12_to_22[[from_primary_index + 1, to_secondary_22_index]]
+    }
+
+    pub fn jump_12(
+        &self,
+        from_primary_index: usize,
+        to_secondary_index: usize,
+        ts_kind: TsKind,
+    ) -> Cost {
+        match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                self.jump_12_to_11(from_primary_index, to_secondary_index)
+            }
+            (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                self.jump_12_to_12(from_primary_index, to_secondary_index)
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                self.jump_12_to_21(from_primary_index, to_secondary_index)
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                self.jump_12_to_22(from_primary_index, to_secondary_index)
+            }
+        }
+    }
+
+    pub fn jump_12_to_11_from_start(&self, to_secondary_11_index: usize) -> Cost {
+        self.jump_12_to_11[[0, to_secondary_11_index]]
+    }
+
+    pub fn jump_12_to_12_from_start(&self, to_secondary_12_index: usize) -> Cost {
+        self.jump_12_to_12[[0, to_secondary_12_index]]
+    }
+
+    pub fn jump_12_to_21_from_start(&self, to_secondary_21_index: usize) -> Cost {
+        self.jump_12_to_21[[0, to_secondary_21_index]]
+    }
+
+    pub fn jump_12_to_22_from_start(&self, to_secondary_22_index: usize) -> Cost {
+        self.jump_12_to_22[[0, to_secondary_22_index]]
+    }
+
+    pub fn jump_12_from_start(&self, to_secondary_index: usize, ts_kind: TsKind) -> Cost {
+        match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                self.jump_12_to_11_from_start(to_secondary_index)
+            }
+            (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                self.jump_12_to_12_from_start(to_secondary_index)
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                self.jump_12_to_21_from_start(to_secondary_index)
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                self.jump_12_to_22_from_start(to_secondary_index)
+            }
+        }
+    }
+
+    pub fn secondary(
+        &self,
+        from_secondary_index: usize,
+        to_secondary_index: usize,
+        ts_kind: TsKind,
+    ) -> Cost {
+        match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                self.secondary_11[[from_secondary_index, to_secondary_index]]
+            }
+            (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                self.secondary_12[[from_secondary_index, to_secondary_index]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                self.secondary_21[[from_secondary_index, to_secondary_index]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                self.secondary_22[[from_secondary_index, to_secondary_index]]
+            }
+        }
+    }
+
+    pub fn jump_34(
+        &self,
+        from_secondary_index: usize,
+        to_primary_index: usize,
+        ts_kind: TsKind,
+    ) -> Cost {
+        match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                self.jump_34_from_11[[from_secondary_index, to_primary_index + 1]]
+            }
+            (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                self.jump_34_from_12[[from_secondary_index, to_primary_index + 1]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                self.jump_34_from_21[[from_secondary_index, to_primary_index + 1]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                self.jump_34_from_22[[from_secondary_index, to_primary_index + 1]]
+            }
+        }
+    }
+
+    pub fn jump_34_to_end(&self, from_secondary_index: usize, ts_kind: TsKind) -> Cost {
+        match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                self.jump_34_from_11[[from_secondary_index, self.jump_34_from_11.dim().1 - 1]]
+            }
+            (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                self.jump_34_from_12[[from_secondary_index, self.jump_34_from_12.dim().1 - 1]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                self.jump_34_from_21[[from_secondary_index, self.jump_34_from_21.dim().1 - 1]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                self.jump_34_from_22[[from_secondary_index, self.jump_34_from_22.dim().1 - 1]]
+            }
+        }
+    }
+
     pub fn update_primary(
         &mut self,
         from_primary_index: usize,
@@ -334,6 +469,143 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     pub fn update_start_to_end(&mut self, cost: Cost) -> bool {
         let end_index = self.primary.dim().1 - 1;
         let target = &mut self.primary[[0, end_index]];
+        assert!(*target <= cost);
+        let result = *target < cost;
+        *target = cost;
+        result
+    }
+
+    pub fn update_jump_12(
+        &mut self,
+        from_primary_index: usize,
+        to_secondary_index: usize,
+        ts_kind: TsKind,
+        cost: Cost,
+    ) -> bool {
+        let target = match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                &mut self.jump_12_to_11[[from_primary_index + 1, to_secondary_index]]
+            }
+            (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                &mut self.jump_12_to_12[[from_primary_index + 1, to_secondary_index]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                &mut self.jump_12_to_21[[from_primary_index + 1, to_secondary_index]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                &mut self.jump_12_to_22[[from_primary_index + 1, to_secondary_index]]
+            }
+        };
+        assert!(*target <= cost);
+        let result = *target < cost;
+        *target = cost;
+        result
+    }
+
+    pub fn update_jump_12_from_start(
+        &mut self,
+        to_secondary_index: usize,
+        ts_kind: TsKind,
+        cost: Cost,
+    ) -> bool {
+        let target = match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                &mut self.jump_12_to_11[[0, to_secondary_index]]
+            }
+            (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                &mut self.jump_12_to_12[[0, to_secondary_index]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                &mut self.jump_12_to_21[[0, to_secondary_index]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                &mut self.jump_12_to_22[[0, to_secondary_index]]
+            }
+        };
+        assert!(*target <= cost);
+        let result = *target < cost;
+        *target = cost;
+        result
+    }
+
+    pub fn update_secondary(
+        &mut self,
+        from_secondary_index: usize,
+        to_secondary_index: usize,
+        ts_kind: TsKind,
+        cost: Cost,
+    ) -> bool {
+        let target = match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                &mut self.secondary_11[[from_secondary_index, to_secondary_index]]
+            }
+            (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                &mut self.secondary_12[[from_secondary_index, to_secondary_index]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                &mut self.secondary_21[[from_secondary_index, to_secondary_index]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                &mut self.secondary_22[[from_secondary_index, to_secondary_index]]
+            }
+        };
+        assert!(*target <= cost);
+        let result = *target < cost;
+        *target = cost;
+        result
+    }
+
+    pub fn update_jump_34(
+        &mut self,
+        from_secondary_index: usize,
+        to_primary_index: usize,
+        ts_kind: TsKind,
+        cost: Cost,
+    ) -> bool {
+        let target = match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                &mut self.jump_34_from_11[[from_secondary_index, to_primary_index + 1]]
+            }
+            (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                &mut self.jump_34_from_12[[from_secondary_index, to_primary_index + 1]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                &mut self.jump_34_from_21[[from_secondary_index, to_primary_index + 1]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                &mut self.jump_34_from_22[[from_secondary_index, to_primary_index + 1]]
+            }
+        };
+        assert!(*target <= cost);
+        let result = *target < cost;
+        *target = cost;
+        result
+    }
+
+    pub fn update_jump_34_to_end(
+        &mut self,
+        from_secondary_index: usize,
+        ts_kind: TsKind,
+        cost: Cost,
+    ) -> bool {
+        let target = match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                let end_index = self.jump_34_from_11.dim().1 - 1;
+                &mut self.jump_34_from_11[[from_secondary_index, end_index]]
+            }
+            (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                let end_index = self.jump_34_from_12.dim().1 - 1;
+                &mut self.jump_34_from_12[[from_secondary_index, end_index]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                let end_index = self.jump_34_from_21.dim().1 - 1;
+                &mut self.jump_34_from_21[[from_secondary_index, end_index]]
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                let end_index = self.jump_34_from_22.dim().1 - 1;
+                &mut self.jump_34_from_22[[from_secondary_index, end_index]]
+            }
+        };
         assert!(*target <= cost);
         let result = *target < cost;
         *target = cost;

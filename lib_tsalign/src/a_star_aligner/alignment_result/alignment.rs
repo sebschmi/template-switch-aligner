@@ -25,19 +25,30 @@ impl<AlignmentType> Alignment<AlignmentType> {
     where
         AlignmentType: Eq,
     {
-        if let Some((multiplicity, last_alignment_type)) = self.alignment.last_mut() {
+        self.push_n(1, alignment_type);
+    }
+
+    pub fn push_n(&mut self, multiplicity: usize, alignment_type: AlignmentType)
+    where
+        AlignmentType: Eq,
+    {
+        if let Some((existing_multiplicity, last_alignment_type)) = self.alignment.last_mut() {
             if *last_alignment_type == alignment_type {
-                *multiplicity += 1;
+                *existing_multiplicity += multiplicity;
             } else {
-                self.alignment.push((1, alignment_type));
+                self.alignment.push((multiplicity, alignment_type));
             }
         } else {
-            self.alignment.push((1, alignment_type));
+            self.alignment.push((multiplicity, alignment_type));
         }
     }
 
     pub fn inner_mut(&mut self) -> &mut Vec<(usize, AlignmentType)> {
         &mut self.alignment
+    }
+
+    pub fn into_inner(self) -> Vec<(usize, AlignmentType)> {
+        self.alignment
     }
 }
 

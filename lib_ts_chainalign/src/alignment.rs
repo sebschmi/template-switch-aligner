@@ -27,6 +27,7 @@ pub enum GapType {
     InB,
 }
 
+#[derive(Debug, Clone)]
 pub struct Alignment {
     pub alignment: Vec<(usize, AlignmentType)>,
 }
