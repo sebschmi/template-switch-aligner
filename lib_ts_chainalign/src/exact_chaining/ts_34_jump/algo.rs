@@ -14,6 +14,8 @@ use crate::{
     costs::AlignmentCosts,
 };
 
+const DEBUG_EXACT_34_JUMP: bool = false;
+
 pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
     costs: &'costs AlignmentCosts<Cost>,
     sequences: &'sequences AlignmentSequences,
@@ -194,12 +196,20 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             output.extend(
                 coordinates
                     .generate_34_jumps(self.end)
-                    .map(|(jump, coordinates)| Node {
-                        identifier: Identifier::Jump34 { coordinates },
-                        predecessor,
-                        predecessor_alignment_type: Some(AlignmentType::TsEnd { jump }),
-                        cost: new_cost,
-                        match_run: 0,
+                    .map(|(jump, coordinates)| {
+                        if DEBUG_EXACT_34_JUMP {
+                            println!(
+                                "Jump from {} to {coordinates} by {jump}",
+                                node.identifier.coordinates()
+                            );
+                        }
+                        Node {
+                            identifier: Identifier::Jump34 { coordinates },
+                            predecessor,
+                            predecessor_alignment_type: Some(AlignmentType::TsEnd { jump }),
+                            cost: new_cost,
+                            match_run: 0,
+                        }
                     }),
             );
         }

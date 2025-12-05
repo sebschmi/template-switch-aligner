@@ -230,7 +230,7 @@ impl AlignmentCoordinates {
             TsDescendant::Seq2 => b,
         };
 
-        (start.secondary_ordinate_ancestor().unwrap()..ancestor_limit).map(move |ancestor| {
+        (start.secondary_ordinate_ancestor().unwrap()..=ancestor_limit).map(move |ancestor| {
             (
                 ancestor as isize - ancestor_zero,
                 Self::Secondary {
@@ -258,7 +258,7 @@ impl AlignmentCoordinates {
             panic!("Can only generate 34-jumps from secondary coordinates");
         };
 
-        (0..match ts_kind.descendant {
+        (0..=match ts_kind.descendant {
             TsDescendant::Seq1 => end.primary_ordinate_b().unwrap(),
             TsDescendant::Seq2 => end.primary_ordinate_a().unwrap(),
         })

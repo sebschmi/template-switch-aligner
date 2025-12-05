@@ -117,11 +117,12 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
-                    cost_increased = cost_increased
-                        || astar
-                            .context_mut()
-                            .chaining_cost_function
-                            .update_start_to_end(alignment.cost());
+                    trace!("Aligning from start to end costs {}", alignment.cost());
+                    cost_increased = astar
+                        .context_mut()
+                        .chaining_cost_function
+                        .update_start_to_end(alignment.cost())
+                        || cost_increased;
                     alignments.push(alignment.alignment().clone());
                 }
                 (Identifier::Start, Identifier::Primary { index }) => {
@@ -134,11 +135,16 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
-                    cost_increased = cost_increased
-                        || astar
-                            .context_mut()
-                            .chaining_cost_function
-                            .update_primary_from_start(index, alignment.cost());
+                    trace!(
+                        "Aligning from start to P{index}{} costs {}",
+                        anchors.primary[index],
+                        alignment.cost()
+                    );
+                    cost_increased = astar
+                        .context_mut()
+                        .chaining_cost_function
+                        .update_primary_from_start(index, alignment.cost())
+                        || cost_increased;
                     alignments.push(alignment.alignment().clone());
                 }
                 (Identifier::Start, Identifier::Secondary { index, ts_kind }) => {
@@ -151,11 +157,17 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
-                    cost_increased = cost_increased
-                        || astar
-                            .context_mut()
-                            .chaining_cost_function
-                            .update_jump_12_from_start(index, ts_kind, alignment.cost());
+                    trace!(
+                        "Aligning from start to S{}[{index}]{} costs {}",
+                        ts_kind.digits(),
+                        anchors.secondary(ts_kind)[index],
+                        alignment.cost()
+                    );
+                    cost_increased = astar
+                        .context_mut()
+                        .chaining_cost_function
+                        .update_jump_12_from_start(index, ts_kind, alignment.cost())
+                        || cost_increased;
                     alignments.push(alignment.alignment().clone());
                 }
                 (Identifier::Primary { index }, Identifier::End) => {
@@ -168,11 +180,16 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
-                    cost_increased = cost_increased
-                        || astar
-                            .context_mut()
-                            .chaining_cost_function
-                            .update_primary_to_end(index, alignment.cost());
+                    trace!(
+                        "Aligning from P{index}{} to end costs {}",
+                        anchors.primary[index],
+                        alignment.cost()
+                    );
+                    cost_increased = astar
+                        .context_mut()
+                        .chaining_cost_function
+                        .update_primary_to_end(index, alignment.cost())
+                        || cost_increased;
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
@@ -186,11 +203,17 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
-                    cost_increased = cost_increased
-                        || astar
-                            .context_mut()
-                            .chaining_cost_function
-                            .update_jump_34_to_end(index, ts_kind, alignment.cost());
+                    trace!(
+                        "Aligning from S{}[{index}]{} to end costs {}",
+                        ts_kind.digits(),
+                        anchors.secondary(ts_kind)[index],
+                        alignment.cost()
+                    );
+                    cost_increased = astar
+                        .context_mut()
+                        .chaining_cost_function
+                        .update_jump_34_to_end(index, ts_kind, alignment.cost())
+                        || cost_increased;
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
@@ -215,12 +238,17 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
-                    cost_increased = cost_increased
-                        || astar.context_mut().chaining_cost_function.update_primary(
-                            from_index,
-                            to_index,
-                            alignment.cost(),
-                        );
+                    trace!(
+                        "Aligning from P{from_index}{} to P{to_index}{} costs {}",
+                        anchors.primary[from_index],
+                        anchors.primary[to_index],
+                        alignment.cost()
+                    );
+                    cost_increased = astar.context_mut().chaining_cost_function.update_primary(
+                        from_index,
+                        to_index,
+                        alignment.cost(),
+                    ) || cost_increased;
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
@@ -241,13 +269,19 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
-                    cost_increased = cost_increased
-                        || astar.context_mut().chaining_cost_function.update_jump_12(
-                            from_index,
-                            to_index,
-                            ts_kind,
-                            alignment.cost(),
-                        );
+                    cost_increased = astar.context_mut().chaining_cost_function.update_jump_12(
+                        from_index,
+                        to_index,
+                        ts_kind,
+                        alignment.cost(),
+                    ) || cost_increased;
+                    trace!(
+                        "Aligning from P{from_index}{} to S{}[{to_index}]{} costs {}",
+                        anchors.primary[from_index],
+                        ts_kind.digits(),
+                        anchors.secondary(ts_kind)[to_index],
+                        alignment.cost()
+                    );
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
@@ -278,13 +312,20 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
-                    cost_increased = cost_increased
-                        || astar.context_mut().chaining_cost_function.update_secondary(
-                            from_index,
-                            to_index,
-                            ts_kind,
-                            alignment.cost(),
-                        );
+                    trace!(
+                        "Aligning from S{}[{from_index}]{} to S{}[{to_index}]{} costs {}",
+                        ts_kind.digits(),
+                        anchors.secondary(ts_kind)[from_index],
+                        ts_kind.digits(),
+                        anchors.secondary(ts_kind)[to_index],
+                        alignment.cost()
+                    );
+                    cost_increased = astar.context_mut().chaining_cost_function.update_secondary(
+                        from_index,
+                        to_index,
+                        ts_kind,
+                        alignment.cost(),
+                    ) || cost_increased;
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
@@ -305,13 +346,21 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
-                    cost_increased = cost_increased
-                        || astar.context_mut().chaining_cost_function.update_jump_34(
-                            from_index,
-                            to_index,
-                            ts_kind,
-                            alignment.cost(),
-                        );
+                    cost_increased = astar.context_mut().chaining_cost_function.update_jump_34(
+                        from_index,
+                        to_index,
+                        ts_kind,
+                        alignment.cost(),
+                    ) || cost_increased;
+                    trace!(
+                        "Aligning from S{}[{from_index}]{} to P{to_index}{} (S{} to P{}) costs {}",
+                        ts_kind.digits(),
+                        anchors.secondary(ts_kind)[from_index],
+                        anchors.primary[to_index],
+                        start,
+                        end,
+                        alignment.cost()
+                    );
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }

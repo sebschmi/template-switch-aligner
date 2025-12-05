@@ -4,7 +4,7 @@ use lib_tsalign::a_star_aligner::{
     alignment_geometry::AlignmentRange, alignment_result::AlignmentResult,
     template_switch_distance::AlignmentType,
 };
-use log::{debug, info};
+use log::{debug, info, trace};
 
 use crate::{
     alignment::{coordinates::AlignmentCoordinates, sequences::AlignmentSequences},
@@ -61,6 +61,7 @@ pub fn align<AlphabetType: Alphabet>(
     let k = chaining_lower_bounds.max_match_run() + 1;
 
     let anchors = Anchors::new(&sequences, range.clone(), k, rc_fn);
+    trace!("Anchors:\n{anchors}");
     let start = AlignmentCoordinates::new_primary(range.reference_offset(), range.query_offset());
     let end = AlignmentCoordinates::new_primary(range.reference_limit(), range.query_limit());
     let mut chaining_cost_function =

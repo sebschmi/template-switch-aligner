@@ -77,7 +77,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                                     .primary_from_start(successor_index),
                             )?;
                             if DEBUG_CHAINER {
-                                println!("Cost: {cost}");
+                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
                             }
 
                             (cost != Cost::max_value()).then_some(Node {
@@ -106,7 +106,11 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                                             .jump_12_from_start(successor_index, ts_kind),
                                     )?;
                                     if DEBUG_CHAINER {
-                                        println!("Cost: {cost}");
+                                        println!(
+                                            "Cost: {}+{}",
+                                            predecessor_cost,
+                                            cost - predecessor_cost
+                                        );
                                     }
 
                                     (cost != Cost::max_value()).then_some(Node {
@@ -123,6 +127,10 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                             let cost = predecessor_cost
                                 .checked_add(&self.chaining_cost_function.start_to_end())
                                 .unwrap();
+                            if DEBUG_CHAINER {
+                                println!("Checking anchor end");
+                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                            }
                             debug_assert_ne!(cost, Cost::max_value());
                             Node {
                                 identifier: Identifier::End,
@@ -146,7 +154,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                             &self.chaining_cost_function.primary(index, successor_index),
                         )?;
                         if DEBUG_CHAINER {
-                            println!("Cost: {cost}");
+                            println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
                         }
 
                         (cost != Cost::max_value()).then_some(Node {
@@ -177,7 +185,11 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                                     ),
                                 )?;
                                 if DEBUG_CHAINER {
-                                    println!("Cost: {cost}");
+                                    println!(
+                                        "Cost: {}+{}",
+                                        predecessor_cost,
+                                        cost - predecessor_cost
+                                    );
                                 }
 
                                 (cost != Cost::max_value()).then_some(Node {
@@ -194,6 +206,10 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                         let cost = predecessor_cost
                             .checked_add(&self.chaining_cost_function.primary_to_end(index))
                             .unwrap();
+                        if DEBUG_CHAINER {
+                            println!("Checking anchor end");
+                            println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                        }
                         debug_assert_ne!(cost, Cost::max_value());
                         Node {
                             identifier: Identifier::End,
@@ -219,7 +235,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                                 .secondary(index, successor_index, ts_kind),
                         )?;
                         if DEBUG_CHAINER {
-                            println!("Cost: {cost}");
+                            println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
                         }
 
                         (cost != Cost::max_value()).then_some(Node {
@@ -245,7 +261,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                                 .jump_34(index, successor_index, ts_kind),
                         )?;
                         if DEBUG_CHAINER {
-                            println!("Cost: {cost}");
+                            println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
                         }
 
                         (cost != Cost::max_value()).then_some(Node {
@@ -262,6 +278,10 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                                 &self.chaining_cost_function.jump_34_to_end(index, ts_kind),
                             )
                             .unwrap();
+                        if DEBUG_CHAINER {
+                            println!("Checking anchor end");
+                            println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                        }
                         debug_assert_ne!(cost, Cost::max_value());
                         Node {
                             identifier: Identifier::End,

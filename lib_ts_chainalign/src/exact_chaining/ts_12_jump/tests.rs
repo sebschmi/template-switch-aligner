@@ -256,9 +256,8 @@ fn test_max_match_run_1() {
         alignment.alignment().alignment,
         vec![
             (1, AlignmentType::Match),
-            (6, AlignmentType::GapA),
-            (1, AlignmentType::Match),
-            (6, AlignmentType::GapA),
+            (12, AlignmentType::GapA),
+            (1, AlignmentType::Substitution),
             (1, AlignmentType::Match),
             (
                 1,
@@ -281,12 +280,12 @@ fn test_max_match_run_2() {
     let cost_table = AlignmentCosts {
         primary_costs: GapAffineCosts::new(
             U32Cost::from(2u8),
-            U32Cost::from(3u8),
+            U32Cost::from(30u8),
             U32Cost::from(1u8),
         ),
         secondary_costs: GapAffineCosts::new(
             U32Cost::from(4u8),
-            U32Cost::from(6u8),
+            U32Cost::from(60u8),
             U32Cost::from(2u8),
         ),
         ts_base_cost: U32Cost::from(2u8),
@@ -327,4 +326,136 @@ fn test_max_match_run_2() {
         ]
     );
     assert_eq!(alignment.cost(), U32Cost::from(14u8));
+}
+
+#[test]
+fn test_only_jump() {
+    let seq1 = b"ACGTACGTAC".to_vec();
+    let seq2 = b"ACGTACGTAC".to_vec();
+    let sequences = AlignmentSequences::new(seq1, seq2);
+    let cost_table = AlignmentCosts {
+        primary_costs: GapAffineCosts::new(
+            U32Cost::from(2u8),
+            U32Cost::from(3u8),
+            U32Cost::from(1u8),
+        ),
+        secondary_costs: GapAffineCosts::new(
+            U32Cost::from(4u8),
+            U32Cost::from(6u8),
+            U32Cost::from(2u8),
+        ),
+        ts_base_cost: U32Cost::from(2u8),
+        ts_limits: TsLimits {
+            jump_12: -100..100,
+            jump_34: -100..100,
+            length_23: 0..100,
+            ancestor_gap: -100..100,
+        },
+    };
+
+    let start = AlignmentCoordinates::new_primary(5, 6);
+    let end = AlignmentCoordinates::new_secondary(3, 6, TsKind::TS12);
+    let alignment = Ts12JumpAlignment::new(start, end, &sequences, &cost_table, &rc_fn, 2);
+
+    assert_eq!(alignment.start(), start);
+    assert_eq!(alignment.end(), end);
+    assert_eq!(
+        alignment.alignment().alignment,
+        vec![(
+            1,
+            AlignmentType::TsStart {
+                jump: -2,
+                ts_kind: TsKind::TS12
+            }
+        ),]
+    );
+    assert_eq!(alignment.cost(), U32Cost::from(2u8));
+}
+
+#[test]
+fn test_only_jump_start() {
+    let seq1 = b"ACGTACGTAC".to_vec();
+    let seq2 = b"ACGTACGTAC".to_vec();
+    let sequences = AlignmentSequences::new(seq1, seq2);
+    let cost_table = AlignmentCosts {
+        primary_costs: GapAffineCosts::new(
+            U32Cost::from(2u8),
+            U32Cost::from(3u8),
+            U32Cost::from(1u8),
+        ),
+        secondary_costs: GapAffineCosts::new(
+            U32Cost::from(4u8),
+            U32Cost::from(6u8),
+            U32Cost::from(2u8),
+        ),
+        ts_base_cost: U32Cost::from(2u8),
+        ts_limits: TsLimits {
+            jump_12: -100..100,
+            jump_34: -100..100,
+            length_23: 0..100,
+            ancestor_gap: -100..100,
+        },
+    };
+
+    let start = AlignmentCoordinates::new_primary(0, 0);
+    let end = AlignmentCoordinates::new_secondary(0, 0, TsKind::TS12);
+    let alignment = Ts12JumpAlignment::new(start, end, &sequences, &cost_table, &rc_fn, 2);
+
+    assert_eq!(alignment.start(), start);
+    assert_eq!(alignment.end(), end);
+    assert_eq!(
+        alignment.alignment().alignment,
+        vec![(
+            1,
+            AlignmentType::TsStart {
+                jump: 0,
+                ts_kind: TsKind::TS12
+            }
+        ),]
+    );
+    assert_eq!(alignment.cost(), U32Cost::from(2u8));
+}
+
+#[test]
+fn test_only_jump_end() {
+    let seq1 = b"ACGTACGTAC".to_vec();
+    let seq2 = b"ACGTACGTAC".to_vec();
+    let sequences = AlignmentSequences::new(seq1, seq2);
+    let cost_table = AlignmentCosts {
+        primary_costs: GapAffineCosts::new(
+            U32Cost::from(2u8),
+            U32Cost::from(3u8),
+            U32Cost::from(1u8),
+        ),
+        secondary_costs: GapAffineCosts::new(
+            U32Cost::from(4u8),
+            U32Cost::from(6u8),
+            U32Cost::from(2u8),
+        ),
+        ts_base_cost: U32Cost::from(2u8),
+        ts_limits: TsLimits {
+            jump_12: -100..100,
+            jump_34: -100..100,
+            length_23: 0..100,
+            ancestor_gap: -100..100,
+        },
+    };
+
+    let start = AlignmentCoordinates::new_primary(10, 10);
+    let end = AlignmentCoordinates::new_secondary(10, 10, TsKind::TS12);
+    let alignment = Ts12JumpAlignment::new(start, end, &sequences, &cost_table, &rc_fn, 2);
+
+    assert_eq!(alignment.start(), start);
+    assert_eq!(alignment.end(), end);
+    assert_eq!(
+        alignment.alignment().alignment,
+        vec![(
+            1,
+            AlignmentType::TsStart {
+                jump: 0,
+                ts_kind: TsKind::TS12
+            }
+        ),]
+    );
+    assert_eq!(alignment.cost(), U32Cost::from(2u8));
 }
