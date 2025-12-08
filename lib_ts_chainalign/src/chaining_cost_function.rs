@@ -6,26 +6,26 @@ use crate::{
         ts_kind::{TsAncestor, TsDescendant, TsKind},
     },
     anchors::Anchors,
-    chaining_cost_function::cost_array::CostArray2D,
+    chaining_cost_function::cost_array::ChainingCostArray,
     chaining_lower_bounds::ChainingLowerBounds,
 };
 
 mod cost_array;
 
 pub struct ChainingCostFunction<Cost> {
-    primary: CostArray2D<Cost>,
-    secondary_11: CostArray2D<Cost>,
-    secondary_12: CostArray2D<Cost>,
-    secondary_21: CostArray2D<Cost>,
-    secondary_22: CostArray2D<Cost>,
-    jump_12_to_11: CostArray2D<Cost>,
-    jump_12_to_12: CostArray2D<Cost>,
-    jump_12_to_21: CostArray2D<Cost>,
-    jump_12_to_22: CostArray2D<Cost>,
-    jump_34_from_11: CostArray2D<Cost>,
-    jump_34_from_12: CostArray2D<Cost>,
-    jump_34_from_21: CostArray2D<Cost>,
-    jump_34_from_22: CostArray2D<Cost>,
+    primary: ChainingCostArray<Cost>,
+    secondary_11: ChainingCostArray<Cost>,
+    secondary_12: ChainingCostArray<Cost>,
+    secondary_21: ChainingCostArray<Cost>,
+    secondary_22: ChainingCostArray<Cost>,
+    jump_12_to_11: ChainingCostArray<Cost>,
+    jump_12_to_12: ChainingCostArray<Cost>,
+    jump_12_to_21: ChainingCostArray<Cost>,
+    jump_12_to_22: ChainingCostArray<Cost>,
+    jump_34_from_11: ChainingCostArray<Cost>,
+    jump_34_from_12: ChainingCostArray<Cost>,
+    jump_34_from_21: ChainingCostArray<Cost>,
+    jump_34_from_22: ChainingCostArray<Cost>,
 }
 
 impl<Cost: AStarCost> ChainingCostFunction<Cost> {
@@ -37,7 +37,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     ) -> Self {
         let k = usize::try_from(chaining_lower_bounds.max_match_run() + 1).unwrap();
 
-        let mut primary = CostArray2D::new_from_cost(
+        let mut primary = ChainingCostArray::new_from_cost(
             [anchors.primary.len() + 2, anchors.primary.len() + 2],
             Cost::max_value(),
         );
@@ -65,7 +65,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut secondary_11 = CostArray2D::new_from_cost(
+        let mut secondary_11 = ChainingCostArray::new_from_cost(
             [anchors.secondary_11.len(), anchors.secondary_11.len()],
             Cost::max_value(),
         );
@@ -81,7 +81,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut secondary_12 = CostArray2D::new_from_cost(
+        let mut secondary_12 = ChainingCostArray::new_from_cost(
             [anchors.secondary_12.len(), anchors.secondary_12.len()],
             Cost::max_value(),
         );
@@ -97,7 +97,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut secondary_21 = CostArray2D::new_from_cost(
+        let mut secondary_21 = ChainingCostArray::new_from_cost(
             [anchors.secondary_21.len(), anchors.secondary_21.len()],
             Cost::max_value(),
         );
@@ -113,7 +113,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut secondary_22 = CostArray2D::new_from_cost(
+        let mut secondary_22 = ChainingCostArray::new_from_cost(
             [anchors.secondary_22.len(), anchors.secondary_22.len()],
             Cost::max_value(),
         );
@@ -129,7 +129,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_12_to_11 = CostArray2D::new_from_cost(
+        let mut jump_12_to_11 = ChainingCostArray::new_from_cost(
             [anchors.primary.len() + 2, anchors.secondary_11.len()],
             Cost::max_value(),
         );
@@ -143,7 +143,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_12_to_12 = CostArray2D::new_from_cost(
+        let mut jump_12_to_12 = ChainingCostArray::new_from_cost(
             [anchors.primary.len() + 2, anchors.secondary_12.len()],
             Cost::max_value(),
         );
@@ -157,7 +157,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_12_to_21 = CostArray2D::new_from_cost(
+        let mut jump_12_to_21 = ChainingCostArray::new_from_cost(
             [anchors.primary.len() + 2, anchors.secondary_21.len()],
             Cost::max_value(),
         );
@@ -171,7 +171,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_12_to_22 = CostArray2D::new_from_cost(
+        let mut jump_12_to_22 = ChainingCostArray::new_from_cost(
             [anchors.primary.len() + 2, anchors.secondary_22.len()],
             Cost::max_value(),
         );
@@ -185,7 +185,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_34_from_11 = CostArray2D::new_from_cost(
+        let mut jump_34_from_11 = ChainingCostArray::new_from_cost(
             [anchors.secondary_11.len(), anchors.primary.len() + 2],
             Cost::max_value(),
         );
@@ -199,7 +199,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_34_from_12 = CostArray2D::new_from_cost(
+        let mut jump_34_from_12 = ChainingCostArray::new_from_cost(
             [anchors.secondary_12.len(), anchors.primary.len() + 2],
             Cost::max_value(),
         );
@@ -213,7 +213,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_34_from_21 = CostArray2D::new_from_cost(
+        let mut jump_34_from_21 = ChainingCostArray::new_from_cost(
             [anchors.secondary_21.len(), anchors.primary.len() + 2],
             Cost::max_value(),
         );
@@ -227,7 +227,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_34_from_22 = CostArray2D::new_from_cost(
+        let mut jump_34_from_22 = ChainingCostArray::new_from_cost(
             [anchors.secondary_22.len(), anchors.primary.len() + 2],
             Cost::max_value(),
         );

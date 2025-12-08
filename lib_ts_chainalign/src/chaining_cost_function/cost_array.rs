@@ -2,13 +2,13 @@ use std::ops::{Index, IndexMut};
 
 use bitvec::{bitvec, order::LocalBits, vec::BitVec};
 
-pub struct CostArray2D<Cost> {
+pub struct ChainingCostArray<Cost> {
     len: [usize; 2],
     data: Vec<Cost>,
     is_exact: BitVec<usize, LocalBits>,
 }
 
-impl<Cost> CostArray2D<Cost> {
+impl<Cost> ChainingCostArray<Cost> {
     pub fn new_from_cost(len: [usize; 2], cost: Cost) -> Self
     where
         Cost: Clone,
@@ -35,7 +35,7 @@ impl<Cost> CostArray2D<Cost> {
     }
 }
 
-impl<Cost> Index<[usize; 2]> for CostArray2D<Cost> {
+impl<Cost> Index<[usize; 2]> for ChainingCostArray<Cost> {
     type Output = Cost;
 
     fn index(&self, index: [usize; 2]) -> &Self::Output {
@@ -43,7 +43,7 @@ impl<Cost> Index<[usize; 2]> for CostArray2D<Cost> {
     }
 }
 
-impl<Cost> IndexMut<[usize; 2]> for CostArray2D<Cost> {
+impl<Cost> IndexMut<[usize; 2]> for ChainingCostArray<Cost> {
     fn index_mut(&mut self, index: [usize; 2]) -> &mut Self::Output {
         &mut self.data[coordinates_to_index(index[0], index[1], self.len)]
     }
