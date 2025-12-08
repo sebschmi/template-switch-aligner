@@ -209,6 +209,10 @@ impl<Context: AStarContext> AStar<Context> {
         &self.context
     }
 
+    pub fn context_mut(&mut self) -> &mut Context {
+        &mut self.context
+    }
+
     pub fn into_context(self) -> Context {
         self.context
     }
@@ -345,7 +349,7 @@ impl<Context: AStarContext> AStar<Context> {
                     debug_assert!(
                         previous_visit.cost() + previous_visit.a_star_lower_bound()
                             <= node.cost() + node.a_star_lower_bound(),
-                        "{}",
+                        "Revisiting node at lower costs:\n{}",
                         {
                             use std::fmt::Write;
                             let mut previous_visit = previous_visit;
@@ -511,6 +515,20 @@ impl<Context: AStarContext> AStar<Context> {
         } else {
             None
         }
+    }
+
+    /// Reconstruct the path from a root node to the target node.
+    pub fn reconstruct_path(&self) -> Vec<<Context::Node as AStarNode>::EdgeType> {
+        let AStarState::Terminated {
+            result: AStarResult::FoundTarget { .. },
+        } = &self.state
+        else {
+            panic!("Cannot reconstruct path since no target was found.")
+        };
+
+        let mut result = self.backtrack().collect::<Vec<_>>();
+        result.reverse();
+        result
     }
 }
 

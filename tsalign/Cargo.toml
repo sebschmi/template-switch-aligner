@@ -12,6 +12,7 @@ repository.workspace = true
 lib_tsalign = { version = "0.19.1", path = "../lib_tsalign", features = [
     "serde",
 ] }
+lib_ts_chainalign = { version = "0.1.0", path = "../lib_ts_chainalign" }
 lib_tsshow = { version = "0.19.1", path = "../lib_tsshow" }
 clap = { version = "4.5.16", features = ["derive"] }
 compact-genome = { workspace = true, features = ["io"] }
@@ -22,3 +23,5 @@ log.workspace = true
 simplelog = "0.12.2"
 anyhow = "1.0.97"
 utf8-chars = "3.0.5"
+sha = "1.0.3"
+bincode = { version = "2.0.1", features = ["serde"] }

@@ -41,8 +41,12 @@ use template_switch_distance_type_selectors::{
     align_a_star_template_switch_distance,
 };
 
-use crate::align::fasta_parser::{parse_pair_fasta_file, parse_single_fasta_file};
+use crate::align::{
+    a_star_chain_ts::align_a_star_chain_ts,
+    fasta_parser::{parse_pair_fasta_file, parse_single_fasta_file},
+};
 
+mod a_star_chain_ts;
 mod fasta_parser;
 mod template_switch_distance_type_selectors;
 
@@ -57,6 +61,10 @@ pub struct Cli {
     /// The file to store the alignment statistics in toml format.
     #[clap(long, short = 'o')]
     output: Option<PathBuf>,
+
+    /// The directory in which preprocessed data is stored.
+    #[clap(long)]
+    cache_directory: Option<PathBuf>,
 
     /// The alphabet present in the input files.
     ///
@@ -78,6 +86,12 @@ pub struct Cli {
 
     #[clap(long, default_value = "a-star-template-switch")]
     alignment_method: AlignmentMethod,
+
+    /// k-mer size for tschainalign.
+    ///
+    /// If it is not specified, it is inferred from the sequence lengths.
+    #[clap(short)]
+    k: Option<u32>,
 
     #[clap(long, default_value = "anti-diagonal")]
     ts_node_ord_strategy: TemplateSwitchNodeOrdStrategySelector,
@@ -197,6 +211,7 @@ enum AlignmentMethod {
     Matrix,
     AStarGapAffine,
     AStarTemplateSwitch,
+    AStarChainTS,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, ValueEnum)]
@@ -219,6 +234,7 @@ pub fn cli(cli: Cli) -> Result<()> {
     .unwrap();
 
     if cli.alignment_method != AlignmentMethod::AStarTemplateSwitch
+        && cli.alignment_method != AlignmentMethod::AStarChainTS
         && cli.alphabet != InputAlphabet::Dna
     {
         // Only A*-TS algo supports alphabets other than DNA.
@@ -269,6 +285,10 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
     query_record
         .sequence_handle
         .retain(|c| !skip_characters.contains(&c));
+
+    // Convert sequences to upper case.
+    reference_record.sequence_handle.make_ascii_uppercase();
+    query_record.sequence_handle.make_ascii_uppercase();
 
     // Parse RQ ranges.
     let range = if cli.use_embedded_rq_ranges {
@@ -347,6 +367,14 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
             align_a_star_gap_affine_edit_distance(cli, reference_sequence, query_sequence)
         }
         AlignmentMethod::AStarTemplateSwitch => align_a_star_template_switch_distance(
+            cli,
+            reference_sequence,
+            query_sequence,
+            range,
+            &format!("{} {}", reference_record.id, reference_record.comment),
+            &format!("{} {}", query_record.id, query_record.comment),
+        ),
+        AlignmentMethod::AStarChainTS => align_a_star_chain_ts(
             cli,
             reference_sequence,
             query_sequence,

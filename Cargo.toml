@@ -4,6 +4,7 @@ members = [
     "generic_a_star",
     "seed_chain",
     "lib_tsalign",
+    "lib_ts_chainalign",
     "lib_tsshow",
     "tsalign",
 

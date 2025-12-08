@@ -1,0 +1,99 @@
+use std::io::{Read, Write};
+
+use generic_a_star::{AStar, AStarNode, cost::AStarCost};
+
+use crate::{
+    chaining_lower_bounds::{cost_array::LowerBoundCostArray, gap_affine::algo::Context},
+    costs::GapAffineCosts,
+};
+
+mod algo;
+#[cfg(test)]
+mod tests;
+
+pub struct GapAffineLowerBounds<Cost> {
+    lower_bounds: LowerBoundCostArray<2, Cost>,
+    variable_gap2_lower_bounds: LowerBoundCostArray<1, Cost>,
+}
+
+impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
+    pub fn new(max_n: usize, max_match_run: u32, cost_table: &GapAffineCosts<Cost>) -> Self {
+        Self::compute(max_n, max_match_run, cost_table, false)
+    }
+
+    pub(super) fn new_allow_all_matches(
+        max_n: usize,
+        max_match_run: u32,
+        cost_table: &GapAffineCosts<Cost>,
+    ) -> Self {
+        Self::compute(max_n, max_match_run, cost_table, true)
+    }
+
+    fn compute(
+        max_n: usize,
+        max_match_run: u32,
+        cost_table: &GapAffineCosts<Cost>,
+        allow_all_match_run: bool,
+    ) -> Self {
+        let mut lower_bounds =
+            LowerBoundCostArray::new_from_cost([max_n + 1, max_n + 1], Cost::max_value());
+        lower_bounds[[0, 0]] = Cost::zero();
+        let context = Context::new(cost_table, max_match_run, max_n);
+        let mut a_star = AStar::new(context);
+        a_star.initialise();
+        a_star.search_until(|_, node| {
+            if node.identifier.has_non_match || allow_all_match_run {
+                let lower_bound = &mut lower_bounds[[
+                    node.identifier.coordinates.primary_ordinate_a().unwrap(),
+                    node.identifier.coordinates.primary_ordinate_b().unwrap(),
+                ]];
+                *lower_bound = (*lower_bound).min(node.cost().0);
+            }
+            false
+        });
+        let variable_gap2_lower_bounds = LowerBoundCostArray::from_iter((0..=max_n).map(|gap1| {
+            (0..=max_n)
+                .map(|gap2| lower_bounds[[gap1, gap2]])
+                .min()
+                .unwrap()
+        }));
+
+        Self {
+            lower_bounds,
+            variable_gap2_lower_bounds,
+        }
+    }
+
+    pub fn write(&self, mut write: impl Write) -> std::io::Result<()>
+    where
+        Cost: Copy,
+    {
+        self.lower_bounds.write(&mut write)?;
+        self.variable_gap2_lower_bounds.write(write)
+    }
+
+    pub fn read(mut read: impl Read) -> std::io::Result<Self>
+    where
+        Cost: Copy,
+    {
+        let lower_bounds = LowerBoundCostArray::read(&mut read)?;
+        let variable_gap2_lower_bounds = LowerBoundCostArray::read(read)?;
+        Ok(Self {
+            lower_bounds,
+            variable_gap2_lower_bounds,
+        })
+    }
+}
+
+impl<Cost: Copy> GapAffineLowerBounds<Cost> {
+    /// A lower bound of the cost for chaining two anchors with the given gaps.
+    /// The lower bound is symmetric, so the order of the gaps does not matter.
+    pub fn lower_bound(&self, gap1: usize, gap2: usize) -> Cost {
+        self.lower_bounds[[gap1, gap2]]
+    }
+
+    /// A lower bound of the cost for chaining two anchors with only one specified gap length.
+    pub fn variable_gap2_lower_bound(&self, gap: usize) -> Cost {
+        self.variable_gap2_lower_bounds[[gap]]
+    }
+}
