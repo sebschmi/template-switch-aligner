@@ -383,6 +383,26 @@ impl SecondaryAnchor {
     pub fn is_direct_predecessor_of(&self, successor: &Self) -> bool {
         self.ancestor - 1 == successor.ancestor && self.descendant + 1 == successor.descendant
     }
+
+    /// Returns the length of the 2-3 alignment of a TS that starts in `self` and ends in `until`.
+    ///
+    /// The length is the maximum of the difference of the two sequences.
+    pub fn ts_length_until(&self, until: &Self, ts_kind: TsKind, k: usize) -> usize {
+        let start = self.start(ts_kind);
+        let end = until.end(ts_kind, k);
+
+        (start
+            .secondary_ordinate_ancestor()
+            .unwrap()
+            .checked_sub(end.secondary_ordinate_ancestor().unwrap())
+            .unwrap())
+        .max(
+            end.secondary_ordinate_descendant()
+                .unwrap()
+                .checked_sub(start.secondary_ordinate_descendant().unwrap())
+                .unwrap(),
+        )
+    }
 }
 
 impl Display for Anchors {
