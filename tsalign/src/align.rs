@@ -286,6 +286,10 @@ fn execute_with_alphabet<AlphabetType: Alphabet + Debug + Clone + Eq + 'static>(
         .sequence_handle
         .retain(|c| !skip_characters.contains(&c));
 
+    // Convert sequences to upper case.
+    reference_record.sequence_handle.make_ascii_uppercase();
+    query_record.sequence_handle.make_ascii_uppercase();
+
     // Parse RQ ranges.
     let range = if cli.use_embedded_rq_ranges {
         ensure!(
