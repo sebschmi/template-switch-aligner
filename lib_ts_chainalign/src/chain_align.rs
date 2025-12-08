@@ -289,7 +289,7 @@ fn evaluate_chain<Cost: AStarCost>(
     rc_fn: &dyn Fn(u8) -> u8,
     max_match_run: u32,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
-    complete_evaluation: bool,
+    final_evaluation: bool,
 ) -> (Cost, Vec<Alignment>) {
     let k = usize::try_from(max_match_run + 1).unwrap();
     let mut current_upper_bound = Cost::zero();
@@ -300,7 +300,7 @@ fn evaluate_chain<Cost: AStarCost>(
 
         match (from_anchor, to_anchor) {
             (Identifier::Start, Identifier::End) => {
-                if complete_evaluation || !chaining_cost_function.is_start_to_end_exact() {
+                if final_evaluation || !chaining_cost_function.is_start_to_end_exact() {
                     let alignment = GapAffineAlignment::new(
                         start,
                         end,
@@ -310,15 +310,16 @@ fn evaluate_chain<Cost: AStarCost>(
                         max_match_run,
                     );
                     trace!("Aligning from start to end costs {}", alignment.cost());
-                    chaining_cost_function.update_start_to_end(alignment.cost(), true);
+                    if !final_evaluation {
+                        chaining_cost_function.update_start_to_end(alignment.cost(), true);
+                    }
                     alignments.push(alignment.alignment().clone());
                 }
                 current_upper_bound += chaining_cost_function.start_to_end();
             }
             (Identifier::Start, Identifier::Primary { index }) => {
                 let end = anchors.primary[index].start();
-                if complete_evaluation || !chaining_cost_function.is_primary_from_start_exact(index)
-                {
+                if final_evaluation || !chaining_cost_function.is_primary_from_start_exact(index) {
                     let alignment = GapAffineAlignment::new(
                         start,
                         end,
@@ -332,14 +333,20 @@ fn evaluate_chain<Cost: AStarCost>(
                         anchors.primary[index],
                         alignment.cost()
                     );
-                    chaining_cost_function.update_primary_from_start(index, alignment.cost(), true);
+                    if !final_evaluation {
+                        chaining_cost_function.update_primary_from_start(
+                            index,
+                            alignment.cost(),
+                            true,
+                        );
+                    }
                     alignments.push(alignment.alignment().clone());
                 }
                 current_upper_bound += chaining_cost_function.primary_from_start(index);
             }
             (Identifier::Start, Identifier::Secondary { index, ts_kind }) => {
                 let end = anchors.secondary(ts_kind)[index].start(ts_kind);
-                if complete_evaluation
+                if final_evaluation
                     || !chaining_cost_function.is_jump_12_from_start_exact(index, ts_kind)
                 {
                     let alignment = Ts12JumpAlignment::new(
@@ -356,19 +363,21 @@ fn evaluate_chain<Cost: AStarCost>(
                         anchors.secondary(ts_kind)[index],
                         alignment.cost()
                     );
-                    chaining_cost_function.update_jump_12_from_start(
-                        index,
-                        ts_kind,
-                        alignment.cost(),
-                        true,
-                    );
+                    if !final_evaluation {
+                        chaining_cost_function.update_jump_12_from_start(
+                            index,
+                            ts_kind,
+                            alignment.cost(),
+                            true,
+                        );
+                    }
                     alignments.push(alignment.alignment().clone());
                 }
                 current_upper_bound += chaining_cost_function.jump_12_from_start(index, ts_kind);
             }
             (Identifier::Primary { index }, Identifier::End) => {
                 let start = anchors.primary[index].end(k);
-                if complete_evaluation || !chaining_cost_function.is_primary_to_end_exact(index) {
+                if final_evaluation || !chaining_cost_function.is_primary_to_end_exact(index) {
                     let alignment = GapAffineAlignment::new(
                         start,
                         end,
@@ -382,7 +391,9 @@ fn evaluate_chain<Cost: AStarCost>(
                         anchors.primary[index],
                         alignment.cost()
                     );
-                    chaining_cost_function.update_primary_to_end(index, alignment.cost(), true);
+                    if !final_evaluation {
+                        chaining_cost_function.update_primary_to_end(index, alignment.cost(), true);
+                    }
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
@@ -390,7 +401,7 @@ fn evaluate_chain<Cost: AStarCost>(
             }
             (Identifier::Secondary { index, ts_kind }, Identifier::End) => {
                 let start = anchors.secondary(ts_kind)[index].end(ts_kind, k);
-                if complete_evaluation
+                if final_evaluation
                     || !chaining_cost_function.is_jump_34_to_end_exact(index, ts_kind)
                 {
                     let alignment = Ts34JumpAlignment::new(
@@ -407,12 +418,14 @@ fn evaluate_chain<Cost: AStarCost>(
                         anchors.secondary(ts_kind)[index],
                         alignment.cost()
                     );
-                    chaining_cost_function.update_jump_34_to_end(
-                        index,
-                        ts_kind,
-                        alignment.cost(),
-                        true,
-                    );
+                    if !final_evaluation {
+                        chaining_cost_function.update_jump_34_to_end(
+                            index,
+                            ts_kind,
+                            alignment.cost(),
+                            true,
+                        );
+                    }
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
@@ -430,7 +443,7 @@ fn evaluate_chain<Cost: AStarCost>(
 
                 let start = anchors.primary[from_index].end(k);
                 let end = anchors.primary[to_index].start();
-                if complete_evaluation
+                if final_evaluation
                     || !chaining_cost_function.is_primary_exact(from_index, to_index)
                 {
                     let alignment = GapAffineAlignment::new(
@@ -447,12 +460,14 @@ fn evaluate_chain<Cost: AStarCost>(
                         anchors.primary[to_index],
                         alignment.cost()
                     );
-                    chaining_cost_function.update_primary(
-                        from_index,
-                        to_index,
-                        alignment.cost(),
-                        true,
-                    );
+                    if !final_evaluation {
+                        chaining_cost_function.update_primary(
+                            from_index,
+                            to_index,
+                            alignment.cost(),
+                            true,
+                        );
+                    }
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
@@ -467,7 +482,7 @@ fn evaluate_chain<Cost: AStarCost>(
             ) => {
                 let start = anchors.primary[from_index].end(k);
                 let end = anchors.secondary(ts_kind)[to_index].start(ts_kind);
-                if complete_evaluation
+                if final_evaluation
                     || !chaining_cost_function.is_jump_12_exact(from_index, to_index, ts_kind)
                 {
                     let alignment = Ts12JumpAlignment::new(
@@ -478,13 +493,15 @@ fn evaluate_chain<Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
-                    chaining_cost_function.update_jump_12(
-                        from_index,
-                        to_index,
-                        ts_kind,
-                        alignment.cost(),
-                        true,
-                    );
+                    if !final_evaluation {
+                        chaining_cost_function.update_jump_12(
+                            from_index,
+                            to_index,
+                            ts_kind,
+                            alignment.cost(),
+                            true,
+                        );
+                    }
                     trace!(
                         "Aligning from P{from_index}{} to S{}[{to_index}]{} costs {}",
                         anchors.primary[from_index],
@@ -517,7 +534,7 @@ fn evaluate_chain<Cost: AStarCost>(
                 }
                 let start = anchors.secondary(ts_kind)[from_index].end(ts_kind, k);
                 let end = anchors.secondary(ts_kind)[to_index].start(ts_kind);
-                if complete_evaluation
+                if final_evaluation
                     || !chaining_cost_function.is_secondary_exact(from_index, to_index, ts_kind)
                 {
                     let alignment = GapAffineAlignment::new(
@@ -536,13 +553,15 @@ fn evaluate_chain<Cost: AStarCost>(
                         anchors.secondary(ts_kind)[to_index],
                         alignment.cost()
                     );
-                    chaining_cost_function.update_secondary(
-                        from_index,
-                        to_index,
-                        ts_kind,
-                        alignment.cost(),
-                        true,
-                    );
+                    if !final_evaluation {
+                        chaining_cost_function.update_secondary(
+                            from_index,
+                            to_index,
+                            ts_kind,
+                            alignment.cost(),
+                            true,
+                        );
+                    }
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
@@ -558,7 +577,7 @@ fn evaluate_chain<Cost: AStarCost>(
             ) => {
                 let start = anchors.secondary(ts_kind)[from_index].end(ts_kind, k);
                 let end = anchors.primary[to_index].start();
-                if complete_evaluation
+                if final_evaluation
                     || !chaining_cost_function.is_jump_34_exact(from_index, to_index, ts_kind)
                 {
                     let alignment = Ts34JumpAlignment::new(
@@ -569,13 +588,15 @@ fn evaluate_chain<Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
-                    chaining_cost_function.update_jump_34(
-                        from_index,
-                        to_index,
-                        ts_kind,
-                        alignment.cost(),
-                        true,
-                    );
+                    if !final_evaluation {
+                        chaining_cost_function.update_jump_34(
+                            from_index,
+                            to_index,
+                            ts_kind,
+                            alignment.cost(),
+                            true,
+                        );
+                    }
                     trace!(
                         "Aligning from S{}[{from_index}]{} to P{to_index}{} (S{} to P{}) costs {}",
                         ts_kind.digits(),

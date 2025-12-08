@@ -809,28 +809,28 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let target = match (ts_kind.ancestor, ts_kind.descendant) {
             (TsAncestor::Seq1, TsDescendant::Seq1) => {
                 if is_exact {
-                    self.jump_12_to_11
+                    self.jump_34_from_11
                         .set_exact(from_secondary_index, to_primary_index + 1);
                 }
                 &mut self.jump_34_from_11[[from_secondary_index, to_primary_index + 1]]
             }
             (TsAncestor::Seq1, TsDescendant::Seq2) => {
                 if is_exact {
-                    self.jump_12_to_12
+                    self.jump_34_from_12
                         .set_exact(from_secondary_index, to_primary_index + 1);
                 }
                 &mut self.jump_34_from_12[[from_secondary_index, to_primary_index + 1]]
             }
             (TsAncestor::Seq2, TsDescendant::Seq1) => {
                 if is_exact {
-                    self.jump_12_to_21
+                    self.jump_34_from_21
                         .set_exact(from_secondary_index, to_primary_index + 1);
                 }
                 &mut self.jump_34_from_21[[from_secondary_index, to_primary_index + 1]]
             }
             (TsAncestor::Seq2, TsDescendant::Seq2) => {
                 if is_exact {
-                    self.jump_12_to_22
+                    self.jump_34_from_22
                         .set_exact(from_secondary_index, to_primary_index + 1);
                 }
                 &mut self.jump_34_from_22[[from_secondary_index, to_primary_index + 1]]
@@ -853,7 +853,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             (TsAncestor::Seq1, TsDescendant::Seq1) => {
                 let end_index = self.jump_34_from_11.dim().1 - 1;
                 if is_exact {
-                    self.jump_12_to_11
+                    self.jump_34_from_11
                         .set_exact(from_secondary_index, end_index);
                 }
                 &mut self.jump_34_from_11[[from_secondary_index, end_index]]
@@ -861,7 +861,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             (TsAncestor::Seq1, TsDescendant::Seq2) => {
                 let end_index = self.jump_34_from_12.dim().1 - 1;
                 if is_exact {
-                    self.jump_12_to_12
+                    self.jump_34_from_12
                         .set_exact(from_secondary_index, end_index);
                 }
                 &mut self.jump_34_from_12[[from_secondary_index, end_index]]
@@ -869,7 +869,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             (TsAncestor::Seq2, TsDescendant::Seq1) => {
                 let end_index = self.jump_34_from_21.dim().1 - 1;
                 if is_exact {
-                    self.jump_12_to_21
+                    self.jump_34_from_21
                         .set_exact(from_secondary_index, end_index);
                 }
                 &mut self.jump_34_from_21[[from_secondary_index, end_index]]
@@ -877,7 +877,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             (TsAncestor::Seq2, TsDescendant::Seq2) => {
                 let end_index = self.jump_34_from_22.dim().1 - 1;
                 if is_exact {
-                    self.jump_12_to_22
+                    self.jump_34_from_22
                         .set_exact(from_secondary_index, end_index);
                 }
                 &mut self.jump_34_from_22[[from_secondary_index, end_index]]

@@ -5,6 +5,8 @@ use std::{
     slice,
 };
 
+use log::trace;
+
 pub struct LowerBoundCostArray<const DIMENSION: usize, Cost> {
     dim: [usize; DIMENSION],
     data: Vec<Cost>,
@@ -47,6 +49,7 @@ impl<const DIMENSION: usize, Cost> LowerBoundCostArray<DIMENSION, Cost> {
             *dimension = usize::from_ne_bytes(buffer);
         }
         let dim = dim;
+        trace!("Read dimensions: {dim:?}");
 
         let cost_size = mem::size_of::<Cost>();
         let data_len = dim.into_iter().product();
