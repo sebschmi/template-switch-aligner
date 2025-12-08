@@ -6,6 +6,7 @@ use compact_genome::{
     },
 };
 use generic_a_star::{AStar, AStarResult, cost::AStarCost};
+use indicatif::ProgressBar;
 use lib_tsalign::a_star_aligner::{
     alignment_result::AlignmentResult,
     template_switch_distance::{EqualCostRange, TemplateSwitchDirection},
@@ -44,6 +45,9 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     anchors: &Anchors,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
+    let progress_bar = ProgressBar::new_spinner();
+    progress_bar.enable_steady_tick(Duration::from_millis(200));
+
     let start_time = Instant::now();
     let mut chaining_duration = Duration::default();
     let mut evaluation_duration = Duration::default();
@@ -52,8 +56,15 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     let context = Context::new(anchors, chaining_cost_function);
     let mut astar = AStar::new(context);
     let mut chaining_execution_count = 0;
+    let mut current_cost = Cost::zero();
 
     let (alignments, result) = loop {
+        progress_bar.inc(1);
+        progress_bar.set_message(format!(
+            "Computing chain number {} (cost {})",
+            chaining_execution_count + 1,
+            current_cost,
+        ));
         let chaining_start_time = Instant::now();
 
         astar.reset();
@@ -63,6 +74,8 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
         let chain = match result {
             AStarResult::FoundTarget { cost, .. } => {
                 trace!("Found chain with cost {cost}");
+                current_cost = cost;
+
                 let mut chain = astar.reconstruct_path();
                 chain.push(Identifier::End);
                 trace!("Chain (len: {}):\n{}", chain.len(), {
@@ -378,6 +391,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
         }
     };
 
+    progress_bar.finish_and_clear();
     debug!("Computed {chaining_execution_count} chains");
     debug!("Chaining took {:.1}s", chaining_duration.as_secs_f64());
     debug!("Evaluation took {:.1}s", evaluation_duration.as_secs_f64());
