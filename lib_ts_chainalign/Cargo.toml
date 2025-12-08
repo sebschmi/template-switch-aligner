@@ -18,3 +18,4 @@ compact-genome.workspace = true
 itertools = "0.14.0"
 log.workspace = true
 indicatif = "0.18.3"
+bitvec = "1.0.1"

@@ -52,7 +52,6 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     let mut chaining_duration = Duration::default();
     let mut evaluation_duration = Duration::default();
 
-    let k = usize::try_from(max_match_run + 1).unwrap();
     let context = Context::new(anchors, chaining_cost_function);
     let mut astar = AStar::new(context);
     let mut chaining_execution_count = 0;
@@ -62,7 +61,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     let mut total_chaining_suboptimal_opened_nodes = 0;
     let mut total_chaining_closed_nodes = 0;
 
-    let (alignments, result) = loop {
+    let (chain, result) = loop {
         progress_bar.inc(1);
         progress_bar.set_message(format!(
             "Computing chain number {} (cost {}->{})",
@@ -126,310 +125,26 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
 
         let evaluation_start_time = Instant::now();
 
-        let mut cost_increased = false;
-        current_upper_bound = Cost::zero();
-        let mut alignments = Vec::new();
-        'update_chain: for window in chain.windows(2) {
-            let from_anchor = window[0];
-            let to_anchor = window[1];
-
-            match (from_anchor, to_anchor) {
-                (Identifier::Start, Identifier::End) => {
-                    let alignment = GapAffineAlignment::new(
-                        start,
-                        end,
-                        sequences,
-                        &alignment_costs.primary_costs,
-                        rc_fn,
-                        max_match_run,
-                    );
-                    trace!("Aligning from start to end costs {}", alignment.cost());
-                    cost_increased = astar
-                        .context_mut()
-                        .chaining_cost_function
-                        .update_start_to_end(alignment.cost())
-                        || cost_increased;
-                    current_upper_bound += astar.context().chaining_cost_function.start_to_end();
-                    alignments.push(alignment.alignment().clone());
-                }
-                (Identifier::Start, Identifier::Primary { index }) => {
-                    let end = anchors.primary[index].start();
-                    let alignment = GapAffineAlignment::new(
-                        start,
-                        end,
-                        sequences,
-                        &alignment_costs.primary_costs,
-                        rc_fn,
-                        max_match_run,
-                    );
-                    trace!(
-                        "Aligning from start to P{index}{} costs {}",
-                        anchors.primary[index],
-                        alignment.cost()
-                    );
-                    cost_increased = astar
-                        .context_mut()
-                        .chaining_cost_function
-                        .update_primary_from_start(index, alignment.cost())
-                        || cost_increased;
-                    current_upper_bound += astar
-                        .context()
-                        .chaining_cost_function
-                        .primary_from_start(index);
-                    alignments.push(alignment.alignment().clone());
-                }
-                (Identifier::Start, Identifier::Secondary { index, ts_kind }) => {
-                    let end = anchors.secondary(ts_kind)[index].start(ts_kind);
-                    let alignment = Ts12JumpAlignment::new(
-                        start,
-                        end,
-                        sequences,
-                        alignment_costs,
-                        rc_fn,
-                        max_match_run,
-                    );
-                    trace!(
-                        "Aligning from start to S{}[{index}]{} costs {}",
-                        ts_kind.digits(),
-                        anchors.secondary(ts_kind)[index],
-                        alignment.cost()
-                    );
-                    cost_increased = astar
-                        .context_mut()
-                        .chaining_cost_function
-                        .update_jump_12_from_start(index, ts_kind, alignment.cost())
-                        || cost_increased;
-                    current_upper_bound += astar
-                        .context()
-                        .chaining_cost_function
-                        .jump_12_from_start(index, ts_kind);
-                    alignments.push(alignment.alignment().clone());
-                }
-                (Identifier::Primary { index }, Identifier::End) => {
-                    let start = anchors.primary[index].end(k);
-                    let alignment = GapAffineAlignment::new(
-                        start,
-                        end,
-                        sequences,
-                        &alignment_costs.primary_costs,
-                        rc_fn,
-                        max_match_run,
-                    );
-                    trace!(
-                        "Aligning from P{index}{} to end costs {}",
-                        anchors.primary[index],
-                        alignment.cost()
-                    );
-                    cost_increased = astar
-                        .context_mut()
-                        .chaining_cost_function
-                        .update_primary_to_end(index, alignment.cost())
-                        || cost_increased;
-                    current_upper_bound +=
-                        astar.context().chaining_cost_function.primary_to_end(index);
-                    alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
-                    alignments.push(alignment.alignment().clone());
-                }
-                (Identifier::Secondary { index, ts_kind }, Identifier::End) => {
-                    let start = anchors.secondary(ts_kind)[index].end(ts_kind, k);
-                    let alignment = Ts34JumpAlignment::new(
-                        start,
-                        end,
-                        sequences,
-                        alignment_costs,
-                        rc_fn,
-                        max_match_run,
-                    );
-                    trace!(
-                        "Aligning from S{}[{index}]{} to end costs {}",
-                        ts_kind.digits(),
-                        anchors.secondary(ts_kind)[index],
-                        alignment.cost()
-                    );
-                    cost_increased = astar
-                        .context_mut()
-                        .chaining_cost_function
-                        .update_jump_34_to_end(index, ts_kind, alignment.cost())
-                        || cost_increased;
-                    current_upper_bound += astar
-                        .context()
-                        .chaining_cost_function
-                        .jump_34_to_end(index, ts_kind);
-                    alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
-                    alignments.push(alignment.alignment().clone());
-                }
-                (
-                    Identifier::Primary { index: from_index },
-                    Identifier::Primary { index: to_index },
-                ) => {
-                    if anchors.primary[from_index]
-                        .is_direct_predecessor_of(&anchors.primary[to_index])
-                    {
-                        alignments.push(Alignment::from(vec![AlignmentType::Match]));
-                        continue 'update_chain;
-                    }
-
-                    let start = anchors.primary[from_index].end(k);
-                    let end = anchors.primary[to_index].start();
-                    let alignment = GapAffineAlignment::new(
-                        start,
-                        end,
-                        sequences,
-                        &alignment_costs.primary_costs,
-                        rc_fn,
-                        max_match_run,
-                    );
-                    trace!(
-                        "Aligning from P{from_index}{} to P{to_index}{} costs {}",
-                        anchors.primary[from_index],
-                        anchors.primary[to_index],
-                        alignment.cost()
-                    );
-                    cost_increased = astar.context_mut().chaining_cost_function.update_primary(
-                        from_index,
-                        to_index,
-                        alignment.cost(),
-                    ) || cost_increased;
-                    current_upper_bound += astar
-                        .context()
-                        .chaining_cost_function
-                        .primary(from_index, to_index);
-                    alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
-                    alignments.push(alignment.alignment().clone());
-                }
-                (
-                    Identifier::Primary { index: from_index },
-                    Identifier::Secondary {
-                        index: to_index,
-                        ts_kind,
-                    },
-                ) => {
-                    let start = anchors.primary[from_index].end(k);
-                    let end = anchors.secondary(ts_kind)[to_index].start(ts_kind);
-                    let alignment = Ts12JumpAlignment::new(
-                        start,
-                        end,
-                        sequences,
-                        alignment_costs,
-                        rc_fn,
-                        max_match_run,
-                    );
-                    cost_increased = astar.context_mut().chaining_cost_function.update_jump_12(
-                        from_index,
-                        to_index,
-                        ts_kind,
-                        alignment.cost(),
-                    ) || cost_increased;
-                    trace!(
-                        "Aligning from P{from_index}{} to S{}[{to_index}]{} costs {}",
-                        anchors.primary[from_index],
-                        ts_kind.digits(),
-                        anchors.secondary(ts_kind)[to_index],
-                        alignment.cost()
-                    );
-                    current_upper_bound += astar
-                        .context()
-                        .chaining_cost_function
-                        .jump_12(from_index, to_index, ts_kind);
-                    alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
-                    alignments.push(alignment.alignment().clone());
-                }
-                (
-                    Identifier::Secondary {
-                        index: from_index,
-                        ts_kind,
-                    },
-                    Identifier::Secondary {
-                        index: to_index,
-                        ts_kind: to_ts_kind,
-                    },
-                ) => {
-                    assert_eq!(ts_kind, to_ts_kind);
-                    if anchors.secondary(ts_kind)[from_index]
-                        .is_direct_predecessor_of(&anchors.secondary(ts_kind)[to_index])
-                    {
-                        alignments.push(Alignment::from(vec![AlignmentType::Match]));
-                        continue 'update_chain;
-                    }
-                    let start = anchors.secondary(ts_kind)[from_index].end(ts_kind, k);
-                    let end = anchors.secondary(ts_kind)[to_index].start(ts_kind);
-                    let alignment = GapAffineAlignment::new(
-                        start,
-                        end,
-                        sequences,
-                        &alignment_costs.secondary_costs,
-                        rc_fn,
-                        max_match_run,
-                    );
-                    trace!(
-                        "Aligning from S{}[{from_index}]{} to S{}[{to_index}]{} costs {}",
-                        ts_kind.digits(),
-                        anchors.secondary(ts_kind)[from_index],
-                        ts_kind.digits(),
-                        anchors.secondary(ts_kind)[to_index],
-                        alignment.cost()
-                    );
-                    cost_increased = astar.context_mut().chaining_cost_function.update_secondary(
-                        from_index,
-                        to_index,
-                        ts_kind,
-                        alignment.cost(),
-                    ) || cost_increased;
-                    current_upper_bound += astar
-                        .context()
-                        .chaining_cost_function
-                        .secondary(from_index, to_index, ts_kind);
-                    alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
-                    alignments.push(alignment.alignment().clone());
-                }
-                (
-                    Identifier::Secondary {
-                        index: from_index,
-                        ts_kind,
-                    },
-                    Identifier::Primary { index: to_index },
-                ) => {
-                    let start = anchors.secondary(ts_kind)[from_index].end(ts_kind, k);
-                    let end = anchors.primary[to_index].start();
-                    let alignment = Ts34JumpAlignment::new(
-                        start,
-                        end,
-                        sequences,
-                        alignment_costs,
-                        rc_fn,
-                        max_match_run,
-                    );
-                    cost_increased = astar.context_mut().chaining_cost_function.update_jump_34(
-                        from_index,
-                        to_index,
-                        ts_kind,
-                        alignment.cost(),
-                    ) || cost_increased;
-                    trace!(
-                        "Aligning from S{}[{from_index}]{} to P{to_index}{} (S{} to P{}) costs {}",
-                        ts_kind.digits(),
-                        anchors.secondary(ts_kind)[from_index],
-                        anchors.primary[to_index],
-                        start,
-                        end,
-                        alignment.cost()
-                    );
-                    current_upper_bound += astar
-                        .context()
-                        .chaining_cost_function
-                        .jump_34(from_index, to_index, ts_kind);
-                    alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
-                    alignments.push(alignment.alignment().clone());
-                }
-                (Identifier::End, _) | (_, Identifier::Start) => unreachable!(),
-            }
-        }
+        let (evaluated_cost, _) = evaluate_chain(
+            anchors,
+            &chain,
+            sequences,
+            start,
+            end,
+            alignment_costs,
+            rc_fn,
+            max_match_run,
+            astar.context_mut().chaining_cost_function,
+            false,
+        );
+        let cost_increased = evaluated_cost > current_lower_bound;
+        current_upper_bound = evaluated_cost;
 
         let evaluation_end_time = Instant::now();
         evaluation_duration += evaluation_end_time - evaluation_start_time;
 
         if !cost_increased {
-            break (alignments, result);
+            break (chain, result);
         }
     };
 
@@ -449,6 +164,21 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
         lib_tsalign::a_star_aligner::alignment_result::alignment::Alignment::new();
     let mut is_primary = true;
     let mut anti_primary_gap = 0isize;
+
+    debug!("Evaluating final chain");
+    let (evaluated_cost, alignments) = evaluate_chain(
+        anchors,
+        &chain,
+        sequences,
+        start,
+        end,
+        alignment_costs,
+        rc_fn,
+        max_match_run,
+        astar.context_mut().chaining_cost_function,
+        true,
+    );
+    assert_eq!(evaluated_cost, result.cost());
 
     for alignment in alignments {
         use lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType as TsAlignAlignmentType;
@@ -546,4 +276,324 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
         sequences.seq1().len(),
         sequences.seq2().len(),
     )
+}
+
+#[expect(clippy::too_many_arguments)]
+fn evaluate_chain<Cost: AStarCost>(
+    anchors: &Anchors,
+    chain: &[Identifier],
+    sequences: &AlignmentSequences,
+    start: AlignmentCoordinates,
+    end: AlignmentCoordinates,
+    alignment_costs: &AlignmentCosts<Cost>,
+    rc_fn: &dyn Fn(u8) -> u8,
+    max_match_run: u32,
+    chaining_cost_function: &mut ChainingCostFunction<Cost>,
+    complete_evaluation: bool,
+) -> (Cost, Vec<Alignment>) {
+    let k = usize::try_from(max_match_run + 1).unwrap();
+    let mut current_upper_bound = Cost::zero();
+    let mut alignments = Vec::new();
+    for window in chain.windows(2) {
+        let from_anchor = window[0];
+        let to_anchor = window[1];
+
+        match (from_anchor, to_anchor) {
+            (Identifier::Start, Identifier::End) => {
+                if complete_evaluation || !chaining_cost_function.is_start_to_end_exact() {
+                    let alignment = GapAffineAlignment::new(
+                        start,
+                        end,
+                        sequences,
+                        &alignment_costs.primary_costs,
+                        rc_fn,
+                        max_match_run,
+                    );
+                    trace!("Aligning from start to end costs {}", alignment.cost());
+                    chaining_cost_function.update_start_to_end(alignment.cost(), true);
+                    alignments.push(alignment.alignment().clone());
+                }
+                current_upper_bound += chaining_cost_function.start_to_end();
+            }
+            (Identifier::Start, Identifier::Primary { index }) => {
+                let end = anchors.primary[index].start();
+                if complete_evaluation || !chaining_cost_function.is_primary_from_start_exact(index)
+                {
+                    let alignment = GapAffineAlignment::new(
+                        start,
+                        end,
+                        sequences,
+                        &alignment_costs.primary_costs,
+                        rc_fn,
+                        max_match_run,
+                    );
+                    trace!(
+                        "Aligning from start to P{index}{} costs {}",
+                        anchors.primary[index],
+                        alignment.cost()
+                    );
+                    chaining_cost_function.update_primary_from_start(index, alignment.cost(), true);
+                    alignments.push(alignment.alignment().clone());
+                }
+                current_upper_bound += chaining_cost_function.primary_from_start(index);
+            }
+            (Identifier::Start, Identifier::Secondary { index, ts_kind }) => {
+                let end = anchors.secondary(ts_kind)[index].start(ts_kind);
+                if complete_evaluation
+                    || !chaining_cost_function.is_jump_12_from_start_exact(index, ts_kind)
+                {
+                    let alignment = Ts12JumpAlignment::new(
+                        start,
+                        end,
+                        sequences,
+                        alignment_costs,
+                        rc_fn,
+                        max_match_run,
+                    );
+                    trace!(
+                        "Aligning from start to S{}[{index}]{} costs {}",
+                        ts_kind.digits(),
+                        anchors.secondary(ts_kind)[index],
+                        alignment.cost()
+                    );
+                    chaining_cost_function.update_jump_12_from_start(
+                        index,
+                        ts_kind,
+                        alignment.cost(),
+                        true,
+                    );
+                    alignments.push(alignment.alignment().clone());
+                }
+                current_upper_bound += chaining_cost_function.jump_12_from_start(index, ts_kind);
+            }
+            (Identifier::Primary { index }, Identifier::End) => {
+                let start = anchors.primary[index].end(k);
+                if complete_evaluation || !chaining_cost_function.is_primary_to_end_exact(index) {
+                    let alignment = GapAffineAlignment::new(
+                        start,
+                        end,
+                        sequences,
+                        &alignment_costs.primary_costs,
+                        rc_fn,
+                        max_match_run,
+                    );
+                    trace!(
+                        "Aligning from P{index}{} to end costs {}",
+                        anchors.primary[index],
+                        alignment.cost()
+                    );
+                    chaining_cost_function.update_primary_to_end(index, alignment.cost(), true);
+                    alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
+                    alignments.push(alignment.alignment().clone());
+                }
+                current_upper_bound += chaining_cost_function.primary_to_end(index);
+            }
+            (Identifier::Secondary { index, ts_kind }, Identifier::End) => {
+                let start = anchors.secondary(ts_kind)[index].end(ts_kind, k);
+                if complete_evaluation
+                    || !chaining_cost_function.is_jump_34_to_end_exact(index, ts_kind)
+                {
+                    let alignment = Ts34JumpAlignment::new(
+                        start,
+                        end,
+                        sequences,
+                        alignment_costs,
+                        rc_fn,
+                        max_match_run,
+                    );
+                    trace!(
+                        "Aligning from S{}[{index}]{} to end costs {}",
+                        ts_kind.digits(),
+                        anchors.secondary(ts_kind)[index],
+                        alignment.cost()
+                    );
+                    chaining_cost_function.update_jump_34_to_end(
+                        index,
+                        ts_kind,
+                        alignment.cost(),
+                        true,
+                    );
+                    alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
+                    alignments.push(alignment.alignment().clone());
+                }
+                current_upper_bound += chaining_cost_function.jump_34_to_end(index, ts_kind);
+            }
+            (
+                Identifier::Primary { index: from_index },
+                Identifier::Primary { index: to_index },
+            ) => {
+                if anchors.primary[from_index].is_direct_predecessor_of(&anchors.primary[to_index])
+                {
+                    alignments.push(Alignment::from(vec![AlignmentType::Match]));
+                    continue;
+                }
+
+                let start = anchors.primary[from_index].end(k);
+                let end = anchors.primary[to_index].start();
+                if complete_evaluation
+                    || !chaining_cost_function.is_primary_exact(from_index, to_index)
+                {
+                    let alignment = GapAffineAlignment::new(
+                        start,
+                        end,
+                        sequences,
+                        &alignment_costs.primary_costs,
+                        rc_fn,
+                        max_match_run,
+                    );
+                    trace!(
+                        "Aligning from P{from_index}{} to P{to_index}{} costs {}",
+                        anchors.primary[from_index],
+                        anchors.primary[to_index],
+                        alignment.cost()
+                    );
+                    chaining_cost_function.update_primary(
+                        from_index,
+                        to_index,
+                        alignment.cost(),
+                        true,
+                    );
+                    alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
+                    alignments.push(alignment.alignment().clone());
+                }
+                current_upper_bound += chaining_cost_function.primary(from_index, to_index);
+            }
+            (
+                Identifier::Primary { index: from_index },
+                Identifier::Secondary {
+                    index: to_index,
+                    ts_kind,
+                },
+            ) => {
+                let start = anchors.primary[from_index].end(k);
+                let end = anchors.secondary(ts_kind)[to_index].start(ts_kind);
+                if complete_evaluation
+                    || !chaining_cost_function.is_jump_12_exact(from_index, to_index, ts_kind)
+                {
+                    let alignment = Ts12JumpAlignment::new(
+                        start,
+                        end,
+                        sequences,
+                        alignment_costs,
+                        rc_fn,
+                        max_match_run,
+                    );
+                    chaining_cost_function.update_jump_12(
+                        from_index,
+                        to_index,
+                        ts_kind,
+                        alignment.cost(),
+                        true,
+                    );
+                    trace!(
+                        "Aligning from P{from_index}{} to S{}[{to_index}]{} costs {}",
+                        anchors.primary[from_index],
+                        ts_kind.digits(),
+                        anchors.secondary(ts_kind)[to_index],
+                        alignment.cost()
+                    );
+                    alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
+                    alignments.push(alignment.alignment().clone());
+                }
+                current_upper_bound +=
+                    chaining_cost_function.jump_12(from_index, to_index, ts_kind);
+            }
+            (
+                Identifier::Secondary {
+                    index: from_index,
+                    ts_kind,
+                },
+                Identifier::Secondary {
+                    index: to_index,
+                    ts_kind: to_ts_kind,
+                },
+            ) => {
+                assert_eq!(ts_kind, to_ts_kind);
+                if anchors.secondary(ts_kind)[from_index]
+                    .is_direct_predecessor_of(&anchors.secondary(ts_kind)[to_index])
+                {
+                    alignments.push(Alignment::from(vec![AlignmentType::Match]));
+                    continue;
+                }
+                let start = anchors.secondary(ts_kind)[from_index].end(ts_kind, k);
+                let end = anchors.secondary(ts_kind)[to_index].start(ts_kind);
+                if complete_evaluation
+                    || !chaining_cost_function.is_secondary_exact(from_index, to_index, ts_kind)
+                {
+                    let alignment = GapAffineAlignment::new(
+                        start,
+                        end,
+                        sequences,
+                        &alignment_costs.secondary_costs,
+                        rc_fn,
+                        max_match_run,
+                    );
+                    trace!(
+                        "Aligning from S{}[{from_index}]{} to S{}[{to_index}]{} costs {}",
+                        ts_kind.digits(),
+                        anchors.secondary(ts_kind)[from_index],
+                        ts_kind.digits(),
+                        anchors.secondary(ts_kind)[to_index],
+                        alignment.cost()
+                    );
+                    chaining_cost_function.update_secondary(
+                        from_index,
+                        to_index,
+                        ts_kind,
+                        alignment.cost(),
+                        true,
+                    );
+                    alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
+                    alignments.push(alignment.alignment().clone());
+                }
+                current_upper_bound +=
+                    chaining_cost_function.secondary(from_index, to_index, ts_kind);
+            }
+            (
+                Identifier::Secondary {
+                    index: from_index,
+                    ts_kind,
+                },
+                Identifier::Primary { index: to_index },
+            ) => {
+                let start = anchors.secondary(ts_kind)[from_index].end(ts_kind, k);
+                let end = anchors.primary[to_index].start();
+                if complete_evaluation
+                    || !chaining_cost_function.is_jump_34_exact(from_index, to_index, ts_kind)
+                {
+                    let alignment = Ts34JumpAlignment::new(
+                        start,
+                        end,
+                        sequences,
+                        alignment_costs,
+                        rc_fn,
+                        max_match_run,
+                    );
+                    chaining_cost_function.update_jump_34(
+                        from_index,
+                        to_index,
+                        ts_kind,
+                        alignment.cost(),
+                        true,
+                    );
+                    trace!(
+                        "Aligning from S{}[{from_index}]{} to P{to_index}{} (S{} to P{}) costs {}",
+                        ts_kind.digits(),
+                        anchors.secondary(ts_kind)[from_index],
+                        anchors.primary[to_index],
+                        start,
+                        end,
+                        alignment.cost()
+                    );
+                    alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
+                    alignments.push(alignment.alignment().clone());
+                }
+                current_upper_bound +=
+                    chaining_cost_function.jump_34(from_index, to_index, ts_kind);
+            }
+            (Identifier::End, _) | (_, Identifier::Start) => unreachable!(),
+        }
+    }
+
+    (current_upper_bound, alignments)
 }

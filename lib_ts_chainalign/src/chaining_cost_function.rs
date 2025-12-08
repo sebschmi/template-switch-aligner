@@ -1,5 +1,4 @@
 use generic_a_star::cost::AStarCost;
-use ndarray::{Array, Array2};
 
 use crate::{
     alignment::{
@@ -7,23 +6,26 @@ use crate::{
         ts_kind::{TsAncestor, TsDescendant, TsKind},
     },
     anchors::Anchors,
+    chaining_cost_function::cost_array::CostArray2D,
     chaining_lower_bounds::ChainingLowerBounds,
 };
 
+mod cost_array;
+
 pub struct ChainingCostFunction<Cost> {
-    primary: Array2<Cost>,
-    secondary_11: Array2<Cost>,
-    secondary_12: Array2<Cost>,
-    secondary_21: Array2<Cost>,
-    secondary_22: Array2<Cost>,
-    jump_12_to_11: Array2<Cost>,
-    jump_12_to_12: Array2<Cost>,
-    jump_12_to_21: Array2<Cost>,
-    jump_12_to_22: Array2<Cost>,
-    jump_34_from_11: Array2<Cost>,
-    jump_34_from_12: Array2<Cost>,
-    jump_34_from_21: Array2<Cost>,
-    jump_34_from_22: Array2<Cost>,
+    primary: CostArray2D<Cost>,
+    secondary_11: CostArray2D<Cost>,
+    secondary_12: CostArray2D<Cost>,
+    secondary_21: CostArray2D<Cost>,
+    secondary_22: CostArray2D<Cost>,
+    jump_12_to_11: CostArray2D<Cost>,
+    jump_12_to_12: CostArray2D<Cost>,
+    jump_12_to_21: CostArray2D<Cost>,
+    jump_12_to_22: CostArray2D<Cost>,
+    jump_34_from_11: CostArray2D<Cost>,
+    jump_34_from_12: CostArray2D<Cost>,
+    jump_34_from_21: CostArray2D<Cost>,
+    jump_34_from_22: CostArray2D<Cost>,
 }
 
 impl<Cost: AStarCost> ChainingCostFunction<Cost> {
@@ -35,8 +37,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     ) -> Self {
         let k = usize::try_from(chaining_lower_bounds.max_match_run() + 1).unwrap();
 
-        let mut primary = Array2::from_elem(
-            (anchors.primary.len() + 2, anchors.primary.len() + 2),
+        let mut primary = CostArray2D::new_from_cost(
+            [anchors.primary.len() + 2, anchors.primary.len() + 2],
             Cost::max_value(),
         );
         let gap1 = end.primary_ordinate_a().unwrap() - start.primary_ordinate_a().unwrap();
@@ -63,8 +65,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut secondary_11 = Array2::from_elem(
-            (anchors.secondary_11.len(), anchors.secondary_11.len()),
+        let mut secondary_11 = CostArray2D::new_from_cost(
+            [anchors.secondary_11.len(), anchors.secondary_11.len()],
             Cost::max_value(),
         );
         for (from_index, from_anchor) in anchors.secondary_11.iter().enumerate() {
@@ -79,8 +81,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut secondary_12 = Array2::from_elem(
-            (anchors.secondary_12.len(), anchors.secondary_12.len()),
+        let mut secondary_12 = CostArray2D::new_from_cost(
+            [anchors.secondary_12.len(), anchors.secondary_12.len()],
             Cost::max_value(),
         );
         for (from_index, from_anchor) in anchors.secondary_12.iter().enumerate() {
@@ -95,8 +97,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut secondary_21 = Array2::from_elem(
-            (anchors.secondary_21.len(), anchors.secondary_21.len()),
+        let mut secondary_21 = CostArray2D::new_from_cost(
+            [anchors.secondary_21.len(), anchors.secondary_21.len()],
             Cost::max_value(),
         );
         for (from_index, from_anchor) in anchors.secondary_21.iter().enumerate() {
@@ -111,8 +113,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut secondary_22 = Array2::from_elem(
-            (anchors.secondary_22.len(), anchors.secondary_22.len()),
+        let mut secondary_22 = CostArray2D::new_from_cost(
+            [anchors.secondary_22.len(), anchors.secondary_22.len()],
             Cost::max_value(),
         );
         for (from_index, from_anchor) in anchors.secondary_22.iter().enumerate() {
@@ -127,8 +129,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_12_to_11 = Array::from_elem(
-            (anchors.primary.len() + 2, anchors.secondary_11.len()),
+        let mut jump_12_to_11 = CostArray2D::new_from_cost(
+            [anchors.primary.len() + 2, anchors.secondary_11.len()],
             Cost::max_value(),
         );
         for (from_index, from_anchor) in anchors.primary.iter().enumerate() {
@@ -141,8 +143,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_12_to_12 = Array::from_elem(
-            (anchors.primary.len() + 2, anchors.secondary_12.len()),
+        let mut jump_12_to_12 = CostArray2D::new_from_cost(
+            [anchors.primary.len() + 2, anchors.secondary_12.len()],
             Cost::max_value(),
         );
         for (from_index, from_anchor) in anchors.primary.iter().enumerate() {
@@ -155,8 +157,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_12_to_21 = Array::from_elem(
-            (anchors.primary.len() + 2, anchors.secondary_21.len()),
+        let mut jump_12_to_21 = CostArray2D::new_from_cost(
+            [anchors.primary.len() + 2, anchors.secondary_21.len()],
             Cost::max_value(),
         );
         for (from_index, from_anchor) in anchors.primary.iter().enumerate() {
@@ -169,8 +171,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_12_to_22 = Array::from_elem(
-            (anchors.primary.len() + 2, anchors.secondary_22.len()),
+        let mut jump_12_to_22 = CostArray2D::new_from_cost(
+            [anchors.primary.len() + 2, anchors.secondary_22.len()],
             Cost::max_value(),
         );
         for (from_index, from_anchor) in anchors.primary.iter().enumerate() {
@@ -183,8 +185,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_34_from_11 = Array::from_elem(
-            (anchors.secondary_11.len(), anchors.primary.len() + 2),
+        let mut jump_34_from_11 = CostArray2D::new_from_cost(
+            [anchors.secondary_11.len(), anchors.primary.len() + 2],
             Cost::max_value(),
         );
         for (from_index, from_anchor) in anchors.secondary_11.iter().enumerate() {
@@ -197,8 +199,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_34_from_12 = Array::from_elem(
-            (anchors.secondary_12.len(), anchors.primary.len() + 2),
+        let mut jump_34_from_12 = CostArray2D::new_from_cost(
+            [anchors.secondary_12.len(), anchors.primary.len() + 2],
             Cost::max_value(),
         );
         for (from_index, from_anchor) in anchors.secondary_12.iter().enumerate() {
@@ -211,8 +213,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_34_from_21 = Array::from_elem(
-            (anchors.secondary_21.len(), anchors.primary.len() + 2),
+        let mut jump_34_from_21 = CostArray2D::new_from_cost(
+            [anchors.secondary_21.len(), anchors.primary.len() + 2],
             Cost::max_value(),
         );
         for (from_index, from_anchor) in anchors.secondary_21.iter().enumerate() {
@@ -225,8 +227,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        let mut jump_34_from_22 = Array::from_elem(
-            (anchors.secondary_22.len(), anchors.primary.len() + 2),
+        let mut jump_34_from_22 = CostArray2D::new_from_cost(
+            [anchors.secondary_22.len(), anchors.primary.len() + 2],
             Cost::max_value(),
         );
         for (from_index, from_anchor) in anchors.secondary_22.iter().enumerate() {
@@ -436,12 +438,187 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         }
     }
 
+    pub fn is_primary_exact(&self, from_primary_index: usize, to_primary_index: usize) -> bool {
+        self.primary
+            .is_exact(from_primary_index + 1, to_primary_index + 1)
+    }
+
+    pub fn is_primary_from_start_exact(&self, primary_index: usize) -> bool {
+        self.primary.is_exact(0, primary_index + 1)
+    }
+
+    pub fn is_primary_to_end_exact(&self, primary_index: usize) -> bool {
+        self.primary
+            .is_exact(primary_index + 1, self.primary.dim().1 - 1)
+    }
+
+    pub fn is_start_to_end_exact(&self) -> bool {
+        self.primary.is_exact(0, self.primary.dim().1 - 1)
+    }
+
+    pub fn is_jump_12_to_11_exact(
+        &self,
+        from_primary_index: usize,
+        to_secondary_11_index: usize,
+    ) -> bool {
+        self.jump_12_to_11
+            .is_exact(from_primary_index + 1, to_secondary_11_index)
+    }
+
+    pub fn is_jump_12_to_12_exact(
+        &self,
+        from_primary_index: usize,
+        to_secondary_12_index: usize,
+    ) -> bool {
+        self.jump_12_to_12
+            .is_exact(from_primary_index + 1, to_secondary_12_index)
+    }
+
+    pub fn is_jump_12_to_21_exact(
+        &self,
+        from_primary_index: usize,
+        to_secondary_21_index: usize,
+    ) -> bool {
+        self.jump_12_to_21
+            .is_exact(from_primary_index + 1, to_secondary_21_index)
+    }
+
+    pub fn is_jump_12_to_22_exact(
+        &self,
+        from_primary_index: usize,
+        to_secondary_22_index: usize,
+    ) -> bool {
+        self.jump_12_to_22
+            .is_exact(from_primary_index + 1, to_secondary_22_index)
+    }
+
+    pub fn is_jump_12_exact(
+        &self,
+        from_primary_index: usize,
+        to_secondary_index: usize,
+        ts_kind: TsKind,
+    ) -> bool {
+        match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                self.is_jump_12_to_11_exact(from_primary_index, to_secondary_index)
+            }
+            (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                self.is_jump_12_to_12_exact(from_primary_index, to_secondary_index)
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                self.is_jump_12_to_21_exact(from_primary_index, to_secondary_index)
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                self.is_jump_12_to_22_exact(from_primary_index, to_secondary_index)
+            }
+        }
+    }
+
+    pub fn is_jump_12_to_11_from_start_exact(&self, to_secondary_11_index: usize) -> bool {
+        self.jump_12_to_11.is_exact(0, to_secondary_11_index)
+    }
+
+    pub fn is_jump_12_to_12_from_start_exact(&self, to_secondary_12_index: usize) -> bool {
+        self.jump_12_to_12.is_exact(0, to_secondary_12_index)
+    }
+
+    pub fn is_jump_12_to_21_from_start_exact(&self, to_secondary_21_index: usize) -> bool {
+        self.jump_12_to_21.is_exact(0, to_secondary_21_index)
+    }
+
+    pub fn is_jump_12_to_22_from_start_exact(&self, to_secondary_22_index: usize) -> bool {
+        self.jump_12_to_22.is_exact(0, to_secondary_22_index)
+    }
+
+    pub fn is_jump_12_from_start_exact(&self, to_secondary_index: usize, ts_kind: TsKind) -> bool {
+        match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                self.is_jump_12_to_11_from_start_exact(to_secondary_index)
+            }
+            (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                self.is_jump_12_to_12_from_start_exact(to_secondary_index)
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                self.is_jump_12_to_21_from_start_exact(to_secondary_index)
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                self.is_jump_12_to_22_from_start_exact(to_secondary_index)
+            }
+        }
+    }
+
+    pub fn is_secondary_exact(
+        &self,
+        from_secondary_index: usize,
+        to_secondary_index: usize,
+        ts_kind: TsKind,
+    ) -> bool {
+        match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => self
+                .secondary_11
+                .is_exact(from_secondary_index, to_secondary_index),
+            (TsAncestor::Seq1, TsDescendant::Seq2) => self
+                .secondary_12
+                .is_exact(from_secondary_index, to_secondary_index),
+            (TsAncestor::Seq2, TsDescendant::Seq1) => self
+                .secondary_21
+                .is_exact(from_secondary_index, to_secondary_index),
+            (TsAncestor::Seq2, TsDescendant::Seq2) => self
+                .secondary_22
+                .is_exact(from_secondary_index, to_secondary_index),
+        }
+    }
+
+    pub fn is_jump_34_exact(
+        &self,
+        from_secondary_index: usize,
+        to_primary_index: usize,
+        ts_kind: TsKind,
+    ) -> bool {
+        match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => self
+                .jump_34_from_11
+                .is_exact(from_secondary_index, to_primary_index + 1),
+            (TsAncestor::Seq1, TsDescendant::Seq2) => self
+                .jump_34_from_12
+                .is_exact(from_secondary_index, to_primary_index + 1),
+            (TsAncestor::Seq2, TsDescendant::Seq1) => self
+                .jump_34_from_21
+                .is_exact(from_secondary_index, to_primary_index + 1),
+            (TsAncestor::Seq2, TsDescendant::Seq2) => self
+                .jump_34_from_22
+                .is_exact(from_secondary_index, to_primary_index + 1),
+        }
+    }
+
+    pub fn is_jump_34_to_end_exact(&self, from_secondary_index: usize, ts_kind: TsKind) -> bool {
+        match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => self
+                .jump_34_from_11
+                .is_exact(from_secondary_index, self.jump_34_from_11.dim().1 - 1),
+            (TsAncestor::Seq1, TsDescendant::Seq2) => self
+                .jump_34_from_12
+                .is_exact(from_secondary_index, self.jump_34_from_12.dim().1 - 1),
+            (TsAncestor::Seq2, TsDescendant::Seq1) => self
+                .jump_34_from_21
+                .is_exact(from_secondary_index, self.jump_34_from_21.dim().1 - 1),
+            (TsAncestor::Seq2, TsDescendant::Seq2) => self
+                .jump_34_from_22
+                .is_exact(from_secondary_index, self.jump_34_from_22.dim().1 - 1),
+        }
+    }
+
     pub fn update_primary(
         &mut self,
         from_primary_index: usize,
         to_primary_index: usize,
         cost: Cost,
+        is_exact: bool,
     ) -> bool {
+        if is_exact {
+            self.primary
+                .set_exact(from_primary_index + 1, to_primary_index + 1);
+        }
         let target = &mut self.primary[[from_primary_index + 1, to_primary_index + 1]];
         assert!(*target <= cost);
         let result = *target < cost;
@@ -449,7 +626,15 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         result
     }
 
-    pub fn update_primary_from_start(&mut self, primary_index: usize, cost: Cost) -> bool {
+    pub fn update_primary_from_start(
+        &mut self,
+        primary_index: usize,
+        cost: Cost,
+        is_exact: bool,
+    ) -> bool {
+        if is_exact {
+            self.primary.set_exact(0, primary_index + 1);
+        }
         let target = &mut self.primary[[0, primary_index + 1]];
         assert!(*target <= cost);
         let result = *target < cost;
@@ -457,8 +642,16 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         result
     }
 
-    pub fn update_primary_to_end(&mut self, primary_index: usize, cost: Cost) -> bool {
+    pub fn update_primary_to_end(
+        &mut self,
+        primary_index: usize,
+        cost: Cost,
+        is_exact: bool,
+    ) -> bool {
         let end_index = self.primary.dim().1 - 1;
+        if is_exact {
+            self.primary.set_exact(primary_index + 1, end_index);
+        }
         let target = &mut self.primary[[primary_index + 1, end_index]];
         assert!(*target <= cost);
         let result = *target < cost;
@@ -466,8 +659,11 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         result
     }
 
-    pub fn update_start_to_end(&mut self, cost: Cost) -> bool {
+    pub fn update_start_to_end(&mut self, cost: Cost, is_exact: bool) -> bool {
         let end_index = self.primary.dim().1 - 1;
+        if is_exact {
+            self.primary.set_exact(0, end_index);
+        }
         let target = &mut self.primary[[0, end_index]];
         assert!(*target <= cost);
         let result = *target < cost;
@@ -481,18 +677,35 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         to_secondary_index: usize,
         ts_kind: TsKind,
         cost: Cost,
+        is_exact: bool,
     ) -> bool {
         let target = match (ts_kind.ancestor, ts_kind.descendant) {
             (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                if is_exact {
+                    self.jump_12_to_11
+                        .set_exact(from_primary_index + 1, to_secondary_index);
+                }
                 &mut self.jump_12_to_11[[from_primary_index + 1, to_secondary_index]]
             }
             (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                if is_exact {
+                    self.jump_12_to_12
+                        .set_exact(from_primary_index + 1, to_secondary_index);
+                }
                 &mut self.jump_12_to_12[[from_primary_index + 1, to_secondary_index]]
             }
             (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                if is_exact {
+                    self.jump_12_to_21
+                        .set_exact(from_primary_index + 1, to_secondary_index);
+                }
                 &mut self.jump_12_to_21[[from_primary_index + 1, to_secondary_index]]
             }
             (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                if is_exact {
+                    self.jump_12_to_22
+                        .set_exact(from_primary_index + 1, to_secondary_index);
+                }
                 &mut self.jump_12_to_22[[from_primary_index + 1, to_secondary_index]]
             }
         };
@@ -507,18 +720,31 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         to_secondary_index: usize,
         ts_kind: TsKind,
         cost: Cost,
+        is_exact: bool,
     ) -> bool {
         let target = match (ts_kind.ancestor, ts_kind.descendant) {
             (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                if is_exact {
+                    self.jump_12_to_11.set_exact(0, to_secondary_index);
+                }
                 &mut self.jump_12_to_11[[0, to_secondary_index]]
             }
             (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                if is_exact {
+                    self.jump_12_to_12.set_exact(0, to_secondary_index);
+                }
                 &mut self.jump_12_to_12[[0, to_secondary_index]]
             }
             (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                if is_exact {
+                    self.jump_12_to_21.set_exact(0, to_secondary_index);
+                }
                 &mut self.jump_12_to_21[[0, to_secondary_index]]
             }
             (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                if is_exact {
+                    self.jump_12_to_22.set_exact(0, to_secondary_index);
+                }
                 &mut self.jump_12_to_22[[0, to_secondary_index]]
             }
         };
@@ -534,18 +760,35 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         to_secondary_index: usize,
         ts_kind: TsKind,
         cost: Cost,
+        is_exact: bool,
     ) -> bool {
         let target = match (ts_kind.ancestor, ts_kind.descendant) {
             (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                if is_exact {
+                    self.jump_12_to_11
+                        .set_exact(from_secondary_index, to_secondary_index);
+                }
                 &mut self.secondary_11[[from_secondary_index, to_secondary_index]]
             }
             (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                if is_exact {
+                    self.jump_12_to_12
+                        .set_exact(from_secondary_index, to_secondary_index);
+                }
                 &mut self.secondary_12[[from_secondary_index, to_secondary_index]]
             }
             (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                if is_exact {
+                    self.jump_12_to_21
+                        .set_exact(from_secondary_index, to_secondary_index);
+                }
                 &mut self.secondary_21[[from_secondary_index, to_secondary_index]]
             }
             (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                if is_exact {
+                    self.jump_12_to_22
+                        .set_exact(from_secondary_index, to_secondary_index);
+                }
                 &mut self.secondary_22[[from_secondary_index, to_secondary_index]]
             }
         };
@@ -561,18 +804,35 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         to_primary_index: usize,
         ts_kind: TsKind,
         cost: Cost,
+        is_exact: bool,
     ) -> bool {
         let target = match (ts_kind.ancestor, ts_kind.descendant) {
             (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                if is_exact {
+                    self.jump_12_to_11
+                        .set_exact(from_secondary_index, to_primary_index + 1);
+                }
                 &mut self.jump_34_from_11[[from_secondary_index, to_primary_index + 1]]
             }
             (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                if is_exact {
+                    self.jump_12_to_12
+                        .set_exact(from_secondary_index, to_primary_index + 1);
+                }
                 &mut self.jump_34_from_12[[from_secondary_index, to_primary_index + 1]]
             }
             (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                if is_exact {
+                    self.jump_12_to_21
+                        .set_exact(from_secondary_index, to_primary_index + 1);
+                }
                 &mut self.jump_34_from_21[[from_secondary_index, to_primary_index + 1]]
             }
             (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                if is_exact {
+                    self.jump_12_to_22
+                        .set_exact(from_secondary_index, to_primary_index + 1);
+                }
                 &mut self.jump_34_from_22[[from_secondary_index, to_primary_index + 1]]
             }
         };
@@ -587,22 +847,39 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         from_secondary_index: usize,
         ts_kind: TsKind,
         cost: Cost,
+        is_exact: bool,
     ) -> bool {
         let target = match (ts_kind.ancestor, ts_kind.descendant) {
             (TsAncestor::Seq1, TsDescendant::Seq1) => {
                 let end_index = self.jump_34_from_11.dim().1 - 1;
+                if is_exact {
+                    self.jump_12_to_11
+                        .set_exact(from_secondary_index, end_index);
+                }
                 &mut self.jump_34_from_11[[from_secondary_index, end_index]]
             }
             (TsAncestor::Seq1, TsDescendant::Seq2) => {
                 let end_index = self.jump_34_from_12.dim().1 - 1;
+                if is_exact {
+                    self.jump_12_to_12
+                        .set_exact(from_secondary_index, end_index);
+                }
                 &mut self.jump_34_from_12[[from_secondary_index, end_index]]
             }
             (TsAncestor::Seq2, TsDescendant::Seq1) => {
                 let end_index = self.jump_34_from_21.dim().1 - 1;
+                if is_exact {
+                    self.jump_12_to_21
+                        .set_exact(from_secondary_index, end_index);
+                }
                 &mut self.jump_34_from_21[[from_secondary_index, end_index]]
             }
             (TsAncestor::Seq2, TsDescendant::Seq2) => {
                 let end_index = self.jump_34_from_22.dim().1 - 1;
+                if is_exact {
+                    self.jump_12_to_22
+                        .set_exact(from_secondary_index, end_index);
+                }
                 &mut self.jump_34_from_22[[from_secondary_index, end_index]]
             }
         };
