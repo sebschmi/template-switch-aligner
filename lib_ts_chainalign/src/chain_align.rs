@@ -56,25 +56,35 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     let context = Context::new(anchors, chaining_cost_function);
     let mut astar = AStar::new(context);
     let mut chaining_execution_count = 0;
-    let mut current_cost = Cost::zero();
+    let mut current_lower_bound = Cost::zero();
+    let mut current_upper_bound = Cost::max_value();
+    let mut total_chaining_opened_nodes = 0;
+    let mut total_chaining_suboptimal_opened_nodes = 0;
+    let mut total_chaining_closed_nodes = 0;
 
     let (alignments, result) = loop {
         progress_bar.inc(1);
         progress_bar.set_message(format!(
-            "Computing chain number {} (cost {})",
+            "Computing chain number {} (cost {}->{})",
             chaining_execution_count + 1,
-            current_cost,
+            current_lower_bound,
+            current_upper_bound,
         ));
         let chaining_start_time = Instant::now();
 
         astar.reset();
         astar.initialise();
         let result = astar.search();
+        total_chaining_opened_nodes += astar.performance_counters().opened_nodes;
+        total_chaining_suboptimal_opened_nodes +=
+            astar.performance_counters().suboptimal_opened_nodes;
+        total_chaining_closed_nodes += astar.performance_counters().closed_nodes;
+
         chaining_execution_count += 1;
         let chain = match result {
             AStarResult::FoundTarget { cost, .. } => {
                 trace!("Found chain with cost {cost}");
-                current_cost = cost;
+                current_lower_bound = cost;
 
                 let mut chain = astar.reconstruct_path();
                 chain.push(Identifier::End);
@@ -117,6 +127,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
         let evaluation_start_time = Instant::now();
 
         let mut cost_increased = false;
+        current_upper_bound = Cost::zero();
         let mut alignments = Vec::new();
         'update_chain: for window in chain.windows(2) {
             let from_anchor = window[0];
@@ -138,6 +149,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         .chaining_cost_function
                         .update_start_to_end(alignment.cost())
                         || cost_increased;
+                    current_upper_bound += astar.context().chaining_cost_function.start_to_end();
                     alignments.push(alignment.alignment().clone());
                 }
                 (Identifier::Start, Identifier::Primary { index }) => {
@@ -160,6 +172,10 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         .chaining_cost_function
                         .update_primary_from_start(index, alignment.cost())
                         || cost_increased;
+                    current_upper_bound += astar
+                        .context()
+                        .chaining_cost_function
+                        .primary_from_start(index);
                     alignments.push(alignment.alignment().clone());
                 }
                 (Identifier::Start, Identifier::Secondary { index, ts_kind }) => {
@@ -183,6 +199,10 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         .chaining_cost_function
                         .update_jump_12_from_start(index, ts_kind, alignment.cost())
                         || cost_increased;
+                    current_upper_bound += astar
+                        .context()
+                        .chaining_cost_function
+                        .jump_12_from_start(index, ts_kind);
                     alignments.push(alignment.alignment().clone());
                 }
                 (Identifier::Primary { index }, Identifier::End) => {
@@ -205,6 +225,8 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         .chaining_cost_function
                         .update_primary_to_end(index, alignment.cost())
                         || cost_increased;
+                    current_upper_bound +=
+                        astar.context().chaining_cost_function.primary_to_end(index);
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
@@ -229,6 +251,10 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         .chaining_cost_function
                         .update_jump_34_to_end(index, ts_kind, alignment.cost())
                         || cost_increased;
+                    current_upper_bound += astar
+                        .context()
+                        .chaining_cost_function
+                        .jump_34_to_end(index, ts_kind);
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
@@ -264,6 +290,10 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         to_index,
                         alignment.cost(),
                     ) || cost_increased;
+                    current_upper_bound += astar
+                        .context()
+                        .chaining_cost_function
+                        .primary(from_index, to_index);
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
@@ -297,6 +327,10 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         anchors.secondary(ts_kind)[to_index],
                         alignment.cost()
                     );
+                    current_upper_bound += astar
+                        .context()
+                        .chaining_cost_function
+                        .jump_12(from_index, to_index, ts_kind);
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
@@ -341,6 +375,10 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         ts_kind,
                         alignment.cost(),
                     ) || cost_increased;
+                    current_upper_bound += astar
+                        .context()
+                        .chaining_cost_function
+                        .secondary(from_index, to_index, ts_kind);
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
@@ -376,6 +414,10 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         end,
                         alignment.cost()
                     );
+                    current_upper_bound += astar
+                        .context()
+                        .chaining_cost_function
+                        .jump_34(from_index, to_index, ts_kind);
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
@@ -395,6 +437,13 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     debug!("Computed {chaining_execution_count} chains");
     debug!("Chaining took {:.1}s", chaining_duration.as_secs_f64());
     debug!("Evaluation took {:.1}s", evaluation_duration.as_secs_f64());
+    debug!("Chaining opened nodes: {total_chaining_opened_nodes}");
+    debug!(
+        "Chaining suboptimal openend nodes: {} ({:.0}%)",
+        total_chaining_suboptimal_opened_nodes,
+        total_chaining_suboptimal_opened_nodes as f64 / total_chaining_opened_nodes as f64 * 100.0,
+    );
+    debug!("Chaining closed nodes: {total_chaining_closed_nodes}");
 
     let mut tsalign_alignment =
         lib_tsalign::a_star_aligner::alignment_result::alignment::Alignment::new();

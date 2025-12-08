@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
-use log::{debug, trace};
+use log::{info, trace};
 
 use crate::{
     alignment::{
@@ -176,13 +176,18 @@ impl Anchors {
             )
         });
 
-        debug!(
-            "Found {} anchors",
+        info!(
+            "Found {} anchors ({} + {} + {} + {} + {})",
             primary.len()
                 + secondary_11.len()
                 + secondary_12.len()
                 + secondary_21.len()
-                + secondary_22.len()
+                + secondary_22.len(),
+            primary.len(),
+            secondary_11.len(),
+            secondary_12.len(),
+            secondary_21.len(),
+            secondary_22.len(),
         );
 
         Self {

@@ -71,16 +71,19 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                                 );
                             }
 
-                            let cost = predecessor_cost.checked_add(
-                                &self
-                                    .chaining_cost_function
-                                    .primary_from_start(successor_index),
-                            )?;
+                            let cost = predecessor_cost
+                                .checked_add(
+                                    &self
+                                        .chaining_cost_function
+                                        .primary_from_start(successor_index),
+                                )
+                                .unwrap();
                             if DEBUG_CHAINER {
                                 println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
                             }
 
-                            (cost != Cost::max_value()).then_some(Node {
+                            debug_assert_ne!(cost, Cost::max_value());
+                            Some(Node {
                                 identifier: Identifier::Primary {
                                     index: successor_index,
                                 },
