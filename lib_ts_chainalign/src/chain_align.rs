@@ -52,7 +52,13 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     let mut chaining_duration = Duration::default();
     let mut evaluation_duration = Duration::default();
 
-    let context = Context::new(anchors, chaining_cost_function);
+    let k = usize::try_from(max_match_run + 1).unwrap();
+    let context = Context::new(
+        anchors,
+        chaining_cost_function,
+        &alignment_costs.ts_limits,
+        k,
+    );
     let mut astar = AStar::new(context);
     let mut chaining_execution_count = 0;
     let mut current_lower_bound = Cost::zero();

@@ -765,28 +765,28 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let target = match (ts_kind.ancestor, ts_kind.descendant) {
             (TsAncestor::Seq1, TsDescendant::Seq1) => {
                 if is_exact {
-                    self.jump_12_to_11
+                    self.secondary_11
                         .set_exact(from_secondary_index, to_secondary_index);
                 }
                 &mut self.secondary_11[[from_secondary_index, to_secondary_index]]
             }
             (TsAncestor::Seq1, TsDescendant::Seq2) => {
                 if is_exact {
-                    self.jump_12_to_12
+                    self.secondary_12
                         .set_exact(from_secondary_index, to_secondary_index);
                 }
                 &mut self.secondary_12[[from_secondary_index, to_secondary_index]]
             }
             (TsAncestor::Seq2, TsDescendant::Seq1) => {
                 if is_exact {
-                    self.jump_12_to_21
+                    self.secondary_21
                         .set_exact(from_secondary_index, to_secondary_index);
                 }
                 &mut self.secondary_21[[from_secondary_index, to_secondary_index]]
             }
             (TsAncestor::Seq2, TsDescendant::Seq2) => {
                 if is_exact {
-                    self.jump_12_to_22
+                    self.secondary_22
                         .set_exact(from_secondary_index, to_secondary_index);
                 }
                 &mut self.secondary_22[[from_secondary_index, to_secondary_index]]
