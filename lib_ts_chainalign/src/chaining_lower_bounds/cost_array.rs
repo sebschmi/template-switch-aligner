@@ -17,7 +17,7 @@ impl<const DIMENSION: usize, Cost> LowerBoundCostArray<DIMENSION, Cost> {
     {
         Self {
             dim,
-            data: vec![cost; dim[0] * dim[1]],
+            data: vec![cost; dim.into_iter().product()],
         }
     }
 
@@ -101,11 +101,7 @@ fn coordinates_to_index<const DIMENSION: usize>(
 ) -> usize {
     let mut result = 0;
     for (index, ordinate) in coordinates.into_iter().enumerate() {
-        let mut factor = 1;
-        for dimension in dim.into_iter().skip(index + 1) {
-            factor *= dimension;
-        }
-        result += factor * ordinate;
+        result += dim.into_iter().skip(index + 1).product::<usize>() * ordinate;
     }
     result
 }
