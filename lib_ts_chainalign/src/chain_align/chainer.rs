@@ -23,8 +23,17 @@ pub struct Node<Cost> {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum Identifier {
     Start,
-    Primary { index: usize },
-    Secondary { index: usize, ts_kind: TsKind },
+    Primary {
+        index: usize,
+    },
+    Secondary {
+        index: usize,
+        ts_kind: TsKind,
+        /// The first secondary anchor that is part of the current template switch.
+        ///
+        /// Used to estimate the length of the resulting template switch.
+        first_secondary_index: usize,
+    },
     End,
 }
 
@@ -120,6 +129,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                                         identifier: Identifier::Secondary {
                                             index: successor_index,
                                             ts_kind,
+                                            first_secondary_index: successor_index,
                                         },
                                         predecessor,
                                         cost,
@@ -199,6 +209,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                                     identifier: Identifier::Secondary {
                                         index: successor_index,
                                         ts_kind,
+                                        first_secondary_index: successor_index,
                                     },
                                     predecessor,
                                     cost,
@@ -221,7 +232,11 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                         }
                     })),
             ),
-            Identifier::Secondary { index, ts_kind } => output.extend(
+            Identifier::Secondary {
+                index,
+                ts_kind,
+                first_secondary_index,
+            } => output.extend(
                 (0..self.anchors.secondary(ts_kind).len())
                     .flat_map(|successor_index| {
                         if DEBUG_CHAINER {
@@ -245,6 +260,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, Cost> {
                             identifier: Identifier::Secondary {
                                 index: successor_index,
                                 ts_kind,
+                                first_secondary_index,
                             },
                             predecessor,
                             cost,
@@ -372,7 +388,11 @@ impl Display for Identifier {
         match self {
             Identifier::Start => write!(f, "start"),
             Identifier::Primary { index } => write!(f, "P-{index}"),
-            Identifier::Secondary { index, ts_kind } => write!(f, "S{}-{index}", ts_kind.digits()),
+            Identifier::Secondary {
+                index,
+                ts_kind,
+                first_secondary_index,
+            } => write!(f, "S{}-{first_secondary_index}-{index}", ts_kind.digits()),
             Identifier::End => write!(f, "end"),
         }
     }

@@ -101,11 +101,16 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                             Identifier::Primary { index } => {
                                 write!(s, "P{}", anchors.primary[*index]).unwrap()
                             }
-                            Identifier::Secondary { index, ts_kind } => write!(
+                            Identifier::Secondary {
+                                index,
+                                ts_kind,
+                                first_secondary_index,
+                            } => write!(
                                 s,
-                                "S{}{}",
+                                "S{}{}->{}",
                                 ts_kind.digits(),
-                                anchors.secondary(*ts_kind)[*index]
+                                anchors.secondary(*ts_kind)[*first_secondary_index],
+                                anchors.secondary(*ts_kind)[*index],
                             )
                             .unwrap(),
                             Identifier::End => write!(s, "end").unwrap(),
@@ -344,7 +349,7 @@ fn evaluate_chain<Cost: AStarCost>(
                 }
                 current_upper_bound += chaining_cost_function.primary_from_start(index);
             }
-            (Identifier::Start, Identifier::Secondary { index, ts_kind }) => {
+            (Identifier::Start, Identifier::Secondary { index, ts_kind, .. }) => {
                 let end = anchors.secondary(ts_kind)[index].start(ts_kind);
                 if final_evaluation
                     || !chaining_cost_function.is_jump_12_from_start_exact(index, ts_kind)
@@ -399,7 +404,7 @@ fn evaluate_chain<Cost: AStarCost>(
                 }
                 current_upper_bound += chaining_cost_function.primary_to_end(index);
             }
-            (Identifier::Secondary { index, ts_kind }, Identifier::End) => {
+            (Identifier::Secondary { index, ts_kind, .. }, Identifier::End) => {
                 let start = anchors.secondary(ts_kind)[index].end(ts_kind, k);
                 if final_evaluation
                     || !chaining_cost_function.is_jump_34_to_end_exact(index, ts_kind)
@@ -478,6 +483,7 @@ fn evaluate_chain<Cost: AStarCost>(
                 Identifier::Secondary {
                     index: to_index,
                     ts_kind,
+                    ..
                 },
             ) => {
                 let start = anchors.primary[from_index].end(k);
@@ -519,10 +525,12 @@ fn evaluate_chain<Cost: AStarCost>(
                 Identifier::Secondary {
                     index: from_index,
                     ts_kind,
+                    ..
                 },
                 Identifier::Secondary {
                     index: to_index,
                     ts_kind: to_ts_kind,
+                    ..
                 },
             ) => {
                 assert_eq!(ts_kind, to_ts_kind);
@@ -572,6 +580,7 @@ fn evaluate_chain<Cost: AStarCost>(
                 Identifier::Secondary {
                     index: from_index,
                     ts_kind,
+                    ..
                 },
                 Identifier::Primary { index: to_index },
             ) => {
