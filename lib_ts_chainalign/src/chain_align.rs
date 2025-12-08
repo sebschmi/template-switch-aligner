@@ -448,7 +448,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     let mut tsalign_alignment =
         lib_tsalign::a_star_aligner::alignment_result::alignment::Alignment::new();
     let mut is_primary = true;
-    let mut anti_primary_gap = 0;
+    let mut anti_primary_gap = 0isize;
 
     for alignment in alignments {
         use lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType as TsAlignAlignmentType;
@@ -460,7 +460,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                     if is_primary {
                         TsAlignAlignmentType::PrimaryMatch
                     } else {
-                        anti_primary_gap -= 1;
+                        anti_primary_gap -= multiplicity as isize;
                         TsAlignAlignmentType::SecondaryMatch
                     },
                 ),
@@ -469,7 +469,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                     if is_primary {
                         TsAlignAlignmentType::PrimarySubstitution
                     } else {
-                        anti_primary_gap -= 1;
+                        anti_primary_gap -= multiplicity as isize;
                         TsAlignAlignmentType::SecondarySubstitution
                     },
                 ),
@@ -486,7 +486,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                     if is_primary {
                         TsAlignAlignmentType::PrimaryDeletion
                     } else {
-                        anti_primary_gap -= 1;
+                        anti_primary_gap -= multiplicity as isize;
                         TsAlignAlignmentType::SecondaryDeletion
                     },
                 ),
