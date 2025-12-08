@@ -888,4 +888,14 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         *target = cost;
         result
     }
+
+    pub fn iter_primary_in_cost_order(
+        &mut self,
+        from_primary_index: usize,
+    ) -> impl Iterator<Item = (usize, Cost)>
+    where
+        Cost: Copy + Ord,
+    {
+        self.primary.iter_in_cost_order(from_primary_index + 1)
+    }
 }
