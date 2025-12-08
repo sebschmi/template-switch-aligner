@@ -1,16 +1,18 @@
-use generic_a_star::cost::AStarCost;
-use ndarray::Array1;
-use serde::{Deserialize, Serialize};
+use std::io::{Read, Write};
 
-use crate::{chaining_lower_bounds::gap_affine::GapAffineLowerBounds, costs::AlignmentCosts};
+use generic_a_star::cost::AStarCost;
+
+use crate::{
+    chaining_lower_bounds::{cost_array::LowerBoundCostArray, gap_affine::GapAffineLowerBounds},
+    costs::AlignmentCosts,
+};
 
 #[cfg(test)]
 mod tests;
 
-#[derive(Serialize, Deserialize)]
 pub struct TsJumpLowerBounds<Cost> {
-    lower_bounds_12: Array1<Cost>,
-    lower_bounds_34: Array1<Cost>,
+    lower_bounds_12: LowerBoundCostArray<1, Cost>,
+    lower_bounds_34: LowerBoundCostArray<1, Cost>,
 }
 
 impl<Cost: AStarCost> TsJumpLowerBounds<Cost> {
@@ -28,7 +30,8 @@ impl<Cost: AStarCost> TsJumpLowerBounds<Cost> {
 
         // This way of calculating the lower bound for the 12-jump does not take the shape limits of the template switch into account.
         // However, most of the time these limits are gonna be big, so they should not have a big impact on the lower bound.
-        let mut lower_bounds_12 = Array1::from_elem(max_n + 1, Cost::max_value());
+        let mut lower_bounds_12 =
+            LowerBoundCostArray::new_from_cost([max_n + 1], Cost::max_value());
         for primary_descendant_gap in 0..=max_n {
             for secondary_descendant_gap in 0..=max_n - primary_descendant_gap {
                 let lower_bound = primary_lower_bounds
@@ -41,7 +44,8 @@ impl<Cost: AStarCost> TsJumpLowerBounds<Cost> {
             }
         }
 
-        let mut lower_bounds_34 = Array1::from_elem(max_n + 1, Cost::max_value());
+        let mut lower_bounds_34 =
+            LowerBoundCostArray::new_from_cost([max_n + 1], Cost::max_value());
         for secondary_descendant_gap in 0..=max_n {
             for primary_descendant_gap in 0..=max_n - secondary_descendant_gap {
                 let lower_bound = secondary_lower_bounds
@@ -57,6 +61,26 @@ impl<Cost: AStarCost> TsJumpLowerBounds<Cost> {
             lower_bounds_12,
             lower_bounds_34,
         }
+    }
+
+    pub fn write(&self, mut write: impl Write) -> std::io::Result<()>
+    where
+        Cost: Copy,
+    {
+        self.lower_bounds_12.write(&mut write)?;
+        self.lower_bounds_34.write(write)
+    }
+
+    pub fn read(mut read: impl Read) -> std::io::Result<Self>
+    where
+        Cost: Copy,
+    {
+        let lower_bounds_12 = LowerBoundCostArray::read(&mut read)?;
+        let lower_bounds_34 = LowerBoundCostArray::read(read)?;
+        Ok(Self {
+            lower_bounds_12,
+            lower_bounds_34,
+        })
     }
 }
 

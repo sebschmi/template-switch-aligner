@@ -2,7 +2,7 @@ use compact_genome::interface::{
     alphabet::{Alphabet, AlphabetCharacter},
     sequence::GenomeSequence,
 };
-use lib_ts_chainalign::costs::AlignmentCosts;
+use lib_ts_chainalign::{chaining_lower_bounds::ChainingLowerBounds, costs::AlignmentCosts};
 use lib_tsalign::{
     a_star_aligner::alignment_geometry::AlignmentRange, config::TemplateSwitchConfig,
 };
@@ -73,7 +73,10 @@ pub fn align_a_star_chain_ts<
 
     let chaining_lower_bounds = if let Ok(mut file) = File::open(&cache_file) {
         info!("Loading preprocessed data from cache at {cache_file:?}");
-        bincode::serde::decode_from_std_read(&mut file, bincode::config::standard()).unwrap()
+        let chaining_lower_bounds = ChainingLowerBounds::read(&mut file).unwrap();
+        assert_eq!(chaining_lower_bounds.alignment_costs(), &alignment_costs);
+        assert_eq!(chaining_lower_bounds.max_match_run(), max_match_run);
+        chaining_lower_bounds
     } else {
         info!("Preprocessing...");
         let chaining_lower_bounds =
@@ -81,12 +84,7 @@ pub fn align_a_star_chain_ts<
 
         info!("Storing preprocessed data into cache at {cache_file:?}");
         let mut file = File::create(&cache_file).unwrap();
-        bincode::serde::encode_into_std_write(
-            &chaining_lower_bounds,
-            &mut file,
-            bincode::config::standard(),
-        )
-        .unwrap();
+        chaining_lower_bounds.write(&mut file).unwrap();
         chaining_lower_bounds
     };
 

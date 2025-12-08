@@ -1,17 +1,19 @@
-use generic_a_star::{AStar, AStarNode, cost::AStarCost};
-use ndarray::{Array1, Array2};
-use serde::{Deserialize, Serialize};
+use std::io::{Read, Write};
 
-use crate::{chaining_lower_bounds::gap_affine::algo::Context, costs::GapAffineCosts};
+use generic_a_star::{AStar, AStarNode, cost::AStarCost};
+
+use crate::{
+    chaining_lower_bounds::{cost_array::LowerBoundCostArray, gap_affine::algo::Context},
+    costs::GapAffineCosts,
+};
 
 mod algo;
 #[cfg(test)]
 mod tests;
 
-#[derive(Serialize, Deserialize)]
 pub struct GapAffineLowerBounds<Cost> {
-    lower_bounds: Array2<Cost>,
-    variable_gap2_lower_bounds: Array1<Cost>,
+    lower_bounds: LowerBoundCostArray<2, Cost>,
+    variable_gap2_lower_bounds: LowerBoundCostArray<1, Cost>,
 }
 
 impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
@@ -33,7 +35,8 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
         cost_table: &GapAffineCosts<Cost>,
         allow_all_match_run: bool,
     ) -> Self {
-        let mut lower_bounds = Array2::from_elem((max_n + 1, max_n + 1), Cost::max_value());
+        let mut lower_bounds =
+            LowerBoundCostArray::new_from_cost([max_n + 1, max_n + 1], Cost::max_value());
         lower_bounds[[0, 0]] = Cost::zero();
         let context = Context::new(cost_table, max_match_run, max_n);
         let mut a_star = AStar::new(context);
@@ -48,7 +51,7 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
             }
             false
         });
-        let variable_gap2_lower_bounds = Array1::from_iter((0..=max_n).map(|gap1| {
+        let variable_gap2_lower_bounds = LowerBoundCostArray::from_iter((0..=max_n).map(|gap1| {
             (0..=max_n)
                 .map(|gap2| lower_bounds[[gap1, gap2]])
                 .min()
@@ -59,6 +62,26 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
             lower_bounds,
             variable_gap2_lower_bounds,
         }
+    }
+
+    pub fn write(&self, mut write: impl Write) -> std::io::Result<()>
+    where
+        Cost: Copy,
+    {
+        self.lower_bounds.write(&mut write)?;
+        self.variable_gap2_lower_bounds.write(write)
+    }
+
+    pub fn read(mut read: impl Read) -> std::io::Result<Self>
+    where
+        Cost: Copy,
+    {
+        let lower_bounds = LowerBoundCostArray::read(&mut read)?;
+        let variable_gap2_lower_bounds = LowerBoundCostArray::read(read)?;
+        Ok(Self {
+            lower_bounds,
+            variable_gap2_lower_bounds,
+        })
     }
 }
 

@@ -1,17 +1,19 @@
 //! Compute lower bounds for chaining anchors with gaps.
 
+use std::io::{Read, Write};
+
 use generic_a_star::cost::AStarCost;
-use serde::{Deserialize, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
     chaining_lower_bounds::{gap_affine::GapAffineLowerBounds, ts_jump::TsJumpLowerBounds},
     costs::AlignmentCosts,
 };
 
+mod cost_array;
 pub mod gap_affine;
 pub mod ts_jump;
 
-#[derive(Serialize, Deserialize)]
 pub struct ChainingLowerBounds<Cost> {
     primary: GapAffineLowerBounds<Cost>,
     secondary: GapAffineLowerBounds<Cost>,
@@ -43,6 +45,53 @@ impl<Cost: AStarCost> ChainingLowerBounds<Cost> {
             alignment_costs,
             max_match_run,
         }
+    }
+
+    pub fn write(&self, mut write: impl Write) -> std::io::Result<()>
+    where
+        Cost: Copy + Serialize,
+    {
+        self.primary.write(&mut write)?;
+        self.secondary.write(&mut write)?;
+        self.jump.write(&mut write)?;
+        bincode::serde::encode_into_std_write(
+            &self.alignment_costs,
+            &mut write,
+            bincode::config::standard(),
+        )
+        .map_err(|error| match error {
+            bincode::error::EncodeError::Io { inner, .. } => inner,
+            error => panic!("I/O error: {error}"),
+        })?;
+        write.write_all(&self.max_match_run.to_ne_bytes())
+    }
+
+    pub fn read(mut read: impl Read) -> std::io::Result<Self>
+    where
+        Cost: Copy + DeserializeOwned,
+    {
+        let primary = GapAffineLowerBounds::read(&mut read)?;
+        let secondary = GapAffineLowerBounds::read(&mut read)?;
+        let jump = TsJumpLowerBounds::read(&mut read)?;
+        let alignment_costs =
+            bincode::serde::decode_from_std_read(&mut read, bincode::config::standard()).map_err(
+                |error| match error {
+                    bincode::error::DecodeError::Io { inner, .. } => inner,
+                    error => panic!("I/O error: {error}"),
+                },
+            )?;
+
+        let mut buffer = [0; std::mem::size_of::<u32>()];
+        read.read_exact(&mut buffer)?;
+        let max_match_run = u32::from_ne_bytes(buffer);
+
+        Ok(Self {
+            primary,
+            secondary,
+            jump,
+            alignment_costs,
+            max_match_run,
+        })
     }
 }
 

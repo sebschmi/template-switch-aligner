@@ -1,9 +1,4 @@
-use std::{
-    io::{Read, Write},
-    mem,
-    ops::{Index, IndexMut},
-    slice,
-};
+use std::ops::{Index, IndexMut};
 
 use bitvec::{bitvec, order::LocalBits, vec::BitVec};
 
@@ -37,55 +32,6 @@ impl<Cost> CostArray2D<Cost> {
 
     pub fn dim(&self) -> (usize, usize) {
         (self.len[0], self.len[1])
-    }
-
-    #[expect(dead_code)]
-    pub fn write(&self, mut write: impl Write) -> std::io::Result<()>
-    where
-        Cost: Copy,
-    {
-        write.write_all(&self.len[0].to_ne_bytes())?;
-        write.write_all(&self.len[1].to_ne_bytes())?;
-
-        let cost_size = mem::size_of::<Cost>();
-        let data: &[u8] = unsafe {
-            slice::from_raw_parts(self.data.as_ptr() as *const u8, self.data.len() * cost_size)
-        };
-        write.write_all(data)
-    }
-
-    #[expect(dead_code)]
-    pub fn read(mut read: impl Read) -> std::io::Result<Self>
-    where
-        Cost: Copy,
-    {
-        let mut buffer = [0; mem::size_of::<usize>()];
-        read.read_exact(&mut buffer)?;
-        let len1 = usize::from_ne_bytes(buffer);
-        read.read_exact(&mut buffer)?;
-        let len2 = usize::from_ne_bytes(buffer);
-        let len = [len1, len2];
-
-        let cost_size = mem::size_of::<Cost>();
-        let data_len_bytes = cost_size * len1 * len2;
-
-        let mut data = Vec::<Cost>::with_capacity(data_len_bytes);
-        let mut data_bytes = unsafe {
-            Vec::from_raw_parts(data.as_mut_ptr() as *mut u8, 0, data.capacity() * cost_size)
-        };
-        read.by_ref()
-            .take(data_len_bytes.try_into().unwrap())
-            .read_to_end(&mut data_bytes)?;
-        unsafe {
-            data.set_len(len1 * len2);
-        };
-        data_bytes.leak();
-
-        Ok(Self {
-            len,
-            data,
-            is_exact: bitvec![usize, LocalBits; 0; len[0] * len[1]],
-        })
     }
 }
 
