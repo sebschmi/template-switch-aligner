@@ -898,4 +898,98 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     {
         self.primary.iter_in_cost_order(from_primary_index + 1)
     }
+
+    pub fn iter_primary_from_start_in_cost_order(&mut self) -> impl Iterator<Item = (usize, Cost)>
+    where
+        Cost: Copy + Ord,
+    {
+        self.primary.iter_in_cost_order(0)
+    }
+
+    pub fn iter_jump_12_in_cost_order(
+        &mut self,
+        from_primary_index: usize,
+        ts_kind: TsKind,
+    ) -> impl Iterator<Item = (usize, Cost)>
+    where
+        Cost: Copy + Ord,
+    {
+        match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => self
+                .jump_12_to_11
+                .iter_in_cost_order(from_primary_index + 1),
+            (TsAncestor::Seq1, TsDescendant::Seq2) => self
+                .jump_12_to_12
+                .iter_in_cost_order(from_primary_index + 1),
+            (TsAncestor::Seq2, TsDescendant::Seq1) => self
+                .jump_12_to_21
+                .iter_in_cost_order(from_primary_index + 1),
+            (TsAncestor::Seq2, TsDescendant::Seq2) => self
+                .jump_12_to_22
+                .iter_in_cost_order(from_primary_index + 1),
+        }
+    }
+
+    pub fn iter_jump_12_from_start_in_cost_order(
+        &mut self,
+        ts_kind: TsKind,
+    ) -> impl Iterator<Item = (usize, Cost)>
+    where
+        Cost: Copy + Ord,
+    {
+        match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => self.jump_12_to_11.iter_in_cost_order(0),
+            (TsAncestor::Seq1, TsDescendant::Seq2) => self.jump_12_to_12.iter_in_cost_order(0),
+            (TsAncestor::Seq2, TsDescendant::Seq1) => self.jump_12_to_21.iter_in_cost_order(0),
+            (TsAncestor::Seq2, TsDescendant::Seq2) => self.jump_12_to_22.iter_in_cost_order(0),
+        }
+    }
+
+    pub fn iter_secondary_in_cost_order(
+        &mut self,
+        from_secondary_index: usize,
+        ts_kind: TsKind,
+    ) -> impl Iterator<Item = (usize, Cost)>
+    where
+        Cost: Copy + Ord,
+    {
+        match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => {
+                self.secondary_11.iter_in_cost_order(from_secondary_index)
+            }
+            (TsAncestor::Seq1, TsDescendant::Seq2) => {
+                self.secondary_12.iter_in_cost_order(from_secondary_index)
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq1) => {
+                self.secondary_21.iter_in_cost_order(from_secondary_index)
+            }
+            (TsAncestor::Seq2, TsDescendant::Seq2) => {
+                self.secondary_22.iter_in_cost_order(from_secondary_index)
+            }
+        }
+    }
+
+    pub fn iter_jump_34_in_cost_order(
+        &mut self,
+        from_secondary_index: usize,
+        ts_kind: TsKind,
+    ) -> impl Iterator<Item = (usize, Cost)>
+    where
+        Cost: Copy + Ord,
+    {
+        match (ts_kind.ancestor, ts_kind.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => self
+                .jump_34_from_11
+                .iter_in_cost_order(from_secondary_index),
+            (TsAncestor::Seq1, TsDescendant::Seq2) => self
+                .jump_34_from_12
+                .iter_in_cost_order(from_secondary_index),
+            (TsAncestor::Seq2, TsDescendant::Seq1) => self
+                .jump_34_from_21
+                .iter_in_cost_order(from_secondary_index),
+            (TsAncestor::Seq2, TsDescendant::Seq2) => self
+                .jump_34_from_22
+                .iter_in_cost_order(from_secondary_index),
+        }
+    }
 }

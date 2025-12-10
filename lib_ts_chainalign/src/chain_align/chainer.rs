@@ -80,8 +80,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
         match node.identifier {
             Identifier::Start => {
                 output.extend(
-                    (0..self.anchors.primary.len())
-                        .flat_map(|successor_index| {
+                    self.chaining_cost_function
+                        .iter_primary_from_start_in_cost_order()
+                        .flat_map(|(successor_index, chaining_cost)| {
                             if DEBUG_CHAINER {
                                 println!(
                                     "Checking anchor P-{successor_index}: {}",
@@ -89,13 +90,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 );
                             }
 
-                            let cost = predecessor_cost
-                                .checked_add(
-                                    &self
-                                        .chaining_cost_function
-                                        .primary_from_start(successor_index),
-                                )
-                                .unwrap();
+                            let cost = predecessor_cost.checked_add(&chaining_cost).unwrap();
                             if DEBUG_CHAINER {
                                 println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
                             }
@@ -108,60 +103,60 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 predecessor,
                                 cost,
                             })
-                        })
-                        .chain(TsKind::iter().flat_map(|ts_kind| {
-                            (0..self.anchors.secondary(ts_kind).len())
-                                .zip(iter::repeat(&self))
-                                .flat_map(move |(successor_index, context)| {
-                                    if DEBUG_CHAINER {
-                                        println!(
-                                            "Checking anchor S{}-{successor_index}: {}",
-                                            ts_kind.digits(),
-                                            context.anchors.secondary(ts_kind)[successor_index]
-                                        );
-                                    }
-
-                                    let cost = predecessor_cost.checked_add(
-                                        &context
-                                            .chaining_cost_function
-                                            .jump_12_from_start(successor_index, ts_kind),
-                                    )?;
-                                    if DEBUG_CHAINER {
-                                        println!(
-                                            "Cost: {}+{}",
-                                            predecessor_cost,
-                                            cost - predecessor_cost
-                                        );
-                                    }
-
-                                    (cost != Cost::max_value()).then_some(Node {
-                                        identifier: Identifier::Secondary {
-                                            index: successor_index,
-                                            ts_kind,
-                                            first_secondary_index: successor_index,
-                                        },
-                                        predecessor,
-                                        cost,
-                                    })
-                                })
-                        }))
-                        .chain(iter::once({
-                            let cost = predecessor_cost
-                                .checked_add(&self.chaining_cost_function.start_to_end())
-                                .unwrap();
-                            if DEBUG_CHAINER {
-                                println!("Checking anchor end");
-                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
-                            }
-                            debug_assert_ne!(cost, Cost::max_value());
-                            Node {
-                                identifier: Identifier::End,
-                                predecessor,
-                                cost,
-                            }
-                        })),
+                        }),
                 );
+                for ts_kind in TsKind::iter() {
+                    output.extend(
+                        self.chaining_cost_function
+                            .iter_jump_12_from_start_in_cost_order(ts_kind)
+                            .zip(iter::repeat(self.anchors))
+                            .flat_map(move |((successor_index, chaining_cost), anchors)| {
+                                if DEBUG_CHAINER {
+                                    println!(
+                                        "Checking anchor S{}-{successor_index}: {}",
+                                        ts_kind.digits(),
+                                        anchors.secondary(ts_kind)[successor_index]
+                                    );
+                                }
+
+                                let cost = predecessor_cost.checked_add(&chaining_cost)?;
+                                if DEBUG_CHAINER {
+                                    println!(
+                                        "Cost: {}+{}",
+                                        predecessor_cost,
+                                        cost - predecessor_cost
+                                    );
+                                }
+
+                                (cost != Cost::max_value()).then_some(Node {
+                                    identifier: Identifier::Secondary {
+                                        index: successor_index,
+                                        ts_kind,
+                                        first_secondary_index: successor_index,
+                                    },
+                                    predecessor,
+                                    cost,
+                                })
+                            }),
+                    );
+                }
+                output.extend(iter::once({
+                    let cost = predecessor_cost
+                        .checked_add(&self.chaining_cost_function.start_to_end())
+                        .unwrap();
+                    if DEBUG_CHAINER {
+                        println!("Checking anchor end");
+                        println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                    }
+                    debug_assert_ne!(cost, Cost::max_value());
+                    Node {
+                        identifier: Identifier::End,
+                        predecessor,
+                        cost,
+                    }
+                }));
             }
+
             Identifier::Primary { index } => {
                 output.extend(
                     self.chaining_cost_function
@@ -188,98 +183,91 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             })
                         }),
                 );
-                output.extend(
-                    TsKind::iter()
-                        .flat_map(|ts_kind| {
-                            (0..self.anchors.secondary(ts_kind).len())
-                                .zip(iter::repeat(&self))
-                                .flat_map(move |(successor_index, context)| {
-                                    if DEBUG_CHAINER {
-                                        println!(
-                                            "Checking anchor S{}-{successor_index}: {}",
-                                            ts_kind.digits(),
-                                            context.anchors.secondary(ts_kind)[successor_index]
-                                        );
-                                    }
+                for ts_kind in TsKind::iter() {
+                    output.extend(
+                        self.chaining_cost_function
+                            .iter_jump_12_in_cost_order(index, ts_kind)
+                            .zip(iter::repeat(self.anchors))
+                            .flat_map(move |((successor_index, chaining_cost), anchors)| {
+                                if DEBUG_CHAINER {
+                                    println!(
+                                        "Checking anchor S{}-{successor_index}: {}",
+                                        ts_kind.digits(),
+                                        anchors.secondary(ts_kind)[successor_index]
+                                    );
+                                }
 
-                                    let cost = predecessor_cost.checked_add(
-                                        &context.chaining_cost_function.jump_12(
-                                            index,
-                                            successor_index,
-                                            ts_kind,
-                                        ),
-                                    )?;
-                                    if DEBUG_CHAINER {
-                                        println!(
-                                            "Cost: {}+{}",
-                                            predecessor_cost,
-                                            cost - predecessor_cost
-                                        );
-                                    }
+                                let cost = predecessor_cost.checked_add(&chaining_cost)?;
+                                if DEBUG_CHAINER {
+                                    println!(
+                                        "Cost: {}+{}",
+                                        predecessor_cost,
+                                        cost - predecessor_cost
+                                    );
+                                }
 
-                                    (cost != Cost::max_value()).then_some(Node {
-                                        identifier: Identifier::Secondary {
-                                            index: successor_index,
-                                            ts_kind,
-                                            first_secondary_index: successor_index,
-                                        },
-                                        predecessor,
-                                        cost,
-                                    })
+                                (cost != Cost::max_value()).then_some(Node {
+                                    identifier: Identifier::Secondary {
+                                        index: successor_index,
+                                        ts_kind,
+                                        first_secondary_index: successor_index,
+                                    },
+                                    predecessor,
+                                    cost,
                                 })
-                        })
-                        .chain(iter::once({
-                            let cost = predecessor_cost
-                                .checked_add(&self.chaining_cost_function.primary_to_end(index))
-                                .unwrap();
-                            if DEBUG_CHAINER {
-                                println!("Checking anchor end");
-                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
-                            }
-                            debug_assert_ne!(cost, Cost::max_value());
-                            Node {
-                                identifier: Identifier::End,
-                                predecessor,
-                                cost,
-                            }
-                        })),
-                );
+                            }),
+                    );
+                }
+                output.extend(iter::once({
+                    let cost = predecessor_cost
+                        .checked_add(&self.chaining_cost_function.primary_to_end(index))
+                        .unwrap();
+                    if DEBUG_CHAINER {
+                        println!("Checking anchor end");
+                        println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                    }
+                    debug_assert_ne!(cost, Cost::max_value());
+                    Node {
+                        identifier: Identifier::End,
+                        predecessor,
+                        cost,
+                    }
+                }));
             }
+
             Identifier::Secondary {
                 index,
                 ts_kind,
                 first_secondary_index,
             } => {
-                output.extend((0..self.anchors.secondary(ts_kind).len()).flat_map(
-                    |successor_index| {
-                        if DEBUG_CHAINER {
-                            println!(
-                                "Checking anchor S{}-{successor_index}: {}",
-                                ts_kind.digits(),
-                                self.anchors.secondary(ts_kind)[successor_index]
-                            );
-                        }
+                output.extend(
+                    self.chaining_cost_function
+                        .iter_secondary_in_cost_order(index, ts_kind)
+                        .flat_map(|(successor_index, chaining_cost)| {
+                            if DEBUG_CHAINER {
+                                println!(
+                                    "Checking anchor S{}-{successor_index}: {}",
+                                    ts_kind.digits(),
+                                    self.anchors.secondary(ts_kind)[successor_index]
+                                );
+                            }
 
-                        let cost = predecessor_cost.checked_add(
-                            &self
-                                .chaining_cost_function
-                                .secondary(index, successor_index, ts_kind),
-                        )?;
-                        if DEBUG_CHAINER {
-                            println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
-                        }
+                            let cost = predecessor_cost.checked_add(&chaining_cost)?;
+                            if DEBUG_CHAINER {
+                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                            }
 
-                        (cost != Cost::max_value()).then_some(Node {
-                            identifier: Identifier::Secondary {
-                                index: successor_index,
-                                ts_kind,
-                                first_secondary_index,
-                            },
-                            predecessor,
-                            cost,
-                        })
-                    },
-                ));
+                            (cost != Cost::max_value()).then_some(Node {
+                                identifier: Identifier::Secondary {
+                                    index: successor_index,
+                                    ts_kind,
+                                    first_secondary_index,
+                                },
+                                predecessor,
+                                cost,
+                            })
+                        }),
+                );
 
                 let first_anchor = &self.anchors.secondary(ts_kind)[first_secondary_index];
                 let ts_length = first_anchor.ts_length_until(
@@ -290,8 +278,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
 
                 if self.ts_limits.length_23.contains(&ts_length) {
                     output.extend(
-                        (0..self.anchors.primary.len())
-                            .flat_map(|successor_index| {
+                        self.chaining_cost_function
+                            .iter_jump_34_in_cost_order(index, ts_kind)
+                            .flat_map(|(successor_index, chaining_cost)| {
                                 if DEBUG_CHAINER {
                                     println!(
                                         "Checking anchor P-{successor_index}: {}",
@@ -299,13 +288,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                     );
                                 }
 
-                                let cost = predecessor_cost.checked_add(
-                                    &self.chaining_cost_function.jump_34(
-                                        index,
-                                        successor_index,
-                                        ts_kind,
-                                    ),
-                                )?;
+                                let cost = predecessor_cost.checked_add(&chaining_cost)?;
                                 if DEBUG_CHAINER {
                                     println!(
                                         "Cost: {}+{}",
@@ -321,29 +304,25 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                     predecessor,
                                     cost,
                                 })
-                            })
-                            .chain(iter::once({
-                                let cost = predecessor_cost
-                                    .checked_add(
-                                        &self.chaining_cost_function.jump_34_to_end(index, ts_kind),
-                                    )
-                                    .unwrap();
-                                if DEBUG_CHAINER {
-                                    println!("Checking anchor end");
-                                    println!(
-                                        "Cost: {}+{}",
-                                        predecessor_cost,
-                                        cost - predecessor_cost
-                                    );
-                                }
-                                debug_assert_ne!(cost, Cost::max_value());
-                                Node {
-                                    identifier: Identifier::End,
-                                    predecessor,
-                                    cost,
-                                }
-                            })),
+                            }),
                     );
+                    output.extend(iter::once({
+                        let cost = predecessor_cost
+                            .checked_add(
+                                &self.chaining_cost_function.jump_34_to_end(index, ts_kind),
+                            )
+                            .unwrap();
+                        if DEBUG_CHAINER {
+                            println!("Checking anchor end");
+                            println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                        }
+                        debug_assert_ne!(cost, Cost::max_value());
+                        Node {
+                            identifier: Identifier::End,
+                            predecessor,
+                            cost,
+                        }
+                    }));
                 }
             }
 
