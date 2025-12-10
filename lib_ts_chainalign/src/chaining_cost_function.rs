@@ -896,14 +896,22 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     where
         Cost: Copy + Ord,
     {
-        self.primary.iter_in_cost_order(from_primary_index + 1)
+        self.primary
+            .iter_in_cost_order(from_primary_index + 1)
+            .filter_map(|(to_primary_index, chaining_cost)| {
+                (to_primary_index != 0).then(|| (to_primary_index - 1, chaining_cost))
+            })
     }
 
     pub fn iter_primary_from_start_in_cost_order(&mut self) -> impl Iterator<Item = (usize, Cost)>
     where
         Cost: Copy + Ord,
     {
-        self.primary.iter_in_cost_order(0)
+        self.primary
+            .iter_in_cost_order(0)
+            .filter_map(|(to_primary_index, chaining_cost)| {
+                (to_primary_index != 0).then(|| (to_primary_index - 1, chaining_cost))
+            })
     }
 
     pub fn iter_jump_12_in_cost_order(
@@ -991,5 +999,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 .jump_34_from_22
                 .iter_in_cost_order(from_secondary_index),
         }
+        .filter_map(|(to_primary_index, chaining_cost)| {
+            (to_primary_index != 0).then(|| (to_primary_index - 1, chaining_cost))
+        })
     }
 }

@@ -54,9 +54,9 @@ impl<Cost> ChainingCostArray<Cost> {
         self.cost_order_permutation[c1]
             .iter()
             .copied()
-            .map(move |c2| {
+            .filter_map(move |c2| {
                 let c2 = usize::try_from(c2).unwrap();
-                (c2, data[coordinates_to_index(c1, c2, len)])
+                (c1 != c2).then(|| (c2, data[coordinates_to_index(c1, c2, len)]))
             })
     }
 }
