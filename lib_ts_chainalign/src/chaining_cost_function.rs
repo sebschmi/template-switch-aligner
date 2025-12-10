@@ -474,12 +474,13 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     pub fn iter_primary_in_cost_order(
         &mut self,
         from_primary_index: AnchorIndex,
+        offset: AnchorIndex,
     ) -> impl Iterator<Item = (AnchorIndex, Cost)>
     where
         Cost: Copy + Ord,
     {
         self.primary
-            .iter_in_cost_order(from_primary_index + 1)
+            .iter_in_cost_order_from(from_primary_index + 1, offset)
             .filter_map(|(to_primary_index, chaining_cost)| {
                 (to_primary_index != AnchorIndex::zero())
                     .then(|| (to_primary_index - 1, chaining_cost))
@@ -488,12 +489,13 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
 
     pub fn iter_primary_from_start_in_cost_order(
         &mut self,
+        offset: AnchorIndex,
     ) -> impl Iterator<Item = (AnchorIndex, Cost)>
     where
         Cost: Copy + Ord,
     {
         self.primary
-            .iter_in_cost_order(AnchorIndex::zero())
+            .iter_in_cost_order_from(AnchorIndex::zero(), offset)
             .filter_map(|(to_primary_index, chaining_cost)| {
                 (to_primary_index != AnchorIndex::zero())
                     .then(|| (to_primary_index - 1, chaining_cost))
@@ -504,47 +506,51 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         &mut self,
         from_primary_index: AnchorIndex,
         ts_kind: TsKind,
+        offset: AnchorIndex,
     ) -> impl Iterator<Item = (AnchorIndex, Cost)>
     where
         Cost: Copy + Ord,
     {
         self.jump_12_array_mut(ts_kind)
-            .iter_in_cost_order(from_primary_index + 1)
+            .iter_in_cost_order_from(from_primary_index + 1, offset)
     }
 
     pub fn iter_jump_12_from_start_in_cost_order(
         &mut self,
         ts_kind: TsKind,
+        offset: AnchorIndex,
     ) -> impl Iterator<Item = (AnchorIndex, Cost)>
     where
         Cost: Copy + Ord,
     {
         self.jump_12_array_mut(ts_kind)
-            .iter_in_cost_order(Self::primary_start_anchor_index())
+            .iter_in_cost_order_from(Self::primary_start_anchor_index(), offset)
     }
 
     pub fn iter_secondary_in_cost_order(
         &mut self,
         from_secondary_index: AnchorIndex,
         ts_kind: TsKind,
+        offset: AnchorIndex,
     ) -> impl Iterator<Item = (AnchorIndex, Cost)>
     where
         Cost: Copy + Ord,
     {
         self.secondary_array_mut(ts_kind)
-            .iter_in_cost_order(from_secondary_index)
+            .iter_in_cost_order_from(from_secondary_index, offset)
     }
 
     pub fn iter_jump_34_in_cost_order(
         &mut self,
         from_secondary_index: AnchorIndex,
         ts_kind: TsKind,
+        offset: AnchorIndex,
     ) -> impl Iterator<Item = (AnchorIndex, Cost)>
     where
         Cost: Copy + Ord,
     {
         self.jump_34_array_mut(ts_kind)
-            .iter_in_cost_order(from_secondary_index)
+            .iter_in_cost_order_from(from_secondary_index, offset)
             .filter_map(|(to_primary_index, chaining_cost)| {
                 (to_primary_index != AnchorIndex::zero())
                     .then(|| (to_primary_index - 1, chaining_cost))

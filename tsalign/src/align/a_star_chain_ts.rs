@@ -2,7 +2,10 @@ use compact_genome::interface::{
     alphabet::{Alphabet, AlphabetCharacter},
     sequence::GenomeSequence,
 };
-use lib_ts_chainalign::{chaining_lower_bounds::ChainingLowerBounds, costs::AlignmentCosts};
+use lib_ts_chainalign::{
+    chain_align::AlignmentParameters, chaining_lower_bounds::ChainingLowerBounds,
+    costs::AlignmentCosts,
+};
 use lib_tsalign::{
     a_star_aligner::alignment_geometry::AlignmentRange, config::TemplateSwitchConfig,
 };
@@ -90,10 +93,15 @@ pub fn align_a_star_chain_ts<
 
     let reference = reference.clone_as_vec();
     let query = query.clone_as_vec();
+    let parameters = AlignmentParameters {
+        max_successors: cli.max_chaining_successors,
+    };
+
     let alignment = lib_ts_chainalign::align::<AlphabetType>(
         reference,
         query,
         range,
+        &parameters,
         &|c| {
             AlphabetType::character_to_ascii(
                 AlphabetType::ascii_to_character(c).unwrap().complement(),

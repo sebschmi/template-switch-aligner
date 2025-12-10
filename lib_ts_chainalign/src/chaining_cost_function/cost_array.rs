@@ -1,6 +1,7 @@
 use std::ops::{Index, IndexMut};
 
 use bitvec::{bitvec, order::LocalBits, vec::BitVec};
+use num_traits::Zero;
 
 use crate::anchors::index::AnchorIndex;
 
@@ -41,7 +42,23 @@ impl<Cost> ChainingCostArray<Cost> {
         (self.len[0], self.len[1])
     }
 
+    fn compute_cost_order_permutation_if_missing(&mut self, c1: AnchorIndex)
+    where
+        Cost: Copy + Ord,
+    {
+        if self.cost_order_permutation[c1.as_usize()].is_empty() {
+            self.cost_order_permutation[c1.as_usize()].extend(
+                ((0..c1.as_usize()).chain(c1.as_usize() + 1..))
+                    .take(self.len[1].as_usize() - 1)
+                    .map(AnchorIndex::from),
+            );
+            self.cost_order_permutation[c1.as_usize()]
+                .sort_unstable_by_key(|c2| self.data[coordinates_to_index(c1, *c2, self.len)]);
+        }
+    }
+
     /// Iterate over all ordinates `c2` that belong to this `c1` in order of their cost.
+    #[expect(dead_code)]
     pub fn iter_in_cost_order(
         &mut self,
         c1: AnchorIndex,
@@ -49,22 +66,25 @@ impl<Cost> ChainingCostArray<Cost> {
     where
         Cost: Copy + Ord,
     {
-        if self.cost_order_permutation[c1.as_usize()].is_empty() {
-            self.cost_order_permutation[c1.as_usize()].extend(
-                (0usize..)
-                    .take(self.len[1].as_usize())
-                    .map(AnchorIndex::from),
-            );
-            self.cost_order_permutation[c1.as_usize()]
-                .sort_unstable_by_key(|c2| self.data[coordinates_to_index(c1, *c2, self.len)]);
-        }
+        self.iter_in_cost_order_from(c1, AnchorIndex::zero())
+    }
 
+    pub fn iter_in_cost_order_from(
+        &mut self,
+        c1: AnchorIndex,
+        offset: AnchorIndex,
+    ) -> impl Iterator<Item = (AnchorIndex, Cost)>
+    where
+        Cost: Copy + Ord,
+    {
+        self.compute_cost_order_permutation_if_missing(c1);
         let data = &self.data;
         let len = self.len;
         self.cost_order_permutation[c1.as_usize()]
             .iter()
             .copied()
-            .filter_map(move |c2| (c1 != c2).then(|| (c2, data[coordinates_to_index(c1, c2, len)])))
+            .skip(offset.as_usize())
+            .map(move |c2| (c2, data[coordinates_to_index(c1, c2, len)]))
     }
 }
 

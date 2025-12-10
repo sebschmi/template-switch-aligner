@@ -12,6 +12,7 @@ use lib_tsalign::a_star_aligner::{
     template_switch_distance::{EqualCostRange, TemplateSwitchDirection},
 };
 use log::{debug, trace};
+use num_traits::Zero;
 use std::{
     fmt::Write,
     iter,
@@ -34,11 +35,19 @@ use crate::{
 
 mod chainer;
 
+pub struct AlignmentParameters {
+    /// The step width for generating successors during chaining.
+    ///
+    /// At most `max_successors` will be generated at a time, but at least all with minimum chaining cost.
+    pub max_successors: usize,
+}
+
 #[expect(clippy::too_many_arguments)]
 pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     sequences: &AlignmentSequences,
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
+    parameters: &AlignmentParameters,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     max_match_run: u32,
@@ -58,6 +67,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
         chaining_cost_function,
         &alignment_costs.ts_limits,
         k,
+        parameters.max_successors,
     );
     let mut astar = AStar::new(context);
     let mut chaining_execution_count = 0;
@@ -104,21 +114,55 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         }
                         match identifier {
                             Identifier::Start => write!(s, "start").unwrap(),
-                            Identifier::Primary { index } => {
-                                write!(s, "P{}", anchors.primary(*index)).unwrap()
+                            Identifier::StartToPrimary { offset } => {
+                                write!(s, "start-to-primary-{offset}").unwrap()
                             }
-                            Identifier::Secondary {
+                            Identifier::StartToSecondary { ts_kind, offset } => {
+                                write!(s, "start-to-secondary{}-{offset}", ts_kind.digits())
+                                    .unwrap()
+                            }
+                            Identifier::PrimaryToPrimary { index, offset } => {
+                                write!(s, "P{}-to-primary-{offset}", anchors.primary(*index))
+                                    .unwrap()
+                            }
+                            Identifier::PrimaryToSecondary {
+                                index,
+                                ts_kind,
+                                offset,
+                            } => write!(
+                                s,
+                                "P{}-to-secondary{}-{offset}",
+                                anchors.primary(*index),
+                                ts_kind.digits()
+                            )
+                            .unwrap(),
+                            Identifier::SecondaryToSecondary {
                                 index,
                                 ts_kind,
                                 first_secondary_index,
+                                offset,
                             } => write!(
                                 s,
-                                "S{}{}->{}",
+                                "S{}{}->{}-to-secondary-{offset}",
                                 ts_kind.digits(),
                                 anchors.secondary(*first_secondary_index, *ts_kind),
                                 anchors.secondary(*index, *ts_kind),
                             )
                             .unwrap(),
+                            Identifier::SecondaryToPrimary {
+                                index,
+                                ts_kind,
+                                first_secondary_index,
+                                offset,
+                            } => write!(
+                                s,
+                                "S{}{}->{}-to-primary-{offset}",
+                                ts_kind.digits(),
+                                anchors.secondary(*first_secondary_index, *ts_kind),
+                                anchors.secondary(*index, *ts_kind),
+                            )
+                            .unwrap(),
+
                             Identifier::End => write!(s, "end").unwrap(),
                         }
                     }
@@ -305,9 +349,29 @@ fn evaluate_chain<Cost: AStarCost>(
     let k = usize::try_from(max_match_run + 1).unwrap();
     let mut current_upper_bound = Cost::zero();
     let mut alignments = Vec::new();
-    for window in chain.windows(2) {
-        let from_anchor = window[0];
-        let to_anchor = window[1];
+    let mut current_from_index = 0;
+
+    loop {
+        let from_anchor = chain[current_from_index];
+        let Some((to_anchor_index, to_anchor)) = chain
+            .iter()
+            .copied()
+            .enumerate()
+            .skip(current_from_index + 1)
+            .find(|(_, identifier)| match identifier {
+                Identifier::Start => true,
+                Identifier::StartToPrimary { .. } => false,
+                Identifier::StartToSecondary { .. } => false,
+                Identifier::PrimaryToPrimary { offset, .. }
+                | Identifier::PrimaryToSecondary { offset, .. }
+                | Identifier::SecondaryToSecondary { offset, .. }
+                | Identifier::SecondaryToPrimary { offset, .. } => offset.is_zero(),
+                Identifier::End => true,
+            })
+        else {
+            break;
+        };
+        current_from_index = to_anchor_index;
 
         match (from_anchor, to_anchor) {
             (Identifier::Start, Identifier::End) => {
@@ -328,7 +392,11 @@ fn evaluate_chain<Cost: AStarCost>(
                 }
                 current_upper_bound += chaining_cost_function.start_to_end();
             }
-            (Identifier::Start, Identifier::Primary { index }) => {
+            (
+                Identifier::Start,
+                Identifier::PrimaryToPrimary { index, .. }
+                | Identifier::PrimaryToSecondary { index, .. },
+            ) => {
                 let end = anchors.primary(index).start();
                 if final_evaluation || !chaining_cost_function.is_primary_from_start_exact(index) {
                     let alignment = GapAffineAlignment::new(
@@ -355,7 +423,11 @@ fn evaluate_chain<Cost: AStarCost>(
                 }
                 current_upper_bound += chaining_cost_function.primary_from_start(index);
             }
-            (Identifier::Start, Identifier::Secondary { index, ts_kind, .. }) => {
+            (
+                Identifier::Start,
+                Identifier::SecondaryToPrimary { index, ts_kind, .. }
+                | Identifier::SecondaryToSecondary { index, ts_kind, .. },
+            ) => {
                 let end = anchors.secondary(index, ts_kind).start(ts_kind);
                 if final_evaluation
                     || !chaining_cost_function.is_jump_12_from_start_exact(index, ts_kind)
@@ -386,7 +458,7 @@ fn evaluate_chain<Cost: AStarCost>(
                 }
                 current_upper_bound += chaining_cost_function.jump_12_from_start(index, ts_kind);
             }
-            (Identifier::Primary { index }, Identifier::End) => {
+            (Identifier::PrimaryToPrimary { index, .. }, Identifier::End) => {
                 let start = anchors.primary(index).end(k);
                 if final_evaluation || !chaining_cost_function.is_primary_to_end_exact(index) {
                     let alignment = GapAffineAlignment::new(
@@ -410,7 +482,7 @@ fn evaluate_chain<Cost: AStarCost>(
                 }
                 current_upper_bound += chaining_cost_function.primary_to_end(index);
             }
-            (Identifier::Secondary { index, ts_kind, .. }, Identifier::End) => {
+            (Identifier::SecondaryToPrimary { index, ts_kind, .. }, Identifier::End) => {
                 let start = anchors.secondary(index, ts_kind).end(ts_kind, k);
                 if final_evaluation
                     || !chaining_cost_function.is_jump_34_to_end_exact(index, ts_kind)
@@ -443,8 +515,15 @@ fn evaluate_chain<Cost: AStarCost>(
                 current_upper_bound += chaining_cost_function.jump_34_to_end(index, ts_kind);
             }
             (
-                Identifier::Primary { index: from_index },
-                Identifier::Primary { index: to_index },
+                Identifier::PrimaryToPrimary {
+                    index: from_index, ..
+                },
+                Identifier::PrimaryToPrimary {
+                    index: to_index, ..
+                }
+                | Identifier::PrimaryToSecondary {
+                    index: to_index, ..
+                },
             ) => {
                 if anchors
                     .primary(from_index)
@@ -487,8 +566,15 @@ fn evaluate_chain<Cost: AStarCost>(
                 current_upper_bound += chaining_cost_function.primary(from_index, to_index);
             }
             (
-                Identifier::Primary { index: from_index },
-                Identifier::Secondary {
+                Identifier::PrimaryToSecondary {
+                    index: from_index, ..
+                },
+                Identifier::SecondaryToSecondary {
+                    index: to_index,
+                    ts_kind,
+                    ..
+                }
+                | Identifier::SecondaryToPrimary {
                     index: to_index,
                     ts_kind,
                     ..
@@ -530,12 +616,17 @@ fn evaluate_chain<Cost: AStarCost>(
                     chaining_cost_function.jump_12(from_index, to_index, ts_kind);
             }
             (
-                Identifier::Secondary {
+                Identifier::SecondaryToSecondary {
                     index: from_index,
                     ts_kind,
                     ..
                 },
-                Identifier::Secondary {
+                Identifier::SecondaryToSecondary {
+                    index: to_index,
+                    ts_kind: to_ts_kind,
+                    ..
+                }
+                | Identifier::SecondaryToPrimary {
                     index: to_index,
                     ts_kind: to_ts_kind,
                     ..
@@ -586,12 +677,17 @@ fn evaluate_chain<Cost: AStarCost>(
                     chaining_cost_function.secondary(from_index, to_index, ts_kind);
             }
             (
-                Identifier::Secondary {
+                Identifier::SecondaryToPrimary {
                     index: from_index,
                     ts_kind,
                     ..
                 },
-                Identifier::Primary { index: to_index },
+                Identifier::PrimaryToPrimary {
+                    index: to_index, ..
+                }
+                | Identifier::PrimaryToSecondary {
+                    index: to_index, ..
+                },
             ) => {
                 let start = anchors.secondary(from_index, ts_kind).end(ts_kind, k);
                 let end = anchors.primary(to_index).start();
@@ -630,7 +726,22 @@ fn evaluate_chain<Cost: AStarCost>(
                 current_upper_bound +=
                     chaining_cost_function.jump_34(from_index, to_index, ts_kind);
             }
-            (Identifier::End, _) | (_, Identifier::Start) => unreachable!(),
+            (Identifier::End, _)
+            | (_, Identifier::Start)
+            | (
+                Identifier::SecondaryToPrimary { .. } | Identifier::PrimaryToPrimary { .. },
+                Identifier::SecondaryToPrimary { .. } | Identifier::SecondaryToSecondary { .. },
+            )
+            | (
+                Identifier::PrimaryToSecondary { .. } | Identifier::SecondaryToSecondary { .. },
+                Identifier::PrimaryToPrimary { .. }
+                | Identifier::PrimaryToSecondary { .. }
+                | Identifier::End,
+            )
+            | (Identifier::StartToPrimary { .. } | Identifier::StartToSecondary { .. }, _)
+            | (_, Identifier::StartToPrimary { .. } | Identifier::StartToSecondary { .. }) => {
+                unreachable!()
+            }
         }
     }
 
