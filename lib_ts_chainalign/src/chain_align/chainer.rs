@@ -3,7 +3,9 @@ use std::{fmt::Display, iter};
 use generic_a_star::{AStarContext, AStarNode, cost::AStarCost, reset::Reset};
 
 use crate::{
-    alignment::ts_kind::TsKind, anchors::Anchors, chaining_cost_function::ChainingCostFunction,
+    alignment::ts_kind::TsKind,
+    anchors::{Anchors, index::AnchorIndex},
+    chaining_cost_function::ChainingCostFunction,
     costs::TsLimits,
 };
 
@@ -27,15 +29,15 @@ pub struct Node<Cost> {
 pub enum Identifier {
     Start,
     Primary {
-        index: usize,
+        index: AnchorIndex,
     },
     Secondary {
-        index: usize,
+        index: AnchorIndex,
         ts_kind: TsKind,
         /// The first secondary anchor that is part of the current template switch.
         ///
         /// Used to estimate the length of the resulting template switch.
-        first_secondary_index: usize,
+        first_secondary_index: AnchorIndex,
     },
     End,
 }
@@ -72,6 +74,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
     fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {
         let predecessor = Some(node.identifier);
         let predecessor_cost = node.cost;
+        let primary_end_anchor_index = AnchorIndex::from(self.anchors.primary_len());
 
         if DEBUG_CHAINER {
             println!("Generating successors of {node}");
@@ -84,12 +87,12 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                         .iter_primary_from_start_in_cost_order()
                         .flat_map(|(successor_index, chaining_cost)| {
                             if DEBUG_CHAINER {
-                                if successor_index == self.anchors.primary.len() {
+                                if successor_index == primary_end_anchor_index {
                                     println!("Checking anchor end");
                                 } else {
                                     println!(
                                         "Checking anchor P-{successor_index}: {}",
-                                        self.anchors.primary[successor_index]
+                                        self.anchors.primary(successor_index)
                                     );
                                 }
                             }
@@ -101,7 +104,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
 
                             debug_assert_ne!(cost, Cost::max_value());
                             Some(Node {
-                                identifier: if successor_index == self.anchors.primary.len() {
+                                identifier: if successor_index == primary_end_anchor_index {
                                     Identifier::End
                                 } else {
                                     Identifier::Primary {
@@ -123,7 +126,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                     println!(
                                         "Checking anchor S{}-{successor_index}: {}",
                                         ts_kind.digits(),
-                                        anchors.secondary(ts_kind)[successor_index]
+                                        anchors.secondary(successor_index, ts_kind)
                                     );
                                 }
 
@@ -156,12 +159,12 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                         .iter_primary_in_cost_order(index)
                         .flat_map(|(successor_index, chaining_cost)| {
                             if DEBUG_CHAINER {
-                                if successor_index == self.anchors.primary.len() {
+                                if successor_index == primary_end_anchor_index {
                                     println!("Checking anchor end");
                                 } else {
                                     println!(
                                         "Checking anchor P-{successor_index}: {}",
-                                        self.anchors.primary[successor_index]
+                                        self.anchors.primary(successor_index)
                                     );
                                 }
                             }
@@ -173,11 +176,11 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
 
                             // Assert that we can always chain to end.
                             debug_assert!(
-                                successor_index != self.anchors.primary.len()
+                                successor_index != primary_end_anchor_index
                                     || cost != Cost::max_value()
                             );
                             (cost != Cost::max_value()).then_some(Node {
-                                identifier: if successor_index == self.anchors.primary.len() {
+                                identifier: if successor_index == primary_end_anchor_index {
                                     Identifier::End
                                 } else {
                                     Identifier::Primary {
@@ -199,7 +202,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                     println!(
                                         "Checking anchor S{}-{successor_index}: {}",
                                         ts_kind.digits(),
-                                        anchors.secondary(ts_kind)[successor_index]
+                                        anchors.secondary(successor_index, ts_kind)
                                     );
                                 }
 
@@ -239,7 +242,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 println!(
                                     "Checking anchor S{}-{successor_index}: {}",
                                     ts_kind.digits(),
-                                    self.anchors.secondary(ts_kind)[successor_index]
+                                    self.anchors.secondary(successor_index, ts_kind)
                                 );
                             }
 
@@ -260,9 +263,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                         }),
                 );
 
-                let first_anchor = &self.anchors.secondary(ts_kind)[first_secondary_index];
+                let first_anchor = &self.anchors.secondary(first_secondary_index, ts_kind);
                 let ts_length = first_anchor.ts_length_until(
-                    &self.anchors.secondary(ts_kind)[index],
+                    &self.anchors.secondary(index, ts_kind),
                     ts_kind,
                     self.k,
                 );
@@ -273,12 +276,12 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             .iter_jump_34_in_cost_order(index, ts_kind)
                             .flat_map(|(successor_index, chaining_cost)| {
                                 if DEBUG_CHAINER {
-                                    if successor_index == self.anchors.primary.len() {
+                                    if successor_index == primary_end_anchor_index {
                                         println!("Checking anchor end");
                                     } else {
                                         println!(
                                             "Checking anchor P-{successor_index}: {}",
-                                            self.anchors.primary[successor_index]
+                                            self.anchors.primary(successor_index)
                                         );
                                     }
                                 }
@@ -294,11 +297,11 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
 
                                 // Assert that we can always chain to end.
                                 debug_assert!(
-                                    successor_index != self.anchors.primary.len()
+                                    successor_index != primary_end_anchor_index
                                         || cost != Cost::max_value()
                                 );
                                 (cost != Cost::max_value()).then_some(Node {
-                                    identifier: if successor_index == self.anchors.primary.len() {
+                                    identifier: if successor_index == primary_end_anchor_index {
                                         Identifier::End
                                     } else {
                                         Identifier::Primary {

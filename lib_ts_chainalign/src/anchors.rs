@@ -7,14 +7,16 @@ use crate::{
     alignment::{
         coordinates::AlignmentCoordinates,
         sequences::AlignmentSequences,
-        ts_kind::{TsAncestor, TsDescendant, TsKind},
+        ts_kind::{TsDescendant, TsKind},
     },
     anchors::{
+        index::AnchorIndex,
         kmer_matches::find_kmer_matches,
         kmers::{Kmer, KmerStore},
     },
 };
 
+pub mod index;
 pub mod kmer_matches;
 pub mod kmers;
 #[cfg(test)]
@@ -22,11 +24,8 @@ mod tests;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Anchors {
-    pub primary: Vec<PrimaryAnchor>,
-    pub secondary_11: Vec<SecondaryAnchor>,
-    pub secondary_12: Vec<SecondaryAnchor>,
-    pub secondary_21: Vec<SecondaryAnchor>,
-    pub secondary_22: Vec<SecondaryAnchor>,
+    primary: Vec<PrimaryAnchor>,
+    secondaries: [Vec<SecondaryAnchor>; 4],
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -110,34 +109,35 @@ impl Anchors {
             .into_iter()
             .map(|(seq1, seq2)| PrimaryAnchor { seq1, seq2 })
             .collect();
-        let mut secondary_11: Vec<_> = find_kmer_matches(&s1_rc_kmers, &s1_kmers)
+        let secondary_11: Vec<_> = find_kmer_matches(&s1_rc_kmers, &s1_kmers)
             .into_iter()
             .map(|(ancestor, descendant)| SecondaryAnchor {
                 ancestor: s1.len() - ancestor,
                 descendant,
             })
             .collect();
-        let mut secondary_12: Vec<_> = find_kmer_matches(&s1_rc_kmers, &s2_kmers)
+        let secondary_12: Vec<_> = find_kmer_matches(&s1_rc_kmers, &s2_kmers)
             .into_iter()
             .map(|(ancestor, descendant)| SecondaryAnchor {
                 ancestor: s1.len() - ancestor,
                 descendant,
             })
             .collect();
-        let mut secondary_21: Vec<_> = find_kmer_matches(&s2_rc_kmers, &s1_kmers)
+        let secondary_21: Vec<_> = find_kmer_matches(&s2_rc_kmers, &s1_kmers)
             .into_iter()
             .map(|(ancestor, descendant)| SecondaryAnchor {
                 ancestor: s2.len() - ancestor,
                 descendant,
             })
             .collect();
-        let mut secondary_22: Vec<_> = find_kmer_matches(&s2_rc_kmers, &s2_kmers)
+        let secondary_22: Vec<_> = find_kmer_matches(&s2_rc_kmers, &s2_kmers)
             .into_iter()
             .map(|(ancestor, descendant)| SecondaryAnchor {
                 ancestor: s2.len() - ancestor,
                 descendant,
             })
             .collect();
+        let mut secondaries = [secondary_11, secondary_12, secondary_21, secondary_22];
 
         // Sort anchors.
         primary.sort_unstable_by_key(|primary_anchor| {
@@ -147,65 +147,67 @@ impl Anchors {
                 primary_anchor.seq2,
             )
         });
-        secondary_11.sort_unstable_by_key(|secondary_anchor| {
-            (
-                secondary_anchor.ancestor.min(secondary_anchor.descendant),
-                secondary_anchor.ancestor,
-                secondary_anchor.descendant,
-            )
-        });
-        secondary_12.sort_unstable_by_key(|secondary_anchor| {
-            (
-                secondary_anchor.ancestor.min(secondary_anchor.descendant),
-                secondary_anchor.ancestor,
-                secondary_anchor.descendant,
-            )
-        });
-        secondary_21.sort_unstable_by_key(|secondary_anchor| {
-            (
-                secondary_anchor.ancestor.min(secondary_anchor.descendant),
-                secondary_anchor.ancestor,
-                secondary_anchor.descendant,
-            )
-        });
-        secondary_22.sort_unstable_by_key(|secondary_anchor| {
-            (
-                secondary_anchor.ancestor.min(secondary_anchor.descendant),
-                secondary_anchor.ancestor,
-                secondary_anchor.descendant,
-            )
-        });
+        for secondary in &mut secondaries {
+            secondary.sort_unstable_by_key(|secondary_anchor| {
+                (
+                    secondary_anchor.ancestor.min(secondary_anchor.descendant),
+                    secondary_anchor.ancestor,
+                    secondary_anchor.descendant,
+                )
+            });
+        }
 
         info!(
             "Found {} anchors ({} + {} + {} + {} + {})",
-            primary.len()
-                + secondary_11.len()
-                + secondary_12.len()
-                + secondary_21.len()
-                + secondary_22.len(),
+            primary.len() + secondaries.iter().map(Vec::len).sum::<usize>(),
             primary.len(),
-            secondary_11.len(),
-            secondary_12.len(),
-            secondary_21.len(),
-            secondary_22.len(),
+            secondaries[0].len(),
+            secondaries[1].len(),
+            secondaries[2].len(),
+            secondaries[3].len(),
         );
 
         Self {
             primary,
-            secondary_11,
-            secondary_12,
-            secondary_21,
-            secondary_22,
+            secondaries,
         }
     }
 
-    pub fn secondary(&self, ts_kind: TsKind) -> &[SecondaryAnchor] {
-        match (ts_kind.ancestor, ts_kind.descendant) {
-            (TsAncestor::Seq1, TsDescendant::Seq1) => &self.secondary_11,
-            (TsAncestor::Seq1, TsDescendant::Seq2) => &self.secondary_12,
-            (TsAncestor::Seq2, TsDescendant::Seq1) => &self.secondary_21,
-            (TsAncestor::Seq2, TsDescendant::Seq2) => &self.secondary_22,
-        }
+    pub fn primary(&self, index: AnchorIndex) -> &PrimaryAnchor {
+        &self.primary[index.as_usize()]
+    }
+
+    pub fn primary_len(&self) -> AnchorIndex {
+        self.primary.len().into()
+    }
+
+    pub fn enumerate_primaries(&self) -> impl Iterator<Item = (AnchorIndex, &PrimaryAnchor)> {
+        self.primary
+            .iter()
+            .enumerate()
+            .map(|(index, anchor)| (index.into(), anchor))
+    }
+
+    fn secondary_anchor_vec(&self, ts_kind: TsKind) -> &Vec<SecondaryAnchor> {
+        &self.secondaries[ts_kind.index()]
+    }
+
+    pub fn secondary(&self, index: AnchorIndex, ts_kind: TsKind) -> &SecondaryAnchor {
+        &self.secondary_anchor_vec(ts_kind)[index.as_usize()]
+    }
+
+    pub fn secondary_len(&self, ts_kind: TsKind) -> AnchorIndex {
+        self.secondary_anchor_vec(ts_kind).len().into()
+    }
+
+    pub fn enumerate_secondaries(
+        &self,
+        ts_kind: TsKind,
+    ) -> impl Iterator<Item = (AnchorIndex, &SecondaryAnchor)> {
+        self.secondary_anchor_vec(ts_kind)
+            .iter()
+            .enumerate()
+            .map(|(index, anchor)| (index.into(), anchor))
     }
 }
 
@@ -419,53 +421,26 @@ impl Display for Anchors {
         }
         writeln!(f, "]")?;
 
-        write!(f, "S11: [")?;
-        let mut once = true;
-        for secondary_anchor in &self.secondary_11 {
-            if once {
-                once = false;
+        let mut ts_kind_once = true;
+        for ts_kind in TsKind::iter() {
+            if ts_kind_once {
+                ts_kind_once = false;
             } else {
-                write!(f, ", ")?;
+                writeln!(f)?;
             }
-            write!(f, "{secondary_anchor}")?;
-        }
-        writeln!(f, "]")?;
 
-        write!(f, "S12: [")?;
-        let mut once = true;
-        for secondary_anchor in &self.secondary_12 {
-            if once {
-                once = false;
-            } else {
-                write!(f, ", ")?;
+            write!(f, "S{}: [", ts_kind.digits())?;
+            let mut once = true;
+            for secondary_anchor in self.secondary_anchor_vec(ts_kind) {
+                if once {
+                    once = false;
+                } else {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{secondary_anchor}")?;
             }
-            write!(f, "{secondary_anchor}")?;
+            write!(f, "]")?;
         }
-        writeln!(f, "]")?;
-
-        write!(f, "S21: [")?;
-        let mut once = true;
-        for secondary_anchor in &self.secondary_21 {
-            if once {
-                once = false;
-            } else {
-                write!(f, ", ")?;
-            }
-            write!(f, "{secondary_anchor}")?;
-        }
-        writeln!(f, "]")?;
-
-        write!(f, "S22: [")?;
-        let mut once = true;
-        for secondary_anchor in &self.secondary_22 {
-            if once {
-                once = false;
-            } else {
-                write!(f, ", ")?;
-            }
-            write!(f, "{secondary_anchor}")?;
-        }
-        write!(f, "]")?;
 
         Ok(())
     }

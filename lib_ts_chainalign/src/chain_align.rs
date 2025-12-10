@@ -105,7 +105,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                         match identifier {
                             Identifier::Start => write!(s, "start").unwrap(),
                             Identifier::Primary { index } => {
-                                write!(s, "P{}", anchors.primary[*index]).unwrap()
+                                write!(s, "P{}", anchors.primary(*index)).unwrap()
                             }
                             Identifier::Secondary {
                                 index,
@@ -115,8 +115,8 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                                 s,
                                 "S{}{}->{}",
                                 ts_kind.digits(),
-                                anchors.secondary(*ts_kind)[*first_secondary_index],
-                                anchors.secondary(*ts_kind)[*index],
+                                anchors.secondary(*first_secondary_index, *ts_kind),
+                                anchors.secondary(*index, *ts_kind),
                             )
                             .unwrap(),
                             Identifier::End => write!(s, "end").unwrap(),
@@ -329,7 +329,7 @@ fn evaluate_chain<Cost: AStarCost>(
                 current_upper_bound += chaining_cost_function.start_to_end();
             }
             (Identifier::Start, Identifier::Primary { index }) => {
-                let end = anchors.primary[index].start();
+                let end = anchors.primary(index).start();
                 if final_evaluation || !chaining_cost_function.is_primary_from_start_exact(index) {
                     let alignment = GapAffineAlignment::new(
                         start,
@@ -341,7 +341,7 @@ fn evaluate_chain<Cost: AStarCost>(
                     );
                     trace!(
                         "Aligning from start to P{index}{} costs {}",
-                        anchors.primary[index],
+                        anchors.primary(index),
                         alignment.cost()
                     );
                     if !final_evaluation {
@@ -356,7 +356,7 @@ fn evaluate_chain<Cost: AStarCost>(
                 current_upper_bound += chaining_cost_function.primary_from_start(index);
             }
             (Identifier::Start, Identifier::Secondary { index, ts_kind, .. }) => {
-                let end = anchors.secondary(ts_kind)[index].start(ts_kind);
+                let end = anchors.secondary(index, ts_kind).start(ts_kind);
                 if final_evaluation
                     || !chaining_cost_function.is_jump_12_from_start_exact(index, ts_kind)
                 {
@@ -371,7 +371,7 @@ fn evaluate_chain<Cost: AStarCost>(
                     trace!(
                         "Aligning from start to S{}[{index}]{} costs {}",
                         ts_kind.digits(),
-                        anchors.secondary(ts_kind)[index],
+                        anchors.secondary(index, ts_kind),
                         alignment.cost()
                     );
                     if !final_evaluation {
@@ -387,7 +387,7 @@ fn evaluate_chain<Cost: AStarCost>(
                 current_upper_bound += chaining_cost_function.jump_12_from_start(index, ts_kind);
             }
             (Identifier::Primary { index }, Identifier::End) => {
-                let start = anchors.primary[index].end(k);
+                let start = anchors.primary(index).end(k);
                 if final_evaluation || !chaining_cost_function.is_primary_to_end_exact(index) {
                     let alignment = GapAffineAlignment::new(
                         start,
@@ -399,7 +399,7 @@ fn evaluate_chain<Cost: AStarCost>(
                     );
                     trace!(
                         "Aligning from P{index}{} to end costs {}",
-                        anchors.primary[index],
+                        anchors.primary(index),
                         alignment.cost()
                     );
                     if !final_evaluation {
@@ -411,7 +411,7 @@ fn evaluate_chain<Cost: AStarCost>(
                 current_upper_bound += chaining_cost_function.primary_to_end(index);
             }
             (Identifier::Secondary { index, ts_kind, .. }, Identifier::End) => {
-                let start = anchors.secondary(ts_kind)[index].end(ts_kind, k);
+                let start = anchors.secondary(index, ts_kind).end(ts_kind, k);
                 if final_evaluation
                     || !chaining_cost_function.is_jump_34_to_end_exact(index, ts_kind)
                 {
@@ -426,7 +426,7 @@ fn evaluate_chain<Cost: AStarCost>(
                     trace!(
                         "Aligning from S{}[{index}]{} to end costs {}",
                         ts_kind.digits(),
-                        anchors.secondary(ts_kind)[index],
+                        anchors.secondary(index, ts_kind),
                         alignment.cost()
                     );
                     if !final_evaluation {
@@ -446,14 +446,16 @@ fn evaluate_chain<Cost: AStarCost>(
                 Identifier::Primary { index: from_index },
                 Identifier::Primary { index: to_index },
             ) => {
-                if anchors.primary[from_index].is_direct_predecessor_of(&anchors.primary[to_index])
+                if anchors
+                    .primary(from_index)
+                    .is_direct_predecessor_of(&anchors.primary(to_index))
                 {
                     alignments.push(Alignment::from(vec![AlignmentType::Match]));
                     continue;
                 }
 
-                let start = anchors.primary[from_index].end(k);
-                let end = anchors.primary[to_index].start();
+                let start = anchors.primary(from_index).end(k);
+                let end = anchors.primary(to_index).start();
                 if final_evaluation
                     || !chaining_cost_function.is_primary_exact(from_index, to_index)
                 {
@@ -467,8 +469,8 @@ fn evaluate_chain<Cost: AStarCost>(
                     );
                     trace!(
                         "Aligning from P{from_index}{} to P{to_index}{} costs {}",
-                        anchors.primary[from_index],
-                        anchors.primary[to_index],
+                        anchors.primary(from_index),
+                        anchors.primary(to_index),
                         alignment.cost()
                     );
                     if !final_evaluation {
@@ -492,8 +494,8 @@ fn evaluate_chain<Cost: AStarCost>(
                     ..
                 },
             ) => {
-                let start = anchors.primary[from_index].end(k);
-                let end = anchors.secondary(ts_kind)[to_index].start(ts_kind);
+                let start = anchors.primary(from_index).end(k);
+                let end = anchors.secondary(to_index, ts_kind).start(ts_kind);
                 if final_evaluation
                     || !chaining_cost_function.is_jump_12_exact(from_index, to_index, ts_kind)
                 {
@@ -516,9 +518,9 @@ fn evaluate_chain<Cost: AStarCost>(
                     }
                     trace!(
                         "Aligning from P{from_index}{} to S{}[{to_index}]{} costs {}",
-                        anchors.primary[from_index],
+                        anchors.primary(from_index),
                         ts_kind.digits(),
-                        anchors.secondary(ts_kind)[to_index],
+                        anchors.secondary(to_index, ts_kind),
                         alignment.cost()
                     );
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
@@ -540,14 +542,15 @@ fn evaluate_chain<Cost: AStarCost>(
                 },
             ) => {
                 assert_eq!(ts_kind, to_ts_kind);
-                if anchors.secondary(ts_kind)[from_index]
-                    .is_direct_predecessor_of(&anchors.secondary(ts_kind)[to_index])
+                if anchors
+                    .secondary(from_index, ts_kind)
+                    .is_direct_predecessor_of(&anchors.secondary(to_index, ts_kind))
                 {
                     alignments.push(Alignment::from(vec![AlignmentType::Match]));
                     continue;
                 }
-                let start = anchors.secondary(ts_kind)[from_index].end(ts_kind, k);
-                let end = anchors.secondary(ts_kind)[to_index].start(ts_kind);
+                let start = anchors.secondary(from_index, ts_kind).end(ts_kind, k);
+                let end = anchors.secondary(to_index, ts_kind).start(ts_kind);
                 if final_evaluation
                     || !chaining_cost_function.is_secondary_exact(from_index, to_index, ts_kind)
                 {
@@ -562,9 +565,9 @@ fn evaluate_chain<Cost: AStarCost>(
                     trace!(
                         "Aligning from S{}[{from_index}]{} to S{}[{to_index}]{} costs {}",
                         ts_kind.digits(),
-                        anchors.secondary(ts_kind)[from_index],
+                        anchors.secondary(from_index, ts_kind),
                         ts_kind.digits(),
-                        anchors.secondary(ts_kind)[to_index],
+                        anchors.secondary(to_index, ts_kind),
                         alignment.cost()
                     );
                     if !final_evaluation {
@@ -590,8 +593,8 @@ fn evaluate_chain<Cost: AStarCost>(
                 },
                 Identifier::Primary { index: to_index },
             ) => {
-                let start = anchors.secondary(ts_kind)[from_index].end(ts_kind, k);
-                let end = anchors.primary[to_index].start();
+                let start = anchors.secondary(from_index, ts_kind).end(ts_kind, k);
+                let end = anchors.primary(to_index).start();
                 if final_evaluation
                     || !chaining_cost_function.is_jump_34_exact(from_index, to_index, ts_kind)
                 {
@@ -615,8 +618,8 @@ fn evaluate_chain<Cost: AStarCost>(
                     trace!(
                         "Aligning from S{}[{from_index}]{} to P{to_index}{} (S{} to P{}) costs {}",
                         ts_kind.digits(),
-                        anchors.secondary(ts_kind)[from_index],
-                        anchors.primary[to_index],
+                        anchors.secondary(from_index, ts_kind),
+                        anchors.primary(to_index),
                         start,
                         end,
                         alignment.cost()
