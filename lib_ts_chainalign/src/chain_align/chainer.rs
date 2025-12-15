@@ -1,6 +1,6 @@
 use std::{fmt::Display, iter};
 
-use generic_a_star::{AStarContext, AStarNode, cost::AStarCost, reset::Reset};
+use generic_a_star::{AStarContext, AStarIdentifier, AStarNode, cost::AStarCost, reset::Reset};
 use num_traits::Zero;
 
 use crate::{
@@ -557,6 +557,8 @@ impl<Cost: AStarCost> AStarNode for Node<Cost> {
         self.predecessor
     }
 }
+
+impl AStarIdentifier for Identifier {}
 
 impl<Cost: Ord> Ord for Node<Cost> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {

@@ -1,4 +1,4 @@
-use generic_a_star::{AStarNode, cost::AStarCost};
+use generic_a_star::{AStarIdentifier, AStarNode, cost::AStarCost};
 
 use crate::seed::ChainingAnchor;
 
@@ -99,3 +99,5 @@ impl<Cost: Ord> PartialOrd for Node<Cost> {
         Some(self.cmp(other))
     }
 }
+
+impl AStarIdentifier for Identifier {}

@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use generic_a_star::{
-    AStarContext, AStarNode,
+    AStarContext, AStarIdentifier, AStarNode,
     cost::{AStarCost, OrderedPairCost, U32Cost},
     reset::Reset,
 };
@@ -224,3 +224,5 @@ impl<Cost: Ord> Ord for Node<Cost> {
             .then_with(|| self.match_run.cmp(&other.match_run))
     }
 }
+
+impl AStarIdentifier for Identifier {}

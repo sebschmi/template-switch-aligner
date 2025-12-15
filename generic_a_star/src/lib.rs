@@ -4,6 +4,7 @@ use std::{
     cmp::Ordering,
     fmt::{Debug, Display},
     hash::Hash,
+    marker::PhantomData,
 };
 
 use binary_heap_plus::BinaryHeap;
@@ -13,11 +14,16 @@ use cost::AStarCost;
 use extend_map::ExtendFilter;
 use num_traits::{Bounded, Zero};
 use reset::Reset;
-use rustc_hash::{FxHashMapSeed, FxSeededState};
+use rustc_hash::FxHashMapSeed;
 
-mod comparator;
+pub mod closed_lists;
+pub mod comparator;
 pub mod cost;
+pub mod open_lists;
 pub mod reset;
+
+/// An identifier for nodes in the A* graph.
+pub trait AStarIdentifier: Debug + Clone + Eq + Hash {}
 
 /// A node of the A* graph.
 /// The node must implement [`Ord`], ordering it by its cost plus A* cost, ascending.
@@ -26,7 +32,7 @@ pub trait AStarNode: Sized + Ord + Debug + Display {
     /// A unique identifier of the node.
     ///
     /// For example, in case of traditional edit distance, this would be the tuple (i, j) indicating which alignment matrix cell this node belongs to.
-    type Identifier: Debug + Clone + Eq + Hash;
+    type Identifier: AStarIdentifier;
 
     /// The type collecting possible edge types.
     ///
@@ -101,10 +107,59 @@ pub trait AStarContext: Reset {
 }
 
 /// The closed list for the A* algorithm.
-pub trait AStarClosedList<Identifier: Debug + Clone + Eq + Hash, Cost: AStarCost>: Reset {}
+pub trait AStarClosedList<Identifier: AStarIdentifier, Node: AStarNode>: Reset {
+    /// Create a new empty closed list.
+    fn new() -> Self;
+
+    /// Returns the number of nodes in the closed list.
+    fn len(&self) -> usize;
+
+    /// Returns true if the closed list is empty.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Insert a node with the given identifier into the closed list.
+    ///
+    /// If there was a node previously mapped to this identifier, then it is returned.
+    /// Otherwise, `None` is returned.
+    fn insert(&mut self, identifier: Identifier, node: Node) -> Option<Node>;
+
+    /// Return a reference to the node specified by `identifier`.
+    ///
+    /// Returns `None` if no node with the given identifier exists.
+    fn get(&self, identifier: &Identifier) -> Option<&Node>;
+
+    /// Returns true if the given identifier is mapped to a node.
+    fn contains_identifier(&self, identifier: &Identifier) -> bool {
+        self.get(identifier).is_some()
+    }
+}
 
 /// The open list for the A* algorithm.
-pub trait AStarOpenList<Node: AStarNode>: Reset {}
+///
+/// This is a priority queue that must sort nodes with [`AStarNodeComparator`].
+// TODO is it enough to store cost + identifier?
+pub trait AStarOpenList<Node: AStarNode>: Reset + Extend<Node> {
+    /// Create a new empty open list.
+    fn new() -> Self;
+
+    /// Returns the number of nodes in the open list.
+    fn len(&self) -> usize;
+
+    /// Returns true if the open list is empty.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Add the given node to the priority queue.
+    fn push(&mut self, node: Node);
+
+    /// Removes and returns a minimum element from the priority queue.
+    ///
+    /// Returns `None` if the priority queue is empty.
+    fn pop_min(&mut self) -> Option<Node>;
+}
 
 #[derive(Debug, Default)]
 pub struct AStarPerformanceCounters {
@@ -129,18 +184,28 @@ pub enum AStarState<NodeIdentifier, Cost> {
 }
 
 #[derive(Debug)]
-pub struct AStar<Context: AStarContext> {
+pub struct AStar<
+    Context: AStarContext,
+    ClosedList: AStarClosedList<<Context::Node as AStarNode>::Identifier, Context::Node> = FxHashMapSeed<<<Context as AStarContext>::Node as AStarNode>::Identifier, <Context as AStarContext>::Node>,
+    OpenList: AStarOpenList<Context::Node> = BinaryHeap<<Context as AStarContext>::Node, AStarNodeComparator>,
+> {
     state: AStarState<<Context::Node as AStarNode>::Identifier, <Context::Node as AStarNode>::Cost>,
     context: Context,
-    closed_list: FxHashMapSeed<<Context::Node as AStarNode>::Identifier, Context::Node>,
-    open_list: BinaryHeap<Context::Node, AStarNodeComparator>,
+    closed_list: ClosedList,
+    open_list: OpenList,
     performance_counters: AStarPerformanceCounters,
 }
 
 #[derive(Debug)]
-pub struct AStarBuffers<NodeIdentifier, Node> {
-    closed_list: FxHashMapSeed<NodeIdentifier, Node>,
-    open_list: BinaryHeap<Node, AStarNodeComparator>,
+pub struct AStarBuffers<
+    Identifier: AStarIdentifier,
+    Node: AStarNode,
+    ClosedList: AStarClosedList<Identifier, Node> = FxHashMapSeed<Identifier, Node>,
+    OpenList: AStarOpenList<Node> = BinaryHeap<Node, AStarNodeComparator>,
+> {
+    closed_list: ClosedList,
+    open_list: OpenList,
+    phantom_data: PhantomData<(Identifier, Node)>,
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash, Default)]
@@ -168,33 +233,53 @@ pub enum AStarResult<NodeIdentifier, Cost> {
     NoTarget,
 }
 
-struct BacktrackingIterator<'a_star, Context: AStarContext> {
-    a_star: &'a_star AStar<Context>,
+struct BacktrackingIterator<
+    'a_star,
+    Context: AStarContext,
+    ClosedList: AStarClosedList<<Context::Node as AStarNode>::Identifier, Context::Node>,
+    OpenList: AStarOpenList<Context::Node>,
+> {
+    a_star: &'a_star AStar<Context, ClosedList, OpenList>,
     current: <Context::Node as AStarNode>::Identifier,
 }
 
-struct BacktrackingIteratorWithCost<'a_star, Context: AStarContext> {
-    a_star: &'a_star AStar<Context>,
+struct BacktrackingIteratorWithCost<
+    'a_star,
+    Context: AStarContext,
+    ClosedList: AStarClosedList<<Context::Node as AStarNode>::Identifier, Context::Node>,
+    OpenList: AStarOpenList<Context::Node>,
+> {
+    a_star: &'a_star AStar<Context, ClosedList, OpenList>,
     current: <Context::Node as AStarNode>::Identifier,
 }
 
-impl<Context: AStarContext> AStar<Context> {
+impl<
+    Context: AStarContext,
+    ClosedList: AStarClosedList<<Context::Node as AStarNode>::Identifier, Context::Node>,
+    OpenList: AStarOpenList<Context::Node>,
+> AStar<Context, ClosedList, OpenList>
+{
     pub fn new(context: Context) -> Self {
         Self {
             state: AStarState::Empty,
             context,
-            closed_list: FxHashMapSeed::with_hasher(FxSeededState::with_seed(0)),
-            open_list: BinaryHeap::from_vec(Vec::new()),
+            closed_list: ClosedList::new(),
+            open_list: OpenList::new(),
             performance_counters: Default::default(),
         }
     }
 
     pub fn new_with_buffers(
         context: Context,
-        mut buffers: AStarBuffers<<Context::Node as AStarNode>::Identifier, Context::Node>,
+        mut buffers: AStarBuffers<
+            <Context::Node as AStarNode>::Identifier,
+            Context::Node,
+            ClosedList,
+            OpenList,
+        >,
     ) -> Self {
-        buffers.closed_list.clear();
-        buffers.open_list.clear();
+        buffers.closed_list.reset();
+        buffers.open_list.reset();
         Self {
             state: AStarState::Empty,
             context,
@@ -225,10 +310,12 @@ impl<Context: AStarContext> AStar<Context> {
 
     pub fn into_buffers(
         self,
-    ) -> AStarBuffers<<Context::Node as AStarNode>::Identifier, Context::Node> {
+    ) -> AStarBuffers<<Context::Node as AStarNode>::Identifier, Context::Node, ClosedList, OpenList>
+    {
         AStarBuffers {
             closed_list: self.closed_list,
             open_list: self.open_list,
+            phantom_data: Default::default(),
         }
     }
 
@@ -246,8 +333,8 @@ impl<Context: AStarContext> AStar<Context> {
     pub fn reset(&mut self) {
         self.state = AStarState::Empty;
         self.context.reset();
-        self.closed_list.clear();
-        self.open_list.clear();
+        self.closed_list.reset();
+        self.open_list.reset();
         self.performance_counters = Default::default();
     }
 
@@ -301,7 +388,7 @@ impl<Context: AStarContext> AStar<Context> {
         let mut target_secondary_maximisable_score = 0;
 
         loop {
-            let Some(node) = self.open_list.pop() else {
+            let Some(node) = self.open_list.pop_min() else {
                 if last_node.is_none() {
                     unreachable!("Open list was empty.");
                 };
@@ -447,7 +534,8 @@ impl<Context: AStarContext> AStar<Context> {
 
     pub fn backtrack(
         &self,
-    ) -> impl use<'_, Context> + Iterator<Item = <Context::Node as AStarNode>::EdgeType> {
+    ) -> impl use<'_, Context, ClosedList, OpenList>
+    + Iterator<Item = <Context::Node as AStarNode>::EdgeType> {
         let AStarState::Terminated {
             result: AStarResult::FoundTarget { identifier, .. },
         } = &self.state
@@ -464,7 +552,7 @@ impl<Context: AStarContext> AStar<Context> {
     /// The cost of the first node is never returned.
     pub fn backtrack_with_costs(
         &self,
-    ) -> impl use<'_, Context>
+    ) -> impl use<'_, Context, ClosedList, OpenList>
     + Iterator<
         Item = (
             <Context::Node as AStarNode>::EdgeType,
@@ -484,9 +572,11 @@ impl<Context: AStarContext> AStar<Context> {
     pub fn backtrack_from(
         &self,
         identifier: &<Context::Node as AStarNode>::Identifier,
-    ) -> Option<impl use<'_, Context> + Iterator<Item = <Context::Node as AStarNode>::EdgeType>>
-    {
-        if self.closed_list.contains_key(identifier) {
+    ) -> Option<
+        impl use<'_, Context, ClosedList, OpenList>
+        + Iterator<Item = <Context::Node as AStarNode>::EdgeType>,
+    > {
+        if self.closed_list.contains_identifier(identifier) {
             Some(BacktrackingIterator {
                 a_star: self,
                 current: identifier.clone(),
@@ -505,7 +595,7 @@ impl<Context: AStarContext> AStar<Context> {
         &self,
         identifier: &<Context::Node as AStarNode>::Identifier,
     ) -> Option<
-        impl use<'_, Context>
+        impl use<'_, Context, ClosedList, OpenList>
         + Iterator<
             Item = (
                 <Context::Node as AStarNode>::EdgeType,
@@ -513,7 +603,7 @@ impl<Context: AStarContext> AStar<Context> {
             ),
         >,
     > {
-        if self.closed_list.contains_key(identifier) {
+        if self.closed_list.contains_identifier(identifier) {
             Some(BacktrackingIteratorWithCost {
                 a_star: self,
                 current: identifier.clone(),
@@ -585,7 +675,12 @@ impl<NodeIdentifier: Clone, Cost> AStarResult<NodeIdentifier, Cost> {
     }
 }
 
-impl<Context: AStarContext> Iterator for BacktrackingIterator<'_, Context> {
+impl<
+    Context: AStarContext,
+    ClosedList: AStarClosedList<<Context::Node as AStarNode>::Identifier, Context::Node>,
+    OpenList: AStarOpenList<Context::Node>,
+> Iterator for BacktrackingIterator<'_, Context, ClosedList, OpenList>
+{
     type Item = <Context::Node as AStarNode>::EdgeType;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -601,7 +696,12 @@ impl<Context: AStarContext> Iterator for BacktrackingIterator<'_, Context> {
     }
 }
 
-impl<Context: AStarContext> Iterator for BacktrackingIteratorWithCost<'_, Context> {
+impl<
+    Context: AStarContext,
+    ClosedList: AStarClosedList<<Context::Node as AStarNode>::Identifier, Context::Node>,
+    OpenList: AStarOpenList<Context::Node>,
+> Iterator for BacktrackingIteratorWithCost<'_, Context, ClosedList, OpenList>
+{
     type Item = (
         <Context::Node as AStarNode>::EdgeType,
         <Context::Node as AStarNode>::Cost,
@@ -621,11 +721,18 @@ impl<Context: AStarContext> Iterator for BacktrackingIteratorWithCost<'_, Contex
     }
 }
 
-impl<NodeIdentifier, Node: AStarNode> Default for AStarBuffers<NodeIdentifier, Node> {
+impl<
+    Identifier: AStarIdentifier,
+    Node: AStarNode,
+    ClosedList: AStarClosedList<Identifier, Node>,
+    OpenList: AStarOpenList<Node>,
+> Default for AStarBuffers<Identifier, Node, ClosedList, OpenList>
+{
     fn default() -> Self {
         Self {
-            closed_list: FxHashMapSeed::with_hasher(FxSeededState::with_seed(0)),
-            open_list: BinaryHeap::from_vec(Vec::new()),
+            closed_list: ClosedList::new(),
+            open_list: OpenList::new(),
+            phantom_data: Default::default(),
         }
     }
 }

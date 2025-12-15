@@ -91,7 +91,7 @@ impl<Cost: AStarCost> TemplateSwitchAlignmentLowerBoundMatrix<Cost> {
             AlphabetType::iter().next().unwrap(),
             genome_length,
         ));
-        let mut a_star = AStar::new(
+        let mut a_star = AStar::<_>::new(
             Context::<_, TSALBAlignmentStrategies<AlphabetType, Cost>>::new(
                 genome.as_genome_subsequence(),
                 genome.as_genome_subsequence(),
