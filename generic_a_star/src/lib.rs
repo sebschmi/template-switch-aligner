@@ -139,7 +139,6 @@ pub trait AStarClosedList<Identifier: AStarIdentifier, Node: AStarNode>: Reset {
 /// The open list for the A* algorithm.
 ///
 /// This is a priority queue that must sort nodes with [`AStarNodeComparator`].
-// TODO is it enough to store cost + identifier?
 pub trait AStarOpenList<Node: AStarNode>: Reset + Extend<Node> {
     /// Create a new empty open list.
     fn new() -> Self;
