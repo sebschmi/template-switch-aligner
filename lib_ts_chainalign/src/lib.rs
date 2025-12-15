@@ -37,6 +37,7 @@ pub fn preprocess(
     ChainingLowerBounds::new(max_n, max_match_run, alignment_costs)
 }
 
+#[expect(clippy::too_many_arguments)]
 pub fn align<AlphabetType: Alphabet>(
     reference: Vec<u8>,
     query: Vec<u8>,

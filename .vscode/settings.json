@@ -20,5 +20,6 @@
         "Cargo.toml",
         "*.fa",
         "*.toml"
-    ]
+    ],
+    "rust-analyzer.check.command": "clippy"
 }

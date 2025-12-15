@@ -104,7 +104,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
     fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {
         let predecessor = Some(node.identifier);
         let predecessor_cost = node.cost;
-        let primary_end_anchor_index = AnchorIndex::from(self.anchors.primary_len());
+        let primary_end_anchor_index = self.anchors.primary_len();
 
         if DEBUG_CHAINER {
             println!("Generating successors of {node}");
@@ -351,7 +351,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             let first_anchor =
                                 &self.anchors.secondary(first_secondary_index, ts_kind);
                             let ts_length = first_anchor.ts_length_until(
-                                &self.anchors.secondary(successor_index, ts_kind),
+                                self.anchors.secondary(successor_index, ts_kind),
                                 ts_kind,
                                 self.k,
                             );
@@ -461,7 +461,7 @@ fn generate_primary_successors<Cost: Copy>(
     primary_end_anchor_index: AnchorIndex,
 ) -> impl Iterator<Item = Node<Cost>> {
     (index == primary_end_anchor_index)
-        .then(|| Identifier::End)
+        .then_some(Identifier::End)
         .into_iter()
         .chain(
             (index != primary_end_anchor_index)
@@ -512,7 +512,7 @@ fn generate_secondary_successors<Cost: Copy>(
         }),
     ]
     .into_iter()
-    .filter_map(|i| i)
+    .flatten()
     .map(move |identifier| Node {
         identifier,
         predecessor,

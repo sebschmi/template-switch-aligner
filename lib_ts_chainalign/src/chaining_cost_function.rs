@@ -26,7 +26,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         end: AlignmentCoordinates,
     ) -> Self {
         let k = usize::try_from(chaining_lower_bounds.max_match_run() + 1).unwrap();
-        let primary_anchor_amount = AnchorIndex::from(anchors.primary_len() + 2);
+        let primary_anchor_amount = anchors.primary_len() + 2;
         let primary_start_anchor_index = AnchorIndex::zero();
         let primary_end_anchor_index = primary_anchor_amount - 1;
 
@@ -481,10 +481,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     {
         self.primary
             .iter_in_cost_order_from(from_primary_index + 1, offset)
-            .filter_map(|(to_primary_index, chaining_cost)| {
-                (to_primary_index != AnchorIndex::zero())
-                    .then(|| (to_primary_index - 1, chaining_cost))
-            })
+            .filter(|(to_primary_index, _)| *to_primary_index != AnchorIndex::zero())
+            .map(|(to_primary_index, chaining_cost)| (to_primary_index - 1, chaining_cost))
     }
 
     pub fn iter_primary_from_start_in_cost_order(
@@ -496,10 +494,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     {
         self.primary
             .iter_in_cost_order_from(AnchorIndex::zero(), offset)
-            .filter_map(|(to_primary_index, chaining_cost)| {
-                (to_primary_index != AnchorIndex::zero())
-                    .then(|| (to_primary_index - 1, chaining_cost))
-            })
+            .filter(|(to_primary_index, _)| *to_primary_index != AnchorIndex::zero())
+            .map(|(to_primary_index, chaining_cost)| (to_primary_index - 1, chaining_cost))
     }
 
     pub fn iter_jump_12_in_cost_order(
@@ -551,9 +547,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
     {
         self.jump_34_array_mut(ts_kind)
             .iter_in_cost_order_from(from_secondary_index, offset)
-            .filter_map(|(to_primary_index, chaining_cost)| {
-                (to_primary_index != AnchorIndex::zero())
-                    .then(|| (to_primary_index - 1, chaining_cost))
-            })
+            .filter(|(to_primary_index, _)| *to_primary_index != AnchorIndex::zero())
+            .map(|(to_primary_index, chaining_cost)| (to_primary_index - 1, chaining_cost))
     }
 }

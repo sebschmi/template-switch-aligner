@@ -38,9 +38,7 @@ impl<Iter: Iterator<Item = (AnchorIndex, Cost)>, Cost: AStarCost> Iterator
     type Item = (AnchorIndex, Cost);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let Some((anchor_index, cost)) = self.iter.next() else {
-            return None;
-        };
+        let (anchor_index, cost) = self.iter.next()?;
 
         if cost == Cost::max_value() {
             return None;

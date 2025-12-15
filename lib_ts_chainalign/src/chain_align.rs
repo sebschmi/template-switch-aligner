@@ -527,7 +527,7 @@ fn evaluate_chain<Cost: AStarCost>(
             ) => {
                 if anchors
                     .primary(from_index)
-                    .is_direct_predecessor_of(&anchors.primary(to_index))
+                    .is_direct_predecessor_of(anchors.primary(to_index))
                 {
                     alignments.push(Alignment::from(vec![AlignmentType::Match]));
                     continue;
@@ -635,7 +635,7 @@ fn evaluate_chain<Cost: AStarCost>(
                 assert_eq!(ts_kind, to_ts_kind);
                 if anchors
                     .secondary(from_index, ts_kind)
-                    .is_direct_predecessor_of(&anchors.secondary(to_index, ts_kind))
+                    .is_direct_predecessor_of(anchors.secondary(to_index, ts_kind))
                 {
                     alignments.push(Alignment::from(vec![AlignmentType::Match]));
                     continue;
