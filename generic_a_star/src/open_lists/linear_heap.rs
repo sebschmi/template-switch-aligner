@@ -62,7 +62,7 @@ impl<Node: AStarNode> AStarOpenList<Node> for LinearHeap<Node> {
                 self.cost_offset += Node::Cost::from(1u8);
             } else {
                 self.len -= 1;
-                return front.pop();
+                return Some(front.swap_remove(front.len() / 2));
             }
         }
 
