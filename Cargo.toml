@@ -27,6 +27,8 @@ compact-genome = "12.5.0"
 traitsequence = "8.1.2"
 log = "0.4.27"
 num-traits = "0.2.19"
+rustc-hash = "2.1.1"
+binary-heap-plus = "0.5.0"
 
 [profile.release]
 debug = true

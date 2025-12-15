@@ -27,7 +27,7 @@ impl<Cost: AStarCost> Chain<Cost> {
         chaining_anchors: ChainingAnchors,
     ) -> Self {
         info!("Computing chain...");
-        let mut a_star = AStar::new(Context::new(chaining_costs, chaining_anchors));
+        let mut a_star = AStar::<_>::new(Context::new(chaining_costs, chaining_anchors));
         a_star.initialise();
         a_star.search();
 

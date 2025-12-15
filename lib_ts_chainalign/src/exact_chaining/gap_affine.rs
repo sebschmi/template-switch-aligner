@@ -31,7 +31,7 @@ impl<Cost: AStarCost> GapAffineAlignment<Cost> {
         );
 
         let context = Context::new(cost_table, sequences, rc_fn, start, end, max_match_run);
-        let mut a_star = AStar::new(context);
+        let mut a_star = AStar::<_>::new(context);
         a_star.initialise();
         match a_star.search() {
             AStarResult::FoundTarget { cost, .. } => Self {

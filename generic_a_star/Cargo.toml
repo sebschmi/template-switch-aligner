@@ -11,9 +11,9 @@ repository.workspace = true
 serde = ["dep:serde"]
 
 [dependencies]
-binary-heap-plus = "0.5.0"
+binary-heap-plus.workspace = true
 num-traits.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
 extend_map = "0.14.4"
 compare = "0.1.0"
-rustc-hash = "2.1.1"
+rustc-hash.workspace = true

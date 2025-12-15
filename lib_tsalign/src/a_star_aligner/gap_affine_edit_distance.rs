@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
-use generic_a_star::{AStarContext, AStarNode, cost::AStarCost, reset::Reset};
+use generic_a_star::{AStarContext, AStarIdentifier, AStarNode, cost::AStarCost, reset::Reset};
 
 use super::{
     AlignmentContext, alignment_geometry::AlignmentRange, alignment_result::IAlignmentType,
@@ -386,3 +386,5 @@ impl IAlignmentType for AlignmentType {
         false
     }
 }
+
+impl AStarIdentifier for Identifier {}

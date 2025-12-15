@@ -30,7 +30,7 @@ impl<Cost: AStarCost> Ts34JumpAlignment<Cost> {
         assert!(end.is_primary());
 
         let context = Context::new(alignment_costs, sequences, rc_fn, start, end, max_match_run);
-        let mut a_star = AStar::new(context);
+        let mut a_star = AStar::<_>::new(context);
         a_star.initialise();
         match a_star.search() {
             AStarResult::FoundTarget { cost, .. } => Self {

@@ -1,4 +1,7 @@
+use std::{fmt::Debug, hash::Hash};
+
 use compact_genome::interface::{alphabet::Alphabet, sequence::GenomeSequence};
+use generic_a_star::AStarIdentifier;
 
 use super::{
     AlignmentType, Context,
@@ -495,3 +498,5 @@ impl TemplateSwitchDirection {
         *self
     }
 }
+
+impl<PrimaryExtraData: Debug + Clone + Eq + Hash> AStarIdentifier for Identifier<PrimaryExtraData> {}

@@ -58,7 +58,7 @@ where
     let start_time = Instant::now();
 
     // Perform forwards search.
-    let mut a_star = AStar::new(context);
+    let mut a_star = AStar::<_>::new(context);
     a_star.initialise();
     let result = a_star.search();
     let has_target = matches!(result, AStarResult::FoundTarget { .. });

@@ -22,7 +22,7 @@ mod tests {
 
     use compare::Compare;
 
-    use crate::{AStarNode, cost::U64Cost};
+    use crate::{AStarIdentifier, AStarNode, cost::U64Cost};
 
     use super::AStarNodeComparator;
 
@@ -100,6 +100,8 @@ mod tests {
             Some(self.cmp(other))
         }
     }
+
+    impl AStarIdentifier for () {}
 
     #[test]
     fn compare() {

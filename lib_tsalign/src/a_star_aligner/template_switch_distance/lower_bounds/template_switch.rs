@@ -89,26 +89,27 @@ impl<Cost: AStarCost> TemplateSwitchLowerBoundMatrix<Cost> {
                 AlphabetType::iter().next().unwrap(),
                 genome_length,
             ));
-            let mut a_star = AStar::new(
-                Context::<_, TSLBAlignmentStrategies<AlphabetType, Cost>>::new(
-                    genome.as_genome_subsequence(),
-                    genome.as_genome_subsequence(),
-                    "",
-                    "",
-                    AlignmentRange::new_complete(genome.len(), genome.len()),
-                    lower_bound_config.clone(),
-                    Memory {
-                        template_switch_min_length: (),
-                        chaining: (),
-                        template_switch_count: 1,
-                        shortcut: (),
-                        primary_match: (),
-                    },
-                    None,
-                    None,
-                    false,
-                ),
-            );
+            let mut a_star = AStar::<_>::new(Context::<
+                _,
+                TSLBAlignmentStrategies<AlphabetType, Cost>,
+            >::new(
+                genome.as_genome_subsequence(),
+                genome.as_genome_subsequence(),
+                "",
+                "",
+                AlignmentRange::new_complete(genome.len(), genome.len()),
+                lower_bound_config.clone(),
+                Memory {
+                    template_switch_min_length: (),
+                    chaining: (),
+                    template_switch_count: 1,
+                    shortcut: (),
+                    primary_match: (),
+                },
+                None,
+                None,
+                false,
+            ));
             let root_xy = genome_length / 2;
             a_star.initialise_with(|context| Node::new_root_at(root_xy, root_xy, context).into());
             previous_closed_lower_bounds.extend(closed_lower_bounds.drain());

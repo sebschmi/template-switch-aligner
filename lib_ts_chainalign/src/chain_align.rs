@@ -69,7 +69,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
         k,
         parameters.max_successors,
     );
-    let mut astar = AStar::new(context);
+    let mut astar = AStar::<_>::new(context);
     let mut chaining_execution_count = 0;
     let mut current_lower_bound = Cost::zero();
     let mut current_upper_bound = Cost::max_value();
