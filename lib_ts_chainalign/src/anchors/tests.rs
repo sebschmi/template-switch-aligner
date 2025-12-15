@@ -1,7 +1,7 @@
 use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
 
 use crate::{
-    alignment::sequences::AlignmentSequences,
+    alignment::{sequences::AlignmentSequences, ts_kind::TsKind},
     anchors::{Anchors, PrimaryAnchor, SecondaryAnchor},
 };
 
@@ -23,18 +23,18 @@ fn test_coordinates() {
 
     let anchors = Anchors::new(&sequences, range, k, &rc_fn);
     assert_eq!(anchors.primary, [(0, 0), (2, 0)].map(PrimaryAnchor::from));
-    assert!(anchors.secondary_11.is_empty());
+    assert!(anchors.secondary_anchor_vec(TsKind::TS11).is_empty());
     assert_eq!(
-        anchors.secondary_12,
-        [(2, 2), (4, 2)].map(SecondaryAnchor::from)
+        anchors.secondary_anchor_vec(TsKind::TS12),
+        &[(2, 2), (4, 2)].map(SecondaryAnchor::from)
     );
     assert_eq!(
-        anchors.secondary_21,
-        [(4, 0), (4, 2)].map(SecondaryAnchor::from)
+        anchors.secondary_anchor_vec(TsKind::TS21),
+        &[(4, 0), (4, 2)].map(SecondaryAnchor::from)
     );
     assert_eq!(
-        anchors.secondary_22,
-        [(4, 0), (3, 1), (2, 2)].map(SecondaryAnchor::from)
+        anchors.secondary_anchor_vec(TsKind::TS22),
+        &[(4, 0), (3, 1), (2, 2)].map(SecondaryAnchor::from)
     );
 }
 
@@ -46,17 +46,17 @@ fn test_coordinates_rev() {
 
     let anchors = Anchors::new(&sequences, range, k, &rc_fn);
     assert_eq!(anchors.primary, [(0, 0), (0, 2)].map(PrimaryAnchor::from));
-    assert!(anchors.secondary_22.is_empty());
+    assert!(anchors.secondary_anchor_vec(TsKind::TS22).is_empty());
     assert_eq!(
-        anchors.secondary_21,
-        [(2, 2), (4, 2)].map(SecondaryAnchor::from)
+        anchors.secondary_anchor_vec(TsKind::TS21),
+        &[(2, 2), (4, 2)].map(SecondaryAnchor::from)
     );
     assert_eq!(
-        anchors.secondary_12,
-        [(4, 0), (4, 2)].map(SecondaryAnchor::from)
+        anchors.secondary_anchor_vec(TsKind::TS12),
+        &[(4, 0), (4, 2)].map(SecondaryAnchor::from)
     );
     assert_eq!(
-        anchors.secondary_11,
-        [(4, 0), (3, 1), (2, 2)].map(SecondaryAnchor::from)
+        anchors.secondary_anchor_vec(TsKind::TS11),
+        &[(4, 0), (3, 1), (2, 2)].map(SecondaryAnchor::from)
     );
 }

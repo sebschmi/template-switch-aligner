@@ -100,6 +100,12 @@ pub trait AStarContext: Reset {
     }
 }
 
+/// The closed list for the A* algorithm.
+pub trait AStarClosedList<Identifier: Debug + Clone + Eq + Hash, Cost: AStarCost>: Reset {}
+
+/// The open list for the A* algorithm.
+pub trait AStarOpenList<Node: AStarNode>: Reset {}
+
 #[derive(Debug, Default)]
 pub struct AStarPerformanceCounters {
     pub opened_nodes: usize,

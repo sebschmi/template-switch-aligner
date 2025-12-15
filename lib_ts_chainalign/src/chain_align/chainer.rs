@@ -1,11 +1,17 @@
 use std::{fmt::Display, iter};
 
 use generic_a_star::{AStarContext, AStarNode, cost::AStarCost, reset::Reset};
+use num_traits::Zero;
 
 use crate::{
-    alignment::ts_kind::TsKind, anchors::Anchors, chaining_cost_function::ChainingCostFunction,
+    alignment::ts_kind::TsKind,
+    anchors::{Anchors, index::AnchorIndex},
+    chain_align::chainer::max_successors_iterator::MaxSuccessorsIterator,
+    chaining_cost_function::ChainingCostFunction,
     costs::TsLimits,
 };
+
+mod max_successors_iterator;
 
 const DEBUG_CHAINER: bool = false;
 
@@ -14,6 +20,7 @@ pub struct Context<'anchors, 'chaining_cost_function, 'ts_limits, Cost> {
     pub chaining_cost_function: &'chaining_cost_function mut ChainingCostFunction<Cost>,
     pub ts_limits: &'ts_limits TsLimits,
     pub k: usize,
+    pub max_successors: usize,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -26,16 +33,39 @@ pub struct Node<Cost> {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum Identifier {
     Start,
-    Primary {
-        index: usize,
+    StartToPrimary {
+        offset: AnchorIndex,
     },
-    Secondary {
-        index: usize,
+    StartToSecondary {
+        ts_kind: TsKind,
+        offset: AnchorIndex,
+    },
+    PrimaryToPrimary {
+        index: AnchorIndex,
+        offset: AnchorIndex,
+    },
+    PrimaryToSecondary {
+        index: AnchorIndex,
+        ts_kind: TsKind,
+        offset: AnchorIndex,
+    },
+    SecondaryToSecondary {
+        index: AnchorIndex,
         ts_kind: TsKind,
         /// The first secondary anchor that is part of the current template switch.
         ///
         /// Used to estimate the length of the resulting template switch.
-        first_secondary_index: usize,
+        first_secondary_index: AnchorIndex,
+        offset: AnchorIndex,
+    },
+    SecondaryToPrimary {
+        index: AnchorIndex,
+        ts_kind: TsKind,
+        /// The first secondary anchor that is part of the current template switch.
+        ///
+        /// Used to estimate the length of the resulting template switch.
+        first_secondary_index: AnchorIndex,
+        offset: AnchorIndex,
     },
     End,
 }
@@ -48,12 +78,14 @@ impl<'anchors, 'chaining_cost_function, 'ts_limits, Cost>
         chaining_cost_function: &'chaining_cost_function mut ChainingCostFunction<Cost>,
         ts_limits: &'ts_limits TsLimits,
         k: usize,
+        max_successors: usize,
     ) -> Self {
         Self {
             anchors,
             chaining_cost_function,
             ts_limits,
             k,
+            max_successors,
         }
     }
 }
@@ -72,274 +104,336 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
     fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {
         let predecessor = Some(node.identifier);
         let predecessor_cost = node.cost;
+        let primary_end_anchor_index = self.anchors.primary_len();
 
         if DEBUG_CHAINER {
             println!("Generating successors of {node}");
         }
 
         match node.identifier {
-            Identifier::Start => {
+            Identifier::Start => output.extend(
+                iter::once(Identifier::StartToPrimary {
+                    offset: AnchorIndex::zero(),
+                })
+                .chain(TsKind::iter().map(|ts_kind| Identifier::StartToSecondary {
+                    ts_kind,
+                    offset: AnchorIndex::zero(),
+                }))
+                .map(|identifier| Node {
+                    identifier,
+                    predecessor,
+                    cost: predecessor_cost,
+                }),
+            ),
+
+            Identifier::StartToPrimary { offset } => {
+                let mut iter = MaxSuccessorsIterator::new(
+                    self.chaining_cost_function
+                        .iter_primary_from_start_in_cost_order(offset),
+                    self.max_successors,
+                );
+
                 output.extend(
-                    (0..self.anchors.primary.len())
-                        .flat_map(|successor_index| {
+                    iter.by_ref()
+                        .map_while(|(successor_index, chaining_cost)| {
+                            if DEBUG_CHAINER {
+                                if successor_index == primary_end_anchor_index {
+                                    println!("Checking anchor end");
+                                } else {
+                                    println!(
+                                        "Checking anchor P-{successor_index}: {}",
+                                        self.anchors.primary(successor_index),
+                                    );
+                                }
+                            }
+
+                            let cost = predecessor_cost.checked_add(&chaining_cost)?;
+                            if DEBUG_CHAINER {
+                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                            }
+
+                            Some(generate_primary_successors(
+                                successor_index,
+                                predecessor,
+                                cost,
+                                primary_end_anchor_index,
+                            ))
+                        })
+                        .flatten(),
+                );
+
+                if let Some(next_cost) = iter.next_cost() {
+                    output.extend(iter::once(Node {
+                        identifier: Identifier::StartToPrimary {
+                            offset: offset + AnchorIndex::from(iter.successor_count()),
+                        },
+                        predecessor,
+                        cost: next_cost,
+                    }));
+                }
+            }
+
+            Identifier::StartToSecondary { ts_kind, offset } => {
+                let mut iter = MaxSuccessorsIterator::new(
+                    self.chaining_cost_function
+                        .iter_jump_12_from_start_in_cost_order(ts_kind, offset),
+                    self.max_successors,
+                );
+
+                output.extend(
+                    iter.by_ref()
+                        .map_while(|(successor_index, chaining_cost)| {
                             if DEBUG_CHAINER {
                                 println!(
-                                    "Checking anchor P-{successor_index}: {}",
-                                    self.anchors.primary[successor_index]
+                                    "Checking anchor S{}-{successor_index}: {}",
+                                    ts_kind.digits(),
+                                    self.anchors.secondary(successor_index, ts_kind),
                                 );
                             }
 
-                            let cost = predecessor_cost
-                                .checked_add(
-                                    &self
-                                        .chaining_cost_function
-                                        .primary_from_start(successor_index),
-                                )
-                                .unwrap();
+                            let cost = predecessor_cost.checked_add(&chaining_cost)?;
                             if DEBUG_CHAINER {
                                 println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
                             }
 
-                            debug_assert_ne!(cost, Cost::max_value());
-                            Some(Node {
-                                identifier: Identifier::Primary {
-                                    index: successor_index,
-                                },
+                            Some(generate_secondary_successors(
+                                successor_index,
+                                ts_kind,
+                                successor_index,
                                 predecessor,
                                 cost,
-                            })
+                                self.ts_limits.length_23.contains(&self.k),
+                            ))
                         })
-                        .chain(TsKind::iter().flat_map(|ts_kind| {
-                            (0..self.anchors.secondary(ts_kind).len())
-                                .zip(iter::repeat(&self))
-                                .flat_map(move |(successor_index, context)| {
-                                    if DEBUG_CHAINER {
-                                        println!(
-                                            "Checking anchor S{}-{successor_index}: {}",
-                                            ts_kind.digits(),
-                                            context.anchors.secondary(ts_kind)[successor_index]
-                                        );
-                                    }
-
-                                    let cost = predecessor_cost.checked_add(
-                                        &context
-                                            .chaining_cost_function
-                                            .jump_12_from_start(successor_index, ts_kind),
-                                    )?;
-                                    if DEBUG_CHAINER {
-                                        println!(
-                                            "Cost: {}+{}",
-                                            predecessor_cost,
-                                            cost - predecessor_cost
-                                        );
-                                    }
-
-                                    (cost != Cost::max_value()).then_some(Node {
-                                        identifier: Identifier::Secondary {
-                                            index: successor_index,
-                                            ts_kind,
-                                            first_secondary_index: successor_index,
-                                        },
-                                        predecessor,
-                                        cost,
-                                    })
-                                })
-                        }))
-                        .chain(iter::once({
-                            let cost = predecessor_cost
-                                .checked_add(&self.chaining_cost_function.start_to_end())
-                                .unwrap();
-                            if DEBUG_CHAINER {
-                                println!("Checking anchor end");
-                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
-                            }
-                            debug_assert_ne!(cost, Cost::max_value());
-                            Node {
-                                identifier: Identifier::End,
-                                predecessor,
-                                cost,
-                            }
-                        })),
+                        .flatten(),
                 );
+
+                if let Some(next_cost) = iter.next_cost() {
+                    output.extend(iter::once(Node {
+                        identifier: Identifier::StartToSecondary {
+                            ts_kind,
+                            offset: offset + AnchorIndex::from(iter.successor_count()),
+                        },
+                        predecessor,
+                        cost: next_cost,
+                    }));
+                }
             }
-            Identifier::Primary { index } => output.extend(
-                (0..self.anchors.primary.len())
-                    .flat_map(|successor_index| {
-                        if DEBUG_CHAINER {
-                            println!(
-                                "Checking anchor P-{successor_index}: {}",
-                                self.anchors.primary[successor_index]
-                            );
-                        }
 
-                        let cost = predecessor_cost.checked_add(
-                            &self.chaining_cost_function.primary(index, successor_index),
-                        )?;
-                        if DEBUG_CHAINER {
-                            println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
-                        }
+            Identifier::PrimaryToPrimary { index, offset } => {
+                let mut iter = MaxSuccessorsIterator::new(
+                    self.chaining_cost_function
+                        .iter_primary_in_cost_order(index, offset),
+                    self.max_successors,
+                );
 
-                        (cost != Cost::max_value()).then_some(Node {
-                            identifier: Identifier::Primary {
-                                index: successor_index,
-                            },
-                            predecessor,
-                            cost,
+                output.extend(
+                    iter.by_ref()
+                        .map_while(|(successor_index, chaining_cost)| {
+                            if DEBUG_CHAINER {
+                                if successor_index == primary_end_anchor_index {
+                                    println!("Checking anchor end");
+                                } else {
+                                    println!(
+                                        "Checking anchor P-{successor_index}: {}",
+                                        self.anchors.primary(successor_index),
+                                    );
+                                }
+                            }
+
+                            let cost = predecessor_cost.checked_add(&chaining_cost)?;
+                            if DEBUG_CHAINER {
+                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                            }
+
+                            Some(generate_primary_successors(
+                                successor_index,
+                                predecessor,
+                                cost,
+                                primary_end_anchor_index,
+                            ))
                         })
-                    })
-                    .chain(TsKind::iter().flat_map(|ts_kind| {
-                        (0..self.anchors.secondary(ts_kind).len())
-                            .zip(iter::repeat(&self))
-                            .flat_map(move |(successor_index, context)| {
-                                if DEBUG_CHAINER {
-                                    println!(
-                                        "Checking anchor S{}-{successor_index}: {}",
-                                        ts_kind.digits(),
-                                        context.anchors.secondary(ts_kind)[successor_index]
-                                    );
-                                }
+                        .flatten(),
+                );
 
-                                let cost = predecessor_cost.checked_add(
-                                    &context.chaining_cost_function.jump_12(
-                                        index,
-                                        successor_index,
-                                        ts_kind,
-                                    ),
-                                )?;
-                                if DEBUG_CHAINER {
-                                    println!(
-                                        "Cost: {}+{}",
-                                        predecessor_cost,
-                                        cost - predecessor_cost
-                                    );
-                                }
+                if let Some(next_cost) = iter.next_cost() {
+                    output.extend(iter::once(Node {
+                        identifier: Identifier::PrimaryToPrimary {
+                            index,
+                            offset: offset + AnchorIndex::from(iter.successor_count()),
+                        },
+                        predecessor,
+                        cost: next_cost,
+                    }));
+                }
+            }
 
-                                (cost != Cost::max_value()).then_some(Node {
-                                    identifier: Identifier::Secondary {
-                                        index: successor_index,
-                                        ts_kind,
-                                        first_secondary_index: successor_index,
-                                    },
-                                    predecessor,
-                                    cost,
-                                })
-                            })
-                    }))
-                    .chain(iter::once({
-                        let cost = predecessor_cost
-                            .checked_add(&self.chaining_cost_function.primary_to_end(index))
-                            .unwrap();
-                        if DEBUG_CHAINER {
-                            println!("Checking anchor end");
-                            println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
-                        }
-                        debug_assert_ne!(cost, Cost::max_value());
-                        Node {
-                            identifier: Identifier::End,
-                            predecessor,
-                            cost,
-                        }
-                    })),
-            ),
-            Identifier::Secondary {
+            Identifier::PrimaryToSecondary {
+                index,
+                ts_kind,
+                offset,
+            } => {
+                let mut iter = MaxSuccessorsIterator::new(
+                    self.chaining_cost_function
+                        .iter_jump_12_in_cost_order(index, ts_kind, offset),
+                    self.max_successors,
+                );
+
+                output.extend(
+                    iter.by_ref()
+                        .map_while(|(successor_index, chaining_cost)| {
+                            if DEBUG_CHAINER {
+                                println!(
+                                    "Checking anchor S{}-{successor_index}: {}",
+                                    ts_kind.digits(),
+                                    self.anchors.secondary(successor_index, ts_kind),
+                                );
+                            }
+
+                            let cost = predecessor_cost.checked_add(&chaining_cost)?;
+                            if DEBUG_CHAINER {
+                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                            }
+
+                            Some(generate_secondary_successors(
+                                successor_index,
+                                ts_kind,
+                                successor_index,
+                                predecessor,
+                                cost,
+                                self.ts_limits.length_23.contains(&self.k),
+                            ))
+                        })
+                        .flatten(),
+                );
+
+                if let Some(next_cost) = iter.next_cost() {
+                    output.extend(iter::once(Node {
+                        identifier: Identifier::PrimaryToSecondary {
+                            index,
+                            ts_kind,
+                            offset: offset + AnchorIndex::from(iter.successor_count()),
+                        },
+                        predecessor,
+                        cost: next_cost,
+                    }));
+                }
+            }
+
+            Identifier::SecondaryToSecondary {
                 index,
                 ts_kind,
                 first_secondary_index,
+                offset,
             } => {
-                output.extend((0..self.anchors.secondary(ts_kind).len()).flat_map(
-                    |successor_index| {
-                        if DEBUG_CHAINER {
-                            println!(
-                                "Checking anchor S{}-{successor_index}: {}",
-                                ts_kind.digits(),
-                                self.anchors.secondary(ts_kind)[successor_index]
-                            );
-                        }
-
-                        let cost = predecessor_cost.checked_add(
-                            &self
-                                .chaining_cost_function
-                                .secondary(index, successor_index, ts_kind),
-                        )?;
-                        if DEBUG_CHAINER {
-                            println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
-                        }
-
-                        (cost != Cost::max_value()).then_some(Node {
-                            identifier: Identifier::Secondary {
-                                index: successor_index,
-                                ts_kind,
-                                first_secondary_index,
-                            },
-                            predecessor,
-                            cost,
-                        })
-                    },
-                ));
-
-                let first_anchor = &self.anchors.secondary(ts_kind)[first_secondary_index];
-                let ts_length = first_anchor.ts_length_until(
-                    &self.anchors.secondary(ts_kind)[index],
-                    ts_kind,
-                    self.k,
+                let mut iter = MaxSuccessorsIterator::new(
+                    self.chaining_cost_function
+                        .iter_secondary_in_cost_order(index, ts_kind, offset),
+                    self.max_successors,
                 );
 
-                if self.ts_limits.length_23.contains(&ts_length) {
-                    output.extend(
-                        (0..self.anchors.primary.len())
-                            .flat_map(|successor_index| {
-                                if DEBUG_CHAINER {
+                output.extend(
+                    iter.by_ref()
+                        .map_while(|(successor_index, chaining_cost)| {
+                            if DEBUG_CHAINER {
+                                println!(
+                                    "Checking anchor S{}-{successor_index}: {}",
+                                    ts_kind.digits(),
+                                    self.anchors.secondary(successor_index, ts_kind),
+                                );
+                            }
+
+                            let cost = predecessor_cost.checked_add(&chaining_cost)?;
+                            if DEBUG_CHAINER {
+                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                            }
+
+                            let first_anchor =
+                                &self.anchors.secondary(first_secondary_index, ts_kind);
+                            let ts_length = first_anchor.ts_length_until(
+                                self.anchors.secondary(successor_index, ts_kind),
+                                ts_kind,
+                                self.k,
+                            );
+
+                            Some(generate_secondary_successors(
+                                successor_index,
+                                ts_kind,
+                                first_secondary_index,
+                                predecessor,
+                                cost,
+                                self.ts_limits.length_23.contains(&ts_length),
+                            ))
+                        })
+                        .flatten(),
+                );
+
+                if let Some(next_cost) = iter.next_cost() {
+                    output.extend(iter::once(Node {
+                        identifier: Identifier::SecondaryToSecondary {
+                            index,
+                            ts_kind,
+                            first_secondary_index,
+                            offset: offset + AnchorIndex::from(iter.successor_count()),
+                        },
+                        predecessor,
+                        cost: next_cost,
+                    }));
+                }
+            }
+
+            Identifier::SecondaryToPrimary {
+                index,
+                ts_kind,
+                first_secondary_index,
+                offset,
+            } => {
+                let mut iter = MaxSuccessorsIterator::new(
+                    self.chaining_cost_function
+                        .iter_jump_34_in_cost_order(index, ts_kind, offset),
+                    self.max_successors,
+                );
+
+                output.extend(
+                    iter.by_ref()
+                        .map_while(|(successor_index, chaining_cost)| {
+                            if DEBUG_CHAINER {
+                                if successor_index == primary_end_anchor_index {
+                                    println!("Checking anchor end");
+                                } else {
                                     println!(
                                         "Checking anchor P-{successor_index}: {}",
-                                        self.anchors.primary[successor_index]
+                                        self.anchors.primary(successor_index),
                                     );
                                 }
+                            }
 
-                                let cost = predecessor_cost.checked_add(
-                                    &self.chaining_cost_function.jump_34(
-                                        index,
-                                        successor_index,
-                                        ts_kind,
-                                    ),
-                                )?;
-                                if DEBUG_CHAINER {
-                                    println!(
-                                        "Cost: {}+{}",
-                                        predecessor_cost,
-                                        cost - predecessor_cost
-                                    );
-                                }
+                            let cost = predecessor_cost.checked_add(&chaining_cost)?;
+                            if DEBUG_CHAINER {
+                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                            }
 
-                                (cost != Cost::max_value()).then_some(Node {
-                                    identifier: Identifier::Primary {
-                                        index: successor_index,
-                                    },
-                                    predecessor,
-                                    cost,
-                                })
-                            })
-                            .chain(iter::once({
-                                let cost = predecessor_cost
-                                    .checked_add(
-                                        &self.chaining_cost_function.jump_34_to_end(index, ts_kind),
-                                    )
-                                    .unwrap();
-                                if DEBUG_CHAINER {
-                                    println!("Checking anchor end");
-                                    println!(
-                                        "Cost: {}+{}",
-                                        predecessor_cost,
-                                        cost - predecessor_cost
-                                    );
-                                }
-                                debug_assert_ne!(cost, Cost::max_value());
-                                Node {
-                                    identifier: Identifier::End,
-                                    predecessor,
-                                    cost,
-                                }
-                            })),
-                    );
+                            Some(generate_primary_successors(
+                                successor_index,
+                                predecessor,
+                                cost,
+                                primary_end_anchor_index,
+                            ))
+                        })
+                        .flatten(),
+                );
+
+                if let Some(next_cost) = iter.next_cost() {
+                    output.extend(iter::once(Node {
+                        identifier: Identifier::SecondaryToPrimary {
+                            index,
+                            ts_kind,
+                            first_secondary_index,
+                            offset: offset + AnchorIndex::from(iter.successor_count()),
+                        },
+                        predecessor,
+                        cost: next_cost,
+                    }));
                 }
             }
 
@@ -358,6 +452,72 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
     fn memory_limit(&self) -> Option<usize> {
         None
     }
+}
+
+fn generate_primary_successors<Cost: Copy>(
+    index: AnchorIndex,
+    predecessor: Option<Identifier>,
+    cost: Cost,
+    primary_end_anchor_index: AnchorIndex,
+) -> impl Iterator<Item = Node<Cost>> {
+    (index == primary_end_anchor_index)
+        .then_some(Identifier::End)
+        .into_iter()
+        .chain(
+            (index != primary_end_anchor_index)
+                .then(move || {
+                    [Identifier::PrimaryToPrimary {
+                        index,
+                        offset: AnchorIndex::zero(),
+                    }]
+                    .into_iter()
+                    .chain(
+                        TsKind::iter().map(move |ts_kind| Identifier::PrimaryToSecondary {
+                            index,
+                            ts_kind,
+                            offset: AnchorIndex::zero(),
+                        }),
+                    )
+                })
+                .into_iter()
+                .flatten(),
+        )
+        .map(move |identifier| Node {
+            identifier,
+            predecessor,
+            cost,
+        })
+}
+
+fn generate_secondary_successors<Cost: Copy>(
+    index: AnchorIndex,
+    ts_kind: TsKind,
+    first_secondary_index: AnchorIndex,
+    predecessor: Option<Identifier>,
+    cost: Cost,
+    can_34_jump: bool,
+) -> impl Iterator<Item = Node<Cost>> {
+    [
+        can_34_jump.then(|| Identifier::SecondaryToPrimary {
+            index,
+            ts_kind,
+            first_secondary_index,
+            offset: AnchorIndex::zero(),
+        }),
+        Some(Identifier::SecondaryToSecondary {
+            index,
+            ts_kind,
+            first_secondary_index,
+            offset: AnchorIndex::zero(),
+        }),
+    ]
+    .into_iter()
+    .flatten()
+    .map(move |identifier| Node {
+        identifier,
+        predecessor,
+        cost,
+    })
 }
 
 impl<Cost: AStarCost> Reset for Context<'_, '_, '_, Cost> {
@@ -420,12 +580,43 @@ impl Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Identifier::Start => write!(f, "start"),
-            Identifier::Primary { index } => write!(f, "P-{index}"),
-            Identifier::Secondary {
+            Identifier::StartToPrimary { offset } => write!(f, "start-to-primary-{offset}"),
+            Identifier::StartToSecondary { ts_kind, offset } => {
+                write!(f, "start-to-secondary{}-{offset}", ts_kind.digits())
+            }
+            Identifier::PrimaryToPrimary { index, offset } => {
+                write!(f, "primary-to-primary-{index}-{offset}")
+            }
+            Identifier::PrimaryToSecondary {
+                index,
+                ts_kind,
+                offset,
+            } => write!(
+                f,
+                "primary-to-secondary{}-{index}-{offset}",
+                ts_kind.digits()
+            ),
+            Identifier::SecondaryToSecondary {
                 index,
                 ts_kind,
                 first_secondary_index,
-            } => write!(f, "S{}-{first_secondary_index}-{index}", ts_kind.digits()),
+                offset,
+            } => write!(
+                f,
+                "secondary{}-to-secondary{}-{first_secondary_index}-{index}-{offset}",
+                ts_kind.digits(),
+                ts_kind.digits()
+            ),
+            Identifier::SecondaryToPrimary {
+                index,
+                ts_kind,
+                first_secondary_index,
+                offset,
+            } => write!(
+                f,
+                "secondary{}-to-primary-{first_secondary_index}-{index}-{offset}",
+                ts_kind.digits()
+            ),
             Identifier::End => write!(f, "end"),
         }
     }

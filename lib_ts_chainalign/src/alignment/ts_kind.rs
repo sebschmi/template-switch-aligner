@@ -44,6 +44,24 @@ impl TsKind {
         [Self::TS11, Self::TS12, Self::TS21, Self::TS22].into_iter()
     }
 
+    /// Index of this [`TsKind`] in the iterator produced by [`Self::iter()`].
+    ///
+    /// ```rust
+    /// # use lib_ts_chainalign::alignment::ts_kind::TsKind;
+    /// assert_eq!(
+    ///     TsKind::iter().enumerate().collect::<Vec<_>>(),
+    ///     TsKind::iter().map(|ts_kind| (ts_kind.index(), ts_kind)).collect::<Vec<_>>()
+    /// );
+    /// ```
+    pub fn index(&self) -> usize {
+        match (self.ancestor, self.descendant) {
+            (TsAncestor::Seq1, TsDescendant::Seq1) => 0,
+            (TsAncestor::Seq1, TsDescendant::Seq2) => 1,
+            (TsAncestor::Seq2, TsDescendant::Seq1) => 2,
+            (TsAncestor::Seq2, TsDescendant::Seq2) => 3,
+        }
+    }
+
     pub fn digits(&self) -> &'static str {
         match (self.ancestor, self.descendant) {
             (TsAncestor::Seq1, TsDescendant::Seq1) => "11",

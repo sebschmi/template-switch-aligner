@@ -109,6 +109,13 @@ pub struct Cli {
     #[clap(long, default_value = "maximise")]
     ts_total_length_strategy: TemplateSwitchTotalLengthStrategySelector,
 
+    /// The maximum amount of successors to generate while processing a node during chaining.
+    /// Can be tuned to optimise performance.
+    ///
+    /// This applies only to tschainalign.
+    #[clap(long, default_value = "5")]
+    max_chaining_successors: usize,
+
     /// If set, template switches are not allowed.
     ///
     /// Use this to compare a template switch alignment against an alignment with out template switches.

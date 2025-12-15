@@ -9,6 +9,7 @@ use log::{debug, info, trace};
 use crate::{
     alignment::{coordinates::AlignmentCoordinates, sequences::AlignmentSequences},
     anchors::Anchors,
+    chain_align::AlignmentParameters,
     chaining_cost_function::ChainingCostFunction,
     chaining_lower_bounds::ChainingLowerBounds,
     costs::AlignmentCosts,
@@ -36,10 +37,12 @@ pub fn preprocess(
     ChainingLowerBounds::new(max_n, max_match_run, alignment_costs)
 }
 
+#[expect(clippy::too_many_arguments)]
 pub fn align<AlphabetType: Alphabet>(
     reference: Vec<u8>,
     query: Vec<u8>,
     range: AlignmentRange,
+    parameters: &AlignmentParameters,
     rc_fn: &dyn Fn(u8) -> u8,
     reference_name: &str,
     query_name: &str,
@@ -71,6 +74,7 @@ pub fn align<AlphabetType: Alphabet>(
         &sequences,
         start,
         end,
+        parameters,
         chaining_lower_bounds.alignment_costs(),
         rc_fn,
         chaining_lower_bounds.max_match_run(),
