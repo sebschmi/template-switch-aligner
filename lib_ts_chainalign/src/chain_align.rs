@@ -1,3 +1,5 @@
+use binary_heap_plus::BinaryHeap;
+use clap::ValueEnum;
 use compact_genome::{
     implementation::vec_sequence::VectorGenome,
     interface::{
@@ -5,7 +7,12 @@ use compact_genome::{
         sequence::{GenomeSequence, OwnedGenomeSequence},
     },
 };
-use generic_a_star::{AStar, AStarResult, cost::AStarCost};
+use generic_a_star::{
+    AStar, AStarResult,
+    comparator::AStarNodeComparator,
+    cost::AStarCost,
+    open_lists::{AStarOpenList, linear_heap::LinearHeap},
+};
 use indicatif::ProgressBar;
 use lib_tsalign::a_star_aligner::{
     alignment_result::AlignmentResult,
@@ -13,6 +20,7 @@ use lib_tsalign::a_star_aligner::{
 };
 use log::{debug, trace};
 use num_traits::Zero;
+use rustc_hash::FxHashMapSeed;
 use std::{
     fmt::Write,
     iter,
@@ -24,7 +32,7 @@ use crate::{
         Alignment, AlignmentType, coordinates::AlignmentCoordinates, sequences::AlignmentSequences,
     },
     anchors::Anchors,
-    chain_align::chainer::{Context, Identifier},
+    chain_align::chainer::{Context, Identifier, Node},
     chaining_cost_function::ChainingCostFunction,
     costs::AlignmentCosts,
     exact_chaining::{
@@ -40,10 +48,62 @@ pub struct AlignmentParameters {
     ///
     /// At most `max_successors` will be generated at a time, but at least all with minimum chaining cost.
     pub max_successors: usize,
+
+    /// The open list type to use for chaining.
+    pub open_list: ChainingOpenList,
+}
+
+/// The open list type to use for chaining.
+#[derive(Debug, Clone, ValueEnum)]
+pub enum ChainingOpenList {
+    /// Use [`BinaryHeap`](std::collections::BinaryHeap) as open list.
+    StdHeap,
+    /// Use [`LinearHeap`](generic_a_star::open_lists::linear_heap::LinearHeap) as open list.
+    LinearHeap,
 }
 
 #[expect(clippy::too_many_arguments)]
 pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
+    sequences: &AlignmentSequences,
+    start: AlignmentCoordinates,
+    end: AlignmentCoordinates,
+    parameters: &AlignmentParameters,
+    alignment_costs: &AlignmentCosts<Cost>,
+    rc_fn: &dyn Fn(u8) -> u8,
+    max_match_run: u32,
+    anchors: &Anchors,
+    chaining_cost_function: &mut ChainingCostFunction<Cost>,
+) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
+    match parameters.open_list {
+        ChainingOpenList::StdHeap => {
+            actually_align::<AlphabetType, _, BinaryHeap<Node<Cost>, AStarNodeComparator>>(
+                sequences,
+                start,
+                end,
+                parameters,
+                alignment_costs,
+                rc_fn,
+                max_match_run,
+                anchors,
+                chaining_cost_function,
+            )
+        }
+        ChainingOpenList::LinearHeap => actually_align::<AlphabetType, _, LinearHeap<_>>(
+            sequences,
+            start,
+            end,
+            parameters,
+            alignment_costs,
+            rc_fn,
+            max_match_run,
+            anchors,
+            chaining_cost_function,
+        ),
+    }
+}
+
+#[expect(clippy::too_many_arguments)]
+fn actually_align<AlphabetType: Alphabet, Cost: AStarCost, OpenList: AStarOpenList<Node<Cost>>>(
     sequences: &AlignmentSequences,
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
@@ -69,7 +129,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
         k,
         parameters.max_successors,
     );
-    let mut astar = AStar::<_>::new(context);
+    let mut astar = AStar::<_, FxHashMapSeed<_, _>, OpenList>::new(context);
     let mut chaining_execution_count = 0;
     let mut current_lower_bound = Cost::zero();
     let mut current_upper_bound = Cost::max_value();

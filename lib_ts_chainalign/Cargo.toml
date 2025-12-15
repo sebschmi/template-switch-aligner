@@ -20,3 +20,6 @@ log.workspace = true
 indicatif = "0.18.3"
 bitvec = "1.0.1"
 bincode = { version = "2.0.1", features = ["serde"] }
+rustc-hash.workspace = true
+binary-heap-plus.workspace = true
+clap.workspace = true
