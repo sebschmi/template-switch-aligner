@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use num_traits::Zero;
+use num_traits::{Bounded, Zero};
 
 use crate::{AStarNode, cost::AStarCost, open_lists::AStarOpenList, reset::Reset};
 
@@ -25,6 +25,7 @@ impl<Node: AStarNode> AStarOpenList<Node> for LinearHeap<Node> {
 
     fn push(&mut self, node: Node) {
         let cost = node.cost();
+        assert_ne!(cost, Node::Cost::max_value());
 
         if cost < self.cost_offset {
             let prefix_len = (self.cost_offset - cost).as_usize();

@@ -548,6 +548,7 @@ dependencies = [
  "log",
  "ndarray 0.17.1",
  "num-traits",
+ "rustc-hash",
  "serde",
 ]
 

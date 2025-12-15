@@ -5,7 +5,7 @@ use compact_genome::{
         sequence::{GenomeSequence, OwnedGenomeSequence},
     },
 };
-use generic_a_star::{AStar, AStarResult, cost::AStarCost};
+use generic_a_star::{AStar, AStarResult, cost::AStarCost, open_lists::linear_heap::LinearHeap};
 use indicatif::ProgressBar;
 use lib_tsalign::a_star_aligner::{
     alignment_result::AlignmentResult,
@@ -13,6 +13,7 @@ use lib_tsalign::a_star_aligner::{
 };
 use log::{debug, trace};
 use num_traits::Zero;
+use rustc_hash::FxHashMapSeed;
 use std::{
     fmt::Write,
     iter,
@@ -69,7 +70,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
         k,
         parameters.max_successors,
     );
-    let mut astar = AStar::<_>::new(context);
+    let mut astar = AStar::<_, FxHashMapSeed<_, _>, LinearHeap<_>>::new(context);
     let mut chaining_execution_count = 0;
     let mut current_lower_bound = Cost::zero();
     let mut current_upper_bound = Cost::max_value();

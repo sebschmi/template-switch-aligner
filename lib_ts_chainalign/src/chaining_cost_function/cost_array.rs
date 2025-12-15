@@ -49,7 +49,7 @@ impl<Cost> ChainingCostArray<Cost> {
         if self.cost_order_permutation[c1.as_usize()].is_empty() {
             self.cost_order_permutation[c1.as_usize()].extend(
                 ((0..c1.as_usize()).chain(c1.as_usize() + 1..))
-                    .take(self.len[1].as_usize() - 1)
+                    .take(self.len[1].as_usize().saturating_sub(1))
                     .map(AnchorIndex::from),
             );
             self.cost_order_permutation[c1.as_usize()]
