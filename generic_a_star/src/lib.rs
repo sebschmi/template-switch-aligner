@@ -16,6 +16,8 @@ use num_traits::{Bounded, Zero};
 use reset::Reset;
 use rustc_hash::FxHashMapSeed;
 
+use crate::{closed_lists::AStarClosedList, open_lists::AStarOpenList};
+
 pub mod closed_lists;
 pub mod comparator;
 pub mod cost;
@@ -104,60 +106,6 @@ pub trait AStarContext: Reset {
     fn is_label_setting(&self) -> bool {
         true
     }
-}
-
-/// The closed list for the A* algorithm.
-pub trait AStarClosedList<Identifier: AStarIdentifier, Node: AStarNode>: Reset {
-    /// Create a new empty closed list.
-    fn new() -> Self;
-
-    /// Returns the number of nodes in the closed list.
-    fn len(&self) -> usize;
-
-    /// Returns true if the closed list is empty.
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// Insert a node with the given identifier into the closed list.
-    ///
-    /// If there was a node previously mapped to this identifier, then it is returned.
-    /// Otherwise, `None` is returned.
-    fn insert(&mut self, identifier: Identifier, node: Node) -> Option<Node>;
-
-    /// Return a reference to the node specified by `identifier`.
-    ///
-    /// Returns `None` if no node with the given identifier exists.
-    fn get(&self, identifier: &Identifier) -> Option<&Node>;
-
-    /// Returns true if the given identifier is mapped to a node.
-    fn contains_identifier(&self, identifier: &Identifier) -> bool {
-        self.get(identifier).is_some()
-    }
-}
-
-/// The open list for the A* algorithm.
-///
-/// This is a priority queue that must sort nodes with [`AStarNodeComparator`].
-pub trait AStarOpenList<Node: AStarNode>: Reset + Extend<Node> {
-    /// Create a new empty open list.
-    fn new() -> Self;
-
-    /// Returns the number of nodes in the open list.
-    fn len(&self) -> usize;
-
-    /// Returns true if the open list is empty.
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// Add the given node to the priority queue.
-    fn push(&mut self, node: Node);
-
-    /// Removes and returns a minimum element from the priority queue.
-    ///
-    /// Returns `None` if the priority queue is empty.
-    fn pop_min(&mut self) -> Option<Node>;
 }
 
 #[derive(Debug, Default)]

@@ -36,6 +36,10 @@ pub trait AStarCost:
     fn as_primitive(&self) -> Self::CostType;
 
     fn from_primitive(value: Self::CostType) -> Self;
+
+    fn as_usize(&self) -> usize;
+
+    fn from_usize(value: usize) -> Self;
 }
 
 macro_rules! primitive_cost {
@@ -62,6 +66,14 @@ macro_rules! primitive_cost {
 
             fn from_primitive(value: Self::CostType) -> Self {
                 Self(value)
+            }
+
+            fn as_usize(&self) -> usize {
+                self.as_primitive().try_into().unwrap()
+            }
+
+            fn from_usize(value: usize) -> Self {
+                Self::from_primitive(value.try_into().unwrap())
             }
         }
 
@@ -187,6 +199,14 @@ impl<A: AStarCost, B: AStarCost> AStarCost for OrderedPairCost<A, B> {
 
     fn from_primitive(value: Self::CostType) -> Self {
         Self(A::from_primitive(value), B::zero())
+    }
+
+    fn as_usize(&self) -> usize {
+        self.0.as_usize()
+    }
+
+    fn from_usize(value: usize) -> Self {
+        Self(A::from_usize(value), B::zero())
     }
 }
 
