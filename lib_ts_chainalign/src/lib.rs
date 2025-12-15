@@ -1,3 +1,5 @@
+#![allow(rustdoc::redundant_explicit_links)]
+
 use compact_genome::interface::alphabet::Alphabet;
 use generic_a_star::cost::U32Cost;
 use lib_tsalign::a_star_aligner::{
