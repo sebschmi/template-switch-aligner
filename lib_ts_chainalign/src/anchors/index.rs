@@ -3,7 +3,7 @@ use std::{
     ops::{Add, Sub},
 };
 
-use num_traits::Zero;
+use num_traits::{CheckedSub, Zero};
 
 type IndexType = u32;
 
@@ -57,6 +57,12 @@ impl Sub<IndexType> for AnchorIndex {
 
     fn sub(self, rhs: IndexType) -> Self::Output {
         self - Self::from(rhs)
+    }
+}
+
+impl CheckedSub for AnchorIndex {
+    fn checked_sub(&self, v: &Self) -> Option<Self> {
+        self.0.checked_sub(v.0).map(Self)
     }
 }
 

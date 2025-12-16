@@ -9,6 +9,7 @@ use compact_genome::{
 };
 use generic_a_star::{
     AStar, AStarResult,
+    closed_lists::AStarClosedList,
     comparator::AStarNodeComparator,
     cost::AStarCost,
     open_lists::{AStarOpenList, linear_heap::LinearHeap},
@@ -32,7 +33,7 @@ use crate::{
         Alignment, AlignmentType, coordinates::AlignmentCoordinates, sequences::AlignmentSequences,
     },
     anchors::Anchors,
-    chain_align::chainer::{Context, Identifier, Node},
+    chain_align::chainer::{Context, Identifier, Node, closed_list::ChainerClosedList},
     chaining_cost_function::ChainingCostFunction,
     costs::AlignmentCosts,
     exact_chaining::{
@@ -49,8 +50,20 @@ pub struct AlignmentParameters {
     /// At most `max_successors` will be generated at a time, but at least all with minimum chaining cost.
     pub max_successors: usize,
 
+    /// The closed list type to use for chaining.
+    pub closed_list: ChainingClosedList,
+
     /// The open list type to use for chaining.
     pub open_list: ChainingOpenList,
+}
+
+/// The closed list type to use for chaining.
+#[derive(Debug, Clone, ValueEnum)]
+pub enum ChainingClosedList {
+    /// Use [`HashMap`](std::collections::HashMap) as closed list.
+    StdHeap,
+    /// Use [`ChainerClosedList`](crate::chain_align::chainer::closed_list::ChainerClosedList) as closed list.
+    Special,
 }
 
 /// The open list type to use for chaining.
@@ -76,7 +89,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
     match parameters.open_list {
         ChainingOpenList::StdHeap => {
-            actually_align::<AlphabetType, _, BinaryHeap<Node<Cost>, AStarNodeComparator>>(
+            choose_closed_list::<AlphabetType, _, BinaryHeap<Node<Cost>, AStarNodeComparator>>(
                 sequences,
                 start,
                 end,
@@ -88,7 +101,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
                 chaining_cost_function,
             )
         }
-        ChainingOpenList::LinearHeap => actually_align::<AlphabetType, _, LinearHeap<_>>(
+        ChainingOpenList::LinearHeap => choose_closed_list::<AlphabetType, _, LinearHeap<_>>(
             sequences,
             start,
             end,
@@ -103,7 +116,58 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
 }
 
 #[expect(clippy::too_many_arguments)]
-fn actually_align<AlphabetType: Alphabet, Cost: AStarCost, OpenList: AStarOpenList<Node<Cost>>>(
+pub fn choose_closed_list<
+    AlphabetType: Alphabet,
+    Cost: AStarCost,
+    OpenList: AStarOpenList<Node<Cost>>,
+>(
+    sequences: &AlignmentSequences,
+    start: AlignmentCoordinates,
+    end: AlignmentCoordinates,
+    parameters: &AlignmentParameters,
+    alignment_costs: &AlignmentCosts<Cost>,
+    rc_fn: &dyn Fn(u8) -> u8,
+    max_match_run: u32,
+    anchors: &Anchors,
+    chaining_cost_function: &mut ChainingCostFunction<Cost>,
+) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
+    match parameters.closed_list {
+        ChainingClosedList::StdHeap => {
+            actually_align::<AlphabetType, _, FxHashMapSeed<_, _>, OpenList>(
+                sequences,
+                start,
+                end,
+                parameters,
+                alignment_costs,
+                rc_fn,
+                max_match_run,
+                anchors,
+                chaining_cost_function,
+            )
+        }
+        ChainingClosedList::Special => {
+            actually_align::<AlphabetType, _, ChainerClosedList<_>, OpenList>(
+                sequences,
+                start,
+                end,
+                parameters,
+                alignment_costs,
+                rc_fn,
+                max_match_run,
+                anchors,
+                chaining_cost_function,
+            )
+        }
+    }
+}
+
+#[expect(clippy::too_many_arguments)]
+fn actually_align<
+    AlphabetType: Alphabet,
+    Cost: AStarCost,
+    ClosedList: AStarClosedList<Identifier, Node<Cost>>,
+    OpenList: AStarOpenList<Node<Cost>>,
+>(
     sequences: &AlignmentSequences,
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
@@ -129,7 +193,7 @@ fn actually_align<AlphabetType: Alphabet, Cost: AStarCost, OpenList: AStarOpenLi
         k,
         parameters.max_successors,
     );
-    let mut astar = AStar::<_, FxHashMapSeed<_, _>, OpenList>::new(context);
+    let mut astar = AStar::<_, ClosedList, OpenList>::new(context);
     let mut chaining_execution_count = 0;
     let mut current_lower_bound = Cost::zero();
     let mut current_upper_bound = Cost::max_value();

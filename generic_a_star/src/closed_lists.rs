@@ -17,8 +17,9 @@ pub trait AStarClosedList<Identifier: AStarIdentifier, Node: AStarNode>: Reset {
 
     /// Insert a node with the given identifier into the closed list.
     ///
-    /// If there was a node previously mapped to this identifier, then it is returned.
-    /// Otherwise, `None` is returned.
+    /// If there is no node mapped to the given identifier, then `None` is returned.
+    /// Otherwise, if the currently mapped node is better than the inserted node, then the inserted node is returned.
+    /// And if the currently mapped node is worse than the inserted node, then the currently mapped node is replaced and returned.
     fn insert(&mut self, identifier: Identifier, node: Node) -> Option<Node>;
 
     /// Return a reference to the node specified by `identifier`.

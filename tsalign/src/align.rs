@@ -24,7 +24,7 @@ use compact_genome::{
         sequence_store::SequenceStore,
     },
 };
-use lib_ts_chainalign::chain_align::ChainingOpenList;
+use lib_ts_chainalign::chain_align::{ChainingClosedList, ChainingOpenList};
 use lib_tsalign::{
     a_star_aligner::{
         alignment_geometry::{AlignmentCoordinates, AlignmentRange},
@@ -116,6 +116,12 @@ pub struct Cli {
     /// This applies only to tschainalign.
     #[clap(long, default_value = "5")]
     max_chaining_successors: usize,
+
+    /// The closed list type to use for chaining.
+    ///
+    /// This applies only to tschainalign.
+    #[clap(long, default_value = "special")]
+    chaining_closed_list: ChainingClosedList,
 
     /// The open list type to use for chaining.
     ///
