@@ -475,6 +475,10 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
     fn memory_limit(&self) -> Option<usize> {
         None
     }
+
+    fn is_label_setting(&self) -> bool {
+        false
+    }
 }
 
 /// Generate successors for a primary node.
@@ -601,6 +605,18 @@ impl Identifier {
             | Identifier::SecondaryToPrimary { offset, .. } => *offset = Zero::zero(),
         }
         self
+    }
+
+    pub fn offset(&self) -> AnchorIndex {
+        match self {
+            Identifier::Start | Identifier::End => Zero::zero(),
+            Identifier::StartToPrimary { offset }
+            | Identifier::StartToSecondary { offset, .. }
+            | Identifier::PrimaryToPrimary { offset, .. }
+            | Identifier::PrimaryToSecondary { offset, .. }
+            | Identifier::SecondaryToSecondary { offset, .. }
+            | Identifier::SecondaryToPrimary { offset, .. } => *offset,
+        }
     }
 }
 

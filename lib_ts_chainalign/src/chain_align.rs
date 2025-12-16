@@ -165,7 +165,7 @@ pub fn choose_closed_list<
 fn actually_align<
     AlphabetType: Alphabet,
     Cost: AStarCost,
-    ClosedList: AStarClosedList<Identifier, Node<Cost>>,
+    ClosedList: AStarClosedList<Node<Cost>>,
     OpenList: AStarOpenList<Node<Cost>>,
 >(
     sequences: &AlignmentSequences,

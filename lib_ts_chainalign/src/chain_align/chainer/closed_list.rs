@@ -1,6 +1,6 @@
-use std::iter;
+use std::{cmp::Ordering, iter};
 
-use generic_a_star::{closed_lists::AStarClosedList, cost::AStarCost, reset::Reset};
+use generic_a_star::{AStarNode, closed_lists::AStarClosedList, cost::AStarCost, reset::Reset};
 use itertools::Itertools;
 use num_traits::CheckedSub;
 use rustc_hash::{FxHashMapSeed, FxSeededState};
@@ -26,7 +26,7 @@ pub struct ChainerClosedList<Cost> {
     len: usize,
 }
 
-impl<Cost: AStarCost> AStarClosedList<Identifier, Node<Cost>> for ChainerClosedList<Cost> {
+impl<Cost: AStarCost> AStarClosedList<Node<Cost>> for ChainerClosedList<Cost> {
     fn new() -> Self {
         Self {
             start: None,
@@ -73,10 +73,15 @@ impl<Cost: AStarCost> AStarClosedList<Identifier, Node<Cost>> for ChainerClosedL
                 self.len += 1;
                 None
             }
-            Identifier::StartToPrimary { .. } => {
+            Identifier::StartToPrimary { offset } => {
                 let current = &mut self.start_to_primary;
                 if let Some(current) = current.as_mut() {
-                    if node.offset_zero_cost < current.offset_zero_cost {
+                    if Ordering::Less
+                        == node
+                            .offset_zero_cost
+                            .cmp(&current.offset_zero_cost)
+                            .then(current.identifier.offset().cmp(&offset))
+                    {
                         // Insert better node.
                         let previous = *current;
                         *current = node;
@@ -91,10 +96,15 @@ impl<Cost: AStarCost> AStarClosedList<Identifier, Node<Cost>> for ChainerClosedL
                     None
                 }
             }
-            Identifier::StartToSecondary { ts_kind, .. } => {
+            Identifier::StartToSecondary { ts_kind, offset } => {
                 let current = &mut self.start_to_secondary[ts_kind.index()];
                 if let Some(current) = current.as_mut() {
-                    if node.offset_zero_cost < current.offset_zero_cost {
+                    if Ordering::Less
+                        == node
+                            .offset_zero_cost
+                            .cmp(&current.offset_zero_cost)
+                            .then(current.identifier.offset().cmp(&offset))
+                    {
                         // Insert better node.
                         let previous = *current;
                         *current = node;
@@ -109,7 +119,7 @@ impl<Cost: AStarCost> AStarClosedList<Identifier, Node<Cost>> for ChainerClosedL
                     None
                 }
             }
-            Identifier::PrimaryToPrimary { index, .. } => {
+            Identifier::PrimaryToPrimary { index, offset } => {
                 if let Some(missing_length) =
                     (index + 1).checked_sub(&self.primary_to_primary.len().into())
                 {
@@ -119,7 +129,12 @@ impl<Cost: AStarCost> AStarClosedList<Identifier, Node<Cost>> for ChainerClosedL
 
                 let current = &mut self.primary_to_primary[index.as_usize()];
                 if let Some(current) = current.as_mut() {
-                    if node.offset_zero_cost < current.offset_zero_cost {
+                    if Ordering::Less
+                        == node
+                            .offset_zero_cost
+                            .cmp(&current.offset_zero_cost)
+                            .then(current.identifier.offset().cmp(&offset))
+                    {
                         // Insert better node.
                         let previous = *current;
                         *current = node;
@@ -134,7 +149,11 @@ impl<Cost: AStarCost> AStarClosedList<Identifier, Node<Cost>> for ChainerClosedL
                     None
                 }
             }
-            Identifier::PrimaryToSecondary { index, ts_kind, .. } => {
+            Identifier::PrimaryToSecondary {
+                index,
+                ts_kind,
+                offset,
+            } => {
                 if let Some(missing_length) = (index + 1)
                     .checked_sub(&self.primary_to_secondary[ts_kind.index()].len().into())
                 {
@@ -144,7 +163,12 @@ impl<Cost: AStarCost> AStarClosedList<Identifier, Node<Cost>> for ChainerClosedL
 
                 let current = &mut self.primary_to_secondary[ts_kind.index()][index.as_usize()];
                 if let Some(current) = current.as_mut() {
-                    if node.offset_zero_cost < current.offset_zero_cost {
+                    if Ordering::Less
+                        == node
+                            .offset_zero_cost
+                            .cmp(&current.offset_zero_cost)
+                            .then(current.identifier.offset().cmp(&offset))
+                    {
                         // Insert better node.
                         let previous = *current;
                         *current = node;
@@ -163,13 +187,18 @@ impl<Cost: AStarCost> AStarClosedList<Identifier, Node<Cost>> for ChainerClosedL
                 index,
                 ts_kind,
                 first_secondary_index,
-                ..
+                offset,
             } => {
                 let mut result = None;
                 self.secondary_to_secondary[ts_kind.index()]
                     .entry((index, first_secondary_index))
                     .and_modify(|current| {
-                        if node.offset_zero_cost < current.offset_zero_cost {
+                        if Ordering::Less
+                            == node
+                                .offset_zero_cost
+                                .cmp(&current.offset_zero_cost)
+                                .then(current.identifier.offset().cmp(&offset))
+                        {
                             // Insert better node.
                             result = Some(*current);
                             *current = node;
@@ -189,13 +218,18 @@ impl<Cost: AStarCost> AStarClosedList<Identifier, Node<Cost>> for ChainerClosedL
                 index,
                 ts_kind,
                 first_secondary_index,
-                ..
+                offset,
             } => {
                 let mut result = None;
                 self.secondary_to_primary[ts_kind.index()]
                     .entry((index, first_secondary_index))
                     .and_modify(|current| {
-                        if node.offset_zero_cost < current.offset_zero_cost {
+                        if Ordering::Less
+                            == node
+                                .offset_zero_cost
+                                .cmp(&current.offset_zero_cost)
+                                .then(current.identifier.offset().cmp(&offset))
+                        {
                             // Insert better node.
                             result = Some(*current);
                             *current = node;
@@ -235,32 +269,51 @@ impl<Cost: AStarCost> AStarClosedList<Identifier, Node<Cost>> for ChainerClosedL
     fn get(&self, identifier: &Identifier) -> Option<&Node<Cost>> {
         match identifier {
             Identifier::Start => self.start.as_ref(),
-            Identifier::StartToPrimary { .. } => self.start_to_primary.as_ref(),
-            Identifier::StartToSecondary { ts_kind, .. } => {
-                self.start_to_secondary[ts_kind.index()].as_ref()
+            Identifier::StartToPrimary { offset } => {
+                (identifier.offset() <= *offset).then_some(self.start_to_primary.as_ref())?
             }
-            Identifier::PrimaryToPrimary { index, .. } => {
-                self.primary_to_primary.get(index.as_usize())?.as_ref()
-            }
-            Identifier::PrimaryToSecondary { index, ts_kind, .. } => self.primary_to_secondary
-                [ts_kind.index()]
-            .get(index.as_usize())?
-            .as_ref(),
+            Identifier::StartToSecondary { ts_kind, offset } => (identifier.offset() <= *offset)
+                .then_some(self.start_to_secondary[ts_kind.index()].as_ref())?,
+            Identifier::PrimaryToPrimary { index, offset } => (identifier.offset() <= *offset)
+                .then_some(self.primary_to_primary.get(index.as_usize())?.as_ref())?,
+            Identifier::PrimaryToSecondary {
+                index,
+                ts_kind,
+                offset,
+            } => (identifier.offset() <= *offset).then_some(
+                self.primary_to_secondary[ts_kind.index()]
+                    .get(index.as_usize())?
+                    .as_ref(),
+            )?,
             Identifier::SecondaryToSecondary {
                 index,
                 ts_kind,
                 first_secondary_index,
-                ..
-            } => {
-                self.secondary_to_secondary[ts_kind.index()].get(&(*index, *first_secondary_index))
-            }
+                offset,
+            } => (identifier.offset() <= *offset).then_some(
+                self.secondary_to_secondary[ts_kind.index()].get(&(*index, *first_secondary_index)),
+            )?,
             Identifier::SecondaryToPrimary {
                 index,
                 ts_kind,
                 first_secondary_index,
-                ..
-            } => self.secondary_to_primary[ts_kind.index()].get(&(*index, *first_secondary_index)),
+                offset,
+            } => (identifier.offset() <= *offset).then_some(
+                self.secondary_to_primary[ts_kind.index()].get(&(*index, *first_secondary_index)),
+            )?,
             Identifier::End => self.end.as_ref(),
+        }
+    }
+
+    fn can_skip_node(&self, node: &Node<Cost>, _is_label_setting: bool) -> bool {
+        if let Some(current) = self.get(node.identifier()) {
+            Ordering::Less
+                != node
+                    .offset_zero_cost
+                    .cmp(&current.offset_zero_cost)
+                    .then(current.identifier.offset().cmp(&node.identifier.offset()))
+        } else {
+            false
         }
     }
 }

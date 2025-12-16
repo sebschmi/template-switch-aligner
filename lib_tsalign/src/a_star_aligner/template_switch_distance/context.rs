@@ -39,14 +39,7 @@ pub struct Context<
     pub config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
 
     #[allow(clippy::type_complexity)]
-    pub a_star_buffers: AStarBuffers<
-        Identifier<
-            <<Strategies as AlignmentStrategySelector>::PrimaryMatch as PrimaryMatchStrategy<
-                <Strategies as AlignmentStrategySelector>::Cost,
-            >>::IdentifierPrimaryExtraData,
-        >,
-        Box<Node<Strategies>>,
-    >,
+    pub a_star_buffers: AStarBuffers<Box<Node<Strategies>>>,
     pub memory: Memory<Strategies>,
 
     cost_limit: Option<Strategies::Cost>,

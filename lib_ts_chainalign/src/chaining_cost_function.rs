@@ -1,5 +1,6 @@
 use generic_a_star::cost::AStarCost;
 use itertools::Itertools;
+use log::debug;
 use num_traits::Zero;
 
 use crate::{
@@ -139,6 +140,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                     chaining_lower_bounds.jump_34_lower_bound(gap);
             }
         }
+
+        debug!("Initialised chaining cost function");
 
         Self {
             primary,
