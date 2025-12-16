@@ -60,8 +60,8 @@ pub struct AlignmentParameters {
 /// The closed list type to use for chaining.
 #[derive(Debug, Clone, ValueEnum)]
 pub enum ChainingClosedList {
-    /// Use [`HashMap`](std::collections::HashMap) as closed list.
-    StdHeap,
+    /// Use [`HashMap`](std::collections::HashMap) as closed list with [`FxHasher`](rustc_hash::FxHasher) as hasher.
+    FxHashMap,
     /// Use [`ChainerClosedList`](crate::chain_align::chainer::closed_list::ChainerClosedList) as closed list.
     Special,
 }
@@ -132,7 +132,7 @@ pub fn choose_closed_list<
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
     match parameters.closed_list {
-        ChainingClosedList::StdHeap => {
+        ChainingClosedList::FxHashMap => {
             actually_align::<AlphabetType, _, FxHashMapSeed<_, _>, OpenList>(
                 sequences,
                 start,
