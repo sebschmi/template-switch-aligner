@@ -1,5 +1,6 @@
 use generic_a_star::cost::AStarCost;
 use itertools::Itertools;
+use log::debug;
 use num_traits::Zero;
 
 use crate::{
@@ -139,6 +140,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                     chaining_lower_bounds.jump_34_lower_bound(gap);
             }
         }
+
+        debug!("Initialised chaining cost function");
 
         Self {
             primary,
@@ -320,7 +323,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 .set_exact(from_primary_index + 1, to_primary_index + 1);
         }
         let target = &mut self.primary[[from_primary_index + 1, to_primary_index + 1]];
-        assert!(*target <= cost);
+        assert!(
+            *target <= cost,
+            "Target is larger than cost.\ntarget: {target}; cost: {cost}; from_primary_index: {from_primary_index}; to_primary_index: {to_primary_index}; is_exact: {is_exact}"
+        );
         let result = *target < cost;
         *target = cost;
         result

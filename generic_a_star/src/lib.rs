@@ -1,7 +1,6 @@
 #![forbid(clippy::mod_module_files)]
 
 use std::{
-    cmp::Ordering,
     fmt::{Debug, Display},
     hash::Hash,
     marker::PhantomData,
@@ -9,7 +8,6 @@ use std::{
 
 use binary_heap_plus::BinaryHeap;
 use comparator::AStarNodeComparator;
-use compare::Compare;
 use cost::AStarCost;
 use extend_map::ExtendFilter;
 use num_traits::{Bounded, Zero};
@@ -133,8 +131,14 @@ pub enum AStarState<NodeIdentifier, Cost> {
 #[derive(Debug)]
 pub struct AStar<
     Context: AStarContext,
-    ClosedList: AStarClosedList<<Context::Node as AStarNode>::Identifier, Context::Node> = FxHashMapSeed<<<Context as AStarContext>::Node as AStarNode>::Identifier, <Context as AStarContext>::Node>,
-    OpenList: AStarOpenList<Context::Node> = BinaryHeap<<Context as AStarContext>::Node, AStarNodeComparator>,
+    ClosedList: AStarClosedList<Context::Node> = FxHashMapSeed<
+        <<Context as AStarContext>::Node as AStarNode>::Identifier,
+        <Context as AStarContext>::Node,
+    >,
+    OpenList: AStarOpenList<Context::Node> = BinaryHeap<
+        <Context as AStarContext>::Node,
+        AStarNodeComparator,
+    >,
 > {
     state: AStarState<<Context::Node as AStarNode>::Identifier, <Context::Node as AStarNode>::Cost>,
     context: Context,
@@ -145,14 +149,13 @@ pub struct AStar<
 
 #[derive(Debug)]
 pub struct AStarBuffers<
-    Identifier: AStarIdentifier,
     Node: AStarNode,
-    ClosedList: AStarClosedList<Identifier, Node> = FxHashMapSeed<Identifier, Node>,
+    ClosedList: AStarClosedList<Node> = FxHashMapSeed<<Node as AStarNode>::Identifier, Node>,
     OpenList: AStarOpenList<Node> = BinaryHeap<Node, AStarNodeComparator>,
 > {
     closed_list: ClosedList,
     open_list: OpenList,
-    phantom_data: PhantomData<(Identifier, Node)>,
+    phantom_data: PhantomData<Node>,
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash, Default)]
@@ -183,7 +186,7 @@ pub enum AStarResult<NodeIdentifier, Cost> {
 struct BacktrackingIterator<
     'a_star,
     Context: AStarContext,
-    ClosedList: AStarClosedList<<Context::Node as AStarNode>::Identifier, Context::Node>,
+    ClosedList: AStarClosedList<Context::Node>,
     OpenList: AStarOpenList<Context::Node>,
 > {
     a_star: &'a_star AStar<Context, ClosedList, OpenList>,
@@ -193,7 +196,7 @@ struct BacktrackingIterator<
 struct BacktrackingIteratorWithCost<
     'a_star,
     Context: AStarContext,
-    ClosedList: AStarClosedList<<Context::Node as AStarNode>::Identifier, Context::Node>,
+    ClosedList: AStarClosedList<Context::Node>,
     OpenList: AStarOpenList<Context::Node>,
 > {
     a_star: &'a_star AStar<Context, ClosedList, OpenList>,
@@ -202,7 +205,7 @@ struct BacktrackingIteratorWithCost<
 
 impl<
     Context: AStarContext,
-    ClosedList: AStarClosedList<<Context::Node as AStarNode>::Identifier, Context::Node>,
+    ClosedList: AStarClosedList<Context::Node>,
     OpenList: AStarOpenList<Context::Node>,
 > AStar<Context, ClosedList, OpenList>
 {
@@ -218,12 +221,7 @@ impl<
 
     pub fn new_with_buffers(
         context: Context,
-        mut buffers: AStarBuffers<
-            <Context::Node as AStarNode>::Identifier,
-            Context::Node,
-            ClosedList,
-            OpenList,
-        >,
+        mut buffers: AStarBuffers<Context::Node, ClosedList, OpenList>,
     ) -> Self {
         buffers.closed_list.reset();
         buffers.open_list.reset();
@@ -255,10 +253,7 @@ impl<
         self.context
     }
 
-    pub fn into_buffers(
-        self,
-    ) -> AStarBuffers<<Context::Node as AStarNode>::Identifier, Context::Node, ClosedList, OpenList>
-    {
+    pub fn into_buffers(self) -> AStarBuffers<Context::Node, ClosedList, OpenList> {
         AStarBuffers {
             closed_list: self.closed_list,
             open_list: self.open_list,
@@ -381,43 +376,12 @@ impl<
 
             last_node = Some(node.identifier().clone());
 
-            if let Some(previous_visit) = self.closed_list.get(node.identifier()) {
+            if self
+                .closed_list
+                .can_skip_node(&node, self.context.is_label_setting())
+            {
                 self.performance_counters.suboptimal_opened_nodes += 1;
-
-                if self.context.is_label_setting() {
-                    // In label-setting mode, if we have already visited the node, we now must be visiting it with a higher or equal cost.
-                    debug_assert!(
-                        previous_visit.cost() + previous_visit.a_star_lower_bound()
-                            <= node.cost() + node.a_star_lower_bound(),
-                        "Revisiting node at lower costs:\n{}",
-                        {
-                            use std::fmt::Write;
-                            let mut previous_visit = previous_visit;
-                            let mut node = &node;
-                            let mut out = String::new();
-
-                            writeln!(out, "previous_visit:").unwrap();
-                            while let Some(predecessor) = previous_visit.predecessor() {
-                                writeln!(out, "{previous_visit}").unwrap();
-                                previous_visit = self.closed_list.get(predecessor).unwrap();
-                            }
-
-                            writeln!(out, "\nnode:").unwrap();
-                            while let Some(predecessor) = node.predecessor() {
-                                writeln!(out, "{node}").unwrap();
-                                node = self.closed_list.get(predecessor).unwrap();
-                            }
-
-                            out
-                        }
-                    );
-
-                    continue;
-                } else if AStarNodeComparator.compare(&node, previous_visit) != Ordering::Greater {
-                    // If we are label-correcting, we may still find a better node later on.
-                    // Skip if equal or worse.
-                    continue;
-                }
+                continue;
             }
 
             let open_nodes_without_new_successors = self.open_list.len();
@@ -624,7 +588,7 @@ impl<NodeIdentifier: Clone, Cost> AStarResult<NodeIdentifier, Cost> {
 
 impl<
     Context: AStarContext,
-    ClosedList: AStarClosedList<<Context::Node as AStarNode>::Identifier, Context::Node>,
+    ClosedList: AStarClosedList<Context::Node>,
     OpenList: AStarOpenList<Context::Node>,
 > Iterator for BacktrackingIterator<'_, Context, ClosedList, OpenList>
 {
@@ -645,7 +609,7 @@ impl<
 
 impl<
     Context: AStarContext,
-    ClosedList: AStarClosedList<<Context::Node as AStarNode>::Identifier, Context::Node>,
+    ClosedList: AStarClosedList<Context::Node>,
     OpenList: AStarOpenList<Context::Node>,
 > Iterator for BacktrackingIteratorWithCost<'_, Context, ClosedList, OpenList>
 {
@@ -668,12 +632,8 @@ impl<
     }
 }
 
-impl<
-    Identifier: AStarIdentifier,
-    Node: AStarNode,
-    ClosedList: AStarClosedList<Identifier, Node>,
-    OpenList: AStarOpenList<Node>,
-> Default for AStarBuffers<Identifier, Node, ClosedList, OpenList>
+impl<Node: AStarNode, ClosedList: AStarClosedList<Node>, OpenList: AStarOpenList<Node>> Default
+    for AStarBuffers<Node, ClosedList, OpenList>
 {
     fn default() -> Self {
         Self {

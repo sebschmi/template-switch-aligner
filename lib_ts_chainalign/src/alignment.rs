@@ -61,3 +61,25 @@ impl From<Vec<AlignmentType>> for Alignment {
         alignment_types.into_iter().collect()
     }
 }
+
+impl Display for Alignment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (multiplicity, alignment_type) in &self.alignment {
+            write!(f, "{multiplicity}{alignment_type}")?;
+        }
+        Ok(())
+    }
+}
+
+impl Display for AlignmentType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AlignmentType::Match => write!(f, "M"),
+            AlignmentType::Substitution => write!(f, "S"),
+            AlignmentType::GapA => write!(f, "GA"),
+            AlignmentType::GapB => write!(f, "GB"),
+            AlignmentType::TsStart { jump, ts_kind } => write!(f, "TS{}[{jump}]", ts_kind.digits()),
+            AlignmentType::TsEnd { jump } => write!(f, "END[{jump}]"),
+        }
+    }
+}
