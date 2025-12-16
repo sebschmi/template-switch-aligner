@@ -320,7 +320,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 .set_exact(from_primary_index + 1, to_primary_index + 1);
         }
         let target = &mut self.primary[[from_primary_index + 1, to_primary_index + 1]];
-        assert!(*target <= cost, "target: {target}; cost: {cost}");
+        assert!(
+            *target <= cost,
+            "Target is larger than cost.\ntarget: {target}; cost: {cost}; from_primary_index: {from_primary_index}; to_primary_index: {to_primary_index}; is_exact: {is_exact}"
+        );
         let result = *target < cost;
         *target = cost;
         result

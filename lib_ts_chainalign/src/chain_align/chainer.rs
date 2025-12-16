@@ -105,8 +105,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
     }
 
     fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {
-        let predecessor = Some(node.identifier);
+        let predecessor = Some(node.identifier.with_offset_zero());
         let predecessor_cost = node.cost;
+        let offset_zero_cost = node.offset_zero_cost;
         let primary_end_anchor_index = self.anchors.primary_len();
 
         if DEBUG_CHAINER {
@@ -157,9 +158,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 }
                             }
 
-                            let cost = predecessor_cost.checked_add(&chaining_cost)?;
+                            let cost = offset_zero_cost.checked_add(&chaining_cost)?;
                             if DEBUG_CHAINER {
-                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                                println!("Cost: {}+{}", offset_zero_cost, cost - offset_zero_cost);
                             }
 
                             Some(generate_primary_successors(
@@ -178,9 +179,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             offset: offset + AnchorIndex::from(iter.successor_count()),
                         },
                         // Skip nodes with non-zero offset in predecessor pointers.
-                        predecessor: node.predecessor,
+                        predecessor: node.predecessor.map(Identifier::with_offset_zero),
                         cost: next_cost,
-                        offset_zero_cost: node.offset_zero_cost,
+                        offset_zero_cost,
                     }));
                 }
             }
@@ -203,9 +204,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 );
                             }
 
-                            let cost = predecessor_cost.checked_add(&chaining_cost)?;
+                            let cost = offset_zero_cost.checked_add(&chaining_cost)?;
                             if DEBUG_CHAINER {
-                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                                println!("Cost: {}+{}", offset_zero_cost, cost - offset_zero_cost);
                             }
 
                             Some(generate_secondary_successors(
@@ -227,9 +228,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             offset: offset + AnchorIndex::from(iter.successor_count()),
                         },
                         // Skip nodes with non-zero offset in predecessor pointers.
-                        predecessor: node.predecessor,
+                        predecessor: node.predecessor.map(Identifier::with_offset_zero),
                         cost: next_cost,
-                        offset_zero_cost: node.offset_zero_cost,
+                        offset_zero_cost,
                     }));
                 }
             }
@@ -255,9 +256,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 }
                             }
 
-                            let cost = predecessor_cost.checked_add(&chaining_cost)?;
+                            let cost = offset_zero_cost.checked_add(&chaining_cost)?;
                             if DEBUG_CHAINER {
-                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                                println!("Cost: {}+{}", offset_zero_cost, cost - offset_zero_cost);
                             }
 
                             Some(generate_primary_successors(
@@ -277,9 +278,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             offset: offset + AnchorIndex::from(iter.successor_count()),
                         },
                         // Skip nodes with non-zero offset in predecessor pointers.
-                        predecessor: node.predecessor,
+                        predecessor: node.predecessor.map(Identifier::with_offset_zero),
                         cost: next_cost,
-                        offset_zero_cost: node.offset_zero_cost,
+                        offset_zero_cost,
                     }));
                 }
             }
@@ -306,9 +307,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 );
                             }
 
-                            let cost = predecessor_cost.checked_add(&chaining_cost)?;
+                            let cost = offset_zero_cost.checked_add(&chaining_cost)?;
                             if DEBUG_CHAINER {
-                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                                println!("Cost: {}+{}", offset_zero_cost, cost - offset_zero_cost);
                             }
 
                             Some(generate_secondary_successors(
@@ -331,9 +332,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             offset: offset + AnchorIndex::from(iter.successor_count()),
                         },
                         // Skip nodes with non-zero offset in predecessor pointers.
-                        predecessor: node.predecessor,
+                        predecessor: node.predecessor.map(Identifier::with_offset_zero),
                         cost: next_cost,
-                        offset_zero_cost: node.offset_zero_cost,
+                        offset_zero_cost,
                     }));
                 }
             }
@@ -361,9 +362,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 );
                             }
 
-                            let cost = predecessor_cost.checked_add(&chaining_cost)?;
+                            let cost = offset_zero_cost.checked_add(&chaining_cost)?;
                             if DEBUG_CHAINER {
-                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                                println!("Cost: {}+{}", offset_zero_cost, cost - offset_zero_cost);
                             }
 
                             let first_anchor =
@@ -395,9 +396,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             offset: offset + AnchorIndex::from(iter.successor_count()),
                         },
                         // Skip nodes with non-zero offset in predecessor pointers.
-                        predecessor: node.predecessor,
+                        predecessor: node.predecessor.map(Identifier::with_offset_zero),
                         cost: next_cost,
-                        offset_zero_cost: node.offset_zero_cost,
+                        offset_zero_cost,
                     }));
                 }
             }
@@ -428,9 +429,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                                 }
                             }
 
-                            let cost = predecessor_cost.checked_add(&chaining_cost)?;
+                            let cost = offset_zero_cost.checked_add(&chaining_cost)?;
                             if DEBUG_CHAINER {
-                                println!("Cost: {}+{}", predecessor_cost, cost - predecessor_cost);
+                                println!("Cost: {}+{}", offset_zero_cost, cost - offset_zero_cost);
                             }
 
                             Some(generate_primary_successors(
@@ -452,9 +453,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             offset: offset + AnchorIndex::from(iter.successor_count()),
                         },
                         // Skip nodes with non-zero offset in predecessor pointers.
-                        predecessor: node.predecessor,
+                        predecessor: node.predecessor.map(Identifier::with_offset_zero),
                         cost: next_cost,
-                        offset_zero_cost: node.offset_zero_cost,
+                        offset_zero_cost,
                     }));
                 }
             }
@@ -585,6 +586,21 @@ impl<Cost: AStarCost> AStarNode for Node<Cost> {
 
     fn predecessor_edge_type(&self) -> Option<Self::EdgeType> {
         self.predecessor
+    }
+}
+
+impl Identifier {
+    pub fn with_offset_zero(mut self) -> Self {
+        match &mut self {
+            Identifier::Start | Identifier::End => { /* Nothing to do */ }
+            Identifier::StartToPrimary { offset }
+            | Identifier::StartToSecondary { offset, .. }
+            | Identifier::PrimaryToPrimary { offset, .. }
+            | Identifier::PrimaryToSecondary { offset, .. }
+            | Identifier::SecondaryToSecondary { offset, .. }
+            | Identifier::SecondaryToPrimary { offset, .. } => *offset = Zero::zero(),
+        }
+        self
     }
 }
 

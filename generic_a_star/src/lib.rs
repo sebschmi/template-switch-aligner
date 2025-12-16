@@ -389,7 +389,9 @@ impl<
                     debug_assert!(
                         previous_visit.cost() + previous_visit.a_star_lower_bound()
                             <= node.cost() + node.a_star_lower_bound(),
-                        "Revisiting node at lower costs:\n{}",
+                        "Revisiting node {} (previous: {}) at lower costs:\n{}",
+                        node,
+                        previous_visit,
                         {
                             use std::fmt::Write;
                             let mut previous_visit = previous_visit;

@@ -62,7 +62,7 @@ pub struct AlignmentParameters {
 pub enum ChainingClosedList {
     /// Use [`HashMap`](std::collections::HashMap) as closed list with [`FxHasher`](rustc_hash::FxHasher) as hasher.
     FxHashMap,
-    /// Use [`ChainerClosedList`](crate::chain_align::chainer::closed_list::ChainerClosedList) as closed list.
+    /// Use a special-purpose closed list.
     Special,
 }
 
@@ -676,6 +676,17 @@ fn evaluate_chain<Cost: AStarCost>(
                         anchors.primary(to_index),
                         alignment.cost()
                     );
+
+                    if end.primary_ordinate_a().unwrap() - start.primary_ordinate_a().unwrap()
+                        < max_match_run.try_into().unwrap()
+                    {
+                        assert!(
+                            !alignment.cost().is_zero(),
+                            "Alignment is longer than max_match_run, but has zero cost: {}",
+                            alignment.alignment()
+                        );
+                    }
+
                     if !final_evaluation {
                         chaining_cost_function.update_primary(
                             from_index,
