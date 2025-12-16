@@ -671,14 +671,14 @@ fn evaluate_chain<Cost: AStarCost>(
                         max_match_run,
                     );
                     trace!(
-                        "Aligning from P{from_index}{} to P{to_index}{} costs {}",
+                        "Aligning from P{from_index}{} to P{to_index}{} (from {start} to {end}) costs {}",
                         anchors.primary(from_index),
                         anchors.primary(to_index),
                         alignment.cost()
                     );
 
                     if end.primary_ordinate_a().unwrap() - start.primary_ordinate_a().unwrap()
-                        < max_match_run.try_into().unwrap()
+                        > usize::try_from(max_match_run).unwrap()
                     {
                         assert!(
                             !alignment.cost().is_zero(),
