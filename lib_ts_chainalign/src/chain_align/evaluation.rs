@@ -22,6 +22,10 @@ pub struct ChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     secondary_aligner: GapAffineAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
     ts_12_jump_aligner: Ts12JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
     ts_34_jump_aligner: Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
+
+    total_gaps: u64,
+    total_gap_fillings: u64,
+    total_redundant_gap_fillings: u64,
 }
 
 impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
@@ -58,6 +62,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                 rc_fn,
                 max_match_run,
             ),
+
+            total_gaps: 0,
+            total_gap_fillings: 0,
+            total_redundant_gap_fillings: 0,
         }
     }
 
@@ -70,8 +78,6 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         end: AlignmentCoordinates,
         max_match_run: u32,
         chaining_cost_function: &mut ChainingCostFunction<Cost>,
-        total_chain_gap_fillings: &mut u64,
-        total_chain_gaps: &mut u64,
         final_evaluation: bool,
     ) -> (Cost, Vec<Alignment>) {
         let k = usize::try_from(max_match_run + 1).unwrap();
@@ -100,13 +106,13 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                 break;
             };
             current_from_index = to_anchor_index;
-            *total_chain_gaps += 1;
+            self.total_gaps += 1;
 
             match (from_anchor, to_anchor) {
                 (Identifier::Start, Identifier::End) => {
                     if final_evaluation || !chaining_cost_function.is_start_to_end_exact() {
                         let (cost, alignment) = self.primary_aligner.align(start, end);
-                        *total_chain_gap_fillings += 1;
+                        self.total_gap_fillings += 1;
                         trace!("Aligning from start to end costs {}", cost);
                         if !final_evaluation {
                             chaining_cost_function.update_start_to_end(cost, true);
@@ -125,7 +131,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         || !chaining_cost_function.is_primary_from_start_exact(index)
                     {
                         let (cost, alignment) = self.primary_aligner.align(start, end);
-                        *total_chain_gap_fillings += 1;
+                        self.total_gap_fillings += 1;
                         trace!(
                             "Aligning from start to P{index}{} costs {}",
                             anchors.primary(index),
@@ -148,7 +154,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         || !chaining_cost_function.is_jump_12_from_start_exact(index, ts_kind)
                     {
                         let (cost, alignment) = self.ts_12_jump_aligner.align(start, end);
-                        *total_chain_gap_fillings += 1;
+                        self.total_gap_fillings += 1;
                         trace!(
                             "Aligning from start to S{}[{index}]{} costs {}",
                             ts_kind.digits(),
@@ -168,7 +174,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                     let start = anchors.primary(index).end(k);
                     if final_evaluation || !chaining_cost_function.is_primary_to_end_exact(index) {
                         let (cost, alignment) = self.primary_aligner.align(start, end);
-                        *total_chain_gap_fillings += 1;
+                        self.total_gap_fillings += 1;
                         trace!(
                             "Aligning from P{index}{} to end costs {}",
                             anchors.primary(index),
@@ -188,7 +194,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         || !chaining_cost_function.is_jump_34_to_end_exact(index, ts_kind)
                     {
                         let (cost, alignment) = self.ts_34_jump_aligner.align(start, end);
-                        *total_chain_gap_fillings += 1;
+                        self.total_gap_fillings += 1;
                         trace!(
                             "Aligning from S{}[{index}]{} to end costs {}",
                             ts_kind.digits(),
@@ -229,7 +235,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         || !chaining_cost_function.is_primary_exact(from_index, to_index)
                     {
                         let (cost, alignment) = self.primary_aligner.align(start, end);
-                        *total_chain_gap_fillings += 1;
+                        self.total_gap_fillings += 1;
                         trace!(
                             "Aligning from P{from_index}{} to P{to_index}{} (from {start} to {end}) costs {}",
                             anchors.primary(from_index),
@@ -276,7 +282,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         || !chaining_cost_function.is_jump_12_exact(from_index, to_index, ts_kind)
                     {
                         let (cost, alignment) = self.ts_12_jump_aligner.align(start, end);
-                        *total_chain_gap_fillings += 1;
+                        self.total_gap_fillings += 1;
                         if !final_evaluation {
                             chaining_cost_function
                                 .update_jump_12(from_index, to_index, ts_kind, cost, true);
@@ -325,7 +331,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         || !chaining_cost_function.is_secondary_exact(from_index, to_index, ts_kind)
                     {
                         let (cost, alignment) = self.secondary_aligner.align(start, end);
-                        *total_chain_gap_fillings += 1;
+                        self.total_gap_fillings += 1;
                         trace!(
                             "Aligning from S{}[{from_index}]{} to S{}[{to_index}]{} costs {}",
                             ts_kind.digits(),
@@ -363,7 +369,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         || !chaining_cost_function.is_jump_34_exact(from_index, to_index, ts_kind)
                     {
                         let (cost, alignment) = self.ts_34_jump_aligner.align(start, end);
-                        *total_chain_gap_fillings += 1;
+                        self.total_gap_fillings += 1;
                         trace!(
                             "Aligning from S{}[{from_index}]{} to P{to_index}{} (S{} to P{}) costs {}",
                             ts_kind.digits(),
@@ -403,5 +409,17 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         }
 
         (current_upper_bound, alignments)
+    }
+
+    pub fn total_gaps(&self) -> u64 {
+        self.total_gaps
+    }
+
+    pub fn total_gap_fillings(&self) -> u64 {
+        self.total_gap_fillings
+    }
+
+    pub fn total_redundant_gap_fillings(&self) -> u64 {
+        self.total_redundant_gap_fillings
     }
 }

@@ -194,8 +194,6 @@ fn actually_align<
     let mut chain_evaluator = ChainEvaluator::new(sequences, alignment_costs, rc_fn, max_match_run);
 
     let mut chaining_execution_count = 0;
-    let mut total_chain_gap_fillings = 0;
-    let mut total_chain_gaps = 0;
     let mut current_lower_bound = Cost::zero();
     let mut current_upper_bound = Cost::max_value();
     let mut total_chaining_opened_nodes = 0;
@@ -312,8 +310,6 @@ fn actually_align<
             end,
             max_match_run,
             astar.context_mut().chaining_cost_function,
-            &mut total_chain_gap_fillings,
-            &mut total_chain_gaps,
             false,
         );
         let cost_increased = evaluated_cost > current_lower_bound;
@@ -333,15 +329,19 @@ fn actually_align<
     debug!("Evaluation took {:.1}s", evaluation_duration.as_secs_f64());
     debug!("Chaining opened nodes: {total_chaining_opened_nodes}");
     debug!(
-        "Chaining suboptimal openend nodes: {} ({:.0}%)",
+        "Chaining suboptimal openend nodes: {} ({:.0}% of opened nodes)",
         total_chaining_suboptimal_opened_nodes,
-        total_chaining_suboptimal_opened_nodes as f64 / total_chaining_opened_nodes as f64 * 100.0,
+        total_chaining_suboptimal_opened_nodes as f64 / total_chaining_opened_nodes as f64 * 1e2,
     );
     debug!("Chaining closed nodes: {total_chaining_closed_nodes}");
-    debug!("Total chain gaps: {total_chain_gaps}");
+    debug!("Total chain gaps: {}", chain_evaluator.total_gaps());
     debug!(
-        "Total chain gap fillings: {total_chain_gap_fillings} ({:.2}x)",
-        total_chain_gap_fillings as f64 / total_chain_gaps as f64
+        "Total chain gap fillings: {} ({:.2}x total gaps, {:.0}% redundant)",
+        chain_evaluator.total_gap_fillings(),
+        chain_evaluator.total_gap_fillings() as f64 / chain_evaluator.total_gaps() as f64,
+        chain_evaluator.total_redundant_gap_fillings() as f64
+            / chain_evaluator.total_gap_fillings() as f64
+            * 1e2,
     );
 
     let mut tsalign_alignment =
@@ -357,8 +357,6 @@ fn actually_align<
         end,
         max_match_run,
         astar.context_mut().chaining_cost_function,
-        &mut 0,
-        &mut 0,
         true,
     );
     assert_eq!(evaluated_cost, result.cost());
