@@ -230,7 +230,7 @@ fn test_max_match_run_2() {
 
 #[test]
 fn test_secondary_12() {
-    let seq1 = b"GAAAAAAAAG".to_vec();
+    let seq1 = b"GAAAAAAATG".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(seq1, seq2);
     let cost_table =
@@ -241,13 +241,16 @@ fn test_secondary_12() {
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
 
-    assert_eq!(alignment.alignment, vec![(8, AlignmentType::Match),]);
-    assert_eq!(cost, U32Cost::from(0u8));
+    assert_eq!(
+        alignment.alignment,
+        vec![(1, AlignmentType::Substitution), (7, AlignmentType::Match)]
+    );
+    assert_eq!(cost, U32Cost::from(2u8));
 }
 
 #[test]
 fn test_secondary_21() {
-    let seq1 = b"GAAAAAAAAG".to_vec();
+    let seq1 = b"GAAAAAAATG".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(seq1, seq2);
     let cost_table =
@@ -258,6 +261,9 @@ fn test_secondary_21() {
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
     let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
 
-    assert_eq!(alignment.alignment, vec![(8, AlignmentType::Match),]);
-    assert_eq!(cost, U32Cost::from(0u8));
+    assert_eq!(
+        alignment.alignment,
+        vec![(7, AlignmentType::Match), (1, AlignmentType::Substitution)]
+    );
+    assert_eq!(cost, U32Cost::from(2u8));
 }
