@@ -718,4 +718,33 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
     }
+
+    pub fn update_additional_34_jump_targets(
+        &mut self,
+        from_secondary_index: AnchorIndex,
+        additional_targets: &mut [(PrimaryAnchor, Cost)],
+        ts_kind: TsKind,
+        anchors: &Anchors,
+        total_redundant_gap_fillings: &mut u64,
+    ) {
+        additional_targets.sort_unstable();
+        for (to_anchor_index, cost) in anchors
+            .primary_anchor_to_index_iter(additional_targets.iter().map(|(anchor, _)| *anchor))
+            .zip(additional_targets.iter().map(|(_, cost)| *cost))
+        {
+            let Some(to_primary_index) = to_anchor_index else {
+                continue;
+            };
+
+            if self.is_jump_34_exact(from_secondary_index, to_primary_index, ts_kind) {
+                *total_redundant_gap_fillings += 1;
+                debug_assert_eq!(
+                    self.jump_34(from_secondary_index, to_primary_index, ts_kind),
+                    cost,
+                );
+            } else {
+                self.update_jump_34(from_secondary_index, to_primary_index, ts_kind, cost, true);
+            }
+        }
+    }
 }

@@ -83,7 +83,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             a_star
                 .iter_closed_nodes()
                 .filter(|node| {
-                    node.identifier.coordinates().is_secondary() && node.identifier.has_non_match()
+                    node.identifier.coordinates().is_secondary()
+                        && (node.identifier.has_non_match() || !enforce_non_match)
                 })
                 .map(|node| {
                     (
