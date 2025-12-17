@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, time::Instant};
 
 use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
 use log::{info, trace};
@@ -68,6 +68,8 @@ impl Anchors {
         k: u32,
         rc_fn: &dyn Fn(u8) -> u8,
     ) -> Self {
+        let start_time = Instant::now();
+
         let k = usize::try_from(k).unwrap();
         let s1 = sequences.seq1();
         let s2 = sequences.seq2();
@@ -157,14 +159,18 @@ impl Anchors {
             });
         }
 
+        let end_time = Instant::now();
+        let duration = end_time - start_time;
+
         info!(
-            "Found {} anchors ({} + {} + {} + {} + {})",
+            "Found {} anchors ({} + {} + {} + {} + {}) in {:.0}ms",
             primary.len() + secondaries.iter().map(Vec::len).sum::<usize>(),
             primary.len(),
             secondaries[0].len(),
             secondaries[1].len(),
             secondaries[2].len(),
             secondaries[3].len(),
+            duration.as_secs_f64() * 1e3,
         );
 
         Self {
