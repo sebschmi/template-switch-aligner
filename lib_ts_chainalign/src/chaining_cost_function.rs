@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use generic_a_star::cost::AStarCost;
 use itertools::Itertools;
 use log::debug;
@@ -26,6 +28,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
     ) -> Self {
+        let start_time = Instant::now();
+
         let k = usize::try_from(chaining_lower_bounds.max_match_run() + 1).unwrap();
         let primary_anchor_amount = anchors.primary_len() + 2;
         let primary_start_anchor_index = AnchorIndex::zero();
@@ -141,7 +145,12 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
-        debug!("Initialised chaining cost function");
+        let end_time = Instant::now();
+        let duration = end_time - start_time;
+        debug!(
+            "Initialising chaining cost function took {:.0}ms",
+            duration.as_secs_f64() * 1000.0
+        );
 
         Self {
             primary,
