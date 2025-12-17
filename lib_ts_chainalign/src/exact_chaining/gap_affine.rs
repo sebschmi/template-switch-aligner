@@ -2,6 +2,7 @@ use generic_a_star::{AStar, AStarBuffers, AStarResult, cost::AStarCost};
 
 use crate::{
     alignment::{Alignment, coordinates::AlignmentCoordinates, sequences::AlignmentSequences},
+    anchors::{primary::PrimaryAnchor, secondary::SecondaryAnchor},
     costs::GapAffineCosts,
     exact_chaining::gap_affine::algo::{Context, Node},
 };
@@ -40,6 +41,8 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         &mut self,
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
+        additional_primary_targets_output: &mut impl Extend<(PrimaryAnchor, Cost)>,
+        additional_secondary_targets_output: &mut impl Extend<(SecondaryAnchor, Cost)>,
     ) -> (Cost, Alignment) {
         assert!(
             start.is_primary() && end.is_primary() || start.is_secondary() && end.is_secondary()
@@ -56,7 +59,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
 
         a_star.initialise();
-        let result = match a_star.search() {
+        let (cost, alignment) = match a_star.search() {
             AStarResult::FoundTarget { cost, .. } => {
                 let alignment = a_star.reconstruct_path().into();
                 (cost.0, alignment)
@@ -66,8 +69,31 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             AStarResult::NoTarget => (Cost::max_value(), Vec::new().into()),
         };
 
+        a_star.search_until(|_, node| node.cost > cost);
+        additional_primary_targets_output.extend(
+            a_star
+                .iter_closed_nodes()
+                .filter(|node| node.identifier.coordinates.is_primary())
+                .map(|node| {
+                    (
+                        PrimaryAnchor::new_from_start(&node.identifier.coordinates),
+                        node.cost,
+                    )
+                }),
+        );
+        additional_secondary_targets_output.extend(
+            a_star
+                .iter_closed_nodes()
+                .filter(|node| node.identifier.coordinates.is_secondary())
+                .map(|node| {
+                    (
+                        SecondaryAnchor::new_from_start(&node.identifier.coordinates),
+                        node.cost,
+                    )
+                }),
+        );
         self.a_star_buffers = Some(a_star.into_buffers());
 
-        result
+        (cost, alignment)
     }
 }

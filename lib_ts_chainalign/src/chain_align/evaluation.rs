@@ -8,7 +8,7 @@ use crate::{
     alignment::{
         Alignment, AlignmentType, coordinates::AlignmentCoordinates, sequences::AlignmentSequences,
     },
-    anchors::Anchors,
+    anchors::{Anchors, primary::PrimaryAnchor, secondary::SecondaryAnchor},
     chain_align::chainer::Identifier,
     chaining_cost_function::ChainingCostFunction,
     costs::AlignmentCosts,
@@ -23,10 +23,15 @@ pub struct ChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     ts_12_jump_aligner: Ts12JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
     ts_34_jump_aligner: Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
 
+    additional_primary_targets_buffer: Vec<(PrimaryAnchor, Cost)>,
+    additional_secondary_targets_buffer: Vec<(SecondaryAnchor, Cost)>,
+
     total_gaps: u64,
     total_gap_fillings: u64,
     total_redundant_gap_fillings: u64,
 }
+
+struct PanicOnExtend;
 
 impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     ChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost>
@@ -63,6 +68,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                 max_match_run,
             ),
 
+            additional_primary_targets_buffer: Default::default(),
+            additional_secondary_targets_buffer: Default::default(),
+
             total_gaps: 0,
             total_gap_fillings: 0,
             total_redundant_gap_fillings: 0,
@@ -81,6 +89,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         final_evaluation: bool,
     ) -> (Cost, Vec<Alignment>) {
         let k = usize::try_from(max_match_run + 1).unwrap();
+
         let mut current_upper_bound = Cost::zero();
         let mut alignments = Vec::new();
         let mut current_from_index = 0;
@@ -111,11 +120,23 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             match (from_anchor, to_anchor) {
                 (Identifier::Start, Identifier::End) => {
                     if final_evaluation || !chaining_cost_function.is_start_to_end_exact() {
-                        let (cost, alignment) = self.primary_aligner.align(start, end);
-                        self.total_gap_fillings += 1;
+                        self.additional_primary_targets_buffer.clear();
+                        let (cost, alignment) = self.primary_aligner.align(
+                            start,
+                            end,
+                            &mut self.additional_primary_targets_buffer,
+                            &mut PanicOnExtend,
+                        );
+                        self.total_gap_fillings +=
+                            u64::try_from(self.additional_primary_targets_buffer.len()).unwrap();
                         trace!("Aligning from start to end costs {}", cost);
                         if !final_evaluation {
                             chaining_cost_function.update_start_to_end(cost, true);
+                            chaining_cost_function.update_additional_primary_targets_from_start(
+                                &mut self.additional_primary_targets_buffer,
+                                anchors,
+                                &mut self.total_redundant_gap_fillings,
+                            );
                         }
                         alignments.push(alignment);
                     }
@@ -130,8 +151,15 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                     if final_evaluation
                         || !chaining_cost_function.is_primary_from_start_exact(index)
                     {
-                        let (cost, alignment) = self.primary_aligner.align(start, end);
-                        self.total_gap_fillings += 1;
+                        self.additional_primary_targets_buffer.clear();
+                        let (cost, alignment) = self.primary_aligner.align(
+                            start,
+                            end,
+                            &mut self.additional_primary_targets_buffer,
+                            &mut PanicOnExtend,
+                        );
+                        self.total_gap_fillings +=
+                            u64::try_from(self.additional_primary_targets_buffer.len()).unwrap();
                         trace!(
                             "Aligning from start to P{index}{} costs {}",
                             anchors.primary(index),
@@ -139,6 +167,11 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         if !final_evaluation {
                             chaining_cost_function.update_primary_from_start(index, cost, true);
+                            chaining_cost_function.update_additional_primary_targets_from_start(
+                                &mut self.additional_primary_targets_buffer,
+                                anchors,
+                                &mut self.total_redundant_gap_fillings,
+                            );
                         }
                         alignments.push(alignment);
                     }
@@ -173,8 +206,15 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                 (Identifier::PrimaryToPrimary { index, .. }, Identifier::End) => {
                     let start = anchors.primary(index).end(k);
                     if final_evaluation || !chaining_cost_function.is_primary_to_end_exact(index) {
-                        let (cost, alignment) = self.primary_aligner.align(start, end);
-                        self.total_gap_fillings += 1;
+                        self.additional_primary_targets_buffer.clear();
+                        let (cost, alignment) = self.primary_aligner.align(
+                            start,
+                            end,
+                            &mut self.additional_primary_targets_buffer,
+                            &mut PanicOnExtend,
+                        );
+                        self.total_gap_fillings +=
+                            u64::try_from(self.additional_primary_targets_buffer.len()).unwrap();
                         trace!(
                             "Aligning from P{index}{} to end costs {}",
                             anchors.primary(index),
@@ -182,6 +222,12 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         if !final_evaluation {
                             chaining_cost_function.update_primary_to_end(index, cost, true);
+                            chaining_cost_function.update_additional_primary_targets(
+                                index,
+                                &mut self.additional_primary_targets_buffer,
+                                anchors,
+                                &mut self.total_redundant_gap_fillings,
+                            );
                         }
                         alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                         alignments.push(alignment);
@@ -234,8 +280,15 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                     if final_evaluation
                         || !chaining_cost_function.is_primary_exact(from_index, to_index)
                     {
-                        let (cost, alignment) = self.primary_aligner.align(start, end);
-                        self.total_gap_fillings += 1;
+                        self.additional_primary_targets_buffer.clear();
+                        let (cost, alignment) = self.primary_aligner.align(
+                            start,
+                            end,
+                            &mut self.additional_primary_targets_buffer,
+                            &mut PanicOnExtend,
+                        );
+                        self.total_gap_fillings +=
+                            u64::try_from(self.additional_primary_targets_buffer.len()).unwrap();
                         trace!(
                             "Aligning from P{from_index}{} to P{to_index}{} (from {start} to {end}) costs {}",
                             anchors.primary(from_index),
@@ -255,6 +308,12 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
 
                         if !final_evaluation {
                             chaining_cost_function.update_primary(from_index, to_index, cost, true);
+                            chaining_cost_function.update_additional_primary_targets(
+                                from_index,
+                                &mut self.additional_primary_targets_buffer,
+                                anchors,
+                                &mut self.total_redundant_gap_fillings,
+                            );
                         }
                         alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                         alignments.push(alignment);
@@ -330,8 +389,15 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                     if final_evaluation
                         || !chaining_cost_function.is_secondary_exact(from_index, to_index, ts_kind)
                     {
-                        let (cost, alignment) = self.secondary_aligner.align(start, end);
-                        self.total_gap_fillings += 1;
+                        self.additional_secondary_targets_buffer.clear();
+                        let (cost, alignment) = self.secondary_aligner.align(
+                            start,
+                            end,
+                            &mut PanicOnExtend,
+                            &mut self.additional_secondary_targets_buffer,
+                        );
+                        self.total_gap_fillings +=
+                            u64::try_from(self.additional_secondary_targets_buffer.len()).unwrap();
                         trace!(
                             "Aligning from S{}[{from_index}]{} to S{}[{to_index}]{} costs {}",
                             ts_kind.digits(),
@@ -343,6 +409,13 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         if !final_evaluation {
                             chaining_cost_function
                                 .update_secondary(from_index, to_index, ts_kind, cost, true);
+                            chaining_cost_function.update_additional_secondary_targets(
+                                from_index,
+                                &mut self.additional_secondary_targets_buffer,
+                                ts_kind,
+                                anchors,
+                                &mut self.total_redundant_gap_fillings,
+                            );
                         }
                         alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                         alignments.push(alignment);
@@ -421,5 +494,11 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
 
     pub fn total_redundant_gap_fillings(&self) -> u64 {
         self.total_redundant_gap_fillings
+    }
+}
+
+impl<T> Extend<T> for PanicOnExtend {
+    fn extend<Iter: IntoIterator<Item = T>>(&mut self, iter: Iter) {
+        assert!(iter.into_iter().next().is_none());
     }
 }

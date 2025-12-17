@@ -18,6 +18,7 @@ pub mod index;
 pub mod kmer_matches;
 pub mod kmers;
 pub mod primary;
+pub mod reverse_lookup;
 pub mod secondary;
 #[cfg(test)]
 mod tests;
@@ -161,9 +162,10 @@ impl Anchors {
         self.primary.len().into()
     }
 
-    pub fn enumerate_primaries(&self) -> impl Iterator<Item = (AnchorIndex, &PrimaryAnchor)> {
+    pub fn enumerate_primaries(&self) -> impl Iterator<Item = (AnchorIndex, PrimaryAnchor)> {
         self.primary
             .iter()
+            .copied()
             .enumerate()
             .map(|(index, anchor)| (index.into(), anchor))
     }
@@ -183,9 +185,10 @@ impl Anchors {
     pub fn enumerate_secondaries(
         &self,
         ts_kind: TsKind,
-    ) -> impl Iterator<Item = (AnchorIndex, &SecondaryAnchor)> {
+    ) -> impl Iterator<Item = (AnchorIndex, SecondaryAnchor)> {
         self.secondary_anchor_vec(ts_kind)
             .iter()
+            .copied()
             .enumerate()
             .map(|(index, anchor)| (index.into(), anchor))
     }

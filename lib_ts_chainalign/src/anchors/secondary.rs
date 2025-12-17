@@ -13,7 +13,7 @@ use crate::{
 /// This is an anchor between the ancestor in reverse direction and the descendant in forward direction.
 ///
 /// The anchor is ordered by its minimum ordinate first, then by its ancestor ordinate and finally by its descendant ordinate.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SecondaryAnchor {
     /// Ancestor right index in the forward sequence.
     pub(super) ancestor: usize,
@@ -27,6 +27,15 @@ impl SecondaryAnchor {
             ancestor,
             descendant,
         }
+    }
+
+    pub fn new_from_start(alignment_coordinates: &AlignmentCoordinates) -> Self {
+        Self::new(
+            alignment_coordinates.secondary_ordinate_ancestor().unwrap(),
+            alignment_coordinates
+                .secondary_ordinate_descendant()
+                .unwrap(),
+        )
     }
 
     pub fn start(&self, ts_kind: TsKind) -> AlignmentCoordinates {

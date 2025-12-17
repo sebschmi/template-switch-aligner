@@ -13,7 +13,7 @@ use crate::{
 /// This is an anchor between the two sequences in forward direction.
 ///
 /// The anchor is ordered by its minimum ordinate first, then by its first ordinate and finally by its second ordinate.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PrimaryAnchor {
     pub(super) seq1: usize,
     pub(super) seq2: usize,
@@ -22,6 +22,28 @@ pub struct PrimaryAnchor {
 impl PrimaryAnchor {
     pub fn new(seq1: usize, seq2: usize) -> Self {
         Self { seq1, seq2 }
+    }
+
+    pub fn new_from_start(alignment_coordinates: &AlignmentCoordinates) -> Self {
+        Self::new(
+            alignment_coordinates.primary_ordinate_a().unwrap(),
+            alignment_coordinates.primary_ordinate_b().unwrap(),
+        )
+    }
+
+    pub fn new_from_end(alignment_coordinates: &AlignmentCoordinates, k: usize) -> Self {
+        Self::new(
+            alignment_coordinates
+                .primary_ordinate_a()
+                .unwrap()
+                .checked_sub(k)
+                .unwrap(),
+            alignment_coordinates
+                .primary_ordinate_b()
+                .unwrap()
+                .checked_sub(k)
+                .unwrap(),
+        )
     }
 
     pub fn start(&self) -> AlignmentCoordinates {

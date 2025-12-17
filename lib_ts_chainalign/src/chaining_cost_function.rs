@@ -7,7 +7,7 @@ use num_traits::Zero;
 
 use crate::{
     alignment::{coordinates::AlignmentCoordinates, ts_kind::TsKind},
-    anchors::{Anchors, index::AnchorIndex},
+    anchors::{Anchors, index::AnchorIndex, primary::PrimaryAnchor, secondary::SecondaryAnchor},
     chaining_cost_function::cost_array::ChainingCostArray,
     chaining_lower_bounds::ChainingLowerBounds,
 };
@@ -54,11 +54,11 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
 
             for (to_index, to_anchor) in anchors.enumerate_primaries() {
                 let to_index = to_index + 1;
-                if let Some((gap1, gap2)) = from_anchor.chaining_gaps(to_anchor, k) {
+                if let Some((gap1, gap2)) = from_anchor.chaining_gaps(&to_anchor, k) {
                     primary[[from_index, to_index]] =
                         chaining_lower_bounds.primary_lower_bound(gap1, gap2);
                 }
-                if from_anchor.is_direct_predecessor_of(to_anchor) {
+                if from_anchor.is_direct_predecessor_of(&to_anchor) {
                     primary[[from_index, to_index]] = Cost::zero();
                 }
             }
@@ -79,11 +79,11 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         for (ts_kind, secondary) in TsKind::iter().zip(&mut secondaries) {
             for (from_index, from_anchor) in anchors.enumerate_secondaries(ts_kind) {
                 for (to_index, to_anchor) in anchors.enumerate_secondaries(ts_kind) {
-                    if let Some((gap1, gap2)) = from_anchor.chaining_gaps(to_anchor, ts_kind, k) {
+                    if let Some((gap1, gap2)) = from_anchor.chaining_gaps(&to_anchor, ts_kind, k) {
                         secondary[[from_index, to_index]] =
                             chaining_lower_bounds.secondary_lower_bound(gap1, gap2);
                     }
-                    if from_anchor.is_direct_predecessor_of(to_anchor) {
+                    if from_anchor.is_direct_predecessor_of(&to_anchor) {
                         secondary[[from_index, to_index]] = Cost::zero();
                     }
                 }
@@ -103,7 +103,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             for (from_index, from_anchor) in anchors.enumerate_primaries() {
                 let from_index = from_index + 1;
                 for (to_index, to_anchor) in anchors.enumerate_secondaries(ts_kind) {
-                    if let Some(gap) = from_anchor.chaining_jump_gap(to_anchor, ts_kind, k) {
+                    if let Some(gap) = from_anchor.chaining_jump_gap(&to_anchor, ts_kind, k) {
                         jump_12[[from_index, to_index]] =
                             chaining_lower_bounds.jump_12_lower_bound(gap);
                     }
@@ -124,7 +124,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             for (from_index, from_anchor) in anchors.enumerate_secondaries(ts_kind) {
                 for (to_index, to_anchor) in anchors.enumerate_primaries() {
                     let to_index = to_index + 1;
-                    if let Some(gap) = from_anchor.chaining_jump_gap(to_anchor, ts_kind, k) {
+                    if let Some(gap) = from_anchor.chaining_jump_gap(&to_anchor, ts_kind, k) {
                         jump_34[[from_index, to_index]] =
                             chaining_lower_bounds.jump_34_lower_bound(gap);
                     }
@@ -564,5 +564,92 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             .iter_in_cost_order_from(from_secondary_index, offset)
             .filter(|(to_primary_index, _)| *to_primary_index != AnchorIndex::zero())
             .map(|(to_primary_index, chaining_cost)| (to_primary_index - 1, chaining_cost))
+    }
+
+    pub fn update_additional_primary_targets(
+        &mut self,
+        from_primary_index: AnchorIndex,
+        additional_targets: &mut [(PrimaryAnchor, Cost)],
+        anchors: &Anchors,
+        total_redundant_gap_fillings: &mut u64,
+    ) {
+        additional_targets.sort_unstable();
+        for (to_anchor_index, cost) in anchors
+            .primary_anchor_to_index_iter(additional_targets.iter().map(|(anchor, _)| *anchor))
+            .zip(additional_targets.iter().map(|(_, cost)| *cost))
+        {
+            let Some(to_primary_index) = to_anchor_index else {
+                continue;
+            };
+
+            if self.is_primary_exact(from_primary_index, to_primary_index) {
+                *total_redundant_gap_fillings += 1;
+                debug_assert_eq!(self.primary(from_primary_index, to_primary_index), cost,);
+            } else {
+                self.update_primary(from_primary_index, to_primary_index, cost, true);
+            }
+        }
+    }
+
+    pub fn update_additional_primary_targets_from_start(
+        &mut self,
+        additional_targets: &mut [(PrimaryAnchor, Cost)],
+        anchors: &Anchors,
+        total_redundant_gap_fillings: &mut u64,
+    ) {
+        additional_targets.sort_unstable();
+        for (to_anchor_index, cost) in anchors
+            .primary_anchor_to_index_iter(additional_targets.iter().map(|(anchor, _)| *anchor))
+            .zip(additional_targets.iter().map(|(_, cost)| *cost))
+        {
+            let Some(to_primary_index) = to_anchor_index else {
+                continue;
+            };
+
+            if self.is_primary_from_start_exact(to_primary_index) {
+                *total_redundant_gap_fillings += 1;
+                debug_assert_eq!(self.primary_from_start(to_primary_index), cost,);
+            } else {
+                self.update_primary_from_start(to_primary_index, cost, true);
+            }
+        }
+    }
+
+    pub fn update_additional_secondary_targets(
+        &mut self,
+        from_secondary_index: AnchorIndex,
+        additional_targets: &mut [(SecondaryAnchor, Cost)],
+        ts_kind: TsKind,
+        anchors: &Anchors,
+        total_redundant_gap_fillings: &mut u64,
+    ) {
+        additional_targets.sort_unstable();
+        for (to_anchor_index, cost) in anchors
+            .secondary_anchor_to_index_iter(
+                additional_targets.iter().map(|(anchor, _)| *anchor),
+                ts_kind,
+            )
+            .zip(additional_targets.iter().map(|(_, cost)| *cost))
+        {
+            let Some(to_secondary_index) = to_anchor_index else {
+                continue;
+            };
+
+            if self.is_secondary_exact(from_secondary_index, to_secondary_index, ts_kind) {
+                *total_redundant_gap_fillings += 1;
+                debug_assert_eq!(
+                    self.secondary(from_secondary_index, to_secondary_index, ts_kind),
+                    cost,
+                );
+            } else {
+                self.update_secondary(
+                    from_secondary_index,
+                    to_secondary_index,
+                    ts_kind,
+                    cost,
+                    true,
+                );
+            }
+        }
     }
 }

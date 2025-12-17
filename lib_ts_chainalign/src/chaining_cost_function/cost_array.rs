@@ -33,7 +33,6 @@ impl<Cost> ChainingCostArray<Cost> {
     }
 
     pub fn set_exact(&mut self, c1: AnchorIndex, c2: AnchorIndex) {
-        debug_assert!(!self.is_exact(c1, c2));
         self.is_exact
             .set(coordinates_to_index(c1, c2, self.len), true);
     }

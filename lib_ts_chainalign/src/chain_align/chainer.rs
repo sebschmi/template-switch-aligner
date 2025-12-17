@@ -477,7 +477,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
     }
 
     fn is_label_setting(&self) -> bool {
-        false
+        true
     }
 }
 

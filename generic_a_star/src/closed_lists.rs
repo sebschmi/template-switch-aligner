@@ -35,6 +35,13 @@ pub trait AStarClosedList<Node: AStarNode>: Reset {
         self.get(identifier).is_some()
     }
 
+    /// Returns an iterator over the nodes in the closed list.
+    fn iter<'this: 'node, 'node>(
+        &'this self,
+    ) -> impl use<'this, 'node, Self, Node> + Iterator<Item = &'node Node>
+    where
+        Node: 'node;
+
     fn can_skip_node(&self, node: &Node, is_label_setting: bool) -> bool {
         if let Some(previous_visit) = self.get(node.identifier()) {
             if is_label_setting {
@@ -98,6 +105,15 @@ impl<Node: AStarNode> AStarClosedList<Node>
 
     fn get(&self, identifier: &<Node as AStarNode>::Identifier) -> Option<&Node> {
         Self::get(self, identifier)
+    }
+
+    fn iter<'this: 'node, 'node>(
+        &'this self,
+    ) -> impl use<'this, 'node, Node> + Iterator<Item = &'node Node>
+    where
+        Node: 'node,
+    {
+        Self::values(self)
     }
 }
 

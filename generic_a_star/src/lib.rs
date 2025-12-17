@@ -268,6 +268,10 @@ impl<
         self.closed_list.get(node_identifier)
     }
 
+    pub fn iter_closed_nodes(&self) -> impl Iterator<Item = &Context::Node> {
+        self.closed_list.iter()
+    }
+
     pub fn performance_counters(&self) -> &AStarPerformanceCounters {
         &self.performance_counters
     }
