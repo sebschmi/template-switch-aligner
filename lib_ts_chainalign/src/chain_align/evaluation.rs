@@ -188,8 +188,14 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                     if final_evaluation
                         || !chaining_cost_function.is_jump_12_from_start_exact(index, ts_kind)
                     {
-                        let (cost, alignment) = self.ts_12_jump_aligner.align(start, end);
-                        self.total_gap_fillings += 1;
+                        self.additional_secondary_targets_buffer.clear();
+                        let (cost, alignment) = self.ts_12_jump_aligner.align(
+                            start,
+                            end,
+                            &mut self.additional_secondary_targets_buffer,
+                        );
+                        self.total_gap_fillings +=
+                            u64::try_from(self.additional_secondary_targets_buffer.len()).unwrap();
                         trace!(
                             "Aligning from start to S{}[{index}]{} costs {}",
                             ts_kind.digits(),
@@ -199,6 +205,12 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         if !final_evaluation {
                             chaining_cost_function
                                 .update_jump_12_from_start(index, ts_kind, cost, true);
+                            chaining_cost_function.update_additional_12_jump_targets_from_start(
+                                &mut self.additional_secondary_targets_buffer,
+                                ts_kind,
+                                anchors,
+                                &mut self.total_redundant_gap_fillings,
+                            );
                         }
                         alignments.push(alignment);
                     }
@@ -345,11 +357,25 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                     if final_evaluation
                         || !chaining_cost_function.is_jump_12_exact(from_index, to_index, ts_kind)
                     {
-                        let (cost, alignment) = self.ts_12_jump_aligner.align(start, end);
+                        self.additional_primary_targets_buffer.clear();
+                        let (cost, alignment) = self.ts_12_jump_aligner.align(
+                            start,
+                            end,
+                            &mut self.additional_secondary_targets_buffer,
+                        );
+                        self.total_gap_fillings +=
+                            u64::try_from(self.additional_primary_targets_buffer.len()).unwrap();
                         self.total_gap_fillings += 1;
                         if !final_evaluation {
                             chaining_cost_function
                                 .update_jump_12(from_index, to_index, ts_kind, cost, true);
+                            chaining_cost_function.update_additional_12_jump_targets(
+                                from_index,
+                                &mut self.additional_secondary_targets_buffer,
+                                ts_kind,
+                                anchors,
+                                &mut self.total_redundant_gap_fillings,
+                            );
                         }
                         trace!(
                             "Aligning from P{from_index}{} to S{}[{to_index}]{} costs {}",

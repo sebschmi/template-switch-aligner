@@ -44,6 +44,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         assert!(start.is_secondary());
         assert!(end.is_primary());
 
+        // Do not enforce non-match, because TS geometry may cause match-only jump alignments.
+
         let context = Context::new(
             self.alignment_costs,
             self.sequences,
