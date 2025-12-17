@@ -340,8 +340,8 @@ fn actually_align<
     debug!("Chaining closed nodes: {total_chaining_closed_nodes}");
     debug!("Total chain gaps: {total_chain_gaps}");
     debug!(
-        "Total chain gap fillings: {total_chain_gap_fillings} ({:.0}%)",
-        total_chain_gap_fillings as f64 / total_chain_gaps as f64 * 100.0
+        "Total chain gap fillings: {total_chain_gap_fillings} ({:.2}x)",
+        total_chain_gap_fillings as f64 / total_chain_gaps as f64
     );
 
     let mut tsalign_alignment =
