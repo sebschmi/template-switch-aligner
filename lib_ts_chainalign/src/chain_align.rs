@@ -195,6 +195,8 @@ fn actually_align<
     );
     let mut astar = AStar::<_, ClosedList, OpenList>::new(context);
     let mut chaining_execution_count = 0;
+    let mut total_chain_gap_fillings = 0;
+    let mut total_chain_gaps = 0;
     let mut current_lower_bound = Cost::zero();
     let mut current_upper_bound = Cost::max_value();
     let mut total_chaining_opened_nodes = 0;
@@ -314,6 +316,8 @@ fn actually_align<
             rc_fn,
             max_match_run,
             astar.context_mut().chaining_cost_function,
+            &mut total_chain_gap_fillings,
+            &mut total_chain_gaps,
             false,
         );
         let cost_increased = evaluated_cost > current_lower_bound;
@@ -338,6 +342,11 @@ fn actually_align<
         total_chaining_suboptimal_opened_nodes as f64 / total_chaining_opened_nodes as f64 * 100.0,
     );
     debug!("Chaining closed nodes: {total_chaining_closed_nodes}");
+    debug!("Total chain gaps: {total_chain_gaps}");
+    debug!(
+        "Total chain gap fillings: {total_chain_gap_fillings} ({:.0}%)",
+        total_chain_gap_fillings as f64 / total_chain_gaps as f64 * 100.0
+    );
 
     let mut tsalign_alignment =
         lib_tsalign::a_star_aligner::alignment_result::alignment::Alignment::new();
@@ -355,6 +364,8 @@ fn actually_align<
         rc_fn,
         max_match_run,
         astar.context_mut().chaining_cost_function,
+        &mut 0,
+        &mut 0,
         true,
     );
     assert_eq!(evaluated_cost, result.cost());
@@ -468,6 +479,8 @@ fn evaluate_chain<Cost: AStarCost>(
     rc_fn: &dyn Fn(u8) -> u8,
     max_match_run: u32,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
+    total_chain_gap_fillings: &mut u64,
+    total_chain_gaps: &mut u64,
     final_evaluation: bool,
 ) -> (Cost, Vec<Alignment>) {
     let k = usize::try_from(max_match_run + 1).unwrap();
@@ -496,6 +509,7 @@ fn evaluate_chain<Cost: AStarCost>(
             break;
         };
         current_from_index = to_anchor_index;
+        *total_chain_gaps += 1;
 
         match (from_anchor, to_anchor) {
             (Identifier::Start, Identifier::End) => {
@@ -508,6 +522,7 @@ fn evaluate_chain<Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
+                    *total_chain_gap_fillings += 1;
                     trace!("Aligning from start to end costs {}", alignment.cost());
                     if !final_evaluation {
                         chaining_cost_function.update_start_to_end(alignment.cost(), true);
@@ -531,6 +546,7 @@ fn evaluate_chain<Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
+                    *total_chain_gap_fillings += 1;
                     trace!(
                         "Aligning from start to P{index}{} costs {}",
                         anchors.primary(index),
@@ -564,6 +580,7 @@ fn evaluate_chain<Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
+                    *total_chain_gap_fillings += 1;
                     trace!(
                         "Aligning from start to S{}[{index}]{} costs {}",
                         ts_kind.digits(),
@@ -593,6 +610,7 @@ fn evaluate_chain<Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
+                    *total_chain_gap_fillings += 1;
                     trace!(
                         "Aligning from P{index}{} to end costs {}",
                         anchors.primary(index),
@@ -619,6 +637,7 @@ fn evaluate_chain<Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
+                    *total_chain_gap_fillings += 1;
                     trace!(
                         "Aligning from S{}[{index}]{} to end costs {}",
                         ts_kind.digits(),
@@ -670,6 +689,7 @@ fn evaluate_chain<Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
+                    *total_chain_gap_fillings += 1;
                     trace!(
                         "Aligning from P{from_index}{} to P{to_index}{} (from {start} to {end}) costs {}",
                         anchors.primary(from_index),
@@ -728,6 +748,7 @@ fn evaluate_chain<Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
+                    *total_chain_gap_fillings += 1;
                     if !final_evaluation {
                         chaining_cost_function.update_jump_12(
                             from_index,
@@ -788,6 +809,7 @@ fn evaluate_chain<Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
+                    *total_chain_gap_fillings += 1;
                     trace!(
                         "Aligning from S{}[{from_index}]{} to S{}[{to_index}]{} costs {}",
                         ts_kind.digits(),
@@ -837,15 +859,7 @@ fn evaluate_chain<Cost: AStarCost>(
                         rc_fn,
                         max_match_run,
                     );
-                    if !final_evaluation {
-                        chaining_cost_function.update_jump_34(
-                            from_index,
-                            to_index,
-                            ts_kind,
-                            alignment.cost(),
-                            true,
-                        );
-                    }
+                    *total_chain_gap_fillings += 1;
                     trace!(
                         "Aligning from S{}[{from_index}]{} to P{to_index}{} (S{} to P{}) costs {}",
                         ts_kind.digits(),
@@ -855,6 +869,15 @@ fn evaluate_chain<Cost: AStarCost>(
                         end,
                         alignment.cost()
                     );
+                    if !final_evaluation {
+                        chaining_cost_function.update_jump_34(
+                            from_index,
+                            to_index,
+                            ts_kind,
+                            alignment.cost(),
+                            true,
+                        );
+                    }
                     alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                     alignments.push(alignment.alignment().clone());
                 }
