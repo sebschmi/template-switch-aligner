@@ -1,6 +1,6 @@
 //! Representation of an alignment.
 
-use std::fmt::Display;
+use std::{fmt::Display, iter};
 
 use crate::alignment::ts_kind::TsKind;
 
@@ -30,6 +30,16 @@ pub enum GapType {
 #[derive(Debug, Clone)]
 pub struct Alignment {
     pub alignment: Vec<(usize, AlignmentType)>,
+}
+
+impl Alignment {
+    pub fn iter_unpacked(&self) -> impl Iterator<Item = AlignmentType> {
+        self.alignment
+            .iter()
+            .flat_map(|(multiplicity, alignment_type)| {
+                iter::repeat_n(*alignment_type, *multiplicity)
+            })
+    }
 }
 
 impl Display for GapType {

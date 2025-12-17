@@ -2,7 +2,7 @@ use generic_a_star::cost::U32Cost;
 
 use crate::alignment::AlignmentType;
 use crate::alignment::ts_kind::TsKind;
-use crate::exact_chaining::gap_affine::{AlignmentCoordinates, GapAffineAlignment};
+use crate::exact_chaining::gap_affine::{AlignmentCoordinates, GapAffineAligner};
 use crate::{alignment::sequences::AlignmentSequences, costs::GapAffineCosts};
 
 fn rc_fn(c: u8) -> u8 {
@@ -25,15 +25,14 @@ fn test_start_end() {
 
     let start = AlignmentCoordinates::new_primary(0, 0);
     let end = AlignmentCoordinates::new_primary(4, 5);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, alignment) = aligner.align(start, end);
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![(4, AlignmentType::Match), (1, AlignmentType::GapA)]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(3u8));
+    assert_eq!(cost, U32Cost::from(3u8));
 }
 
 #[test]
@@ -46,19 +45,18 @@ fn test_partial_alignment() {
 
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(4, 4);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, alignment) = aligner.align(start, end);
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![
             (1, AlignmentType::Match),
             (1, AlignmentType::Substitution),
             (1, AlignmentType::Match)
         ]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(2u8));
+    assert_eq!(cost, U32Cost::from(2u8));
 }
 
 #[test]
@@ -71,12 +69,11 @@ fn test_gap_directions() {
 
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(11, 11);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, alignment) = aligner.align(start, end);
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![
             (2, AlignmentType::Match),
             (2, AlignmentType::GapB),
@@ -85,7 +82,7 @@ fn test_gap_directions() {
             (1, AlignmentType::Match)
         ]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(8u8));
+    assert_eq!(cost, U32Cost::from(8u8));
 }
 
 #[test]
@@ -98,19 +95,18 @@ fn test_extremity_gaps() {
 
     let start = AlignmentCoordinates::new_primary(3, 3);
     let end = AlignmentCoordinates::new_primary(10, 10);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, alignment) = aligner.align(start, end);
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![
             (2, AlignmentType::GapB),
             (5, AlignmentType::Match),
             (2, AlignmentType::GapA),
         ]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(8u8));
+    assert_eq!(cost, U32Cost::from(8u8));
 }
 
 #[test]
@@ -123,19 +119,18 @@ fn test_extremity_substitutions() {
 
     let start = AlignmentCoordinates::new_primary(0, 0);
     let end = AlignmentCoordinates::new_primary(5, 5);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, alignment) = aligner.align(start, end);
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![
             (1, AlignmentType::Substitution),
             (3, AlignmentType::Match),
             (1, AlignmentType::Substitution),
         ]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(4u8));
+    assert_eq!(cost, U32Cost::from(4u8));
 }
 
 #[test]
@@ -148,17 +143,14 @@ fn test_substitutions_as_gaps() {
 
     let start = AlignmentCoordinates::new_primary(0, 0);
     let end = AlignmentCoordinates::new_primary(20, 20);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, alignment) = aligner.align(start, end);
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert!(
-        alignment.alignment().alignment
-            == vec![(20, AlignmentType::GapA), (20, AlignmentType::GapB),]
-            || alignment.alignment().alignment
-                == vec![(20, AlignmentType::GapB), (20, AlignmentType::GapA),]
+        alignment.alignment == vec![(20, AlignmentType::GapA), (20, AlignmentType::GapB),]
+            || alignment.alignment == vec![(20, AlignmentType::GapB), (20, AlignmentType::GapA),]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(44u8));
+    assert_eq!(cost, U32Cost::from(44u8));
 }
 
 #[test]
@@ -171,17 +163,14 @@ fn test_max_match_run_0() {
 
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(9, 9);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, 0);
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 0);
+    let (cost, alignment) = aligner.align(start, end);
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert!(
-        alignment.alignment().alignment
-            == vec![(8, AlignmentType::GapA), (8, AlignmentType::GapB),]
-            || alignment.alignment().alignment
-                == vec![(8, AlignmentType::GapB), (8, AlignmentType::GapA),]
+        alignment.alignment == vec![(8, AlignmentType::GapA), (8, AlignmentType::GapB),]
+            || alignment.alignment == vec![(8, AlignmentType::GapB), (8, AlignmentType::GapA),]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(20u8));
+    assert_eq!(cost, U32Cost::from(20u8));
 }
 
 #[test]
@@ -194,12 +183,11 @@ fn test_max_match_run_1() {
 
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(9, 9);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, 1);
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 1);
+    let (cost, alignment) = aligner.align(start, end);
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![
             (1, AlignmentType::Match),
             (1, AlignmentType::Substitution),
@@ -211,7 +199,7 @@ fn test_max_match_run_1() {
             (1, AlignmentType::GapA),
         ]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(12u8));
+    assert_eq!(cost, U32Cost::from(12u8));
 }
 
 #[test]
@@ -224,12 +212,11 @@ fn test_max_match_run_2() {
 
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(9, 9);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, 2);
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 2);
+    let (cost, alignment) = aligner.align(start, end);
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![
             (1, AlignmentType::Match),
             (1, AlignmentType::Substitution),
@@ -238,7 +225,7 @@ fn test_max_match_run_2() {
             (2, AlignmentType::Match),
         ]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(6u8));
+    assert_eq!(cost, U32Cost::from(6u8));
 }
 
 #[test]
@@ -251,15 +238,11 @@ fn test_secondary_12() {
 
     let start = AlignmentCoordinates::new_secondary(9, 1, TsKind::TS12);
     let end = AlignmentCoordinates::new_secondary(1, 9, TsKind::TS12);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, alignment) = aligner.align(start, end);
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
-    assert_eq!(
-        alignment.alignment().alignment,
-        vec![(8, AlignmentType::Match),]
-    );
-    assert_eq!(alignment.cost(), U32Cost::from(0u8));
+    assert_eq!(alignment.alignment, vec![(8, AlignmentType::Match),]);
+    assert_eq!(cost, U32Cost::from(0u8));
 }
 
 #[test]
@@ -272,13 +255,9 @@ fn test_secondary_21() {
 
     let start = AlignmentCoordinates::new_secondary(9, 1, TsKind::TS21);
     let end = AlignmentCoordinates::new_secondary(1, 9, TsKind::TS21);
-    let alignment = GapAffineAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, alignment) = aligner.align(start, end);
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
-    assert_eq!(
-        alignment.alignment().alignment,
-        vec![(8, AlignmentType::Match),]
-    );
-    assert_eq!(alignment.cost(), U32Cost::from(0u8));
+    assert_eq!(alignment.alignment, vec![(8, AlignmentType::Match),]);
+    assert_eq!(cost, U32Cost::from(0u8));
 }
