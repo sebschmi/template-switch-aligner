@@ -96,7 +96,11 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         PrimaryAnchor::new_from_start(&node.identifier.coordinates()),
                         // The TS base cost is applied at the 12-jump, but we anyways apply it in this algorithm to make it label-setting if the base cost is non-zero.
                         // But since the 34-jump has zero cost, we subtract it again.
-                        node.cost - self.alignment_costs.ts_base_cost,
+                        if node.cost == Cost::max_value() {
+                            Cost::max_value()
+                        } else {
+                            node.cost - self.alignment_costs.ts_base_cost
+                        },
                     )
                 }),
         );
@@ -104,6 +108,13 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
 
         // The TS base cost is applied at the 12-jump, but we anyways apply it in this algorithm to make it label-setting if the base cost is non-zero.
         // But since the 34-jump has zero cost, we subtract it again.
-        (cost - self.alignment_costs.ts_base_cost, alignment)
+        (
+            if cost == Cost::max_value() {
+                Cost::max_value()
+            } else {
+                cost - self.alignment_costs.ts_base_cost
+            },
+            alignment,
+        )
     }
 }
