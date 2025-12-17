@@ -48,12 +48,17 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             start.is_primary() && end.is_primary() || start.is_secondary() && end.is_secondary()
         );
 
+        if start == end {
+            return (Cost::zero(), Vec::new().into());
+        }
+
         let context = Context::new(
             self.cost_table,
             self.sequences,
             self.rc_fn,
             start,
             end,
+            true,
             self.max_match_run,
         );
         let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
@@ -73,7 +78,9 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         additional_primary_targets_output.extend(
             a_star
                 .iter_closed_nodes()
-                .filter(|node| node.identifier.coordinates.is_primary())
+                .filter(|node| {
+                    node.identifier.coordinates.is_primary() && node.identifier.has_non_match
+                })
                 .map(|node| {
                     (
                         PrimaryAnchor::new_from_start(&node.identifier.coordinates),
@@ -84,7 +91,9 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         additional_secondary_targets_output.extend(
             a_star
                 .iter_closed_nodes()
-                .filter(|node| node.identifier.coordinates.is_secondary())
+                .filter(|node| {
+                    node.identifier.coordinates.is_secondary() && node.identifier.has_non_match
+                })
                 .map(|node| {
                     (
                         SecondaryAnchor::new_from_start(&node.identifier.coordinates),

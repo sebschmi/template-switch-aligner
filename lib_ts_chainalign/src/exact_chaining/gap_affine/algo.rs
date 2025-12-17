@@ -20,6 +20,7 @@ pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
+    enforce_non_match: bool,
     max_match_run: u32,
 }
 
@@ -36,6 +37,7 @@ pub struct Node<Cost> {
 pub struct Identifier {
     pub coordinates: AlignmentCoordinates,
     gap_type: GapType,
+    pub has_non_match: bool,
 }
 
 impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost> {
@@ -45,6 +47,7 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
         rc_fn: &'rc_fn dyn Fn(u8) -> u8,
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
+        enforce_non_match: bool,
         max_match_run: u32,
     ) -> Self {
         Self {
@@ -53,6 +56,7 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
             rc_fn,
             start,
             end,
+            enforce_non_match,
             max_match_run,
         }
     }
@@ -66,6 +70,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             identifier: Identifier {
                 coordinates: self.start,
                 gap_type: GapType::None,
+                has_non_match: !self.enforce_non_match,
             },
             predecessor: None,
             predecessor_alignment_type: None,
@@ -85,6 +90,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
         let Identifier {
             coordinates,
             gap_type,
+            has_non_match,
         } = *identifier;
 
         if coordinates.can_increment_both(self.end, Some(self.sequences)) {
@@ -101,6 +107,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                         identifier: Identifier {
                             coordinates: coordinates.increment_both(),
                             gap_type: GapType::None,
+                            has_non_match,
                         },
                         predecessor,
                         predecessor_alignment_type: Some(AlignmentType::Match),
@@ -115,6 +122,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                     identifier: Identifier {
                         coordinates: coordinates.increment_both(),
                         gap_type: GapType::None,
+                        has_non_match: true,
                     },
                     predecessor,
                     predecessor_alignment_type: Some(AlignmentType::Substitution),
@@ -135,6 +143,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                 identifier: Identifier {
                     coordinates: coordinates.increment_a(),
                     gap_type: GapType::InB,
+                    has_non_match: true,
                 },
                 predecessor,
                 predecessor_alignment_type: Some(AlignmentType::GapB),
@@ -154,6 +163,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                 identifier: Identifier {
                     coordinates: coordinates.increment_b(),
                     gap_type: GapType::InA,
+                    has_non_match: true,
                 },
                 predecessor,
                 predecessor_alignment_type: Some(AlignmentType::GapA),
@@ -164,7 +174,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
     }
 
     fn is_target(&self, node: &Self::Node) -> bool {
-        node.identifier.coordinates == self.end
+        node.identifier.coordinates == self.end && node.identifier.has_non_match
     }
 
     fn cost_limit(&self) -> Option<<Self::Node as generic_a_star::AStarNode>::Cost> {

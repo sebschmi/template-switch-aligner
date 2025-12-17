@@ -140,7 +140,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         }
                         alignments.push(alignment);
                     }
-                    current_upper_bound += chaining_cost_function.start_to_end();
+                    current_upper_bound =
+                        current_upper_bound.saturating_add(&chaining_cost_function.start_to_end());
                 }
                 (
                     Identifier::Start,
@@ -175,7 +176,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         }
                         alignments.push(alignment);
                     }
-                    current_upper_bound += chaining_cost_function.primary_from_start(index);
+                    current_upper_bound = current_upper_bound
+                        .saturating_add(&chaining_cost_function.primary_from_start(index));
                 }
                 (
                     Identifier::Start,
@@ -200,8 +202,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         }
                         alignments.push(alignment);
                     }
-                    current_upper_bound +=
-                        chaining_cost_function.jump_12_from_start(index, ts_kind);
+                    current_upper_bound = current_upper_bound
+                        .saturating_add(&chaining_cost_function.jump_12_from_start(index, ts_kind));
                 }
                 (Identifier::PrimaryToPrimary { index, .. }, Identifier::End) => {
                     let start = anchors.primary(index).end(k);
@@ -232,7 +234,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                         alignments.push(alignment);
                     }
-                    current_upper_bound += chaining_cost_function.primary_to_end(index);
+                    current_upper_bound = current_upper_bound
+                        .saturating_add(&chaining_cost_function.primary_to_end(index));
                 }
                 (Identifier::SecondaryToPrimary { index, ts_kind, .. }, Identifier::End) => {
                     let start = anchors.secondary(index, ts_kind).end(ts_kind, k);
@@ -254,7 +257,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                         alignments.push(alignment);
                     }
-                    current_upper_bound += chaining_cost_function.jump_34_to_end(index, ts_kind);
+                    current_upper_bound = current_upper_bound
+                        .saturating_add(&chaining_cost_function.jump_34_to_end(index, ts_kind));
                 }
                 (
                     Identifier::PrimaryToPrimary {
@@ -318,7 +322,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                         alignments.push(alignment);
                     }
-                    current_upper_bound += chaining_cost_function.primary(from_index, to_index);
+                    current_upper_bound = current_upper_bound
+                        .saturating_add(&chaining_cost_function.primary(from_index, to_index));
                 }
                 (
                     Identifier::PrimaryToSecondary {
@@ -356,8 +361,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                         alignments.push(alignment);
                     }
-                    current_upper_bound +=
-                        chaining_cost_function.jump_12(from_index, to_index, ts_kind);
+                    current_upper_bound = current_upper_bound.saturating_add(
+                        &chaining_cost_function.jump_12(from_index, to_index, ts_kind),
+                    );
                 }
                 (
                     Identifier::SecondaryToSecondary {
@@ -420,8 +426,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                         alignments.push(alignment);
                     }
-                    current_upper_bound +=
-                        chaining_cost_function.secondary(from_index, to_index, ts_kind);
+                    current_upper_bound = current_upper_bound.saturating_add(
+                        &chaining_cost_function.secondary(from_index, to_index, ts_kind),
+                    );
                 }
                 (
                     Identifier::SecondaryToPrimary {
@@ -459,8 +466,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                         alignments.push(alignment);
                     }
-                    current_upper_bound +=
-                        chaining_cost_function.jump_34(from_index, to_index, ts_kind);
+                    current_upper_bound = current_upper_bound.saturating_add(
+                        &chaining_cost_function.jump_34(from_index, to_index, ts_kind),
+                    );
                 }
                 (Identifier::End, _)
                 | (_, Identifier::Start)

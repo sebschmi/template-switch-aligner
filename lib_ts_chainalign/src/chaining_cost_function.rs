@@ -584,7 +584,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
 
             if self.is_primary_exact(from_primary_index, to_primary_index) {
                 *total_redundant_gap_fillings += 1;
-                debug_assert_eq!(self.primary(from_primary_index, to_primary_index), cost,);
+                debug_assert_eq!(self.primary(from_primary_index, to_primary_index), cost);
             } else {
                 self.update_primary(from_primary_index, to_primary_index, cost, true);
             }
@@ -608,7 +608,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
 
             if self.is_primary_from_start_exact(to_primary_index) {
                 *total_redundant_gap_fillings += 1;
-                debug_assert_eq!(self.primary_from_start(to_primary_index), cost,);
+                debug_assert_eq!(self.primary_from_start(to_primary_index), cost);
             } else {
                 self.update_primary_from_start(to_primary_index, cost, true);
             }

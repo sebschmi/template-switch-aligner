@@ -422,7 +422,11 @@ impl<
 
             let previous_visit = self.closed_list.insert(node.identifier().clone(), node);
             self.performance_counters.closed_nodes += 1;
-            debug_assert!(previous_visit.is_none() || !self.context.is_label_setting());
+            debug_assert!(
+                previous_visit.is_none() || !self.context.is_label_setting(),
+                "Node was visited previously: {}",
+                previous_visit.unwrap()
+            );
         }
 
         let Some(target_identifier) = target_identifier else {
