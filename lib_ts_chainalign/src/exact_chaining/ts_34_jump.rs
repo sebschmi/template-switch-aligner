@@ -131,7 +131,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         );
         let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
         a_star.initialise();
-        a_star.search_until(|_, node| node.cost > cost_limit);
+        // The TS base cost is applied at the 12-jump, but we anyways apply it in this algorithm to make it label-setting if the base cost is non-zero.
+        // But since the 34-jump has zero cost, we subtract it again.
+        a_star.search_until(|_, node| node.cost > cost_limit + self.alignment_costs.ts_base_cost);
 
         let descendant_start = start.secondary_ordinate_descendant().unwrap();
         let ts_kind = start.ts_kind().unwrap();

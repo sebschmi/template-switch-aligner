@@ -122,7 +122,7 @@ pub struct Cli {
     /// Setting this to a higher value will increase the time required to initialise the cost function, but decrease the amount of chains computed.
     ///
     /// This applies only to tschainalign.
-    #[clap(long, default_value = "10")]
+    #[clap(long, default_value = "1")]
     max_exact_cost_function_cost: u32,
 
     /// The closed list type to use for chaining.

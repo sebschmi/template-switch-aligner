@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use generic_a_star::cost::AStarCost;
 use itertools::Itertools;
-use log::debug;
+use log::{debug, info};
 use num_traits::Zero;
 
 use crate::{
@@ -37,6 +37,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         max_exact_cost_function_cost: Cost,
         rc_fn: &dyn Fn(u8) -> u8,
     ) -> Self {
+        info!("Initialising chaining cost function...");
         let start_time = Instant::now();
 
         let k = usize::try_from(chaining_lower_bounds.max_match_run() + 1).unwrap();
@@ -378,7 +379,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let duration = end_time - start_time;
         debug!(
             "Initialising chaining cost function took {:.0}ms",
-            duration.as_secs_f64() * 1000.0
+            duration.as_secs_f64() * 1e3,
         );
 
         Self {
@@ -690,7 +691,11 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         }
         let target =
             &mut self.jump_34_array_mut(ts_kind)[[from_secondary_index, to_primary_index + 1]];
-        assert!(*target <= cost);
+        assert!(
+            *target <= cost,
+            "Reducing 34-jump from S{}-{from_secondary_index} to P-{to_primary_index}: cost from {target} to {cost}",
+            ts_kind.digits()
+        );
         let result = *target < cost;
         *target = cost;
         result
@@ -928,7 +933,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 debug_assert_eq!(
                     self.jump_34(from_secondary_index, to_primary_index, ts_kind),
                     cost,
-                    "Jump12: Previous exact cost was {} but additional target cost is {cost}.\nFrom S{}-{from_secondary_index}{} to P-{to_primary_index}{}.",
+                    "Jump34: Previous exact cost was {} but additional target cost is {cost}.\nFrom S{}-{from_secondary_index}{} to P-{to_primary_index}{}.",
                     self.jump_34(from_secondary_index, to_primary_index, ts_kind),
                     ts_kind.digits(),
                     anchors.secondary(from_secondary_index, ts_kind),
