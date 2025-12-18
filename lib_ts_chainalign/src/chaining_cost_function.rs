@@ -655,7 +655,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
 
     pub fn update_additional_12_jump_targets(
         &mut self,
-        from_secondary_index: AnchorIndex,
+        from_primary_index: AnchorIndex,
         additional_targets: &mut [(SecondaryAnchor, Cost)],
         ts_kind: TsKind,
         anchors: &Anchors,
@@ -673,20 +673,17 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 continue;
             };
 
-            if self.is_jump_12_exact(from_secondary_index, to_secondary_index, ts_kind) {
+            if self.is_jump_12_exact(from_primary_index, to_secondary_index, ts_kind) {
                 *total_redundant_gap_fillings += 1;
                 debug_assert_eq!(
-                    self.jump_12(from_secondary_index, to_secondary_index, ts_kind),
+                    self.jump_12(from_primary_index, to_secondary_index, ts_kind),
                     cost,
+                    "Jump12: Previous exact cost was {} but additional target cost is {cost}.\nFrom P-{from_primary_index} to S{}-{to_secondary_index}.",
+                    self.jump_12(from_primary_index, to_secondary_index, ts_kind),
+                    ts_kind.digits(),
                 );
             } else {
-                self.update_jump_12(
-                    from_secondary_index,
-                    to_secondary_index,
-                    ts_kind,
-                    cost,
-                    true,
-                );
+                self.update_jump_12(from_primary_index, to_secondary_index, ts_kind, cost, true);
             }
         }
     }
@@ -741,6 +738,11 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 debug_assert_eq!(
                     self.jump_34(from_secondary_index, to_primary_index, ts_kind),
                     cost,
+                    "Jump12: Previous exact cost was {} but additional target cost is {cost}.\nFrom S{}-{from_secondary_index}{} to P-{to_primary_index}{}.",
+                    self.jump_34(from_secondary_index, to_primary_index, ts_kind),
+                    ts_kind.digits(),
+                    anchors.secondary(from_secondary_index, ts_kind),
+                    anchors.primary(to_primary_index),
                 );
             } else {
                 self.update_jump_34(from_secondary_index, to_primary_index, ts_kind, cost, true);

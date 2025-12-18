@@ -84,7 +84,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             identifier: Identifier::Primary {
                 coordinates: self.start,
                 gap_type: GapType::None,
-                has_non_match: !self.enforce_non_match,
+                has_non_match: false,
             },
             predecessor: None,
             predecessor_alignment_type: None,
@@ -223,6 +223,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
 
     fn is_target(&self, node: &Self::Node) -> bool {
         node.identifier.coordinates() == self.end
+            && (node.identifier.has_non_match() || !self.enforce_non_match)
     }
 
     fn cost_limit(&self) -> Option<<Self::Node as generic_a_star::AStarNode>::Cost> {

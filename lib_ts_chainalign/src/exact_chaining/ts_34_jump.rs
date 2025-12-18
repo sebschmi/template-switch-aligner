@@ -57,6 +57,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             TsDescendant::Seq2 => end.primary_ordinate_b(),
         }
         .unwrap();
+        let descendant_start = start.secondary_ordinate_descendant().unwrap();
         let enforce_non_match = descendant_end != start.secondary_ordinate_descendant().unwrap();
 
         let context = Context::new(
@@ -89,7 +90,16 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                 .iter_closed_nodes()
                 .filter(|node| {
                     node.identifier.coordinates().is_primary()
-                        && (node.identifier.has_non_match() || !enforce_non_match)
+                        && (node.identifier.has_non_match()
+                            != (descendant_start
+                                == match start.ts_kind().unwrap().descendant {
+                                    TsDescendant::Seq1 => {
+                                        node.identifier.coordinates().primary_ordinate_a().unwrap()
+                                    }
+                                    TsDescendant::Seq2 => {
+                                        node.identifier.coordinates().primary_ordinate_b().unwrap()
+                                    }
+                                }))
                 })
                 .map(|node| {
                     (

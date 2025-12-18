@@ -79,7 +79,8 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             a_star
                 .iter_closed_nodes()
                 .filter(|node| {
-                    node.identifier.coordinates.is_primary() && node.identifier.has_non_match
+                    node.identifier.coordinates.is_primary()
+                        && (node.identifier.has_non_match == (start != node.identifier.coordinates))
                 })
                 .map(|node| {
                     (
@@ -92,7 +93,8 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             a_star
                 .iter_closed_nodes()
                 .filter(|node| {
-                    node.identifier.coordinates.is_secondary() && node.identifier.has_non_match
+                    node.identifier.coordinates.is_secondary()
+                        && (node.identifier.has_non_match == (start != node.identifier.coordinates))
                 })
                 .map(|node| {
                     (

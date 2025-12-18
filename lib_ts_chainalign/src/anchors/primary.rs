@@ -78,6 +78,7 @@ impl PrimaryAnchor {
             .unwrap_or_else(|| panic!("self: {self}, end: {end}, k: {k}"))
     }
 
+    /// Returns the gap in the descendant for the 12-jump from this anchor to the given anchor.
     pub fn chaining_jump_gap(
         &self,
         second: &SecondaryAnchor,
