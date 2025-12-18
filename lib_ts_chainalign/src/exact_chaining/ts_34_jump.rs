@@ -1,74 +1,130 @@
-use generic_a_star::{AStar, AStarResult, cost::AStarCost};
+use generic_a_star::{AStar, AStarBuffers, AStarResult, cost::AStarCost};
 
 use crate::{
-    alignment::{Alignment, coordinates::AlignmentCoordinates, sequences::AlignmentSequences},
+    alignment::{
+        Alignment, coordinates::AlignmentCoordinates, sequences::AlignmentSequences,
+        ts_kind::TsDescendant,
+    },
+    anchors::primary::PrimaryAnchor,
     costs::AlignmentCosts,
-    exact_chaining::ts_34_jump::algo::Context,
+    exact_chaining::ts_34_jump::algo::{Context, Node},
 };
 
 mod algo;
 #[cfg(test)]
 mod tests;
 
-pub struct Ts34JumpAlignment<Cost> {
-    start: AlignmentCoordinates,
-    end: AlignmentCoordinates,
-    alignment: Alignment,
-    cost: Cost,
+pub struct Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost> {
+    a_star_buffers: Option<AStarBuffers<Node<Cost>>>,
+    sequences: &'sequences AlignmentSequences,
+    alignment_costs: &'alignment_costs AlignmentCosts<Cost>,
+    rc_fn: &'rc_fn dyn Fn(u8) -> u8,
+    max_match_run: u32,
 }
 
-impl<Cost: AStarCost> Ts34JumpAlignment<Cost> {
+impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
+    Ts34JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>
+{
     pub fn new(
-        start: AlignmentCoordinates,
-        end: AlignmentCoordinates,
-        sequences: &AlignmentSequences,
-        alignment_costs: &AlignmentCosts<Cost>,
-        rc_fn: &dyn Fn(u8) -> u8,
+        sequences: &'sequences AlignmentSequences,
+        alignment_costs: &'alignment_costs AlignmentCosts<Cost>,
+        rc_fn: &'rc_fn dyn Fn(u8) -> u8,
         max_match_run: u32,
     ) -> Self {
+        Self {
+            a_star_buffers: Some(Default::default()),
+            sequences,
+            alignment_costs,
+            rc_fn,
+            max_match_run,
+        }
+    }
+
+    pub fn align(
+        &mut self,
+        start: AlignmentCoordinates,
+        end: AlignmentCoordinates,
+        additional_primary_targets_output: &mut impl Extend<(PrimaryAnchor, Cost)>,
+    ) -> (Cost, Alignment) {
         assert!(start.is_secondary());
         assert!(end.is_primary());
 
-        let context = Context::new(alignment_costs, sequences, rc_fn, start, end, max_match_run);
-        let mut a_star = AStar::<_>::new(context);
+        // Enfore non-match if there is a gap between the anchors in the descendant.
+        // This is to match the lower-bound computation.
+        // It also discourages chains to deviate from the alignment geometry boundaries.
+        let descendant_end = match start.ts_kind().unwrap().descendant {
+            TsDescendant::Seq1 => end.primary_ordinate_a(),
+            TsDescendant::Seq2 => end.primary_ordinate_b(),
+        }
+        .unwrap();
+        let descendant_start = start.secondary_ordinate_descendant().unwrap();
+        let enforce_non_match = descendant_end != start.secondary_ordinate_descendant().unwrap();
+
+        let context = Context::new(
+            self.alignment_costs,
+            self.sequences,
+            self.rc_fn,
+            start,
+            end,
+            enforce_non_match,
+            self.max_match_run,
+        );
+        let mut a_star = AStar::<_>::new_with_buffers(context, self.a_star_buffers.take().unwrap());
+
         a_star.initialise();
-        match a_star.search() {
-            AStarResult::FoundTarget { cost, .. } => Self {
-                start,
-                end,
-                alignment: a_star.reconstruct_path().into(),
-                // The TS base cost is applied at the 12-jump, but we anyways apply it in this algorithm to make it label-setting if the base cost is non-zero.
-                // But since the 34-jump has zero cost, we subtract it again.
-                cost: cost.0 - alignment_costs.ts_base_cost,
-            },
+        let (cost, alignment) = match a_star.search() {
+            AStarResult::FoundTarget { cost, .. } => {
+                let cost = cost.0;
+                let alignment = a_star.reconstruct_path().into();
+
+                (cost, alignment)
+            }
             AStarResult::ExceededCostLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
-            AStarResult::NoTarget => Self {
-                start,
-                end,
-                alignment: Vec::new().into(),
-                cost: Cost::max_value(),
+            AStarResult::NoTarget => (Cost::max_value(), Vec::new().into()),
+        };
+
+        a_star.search_until(|_, node| node.cost > cost);
+        additional_primary_targets_output.extend(
+            a_star
+                .iter_closed_nodes()
+                .filter(|node| {
+                    node.identifier.coordinates().is_primary()
+                        && (node.identifier.has_non_match()
+                            != (descendant_start
+                                == match start.ts_kind().unwrap().descendant {
+                                    TsDescendant::Seq1 => {
+                                        node.identifier.coordinates().primary_ordinate_a().unwrap()
+                                    }
+                                    TsDescendant::Seq2 => {
+                                        node.identifier.coordinates().primary_ordinate_b().unwrap()
+                                    }
+                                }))
+                })
+                .map(|node| {
+                    (
+                        PrimaryAnchor::new_from_start(&node.identifier.coordinates()),
+                        // The TS base cost is applied at the 12-jump, but we anyways apply it in this algorithm to make it label-setting if the base cost is non-zero.
+                        // But since the 34-jump has zero cost, we subtract it again.
+                        if node.cost == Cost::max_value() {
+                            Cost::max_value()
+                        } else {
+                            node.cost - self.alignment_costs.ts_base_cost
+                        },
+                    )
+                }),
+        );
+        self.a_star_buffers = Some(a_star.into_buffers());
+
+        // The TS base cost is applied at the 12-jump, but we anyways apply it in this algorithm to make it label-setting if the base cost is non-zero.
+        // But since the 34-jump has zero cost, we subtract it again.
+        (
+            if cost == Cost::max_value() {
+                Cost::max_value()
+            } else {
+                cost - self.alignment_costs.ts_base_cost
             },
-        }
-    }
-}
-
-impl<Cost> Ts34JumpAlignment<Cost> {
-    pub fn start(&self) -> AlignmentCoordinates {
-        self.start
-    }
-
-    pub fn end(&self) -> AlignmentCoordinates {
-        self.end
-    }
-
-    pub fn alignment(&self) -> &Alignment {
-        &self.alignment
-    }
-}
-
-impl<Cost: Copy> Ts34JumpAlignment<Cost> {
-    pub fn cost(&self) -> Cost {
-        self.cost
+            alignment,
+        )
     }
 }

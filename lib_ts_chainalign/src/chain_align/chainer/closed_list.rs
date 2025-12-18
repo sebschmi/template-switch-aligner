@@ -305,6 +305,40 @@ impl<Cost: AStarCost> AStarClosedList<Node<Cost>> for ChainerClosedList<Cost> {
         }
     }
 
+    fn iter<'this: 'node, 'node>(
+        &'this self,
+    ) -> impl use<'this, 'node, Cost> + Iterator<Item = &'node Node<Cost>>
+    where
+        Node<Cost>: 'node,
+    {
+        self.start
+            .iter()
+            .chain(&self.start_to_primary)
+            .chain(
+                self.start_to_secondary
+                    .iter()
+                    .flat_map(IntoIterator::into_iter),
+            )
+            .chain(self.primary_to_primary.iter().flatten())
+            .chain(
+                self.primary_to_secondary
+                    .iter()
+                    .flat_map(IntoIterator::into_iter)
+                    .flatten(),
+            )
+            .chain(
+                self.secondary_to_secondary
+                    .iter()
+                    .flat_map(FxHashMapSeed::values),
+            )
+            .chain(
+                self.secondary_to_primary
+                    .iter()
+                    .flat_map(FxHashMapSeed::values),
+            )
+            .chain(&self.end)
+    }
+
     fn can_skip_node(&self, node: &Node<Cost>, _is_label_setting: bool) -> bool {
         if let Some(current) = self.get(node.identifier()) {
             Ordering::Less

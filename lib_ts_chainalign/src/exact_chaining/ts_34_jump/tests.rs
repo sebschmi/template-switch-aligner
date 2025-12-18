@@ -6,7 +6,7 @@ use crate::{
         ts_kind::TsKind,
     },
     costs::{AlignmentCosts, GapAffineCosts, TsLimits},
-    exact_chaining::ts_34_jump::Ts34JumpAlignment,
+    exact_chaining::ts_34_jump::Ts34JumpAligner,
 };
 
 fn rc_fn(c: u8) -> u8 {
@@ -46,12 +46,11 @@ fn test_start_end() {
 
     let start: AlignmentCoordinates = AlignmentCoordinates::new_secondary(2, 0, TsKind::TS12);
     let end = AlignmentCoordinates::new_primary(4, 5);
-    let alignment = Ts34JumpAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![
             (2, AlignmentType::Match),
             (1, AlignmentType::TsEnd { jump: 1 }),
@@ -60,7 +59,7 @@ fn test_start_end() {
             (1, AlignmentType::Match),
         ]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(2u8));
+    assert_eq!(cost, U32Cost::from(2u8));
 }
 
 #[test]
@@ -90,12 +89,11 @@ fn test_partial_alignment() {
 
     let start: AlignmentCoordinates = AlignmentCoordinates::new_secondary(1, 1, TsKind::TS12);
     let end = AlignmentCoordinates::new_primary(3, 4);
-    let alignment = Ts34JumpAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![
             (1, AlignmentType::Match),
             (1, AlignmentType::TsEnd { jump: 1 }),
@@ -103,7 +101,7 @@ fn test_partial_alignment() {
             (1, AlignmentType::Substitution),
         ]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(2u8));
+    assert_eq!(cost, U32Cost::from(2u8));
 }
 
 #[test]
@@ -133,12 +131,11 @@ fn test_gap_directions() {
 
     let start = AlignmentCoordinates::new_secondary(18, 0, TsKind::TS21);
     let end = AlignmentCoordinates::new_primary(18, 9);
-    let alignment = Ts34JumpAlignment::new(start, end, &sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![
             (2, AlignmentType::Match),
             (1, AlignmentType::GapB),
@@ -153,7 +150,7 @@ fn test_gap_directions() {
             (2, AlignmentType::Match),
         ]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(4u8));
+    assert_eq!(cost, U32Cost::from(4u8));
 }
 
 #[test]
@@ -183,18 +180,17 @@ fn test_max_match_run_0() {
 
     let start = AlignmentCoordinates::new_secondary(8, 0, TsKind::TS12);
     let end = AlignmentCoordinates::new_primary(16, 16);
-    let alignment = Ts34JumpAlignment::new(start, end, &sequences, &cost_table, &rc_fn, 0);
+    let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, 0);
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![
             (1, AlignmentType::TsEnd { jump: 8 }),
             (16, AlignmentType::GapA),
         ]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(18u8));
+    assert_eq!(cost, U32Cost::from(18u8));
 }
 
 #[test]
@@ -224,12 +220,11 @@ fn test_max_match_run_1() {
 
     let start = AlignmentCoordinates::new_secondary(8, 0, TsKind::TS12);
     let end = AlignmentCoordinates::new_primary(16, 16);
-    let alignment = Ts34JumpAlignment::new(start, end, &sequences, &cost_table, &rc_fn, 1);
+    let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, 1);
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![
             (1, AlignmentType::Match),
             (1, AlignmentType::TsEnd { jump: -2 }),
@@ -243,7 +238,7 @@ fn test_max_match_run_1() {
             (1, AlignmentType::Match),
         ]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(13u8));
+    assert_eq!(cost, U32Cost::from(13u8));
 }
 
 #[test]
@@ -273,12 +268,11 @@ fn test_max_match_run_2() {
 
     let start = AlignmentCoordinates::new_secondary(8, 0, TsKind::TS12);
     let end = AlignmentCoordinates::new_primary(16, 16);
-    let alignment = Ts34JumpAlignment::new(start, end, &sequences, &cost_table, &rc_fn, 2);
+    let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, 2);
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![
             (2, AlignmentType::Match),
             (1, AlignmentType::Substitution),
@@ -293,7 +287,7 @@ fn test_max_match_run_2() {
             (2, AlignmentType::Match),
         ]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(4u8));
+    assert_eq!(cost, U32Cost::from(4u8));
 }
 
 #[test]
@@ -323,15 +317,14 @@ fn test_only_jump() {
 
     let start = AlignmentCoordinates::new_secondary(2, 8, TsKind::TS21);
     let end = AlignmentCoordinates::new_primary(8, 8);
-    let alignment = Ts34JumpAlignment::new(start, end, &sequences, &cost_table, &rc_fn, 2);
+    let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, 2);
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![(1, AlignmentType::TsEnd { jump: 6 })]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(0u8));
+    assert_eq!(cost, U32Cost::from(0u8));
 }
 
 #[test]
@@ -361,15 +354,14 @@ fn test_only_jump_start() {
 
     let start = AlignmentCoordinates::new_secondary(0, 0, TsKind::TS21);
     let end = AlignmentCoordinates::new_primary(0, 0);
-    let alignment = Ts34JumpAlignment::new(start, end, &sequences, &cost_table, &rc_fn, 2);
+    let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, 2);
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![(1, AlignmentType::TsEnd { jump: 0 })]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(0u8));
+    assert_eq!(cost, U32Cost::from(0u8));
 }
 
 #[test]
@@ -399,13 +391,12 @@ fn test_only_jump_end() {
 
     let start = AlignmentCoordinates::new_secondary(10, 10, TsKind::TS21);
     let end = AlignmentCoordinates::new_primary(10, 10);
-    let alignment = Ts34JumpAlignment::new(start, end, &sequences, &cost_table, &rc_fn, 2);
+    let mut aligner = Ts34JumpAligner::new(&sequences, &cost_table, &rc_fn, 2);
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new());
 
-    assert_eq!(alignment.start(), start);
-    assert_eq!(alignment.end(), end);
     assert_eq!(
-        alignment.alignment().alignment,
+        alignment.alignment,
         vec![(1, AlignmentType::TsEnd { jump: 0 })]
     );
-    assert_eq!(alignment.cost(), U32Cost::from(0u8));
+    assert_eq!(cost, U32Cost::from(0u8));
 }

@@ -5,13 +5,14 @@ use std::{
     str::FromStr,
 };
 
-use num_traits::{Bounded, CheckedAdd, CheckedSub, SaturatingSub, Zero};
+use num_traits::{Bounded, CheckedAdd, CheckedSub, SaturatingAdd, SaturatingSub, Zero};
 
 /// The cost of an A* node.
 pub trait AStarCost:
     From<u8>
     + Add<Output = Self>
     + Sub<Output = Self>
+    + SaturatingAdd
     + SaturatingSub
     + CheckedAdd
     + CheckedSub
@@ -93,7 +94,7 @@ macro_rules! primitive_cost {
             type Output = Self;
 
             fn add(self, rhs: Self) -> Self::Output {
-                Self(self.0.checked_add(rhs.0).unwrap())
+                Self(self.0.checked_add(rhs.0).unwrap_or_else(|| panic!("Overflow when adding costs {self} + {rhs}")))
             }
         }
 
@@ -101,7 +102,13 @@ macro_rules! primitive_cost {
             type Output = Self;
 
             fn sub(self, rhs: Self) -> Self::Output {
-                Self(self.0.checked_sub(rhs.0).unwrap())
+                Self(self.0.checked_sub(rhs.0).unwrap_or_else(|| panic!("Overflow when subtracting costs {self} - {rhs}")))
+            }
+        }
+
+        impl num_traits::SaturatingAdd for $name {
+            fn saturating_add(&self, rhs: &Self) -> Self {
+                Self(self.0.saturating_add(rhs.0))
             }
         }
 
@@ -306,6 +313,12 @@ impl<A: CheckedSub, B: CheckedSub> CheckedSub for OrderedPairCost<A, B> {
             self.0.checked_sub(&rhs.0)?,
             self.1.checked_sub(&rhs.1)?,
         ))
+    }
+}
+
+impl<A: SaturatingAdd, B: SaturatingAdd> SaturatingAdd for OrderedPairCost<A, B> {
+    fn saturating_add(&self, rhs: &Self) -> Self {
+        Self(self.0.saturating_add(&rhs.0), self.1.saturating_add(&rhs.1))
     }
 }
 

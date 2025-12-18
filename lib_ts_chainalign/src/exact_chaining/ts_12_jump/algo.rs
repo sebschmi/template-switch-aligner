@@ -20,6 +20,7 @@ pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
+    enforce_non_match: bool,
     max_match_run: u32,
 }
 
@@ -37,13 +38,16 @@ pub enum Identifier {
     Primary {
         coordinates: AlignmentCoordinates,
         gap_type: GapType,
+        has_non_match: bool,
     },
     Jump12 {
         coordinates: AlignmentCoordinates,
+        has_non_match: bool,
     },
     Secondary {
         coordinates: AlignmentCoordinates,
         gap_type: GapType,
+        has_non_match: bool,
     },
 }
 
@@ -54,6 +58,7 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
         rc_fn: &'rc_fn dyn Fn(u8) -> u8,
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
+        enforce_non_match: bool,
         max_match_run: u32,
     ) -> Self {
         assert!(start.is_primary());
@@ -65,6 +70,7 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
             rc_fn,
             start,
             end,
+            enforce_non_match,
             max_match_run,
         }
     }
@@ -78,6 +84,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             identifier: Identifier::Primary {
                 coordinates: self.start,
                 gap_type: GapType::None,
+                has_non_match: false,
             },
             predecessor: None,
             predecessor_alignment_type: None,
@@ -96,6 +103,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
         let predecessor = Some(*identifier);
 
         let coordinates = identifier.coordinates();
+        let has_non_match = identifier.has_non_match();
         let gap_type = identifier.gap_type();
         let is_primary = matches!(identifier, Identifier::Primary { .. });
         let gap_affine_costs = if is_primary {
@@ -120,6 +128,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                             is_primary,
                             coordinates.increment_both(),
                             GapType::None,
+                            has_non_match,
                         ),
                         predecessor,
                         predecessor_alignment_type: Some(AlignmentType::Match),
@@ -135,6 +144,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                         is_primary,
                         coordinates.increment_both(),
                         GapType::None,
+                        true,
                     ),
                     predecessor,
                     predecessor_alignment_type: Some(AlignmentType::Substitution),
@@ -156,6 +166,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                     is_primary,
                     coordinates.increment_a(),
                     GapType::InB,
+                    true,
                 ),
                 predecessor,
                 predecessor_alignment_type: Some(AlignmentType::GapB),
@@ -176,6 +187,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                     is_primary,
                     coordinates.increment_b(),
                     GapType::InA,
+                    true,
                 ),
                 predecessor,
                 predecessor_alignment_type: Some(AlignmentType::GapA),
@@ -193,7 +205,10 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
                 coordinates
                     .generate_12_jumps(self.end, self.sequences.end())
                     .map(|(jump, coordinates)| Node {
-                        identifier: Identifier::Jump12 { coordinates },
+                        identifier: Identifier::Jump12 {
+                            coordinates,
+                            has_non_match,
+                        },
                         predecessor,
                         predecessor_alignment_type: Some(AlignmentType::TsStart {
                             jump,
@@ -208,6 +223,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
 
     fn is_target(&self, node: &Self::Node) -> bool {
         node.identifier.coordinates() == self.end
+            && (node.identifier.has_non_match() || !self.enforce_non_match)
     }
 
     fn cost_limit(&self) -> Option<<Self::Node as generic_a_star::AStarNode>::Cost> {
@@ -263,16 +279,19 @@ impl Identifier {
         is_primary: bool,
         coordinates: AlignmentCoordinates,
         gap_type: GapType,
+        has_non_match: bool,
     ) -> Self {
         if is_primary {
             Identifier::Primary {
                 coordinates,
                 gap_type,
+                has_non_match,
             }
         } else {
             Identifier::Secondary {
                 coordinates,
                 gap_type,
+                has_non_match,
             }
         }
     }
@@ -290,6 +309,14 @@ impl Identifier {
             Identifier::Primary { gap_type, .. } => *gap_type,
             Identifier::Jump12 { .. } => GapType::None,
             Identifier::Secondary { gap_type, .. } => *gap_type,
+        }
+    }
+
+    pub fn has_non_match(&self) -> bool {
+        match self {
+            Identifier::Primary { has_non_match, .. } => *has_non_match,
+            Identifier::Jump12 { has_non_match, .. } => *has_non_match,
+            Identifier::Secondary { has_non_match, .. } => *has_non_match,
         }
     }
 }
