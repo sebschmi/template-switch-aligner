@@ -42,11 +42,16 @@ use crate::{
 mod chainer;
 mod evaluation;
 
-pub struct AlignmentParameters {
+pub struct AlignmentParameters<Cost> {
     /// The step width for generating successors during chaining.
     ///
     /// At most `max_successors` will be generated at a time, but at least all with minimum chaining cost.
     pub max_successors: usize,
+
+    /// The cost until which the cost function is initialised exactly.
+    ///
+    /// Anchor chainings with a higher exact cost are initialised based on the lower bound.
+    pub max_exact_cost_function_cost: Cost,
 
     /// The closed list type to use for chaining.
     pub closed_list: ChainingClosedList,
@@ -78,7 +83,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     sequences: &AlignmentSequences,
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
-    parameters: &AlignmentParameters,
+    parameters: &AlignmentParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     max_match_run: u32,
@@ -122,7 +127,7 @@ pub fn choose_closed_list<
     sequences: &AlignmentSequences,
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
-    parameters: &AlignmentParameters,
+    parameters: &AlignmentParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     max_match_run: u32,
@@ -169,7 +174,7 @@ fn actually_align<
     sequences: &AlignmentSequences,
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
-    parameters: &AlignmentParameters,
+    parameters: &AlignmentParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     max_match_run: u32,

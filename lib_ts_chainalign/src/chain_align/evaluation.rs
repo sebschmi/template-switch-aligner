@@ -15,6 +15,7 @@ use crate::{
     exact_chaining::{
         gap_affine::GapAffineAligner, ts_12_jump::Ts12JumpAligner, ts_34_jump::Ts34JumpAligner,
     },
+    panic_on_extend::PanicOnExtend,
 };
 
 pub struct ChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost> {
@@ -31,8 +32,6 @@ pub struct ChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     total_redundant_gap_fillings: u64,
     gap_fill_alignments_per_chain: Vec<u32>,
 }
-
-struct PanicOnExtend;
 
 impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     ChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost>
@@ -581,11 +580,5 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
 
     pub fn gap_fill_alignments_per_chain(&self) -> &[u32] {
         &self.gap_fill_alignments_per_chain
-    }
-}
-
-impl<T> Extend<T> for PanicOnExtend {
-    fn extend<Iter: IntoIterator<Item = T>>(&mut self, iter: Iter) {
-        assert!(iter.into_iter().next().is_none());
     }
 }

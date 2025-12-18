@@ -95,6 +95,7 @@ pub fn align_a_star_chain_ts<
     let query = query.clone_as_vec();
     let parameters = AlignmentParameters {
         max_successors: cli.max_chaining_successors,
+        max_exact_cost_function_cost: cli.max_exact_cost_function_cost.into(),
         closed_list: cli.chaining_closed_list,
         open_list: cli.chaining_open_list,
     };

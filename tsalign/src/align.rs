@@ -114,8 +114,16 @@ pub struct Cli {
     /// Can be tuned to optimise performance.
     ///
     /// This applies only to tschainalign.
-    #[clap(long, default_value = "5")]
+    #[clap(long, default_value = "1")]
     max_chaining_successors: usize,
+
+    /// The maximum cost until which the cost function is initialised exactly.
+    ///
+    /// Setting this to a higher value will increase the time required to initialise the cost function, but decrease the amount of chains computed.
+    ///
+    /// This applies only to tschainalign.
+    #[clap(long, default_value = "10")]
+    max_exact_cost_function_cost: u32,
 
     /// The closed list type to use for chaining.
     ///
