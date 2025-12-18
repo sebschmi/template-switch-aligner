@@ -29,6 +29,7 @@ pub struct ChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     total_gaps: u64,
     total_gap_fillings: u64,
     total_redundant_gap_fillings: u64,
+    gap_fill_alignments_per_chain: Vec<u32>,
 }
 
 struct PanicOnExtend;
@@ -74,6 +75,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             total_gaps: 0,
             total_gap_fillings: 0,
             total_redundant_gap_fillings: 0,
+            gap_fill_alignments_per_chain: Default::default(),
         }
     }
 
@@ -93,6 +95,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         let mut current_upper_bound = Cost::zero();
         let mut alignments = Vec::new();
         let mut current_from_index = 0;
+        let mut gap_fill_alignment_count = 0;
 
         loop {
             let from_anchor = chain[current_from_index];
@@ -129,6 +132,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         self.total_gap_fillings +=
                             u64::try_from(self.additional_primary_targets_buffer.len()).unwrap();
+                        gap_fill_alignment_count += 1;
+
                         trace!("Aligning from start to end costs {}", cost);
                         if !final_evaluation {
                             chaining_cost_function.update_start_to_end(cost, true);
@@ -161,6 +166,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         self.total_gap_fillings +=
                             u64::try_from(self.additional_primary_targets_buffer.len()).unwrap();
+                        gap_fill_alignment_count += 1;
+
                         trace!(
                             "Aligning from start to P{index}{} costs {}",
                             anchors.primary(index),
@@ -196,6 +203,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         self.total_gap_fillings +=
                             u64::try_from(self.additional_secondary_targets_buffer.len()).unwrap();
+                        gap_fill_alignment_count += 1;
+
                         trace!(
                             "Aligning from start to S{}[{index}]{} costs {}",
                             ts_kind.digits(),
@@ -229,6 +238,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         self.total_gap_fillings +=
                             u64::try_from(self.additional_primary_targets_buffer.len()).unwrap();
+                        gap_fill_alignment_count += 1;
+
                         trace!(
                             "Aligning from P{index}{} to end costs {}",
                             anchors.primary(index),
@@ -262,6 +273,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         self.total_gap_fillings +=
                             u64::try_from(self.additional_primary_targets_buffer.len()).unwrap();
+                        gap_fill_alignment_count += 1;
+
                         trace!(
                             "Aligning from S{}[{index}]{} to end costs {}",
                             ts_kind.digits(),
@@ -318,6 +331,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         self.total_gap_fillings +=
                             u64::try_from(self.additional_primary_targets_buffer.len()).unwrap();
+                        gap_fill_alignment_count += 1;
+
                         trace!(
                             "Aligning from P{from_index}{} to P{to_index}{} (from {start} to {end}) costs {}",
                             anchors.primary(from_index),
@@ -378,7 +393,15 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         self.total_gap_fillings +=
                             u64::try_from(self.additional_secondary_targets_buffer.len()).unwrap();
-                        self.total_gap_fillings += 1;
+                        gap_fill_alignment_count += 1;
+
+                        trace!(
+                            "Aligning from P{from_index}{} to S{}[{to_index}]{} costs {}",
+                            anchors.primary(from_index),
+                            ts_kind.digits(),
+                            anchors.secondary(to_index, ts_kind),
+                            cost
+                        );
                         if !final_evaluation {
                             chaining_cost_function
                                 .update_jump_12(from_index, to_index, ts_kind, cost, true);
@@ -390,13 +413,6 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                                 &mut self.total_redundant_gap_fillings,
                             );
                         }
-                        trace!(
-                            "Aligning from P{from_index}{} to S{}[{to_index}]{} costs {}",
-                            anchors.primary(from_index),
-                            ts_kind.digits(),
-                            anchors.secondary(to_index, ts_kind),
-                            cost
-                        );
                         alignments.push(iter::repeat_n(AlignmentType::Match, k).collect());
                         alignments.push(alignment);
                     }
@@ -443,6 +459,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         self.total_gap_fillings +=
                             u64::try_from(self.additional_secondary_targets_buffer.len()).unwrap();
+                        gap_fill_alignment_count += 1;
+
                         trace!(
                             "Aligning from S{}[{from_index}]{} to S{}[{to_index}]{} costs {}",
                             ts_kind.digits(),
@@ -495,7 +513,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         );
                         self.total_gap_fillings +=
                             u64::try_from(self.additional_primary_targets_buffer.len()).unwrap();
-                        self.total_gap_fillings += 1;
+                        gap_fill_alignment_count += 1;
+
                         trace!(
                             "Aligning from S{}[{from_index}]{} to P{to_index}{} (S{} to P{}) costs {}",
                             ts_kind.digits(),
@@ -542,6 +561,9 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             }
         }
 
+        self.gap_fill_alignments_per_chain
+            .push(gap_fill_alignment_count);
+
         (current_upper_bound, alignments)
     }
 
@@ -555,6 +577,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
 
     pub fn total_redundant_gap_fillings(&self) -> u64 {
         self.total_redundant_gap_fillings
+    }
+
+    pub fn gap_fill_alignments_per_chain(&self) -> &[u32] {
+        &self.gap_fill_alignments_per_chain
     }
 }
 
