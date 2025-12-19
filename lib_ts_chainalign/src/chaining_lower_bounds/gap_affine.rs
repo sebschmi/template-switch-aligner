@@ -37,7 +37,6 @@ impl<Cost: AStarCost> GapAffineLowerBounds<Cost> {
     ) -> Self {
         let mut lower_bounds =
             LowerBoundCostArray::new_from_cost([max_n + 1, max_n + 1], Cost::max_value());
-        lower_bounds[[0, 0]] = Cost::zero();
         let context = Context::new(cost_table, max_match_run, max_n);
         let mut a_star = AStar::<_>::new(context);
         a_star.initialise();

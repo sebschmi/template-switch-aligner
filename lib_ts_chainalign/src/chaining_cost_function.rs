@@ -86,6 +86,9 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             &mut additional_primary_targets_output,
             &mut PanicOnExtend,
         );
+        // Allow start to chain without gaps to first primary anchor if it exists.
+        additional_primary_targets_output
+            .push((PrimaryAnchor::new_from_start(&start), Cost::zero()));
         additional_primary_targets_output.sort_unstable();
         for (to_index, cost) in
             anchors.primary_anchor_to_index_iter(additional_primary_targets_output.iter().copied())
@@ -126,7 +129,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             // Fill primary from from_index with exact values.
             additional_primary_targets_output.clear();
             primary_aligner.align_until_cost_limit(
-                anchors.primary(from_index - 1).end(k),
+                from_anchor.end(k),
                 max_exact_cost_function_cost,
                 &mut additional_primary_targets_output,
                 &mut PanicOnExtend,
@@ -155,10 +158,15 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
 
             // Fill remaining primary with lower bound.
             let (gap1, gap2) = from_anchor.chaining_gaps_to_end(end, k);
-            primary[[from_index, primary_end_anchor_index]] = chaining_lower_bounds
-                .primary_lower_bound(gap1, gap2)
-                .max(max_exact_cost_function_cost + Cost::from_usize(1))
-                .min(primary[[from_index, primary_end_anchor_index]]);
+            if gap1 == 0 && gap2 == 0 {
+                // Allow last primary anchor to chain without gaps to end anchor.
+                primary[[from_index, primary_end_anchor_index]] = Cost::zero();
+            } else {
+                primary[[from_index, primary_end_anchor_index]] = chaining_lower_bounds
+                    .primary_lower_bound(gap1, gap2)
+                    .max(max_exact_cost_function_cost + Cost::from_usize(1))
+                    .min(primary[[from_index, primary_end_anchor_index]]);
+            }
 
             for (to_index, to_anchor) in anchors.enumerate_primaries() {
                 let to_index = to_index + 1;

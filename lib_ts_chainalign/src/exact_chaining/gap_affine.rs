@@ -47,10 +47,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         assert!(
             start.is_primary() && end.is_primary() || start.is_secondary() && end.is_secondary()
         );
-
-        if start == end {
-            return (Cost::zero(), Vec::new().into());
-        }
+        let enforce_non_match = true;
 
         let context = Context::new(
             self.cost_table,
@@ -58,7 +55,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             self.rc_fn,
             start,
             end,
-            true,
+            enforce_non_match,
             self.max_match_run,
         );
         let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
@@ -78,6 +75,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         Self::fill_additional_targets(
             &a_star,
             start,
+            enforce_non_match,
             additional_primary_targets_output,
             additional_secondary_targets_output,
         );
@@ -96,6 +94,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         additional_primary_targets_output: &mut impl Extend<(PrimaryAnchor, Cost)>,
         additional_secondary_targets_output: &mut impl Extend<(SecondaryAnchor, Cost)>,
     ) {
+        let enforce_non_match = true;
         let end = self.sequences.end(start.ts_kind());
         debug_assert!(
             start.is_primary() && end.is_primary() || start.is_secondary() && end.is_secondary()
@@ -107,7 +106,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             self.rc_fn,
             start,
             end,
-            true,
+            enforce_non_match,
             self.max_match_run,
         );
         let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
@@ -117,6 +116,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         Self::fill_additional_targets(
             &a_star,
             start,
+            enforce_non_match,
             additional_primary_targets_output,
             additional_secondary_targets_output,
         );
@@ -126,6 +126,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
     fn fill_additional_targets(
         a_star: &AStar<Context<Cost>>,
         start: AlignmentCoordinates,
+        enforce_non_match: bool,
         additional_primary_targets_output: &mut impl Extend<(PrimaryAnchor, Cost)>,
         additional_secondary_targets_output: &mut impl Extend<(SecondaryAnchor, Cost)>,
     ) {
@@ -134,7 +135,9 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
                 .iter_closed_nodes()
                 .filter(|node| {
                     node.identifier.coordinates.is_primary()
-                        && (node.identifier.has_non_match == (start != node.identifier.coordinates))
+                        && ((node.identifier.has_non_match
+                            == (start != node.identifier.coordinates))
+                            || !enforce_non_match)
                 })
                 .map(|node| {
                     (
@@ -148,7 +151,9 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
                 .iter_closed_nodes()
                 .filter(|node| {
                     node.identifier.coordinates.is_secondary()
-                        && (node.identifier.has_non_match == (start != node.identifier.coordinates))
+                        && ((node.identifier.has_non_match
+                            == (start != node.identifier.coordinates))
+                            || !enforce_non_match)
                 })
                 .map(|node| {
                     (
