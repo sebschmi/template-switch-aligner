@@ -341,11 +341,6 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                     if cost <= max_exact_cost_function_cost {
                         jump_34.set_exact(from_index, primary_end_anchor_index);
                     }
-                    println!(
-                        "Setting 34-jump from S{}[{from_index}]{} to end to cost {cost}",
-                        ts_kind.digits(),
-                        anchors.secondary(from_index, ts_kind),
-                    );
                 }
 
                 // Fill remaining 34-jumps with lower bound.
@@ -384,11 +379,6 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 {
                     jump_12.set_exact(primary_start_anchor_index, to_index);
                 }
-                println!(
-                    "Setting 12-jump from start to S{}[{to_index}]{} to cost {cost}",
-                    ts_kind.digits(),
-                    anchors.secondary(to_index, ts_kind),
-                );
             }
 
             for (index, anchor) in anchors.enumerate_secondaries(ts_kind) {

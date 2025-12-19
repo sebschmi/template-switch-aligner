@@ -391,9 +391,9 @@ impl<
                 trace!("Node {node} is target");
             }
             if is_target {
-                println!("Node {node} is target");
+                //println!("Node {node} is target");
             } else {
-                println!("Node {node}");
+                //println!("Node {node}");
             }
             debug_assert!(!is_target || node.a_star_lower_bound().is_zero());
 
@@ -419,7 +419,7 @@ impl<
                     if DEBUG_ASTAR {
                         trace!("Updating target to {node}");
                     }
-                    println!("Updating target to {node}");
+                    //println!("Updating target to {node}");
                     target_identifier = Some(node.identifier().clone());
                     target_cost = node.cost();
                     target_secondary_maximisable_score = node.secondary_maximisable_score();
@@ -449,7 +449,7 @@ impl<
                     if DEBUG_ASTAR {
                         trace!("Updating target to {node}");
                     }
-                    println!("Updating target to {node}");
+                    //println!("Updating target to {node}");
                     target_identifier = Some(node.identifier().clone());
                     target_cost = node.cost();
                     target_secondary_maximisable_score = node.secondary_maximisable_score();
@@ -489,7 +489,7 @@ impl<
                 if DEBUG_ASTAR {
                     trace!("Updating target to {node}");
                 }
-                println!("Updating target to {node}");
+                //println!("Updating target to {node}");
                 target_identifier = Some(node.identifier().clone());
                 target_cost = node.cost();
                 target_secondary_maximisable_score = node.secondary_maximisable_score();
