@@ -200,9 +200,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
 
         // Generate jump successors.
         if is_secondary {
-            // TS base cost was applied at 12-jump already, but we anyways apply it to get a label-setting search if it's non-zero.
-            // We subtract it later in the super module.
-            let new_cost = *cost + self.costs.ts_base_cost;
+            let new_cost = *cost;
 
             // This generates too many jumps, most of these are gonna be much too far.
             output.extend(
@@ -241,6 +239,10 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
 
     fn memory_limit(&self) -> Option<usize> {
         None
+    }
+
+    fn is_label_setting(&self) -> bool {
+        false
     }
 }
 
