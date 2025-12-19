@@ -8,13 +8,19 @@ use crate::anchors::index::AnchorIndex;
 pub struct ChainingCostArray<Cost> {
     len: [AnchorIndex; 2],
     data: Vec<Cost>,
+    /// True if the anchor indices of the two dimensions map to the same set of anchors.
+    maps_between_same_anchors: bool,
     /// For each ordinate 0, store the indices of the corresponding ordinates 1, ordered by their cost.
     cost_order_permutation: Vec<Vec<AnchorIndex>>,
     is_exact: BitVec<usize, LocalBits>,
 }
 
 impl<Cost> ChainingCostArray<Cost> {
-    pub fn new_from_cost(dim: [impl Into<AnchorIndex>; 2], cost: Cost) -> Self
+    pub fn new_from_cost(
+        dim: [impl Into<AnchorIndex>; 2],
+        cost: Cost,
+        maps_between_same_anchors: bool,
+    ) -> Self
     where
         Cost: Clone,
     {
@@ -23,6 +29,7 @@ impl<Cost> ChainingCostArray<Cost> {
         Self {
             len: dim,
             data: vec![cost; dim[0].as_usize() * dim[1].as_usize()],
+            maps_between_same_anchors,
             cost_order_permutation: vec![Vec::new(); dim[0].as_usize()],
             is_exact: bitvec![usize, LocalBits; 0; dim[0].as_usize() * dim[1].as_usize()],
         }
@@ -46,11 +53,16 @@ impl<Cost> ChainingCostArray<Cost> {
         Cost: Copy + Ord,
     {
         if self.cost_order_permutation[c1.as_usize()].is_empty() {
-            self.cost_order_permutation[c1.as_usize()].extend(
-                ((0..c1.as_usize()).chain(c1.as_usize() + 1..))
-                    .take(self.len[1].as_usize().saturating_sub(1))
-                    .map(AnchorIndex::from),
-            );
+            if self.maps_between_same_anchors {
+                self.cost_order_permutation[c1.as_usize()].extend(
+                    ((0..c1.as_usize()).chain(c1.as_usize() + 1..))
+                        .take(self.len[1].as_usize().saturating_sub(1))
+                        .map(AnchorIndex::from),
+                );
+            } else {
+                self.cost_order_permutation[c1.as_usize()]
+                    .extend((0..self.len[1].as_usize()).map(AnchorIndex::from));
+            }
             self.cost_order_permutation[c1.as_usize()]
                 .sort_unstable_by_key(|c2| self.data[coordinates_to_index(c1, *c2, self.len)]);
         }

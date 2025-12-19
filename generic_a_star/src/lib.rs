@@ -10,6 +10,7 @@ use binary_heap_plus::BinaryHeap;
 use comparator::AStarNodeComparator;
 use cost::AStarCost;
 use extend_map::ExtendFilter;
+use log::trace;
 use num_traits::{Bounded, Zero};
 use reset::Reset;
 use rustc_hash::FxHashMapSeed;
@@ -21,6 +22,8 @@ pub mod comparator;
 pub mod cost;
 pub mod open_lists;
 pub mod reset;
+
+const DEBUG_ASTAR: bool = false;
 
 /// An identifier for nodes in the A* graph.
 pub trait AStarIdentifier: Debug + Clone + Eq + Hash {}
@@ -343,6 +346,10 @@ impl<
                         result: AStarResult::ExceededCostLimit { cost_limit },
                     };
                     return AStarResult::ExceededCostLimit { cost_limit };
+                } else if target_identifier.is_some() {
+                    // If we found a target, then we can break the loop and return it normally.
+                    // This branch is taken if the search is label-correcting, and all nodes have costs at most the lowest target cost.
+                    break;
                 } else {
                     self.state = AStarState::Terminated {
                         result: AStarResult::NoTarget,
@@ -379,12 +386,46 @@ impl<
             }
 
             last_node = Some(node.identifier().clone());
+            let is_target = is_target(&self.context, &node);
+            if DEBUG_ASTAR && is_target {
+                trace!("Node {node} is target");
+            }
+            debug_assert!(!is_target || node.a_star_lower_bound().is_zero());
 
             if self
                 .closed_list
                 .can_skip_node(&node, self.context.is_label_setting())
             {
                 self.performance_counters.suboptimal_opened_nodes += 1;
+
+                if is_target
+                    && (node.cost() < target_cost
+                        || (node.cost() == target_cost
+                            && node.secondary_maximisable_score()
+                                > target_secondary_maximisable_score))
+                {
+                    if DEBUG_ASTAR {
+                        trace!("Updating target to {node}");
+                    }
+                    target_identifier = Some(node.identifier().clone());
+                    target_cost = node.cost();
+                    target_secondary_maximisable_score = node.secondary_maximisable_score();
+
+                    if self.context.is_label_setting() {
+                        if DEBUG_ASTAR {
+                            trace!("Context is label setting, so we return the first target found");
+                        }
+                        let previous_visit =
+                            self.closed_list.insert(node.identifier().clone(), node);
+                        self.performance_counters.closed_nodes += 1;
+                        debug_assert!(previous_visit.is_none() || !self.context.is_label_setting());
+                        break;
+                    }
+                }
+
+                if DEBUG_ASTAR {
+                    trace!("Skipping node {node}");
+                }
                 continue;
             }
 
@@ -400,19 +441,22 @@ impl<
             self.performance_counters.opened_nodes +=
                 self.open_list.len() - open_nodes_without_new_successors;
 
-            let is_target = is_target(&self.context, &node);
-            debug_assert!(!is_target || node.a_star_lower_bound().is_zero());
-
             if is_target
                 && (node.cost() < target_cost
                     || (node.cost() == target_cost
                         && node.secondary_maximisable_score() > target_secondary_maximisable_score))
             {
+                if DEBUG_ASTAR {
+                    trace!("Updating target to {node}");
+                }
                 target_identifier = Some(node.identifier().clone());
                 target_cost = node.cost();
                 target_secondary_maximisable_score = node.secondary_maximisable_score();
 
                 if self.context.is_label_setting() {
+                    if DEBUG_ASTAR {
+                        trace!("Context is label setting, so we return the first target found");
+                    }
                     let previous_visit = self.closed_list.insert(node.identifier().clone(), node);
                     self.performance_counters.closed_nodes += 1;
                     debug_assert!(previous_visit.is_none() || !self.context.is_label_setting());
