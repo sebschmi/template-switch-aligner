@@ -307,7 +307,16 @@ impl<
 
     pub fn search_until(
         &mut self,
+        is_target: impl FnMut(&Context, &Context::Node) -> bool,
+    ) -> AStarResult<<Context::Node as AStarNode>::Identifier, <Context::Node as AStarNode>::Cost>
+    {
+        self.search_until_with_target_policy(is_target, false)
+    }
+
+    pub fn search_until_with_target_policy(
+        &mut self,
         mut is_target: impl FnMut(&Context, &Context::Node) -> bool,
+        abort_on_first_target: bool,
     ) -> AStarResult<<Context::Node as AStarNode>::Identifier, <Context::Node as AStarNode>::Cost>
     {
         assert!(matches!(
@@ -424,7 +433,7 @@ impl<
                     target_cost = node.cost();
                     target_secondary_maximisable_score = node.secondary_maximisable_score();
 
-                    if self.context.is_label_setting() {
+                    if self.context.is_label_setting() || abort_on_first_target {
                         if DEBUG_ASTAR {
                             trace!("Context is label setting, so we return the first target found");
                         }
@@ -454,7 +463,7 @@ impl<
                     target_cost = node.cost();
                     target_secondary_maximisable_score = node.secondary_maximisable_score();
 
-                    if self.context.is_label_setting() {
+                    if self.context.is_label_setting() || abort_on_first_target {
                         if DEBUG_ASTAR {
                             trace!("Context is label setting, so we return the first target found");
                         }
@@ -494,7 +503,7 @@ impl<
                 target_cost = node.cost();
                 target_secondary_maximisable_score = node.secondary_maximisable_score();
 
-                if self.context.is_label_setting() {
+                if self.context.is_label_setting() || abort_on_first_target {
                     if DEBUG_ASTAR {
                         trace!("Context is label setting, so we return the first target found");
                     }

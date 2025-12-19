@@ -80,7 +80,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             AStarResult::NoTarget => (Cost::max_value(), Vec::new().into()),
         };
 
-        a_star.search_until(|_, node| node.cost > cost);
+        a_star.search_until_with_target_policy(|_, node| node.cost > cost, true);
         Self::fill_additional_targets(
             &a_star,
             descendant_start,
@@ -115,7 +115,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         );
         let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
         a_star.initialise();
-        a_star.search_until(|_, node| node.cost > cost_limit);
+        a_star.search_until_with_target_policy(|_, node| node.cost > cost_limit, true);
 
         let descendant_start = match end.ts_kind().unwrap().descendant {
             TsDescendant::Seq1 => start.primary_ordinate_a(),

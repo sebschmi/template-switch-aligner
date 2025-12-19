@@ -70,7 +70,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::NoTarget => (Cost::max_value(), Vec::new().into()),
         };
-        a_star.search_until(|_, node| node.cost > cost);
+        a_star.search_until_with_target_policy(|_, node| node.cost > cost, true);
 
         Self::fill_additional_targets(
             &a_star,
@@ -111,7 +111,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         );
         let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
         a_star.initialise();
-        a_star.search_until(|_, node| node.cost > cost_limit);
+        a_star.search_until_with_target_policy(|_, node| node.cost > cost_limit, true);
 
         Self::fill_additional_targets(
             &a_star,
