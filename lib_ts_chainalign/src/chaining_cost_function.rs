@@ -279,7 +279,11 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 for (to_index, to_anchor) in anchors.enumerate_secondaries(ts_kind) {
                     if let Some(gap) = from_anchor.chaining_jump_gap(&to_anchor, ts_kind, k) {
                         let lower_bound = chaining_lower_bounds.jump_12_lower_bound(gap);
-                        jump_12[[from_index, to_index]] = lower_bound;
+                        jump_12[[from_index, to_index]] = lower_bound.max(
+                            max_exact_cost_function_cost
+                                + chaining_lower_bounds.alignment_costs().ts_base_cost
+                                + Cost::from_usize(1),
+                        );
                         if lower_bound
                             <= max_exact_cost_function_cost
                                 + chaining_lower_bounds.alignment_costs().ts_base_cost
