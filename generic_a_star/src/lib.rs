@@ -331,6 +331,7 @@ impl<
 
         self.state = AStarState::Searching;
 
+        let is_continued_search = !self.closed_list.is_empty();
         let mut last_node = None;
         let mut target_identifier = None;
         let mut target_cost = <Context::Node as AStarNode>::Cost::max_value();
@@ -418,7 +419,13 @@ impl<
                         let previous_visit =
                             self.closed_list.insert(node.identifier().clone(), node);
                         self.performance_counters.closed_nodes += 1;
-                        debug_assert!(previous_visit.is_none() || !self.context.is_label_setting());
+                        debug_assert!(
+                            previous_visit.is_none()
+                                || !self.context.is_label_setting()
+                                || is_continued_search,
+                            "Visited node again even though we are label setting:\nprevious: {}",
+                            previous_visit.unwrap(),
+                        );
                         break;
                     }
                 }
@@ -459,7 +466,11 @@ impl<
                     }
                     let previous_visit = self.closed_list.insert(node.identifier().clone(), node);
                     self.performance_counters.closed_nodes += 1;
-                    debug_assert!(previous_visit.is_none() || !self.context.is_label_setting());
+                    debug_assert!(
+                        previous_visit.is_none()
+                            || !self.context.is_label_setting()
+                            || is_continued_search
+                    );
                     break;
                 }
             }
