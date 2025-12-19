@@ -268,7 +268,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let mut total_12_jump_exact_align_time = Duration::default();
         let mut total_12_jump_exact_evaluation_time = Duration::default();
         let mut total_12_jump_exact_evaluations = 0;
-        let mut total_12_jump_exact_evaluation_opened_nodes = 0;
+        let mut total_12_jump_exact_evaluation_opened_nodes = 0usize;
         for (ts_kind, jump_12) in TsKind::iter().zip(&mut jump_12s) {
             trace!("Filling 12-jumps to S{}", ts_kind.digits());
             for (from_index, from_anchor) in anchors.enumerate_primaries() {
@@ -360,7 +360,9 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         );
         debug!(
             "Exact cost evaluation for 12-jumps opened on average {} nodes (without skipped evaluations)",
-            total_12_jump_exact_evaluation_opened_nodes / total_12_jump_exact_evaluations,
+            total_12_jump_exact_evaluation_opened_nodes
+                .checked_div(total_12_jump_exact_evaluations)
+                .unwrap_or(0),
         );
 
         // Initialise 34-jumps with infinity.
