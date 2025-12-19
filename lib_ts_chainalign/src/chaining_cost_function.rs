@@ -1,8 +1,8 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use generic_a_star::cost::AStarCost;
 use itertools::Itertools;
-use log::{debug, info};
+use log::{debug, info, trace};
 use num_traits::Zero;
 
 use crate::{
@@ -72,7 +72,8 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let mut additional_primary_targets_output = Vec::new();
         let mut additional_secondary_targets_output = Vec::new();
 
-        // Initialise primary with infinitiy.
+        // Initialise primary with infinity.
+        trace!("Initialise primary with infinity");
         let mut primary = ChainingCostArray::new_from_cost(
             [primary_anchor_amount, primary_anchor_amount],
             Cost::max_value(),
@@ -80,6 +81,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         );
 
         // Fill primary from start with exact values.
+        trace!("Fill primary");
         additional_primary_targets_output.clear();
         primary_aligner.align_until_cost_limit(
             sequences.primary_start(),
@@ -188,6 +190,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         }
 
         // Initialise secondaries with infinity.
+        trace!("Initialise secondaries with infinity");
         let mut secondaries = TsKind::iter()
             .map(|ts_kind| {
                 ChainingCostArray::new_from_cost(
@@ -201,7 +204,9 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             })
             .collect_array()
             .unwrap();
+        trace!("Fill secondaries");
         for (ts_kind, secondary) in TsKind::iter().zip(&mut secondaries) {
+            trace!("Fill secondaries S{}", ts_kind.digits());
             for (from_index, from_anchor) in anchors.enumerate_secondaries(ts_kind) {
                 // Fill secondary from from_index with exact values.
                 additional_secondary_targets_output.clear();
@@ -248,6 +253,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         }
 
         // Initialise 12-jumps with infinity.
+        trace!("Initialise 12-jumps with infinity");
         let mut jump_12s = TsKind::iter()
             .map(|ts_kind| {
                 ChainingCostArray::new_from_cost(
@@ -258,50 +264,107 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             })
             .collect_array()
             .unwrap();
+
+        let mut total_12_jump_exact_align_time = Duration::default();
+        let mut total_12_jump_exact_evaluation_time = Duration::default();
+        let mut total_12_jump_exact_evaluations = 0;
+        let mut total_12_jump_exact_evaluation_opened_nodes = 0;
         for (ts_kind, jump_12) in TsKind::iter().zip(&mut jump_12s) {
+            trace!("Filling 12-jumps to S{}", ts_kind.digits());
             for (from_index, from_anchor) in anchors.enumerate_primaries() {
                 let from_index = from_index + 1;
 
-                // Fill 12-jumps from from_index with exact values.
-                additional_secondary_targets_output.clear();
-                ts_12_jump_aligner.align_until_cost_limit(
-                    anchors.primary(from_index - 1).end(k),
-                    ts_kind,
-                    max_exact_cost_function_cost
-                        + chaining_lower_bounds.alignment_costs().ts_base_cost,
-                    &mut additional_secondary_targets_output,
-                );
-                additional_secondary_targets_output.sort_unstable();
-                for (to_index, cost) in anchors.secondary_anchor_to_index_iter(
-                    additional_secondary_targets_output.iter().copied(),
-                    ts_kind,
-                ) {
-                    jump_12[[from_index, to_index]] = cost;
-                    if cost
-                        <= max_exact_cost_function_cost
-                            + chaining_lower_bounds.alignment_costs().ts_base_cost
-                    {
-                        jump_12.set_exact(from_index, to_index);
+                // Fill 12-jumps with lower bound.
+                let mut eligible_anchors = Vec::new();
+                for (to_index, to_anchor) in anchors.enumerate_secondaries(ts_kind) {
+                    if let Some(gap) = from_anchor.chaining_jump_gap(&to_anchor, ts_kind, k) {
+                        let lower_bound = chaining_lower_bounds.jump_12_lower_bound(gap);
+                        jump_12[[from_index, to_index]] = lower_bound;
+                        if lower_bound
+                            <= max_exact_cost_function_cost
+                                + chaining_lower_bounds.alignment_costs().ts_base_cost
+                        {
+                            eligible_anchors.push(to_anchor);
+                        }
                     }
                 }
 
-                // Fill remaining 12-jumps with lower bound.
-                for (to_index, to_anchor) in anchors.enumerate_secondaries(ts_kind) {
-                    if let Some(gap) = from_anchor.chaining_jump_gap(&to_anchor, ts_kind, k) {
-                        jump_12[[from_index, to_index]] = chaining_lower_bounds
-                            .jump_12_lower_bound(gap)
-                            .max(
-                                max_exact_cost_function_cost
-                                    + chaining_lower_bounds.alignment_costs().ts_base_cost
-                                    + Cost::from_usize(1),
-                            )
-                            .min(jump_12[[from_index, to_index]]);
+                if !eligible_anchors.is_empty() {
+                    total_12_jump_exact_evaluations += 1;
+                    eligible_anchors.sort_unstable_by_key(|anchor| {
+                        anchor.start(ts_kind).secondary_ordinate_ancestor().unwrap()
+                    });
+                    // TODO: use eligible anchors for much more detailed filtering or for an A* lower bound in alignment.
+                    let eligible_anchors = eligible_anchors;
+                    let min_eligible_ancestor = eligible_anchors
+                        .first()
+                        .unwrap()
+                        .start(ts_kind)
+                        .secondary_ordinate_ancestor()
+                        .unwrap();
+                    let align_end = AlignmentCoordinates::new_secondary(
+                        min_eligible_ancestor,
+                        sequences
+                            .secondary_end(ts_kind)
+                            .secondary_ordinate_descendant()
+                            .unwrap(),
+                        ts_kind,
+                    );
+
+                    // Correct 12-jumps from from_index to exact values.
+                    additional_secondary_targets_output.clear();
+                    // FIXME: this finds all positions in the ancestor, but almost none of them belong to any anchor.
+                    let start = Instant::now();
+                    total_12_jump_exact_evaluation_opened_nodes += ts_12_jump_aligner
+                        .align_until_cost_limit(
+                            anchors.primary(from_index - 1).end(k),
+                            align_end,
+                            ts_kind,
+                            max_exact_cost_function_cost
+                                + chaining_lower_bounds.alignment_costs().ts_base_cost,
+                            &mut additional_secondary_targets_output,
+                        );
+                    let after_align = Instant::now();
+                    additional_secondary_targets_output.sort_unstable();
+                    let mut additional_secondary_anchor_count = 0;
+                    for (to_index, cost) in anchors.secondary_anchor_to_index_iter(
+                        additional_secondary_targets_output.iter().copied(),
+                        ts_kind,
+                    ) {
+                        additional_secondary_anchor_count += 1;
+                        jump_12[[from_index, to_index]] = cost;
+                        if cost
+                            <= max_exact_cost_function_cost
+                                + chaining_lower_bounds.alignment_costs().ts_base_cost
+                        {
+                            jump_12.set_exact(from_index, to_index);
+                        }
                     }
+                    let end = Instant::now();
+                    total_12_jump_exact_align_time += after_align - start;
+                    total_12_jump_exact_evaluation_time += end - after_align;
+                    trace!(
+                        "Found {additional_secondary_anchor_count}/{} additional anchors from P[{}] to S{}",
+                        additional_secondary_targets_output.len(),
+                        from_index - 1,
+                        ts_kind.digits(),
+                    );
                 }
             }
         }
 
+        debug!(
+            "Exact cost evaluation for 12-jumps took {:.0}s to align and {:.0}s to evaluate",
+            total_12_jump_exact_align_time.as_secs_f64(),
+            total_12_jump_exact_evaluation_time.as_secs_f64(),
+        );
+        debug!(
+            "Exact cost evaluation for 12-jumps opened on average {} nodes (without skipped evaluations)",
+            total_12_jump_exact_evaluation_opened_nodes / total_12_jump_exact_evaluations,
+        );
+
         // Initialise 34-jumps with infinity.
+        trace!("Initialise 34-jumps with infinity");
         let mut jump_34s = TsKind::iter()
             .map(|ts_kind| {
                 ChainingCostArray::new_from_cost(
@@ -313,6 +376,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             .collect_array()
             .unwrap();
         for (ts_kind, jump_34) in TsKind::iter().zip(&mut jump_34s) {
+            trace!("Filling 34-jumps from S{}", ts_kind.digits());
             for (from_index, from_anchor) in anchors.enumerate_secondaries(ts_kind) {
                 // Fill 34-jumps from from_index with exact values.
                 additional_primary_targets_output.clear();
@@ -356,6 +420,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             }
         }
 
+        trace!("Fill jumps from start and to end");
         for (ts_kind, (jump_12, jump_34)) in
             TsKind::iter().zip(jump_12s.iter_mut().zip(&mut jump_34s))
         {
@@ -363,6 +428,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             additional_secondary_targets_output.clear();
             ts_12_jump_aligner.align_until_cost_limit(
                 start,
+                sequences.secondary_end(ts_kind),
                 ts_kind,
                 max_exact_cost_function_cost + chaining_lower_bounds.alignment_costs().ts_base_cost,
                 &mut additional_secondary_targets_output,

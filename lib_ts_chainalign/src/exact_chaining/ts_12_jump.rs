@@ -97,12 +97,13 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
     pub fn align_until_cost_limit(
         &mut self,
         start: AlignmentCoordinates,
+        end: AlignmentCoordinates,
         ts_kind: TsKind,
         cost_limit: Cost,
         additional_secondary_targets_output: &mut impl Extend<(SecondaryAnchor, Cost)>,
-    ) {
+    ) -> usize {
         assert!(start.is_primary());
-        let end = self.sequences.secondary_end(ts_kind);
+        assert!(end.is_secondary());
 
         let context = Context::new(
             self.alignment_costs,
@@ -117,7 +118,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         a_star.initialise();
         a_star.search_until_with_target_policy(|_, node| node.cost > cost_limit, true);
 
-        let descendant_start = match end.ts_kind().unwrap().descendant {
+        let descendant_start = match ts_kind.descendant {
             TsDescendant::Seq1 => start.primary_ordinate_a(),
             TsDescendant::Seq2 => start.primary_ordinate_b(),
         }
@@ -127,7 +128,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
             descendant_start,
             additional_secondary_targets_output,
         );
+
+        let opened_node_amount = a_star.performance_counters().opened_nodes;
         self.a_star_buffers = Some(a_star.into_buffers());
+        opened_node_amount
     }
 
     fn fill_additional_targets(
