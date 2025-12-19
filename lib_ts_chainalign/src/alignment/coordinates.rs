@@ -103,7 +103,9 @@ impl AlignmentCoordinates {
                         // Descendant is a, so it is limited by the descendant ordinate.
                         TsDescendant::Seq1 => *a < end.secondary_ordinate_descendant().unwrap(),
                         // Descendant is b, so a can go until the end of the sequence.
-                        TsDescendant::Seq2 => *a < sequences.end().primary_ordinate_a().unwrap(),
+                        TsDescendant::Seq2 => {
+                            *a < sequences.primary_end().primary_ordinate_a().unwrap()
+                        }
                     }
                 }
                 AlignmentCoordinates::Secondary { ancestor, .. } => 0 < *ancestor,
@@ -138,7 +140,9 @@ impl AlignmentCoordinates {
                 AlignmentCoordinates::Primary { b, .. } => {
                     match end.ts_kind().unwrap().descendant {
                         // Descendant is a, so b can go until the end of the sequence.
-                        TsDescendant::Seq1 => *b < sequences.end().primary_ordinate_b().unwrap(),
+                        TsDescendant::Seq1 => {
+                            *b < sequences.primary_end().primary_ordinate_b().unwrap()
+                        }
                         // Descendant is b, so it is limited by the descendant ordinate.
                         TsDescendant::Seq2 => *b < end.secondary_ordinate_descendant().unwrap(),
                     }

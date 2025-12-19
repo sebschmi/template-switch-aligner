@@ -15,6 +15,7 @@ use generic_a_star::{
     open_lists::{AStarOpenList, linear_heap::LinearHeap},
 };
 use indicatif::ProgressBar;
+use itertools::Itertools;
 use lib_tsalign::a_star_aligner::{
     alignment_result::AlignmentResult,
     template_switch_distance::{EqualCostRange, TemplateSwitchDirection},
@@ -23,6 +24,7 @@ use log::{debug, trace};
 use rustc_hash::FxHashMapSeed;
 use std::{
     fmt::Write,
+    iter,
     time::{Duration, Instant},
 };
 
@@ -40,11 +42,16 @@ use crate::{
 mod chainer;
 mod evaluation;
 
-pub struct AlignmentParameters {
+pub struct AlignmentParameters<Cost> {
     /// The step width for generating successors during chaining.
     ///
     /// At most `max_successors` will be generated at a time, but at least all with minimum chaining cost.
     pub max_successors: usize,
+
+    /// The cost until which the cost function is initialised exactly.
+    ///
+    /// Anchor chainings with a higher exact cost are initialised based on the lower bound.
+    pub max_exact_cost_function_cost: Cost,
 
     /// The closed list type to use for chaining.
     pub closed_list: ChainingClosedList,
@@ -76,7 +83,7 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     sequences: &AlignmentSequences,
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
-    parameters: &AlignmentParameters,
+    parameters: &AlignmentParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     max_match_run: u32,
@@ -120,7 +127,7 @@ pub fn choose_closed_list<
     sequences: &AlignmentSequences,
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
-    parameters: &AlignmentParameters,
+    parameters: &AlignmentParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     max_match_run: u32,
@@ -167,7 +174,7 @@ fn actually_align<
     sequences: &AlignmentSequences,
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
-    parameters: &AlignmentParameters,
+    parameters: &AlignmentParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     max_match_run: u32,
@@ -324,6 +331,25 @@ fn actually_align<
     };
 
     progress_bar.finish_and_clear();
+    let total_gap_fill_alignments: u32 =
+        chain_evaluator.gap_fill_alignments_per_chain().iter().sum();
+    let chains_with_at_most_exp2x_gap_alignments_amount: Vec<_> = iter::once(
+        chain_evaluator
+            .gap_fill_alignments_per_chain()
+            .iter()
+            .filter(|a| **a == 0)
+            .count(),
+    )
+    .chain((0..u32::BITS).map(|e| {
+        chain_evaluator
+            .gap_fill_alignments_per_chain()
+            .iter()
+            .filter(|a| **a <= 1 << e)
+            .count()
+    }))
+    .take_while_inclusive(|amount| *amount < chaining_execution_count)
+    .collect();
+
     debug!("Computed {chaining_execution_count} chains");
     debug!("Chaining took {:.1}s", chaining_duration.as_secs_f64());
     debug!("Evaluation took {:.1}s", evaluation_duration.as_secs_f64());
@@ -335,6 +361,30 @@ fn actually_align<
     );
     debug!("Chaining closed nodes: {total_chaining_closed_nodes}");
     debug!("Total chain gaps: {}", chain_evaluator.total_gaps());
+    debug!(
+        "Total chain gap alignments: {} ({:.0}% of total gaps)",
+        total_gap_fill_alignments,
+        total_gap_fill_alignments as f64 / chain_evaluator.total_gaps() as f64 * 1e2
+    );
+    debug!(
+        "Fraction of chains with [0, 0] gap alignments: {:.0}%",
+        *chains_with_at_most_exp2x_gap_alignments_amount
+            .first()
+            .unwrap() as f64
+            / chaining_execution_count as f64
+            * 1e2,
+    );
+    for (e, amount) in chains_with_at_most_exp2x_gap_alignments_amount
+        .windows(2)
+        .enumerate()
+    {
+        debug!(
+            "Fraction of chains with [{}, {}] gap alignments: {:.0}%",
+            if e > 0 { (1u32 << (e - 1)) + 1 } else { 1 },
+            1 << e,
+            (amount[1] - amount[0]) as f64 / chaining_execution_count as f64 * 1e2,
+        );
+    }
     debug!(
         "Total chain gap fillings: {} ({:.2}x total gaps, {:.0}% redundant)",
         chain_evaluator.total_gap_fillings(),

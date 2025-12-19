@@ -2,8 +2,10 @@ use generic_a_star::{AStar, AStarBuffers, AStarResult, cost::AStarCost};
 
 use crate::{
     alignment::{
-        Alignment, coordinates::AlignmentCoordinates, sequences::AlignmentSequences,
-        ts_kind::TsDescendant,
+        Alignment,
+        coordinates::AlignmentCoordinates,
+        sequences::AlignmentSequences,
+        ts_kind::{TsDescendant, TsKind},
     },
     anchors::secondary::SecondaryAnchor,
     costs::AlignmentCosts,
@@ -79,6 +81,60 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         };
 
         a_star.search_until(|_, node| node.cost > cost);
+        Self::fill_additional_targets(
+            &a_star,
+            descendant_start,
+            additional_secondary_targets_output,
+        );
+        self.a_star_buffers = Some(a_star.into_buffers());
+
+        (cost, alignment)
+    }
+
+    /// Align from start until the cost limit is reached.
+    ///
+    /// Collect all closed nodes into the given output lists.
+    pub fn align_until_cost_limit(
+        &mut self,
+        start: AlignmentCoordinates,
+        ts_kind: TsKind,
+        cost_limit: Cost,
+        additional_secondary_targets_output: &mut impl Extend<(SecondaryAnchor, Cost)>,
+    ) {
+        assert!(start.is_primary());
+        let end = self.sequences.secondary_end(ts_kind);
+
+        let context = Context::new(
+            self.alignment_costs,
+            self.sequences,
+            self.rc_fn,
+            start,
+            end,
+            true,
+            self.max_match_run,
+        );
+        let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
+        a_star.initialise();
+        a_star.search_until(|_, node| node.cost > cost_limit);
+
+        let descendant_start = match end.ts_kind().unwrap().descendant {
+            TsDescendant::Seq1 => start.primary_ordinate_a(),
+            TsDescendant::Seq2 => start.primary_ordinate_b(),
+        }
+        .unwrap();
+        Self::fill_additional_targets(
+            &a_star,
+            descendant_start,
+            additional_secondary_targets_output,
+        );
+        self.a_star_buffers = Some(a_star.into_buffers());
+    }
+
+    fn fill_additional_targets(
+        a_star: &AStar<Context<Cost>>,
+        descendant_start: usize,
+        additional_secondary_targets_output: &mut impl Extend<(SecondaryAnchor, Cost)>,
+    ) {
         additional_secondary_targets_output.extend(
             a_star
                 .iter_closed_nodes()
@@ -99,8 +155,5 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                     )
                 }),
         );
-        self.a_star_buffers = Some(a_star.into_buffers());
-
-        (cost, alignment)
     }
 }

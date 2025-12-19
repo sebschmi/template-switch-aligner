@@ -1,6 +1,6 @@
 use crate::alignment::{
     coordinates::AlignmentCoordinates,
-    ts_kind::{TsAncestor, TsDescendant},
+    ts_kind::{TsAncestor, TsDescendant, TsKind},
 };
 
 pub struct AlignmentSequences {
@@ -53,12 +53,28 @@ impl AlignmentSequences {
         }
     }
 
-    pub fn start(&self) -> AlignmentCoordinates {
+    pub fn primary_start(&self) -> AlignmentCoordinates {
         AlignmentCoordinates::new_primary(0, 0)
     }
 
-    pub fn end(&self) -> AlignmentCoordinates {
-        AlignmentCoordinates::new_primary(self.seq1.len(), self.seq2.len())
+    pub fn primary_end(&self) -> AlignmentCoordinates {
+        self.end(None)
+    }
+
+    pub fn secondary_end(&self, ts_kind: TsKind) -> AlignmentCoordinates {
+        self.end(Some(ts_kind))
+    }
+
+    pub fn end(&self, ts_kind: Option<TsKind>) -> AlignmentCoordinates {
+        match ts_kind {
+            None => AlignmentCoordinates::new_primary(self.seq1.len(), self.seq2.len()),
+            Some(ts_kind @ (TsKind::TS11 | TsKind::TS21)) => {
+                AlignmentCoordinates::new_secondary(0, self.seq1.len(), ts_kind)
+            }
+            Some(ts_kind @ (TsKind::TS12 | TsKind::TS22)) => {
+                AlignmentCoordinates::new_secondary(0, self.seq2.len(), ts_kind)
+            }
+        }
     }
 
     pub fn seq1(&self) -> &[u8] {

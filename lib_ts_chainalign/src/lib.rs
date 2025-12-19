@@ -24,6 +24,7 @@ pub mod chaining_cost_function;
 pub mod chaining_lower_bounds;
 pub mod costs;
 pub mod exact_chaining;
+pub mod panic_on_extend;
 
 /// Perform preprocessing for tschainalign.
 ///
@@ -44,7 +45,7 @@ pub fn align<AlphabetType: Alphabet>(
     reference: Vec<u8>,
     query: Vec<u8>,
     range: AlignmentRange,
-    parameters: &AlignmentParameters,
+    parameters: &AlignmentParameters<U32Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
     reference_name: &str,
     query_name: &str,
@@ -69,8 +70,15 @@ pub fn align<AlphabetType: Alphabet>(
     trace!("Anchors:\n{anchors}");
     let start = AlignmentCoordinates::new_primary(range.reference_offset(), range.query_offset());
     let end = AlignmentCoordinates::new_primary(range.reference_limit(), range.query_limit());
-    let mut chaining_cost_function =
-        ChainingCostFunction::new_from_lower_bounds(chaining_lower_bounds, &anchors, start, end);
+    let mut chaining_cost_function = ChainingCostFunction::new_from_lower_bounds(
+        chaining_lower_bounds,
+        &anchors,
+        &sequences,
+        start,
+        end,
+        parameters.max_exact_cost_function_cost,
+        rc_fn,
+    );
 
     chain_align::align::<AlphabetType, _>(
         &sequences,

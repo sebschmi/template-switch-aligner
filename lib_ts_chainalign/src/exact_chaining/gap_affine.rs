@@ -73,8 +73,62 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             AStarResult::ExceededMemoryLimit { .. } => unreachable!("Cost limit is None"),
             AStarResult::NoTarget => (Cost::max_value(), Vec::new().into()),
         };
-
         a_star.search_until(|_, node| node.cost > cost);
+
+        Self::fill_additional_targets(
+            &a_star,
+            start,
+            additional_primary_targets_output,
+            additional_secondary_targets_output,
+        );
+        self.a_star_buffers = Some(a_star.into_buffers());
+
+        (cost, alignment)
+    }
+
+    /// Align from start until the cost limit is reached.
+    ///
+    /// Collect all closed nodes into the given output lists.
+    pub fn align_until_cost_limit(
+        &mut self,
+        start: AlignmentCoordinates,
+        cost_limit: Cost,
+        additional_primary_targets_output: &mut impl Extend<(PrimaryAnchor, Cost)>,
+        additional_secondary_targets_output: &mut impl Extend<(SecondaryAnchor, Cost)>,
+    ) {
+        let end = self.sequences.end(start.ts_kind());
+        debug_assert!(
+            start.is_primary() && end.is_primary() || start.is_secondary() && end.is_secondary()
+        );
+
+        let context = Context::new(
+            self.cost_table,
+            self.sequences,
+            self.rc_fn,
+            start,
+            end,
+            true,
+            self.max_match_run,
+        );
+        let mut a_star = AStar::new_with_buffers(context, self.a_star_buffers.take().unwrap());
+        a_star.initialise();
+        a_star.search_until(|_, node| node.cost > cost_limit);
+
+        Self::fill_additional_targets(
+            &a_star,
+            start,
+            additional_primary_targets_output,
+            additional_secondary_targets_output,
+        );
+        self.a_star_buffers = Some(a_star.into_buffers());
+    }
+
+    fn fill_additional_targets(
+        a_star: &AStar<Context<Cost>>,
+        start: AlignmentCoordinates,
+        additional_primary_targets_output: &mut impl Extend<(PrimaryAnchor, Cost)>,
+        additional_secondary_targets_output: &mut impl Extend<(SecondaryAnchor, Cost)>,
+    ) {
         additional_primary_targets_output.extend(
             a_star
                 .iter_closed_nodes()
@@ -103,8 +157,5 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
                     )
                 }),
         );
-        self.a_star_buffers = Some(a_star.into_buffers());
-
-        (cost, alignment)
     }
 }
