@@ -88,7 +88,7 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
             },
             predecessor: None,
             predecessor_alignment_type: None,
-            cost: Cost::zero(),
+            cost: self.costs.ts_base_cost,
             match_run: 0,
         }
     }
@@ -198,7 +198,9 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
 
         // Generate jump successors.
         if is_primary {
-            let new_cost = *cost + self.costs.ts_base_cost;
+            // We do not count the jump costs here, because all paths anyways need to jump at some point.
+            // Instead, we count them at the start.
+            let new_cost = *cost;
 
             // This generates too many jumps, most of these are gonna be much too far.
             output.extend(
@@ -232,6 +234,10 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
 
     fn memory_limit(&self) -> Option<usize> {
         None
+    }
+
+    fn is_label_setting(&self) -> bool {
+        false
     }
 }
 
