@@ -420,6 +420,7 @@ dependencies = [
  "binary-heap-plus",
  "compare",
  "extend_map",
+ "log",
  "num-traits",
  "rustc-hash",
  "serde",

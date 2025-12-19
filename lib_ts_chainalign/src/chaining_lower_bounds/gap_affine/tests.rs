@@ -17,9 +17,9 @@ fn test_max_match_run_0() {
     let exepcted_lower_bounds = Array2::from_shape_vec(
         (max_n+1, max_n+1),
         vec![
-            0u32, 3, 4,
-               3, 2, 5,
-               4, 5, 4,
+            u32::MAX, 3, 4,
+                   3, 2, 5,
+                   4, 5, 4,
         ],
     )
     .unwrap();
@@ -51,11 +51,11 @@ fn test_max_match_run_1() {
     let exepcted_lower_bounds = Array2::from_shape_vec(
         (max_n+1, max_n+1),
         vec![
-            0u32, 3, 4, 5, 6,
-               3, 2, 3, 4, 5,
-               4, 3, 2, 3, 4,
-               5, 4, 3, 2, 5,
-               6, 5, 4, 5, 4,
+            u32::MAX, 3, 4, 5, 6,
+                   3, 2, 3, 4, 5,
+                   4, 3, 2, 3, 4,
+                   5, 4, 3, 2, 5,
+                   6, 5, 4, 5, 4,
         ],
     )
     .unwrap();
@@ -87,13 +87,13 @@ fn test_max_match_run_2() {
     let exepcted_lower_bounds = Array2::from_shape_vec(
         (max_n+1, max_n+1),
         vec![
-            0u32, 3, 4, 5, 6, 7, 8,
-               3, 2, 3, 4, 5, 6, 7,
-               4, 3, 2, 3, 4, 5, 6,
-               5, 4, 3, 2, 3, 4, 5,
-               6, 5, 4, 3, 2, 3, 4,
-               7, 6, 5, 4, 3, 2, 5,
-               8, 7, 6, 5, 4, 5, 4,
+            u32::MAX, 3, 4, 5, 6, 7, 8,
+                   3, 2, 3, 4, 5, 6, 7,
+                   4, 3, 2, 3, 4, 5, 6,
+                   5, 4, 3, 2, 3, 4, 5,
+                   6, 5, 4, 3, 2, 3, 4,
+                   7, 6, 5, 4, 3, 2, 5,
+                   8, 7, 6, 5, 4, 5, 4,
         ],
     )
     .unwrap();

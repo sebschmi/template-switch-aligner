@@ -17,3 +17,4 @@ serde = { workspace = true, features = ["derive"], optional = true }
 extend_map = "0.14.4"
 compare = "0.1.0"
 rustc-hash.workspace = true
+log.workspace = true
