@@ -331,7 +331,6 @@ impl<
 
         self.state = AStarState::Searching;
 
-        let is_continued_search = !self.closed_list.is_empty();
         let mut last_node = None;
         let mut target_identifier = None;
         let mut target_cost = <Context::Node as AStarNode>::Cost::max_value();
@@ -391,6 +390,11 @@ impl<
             if DEBUG_ASTAR && is_target {
                 trace!("Node {node} is target");
             }
+            if is_target {
+                println!("Node {node} is target");
+            } else {
+                println!("Node {node}");
+            }
             debug_assert!(!is_target || node.a_star_lower_bound().is_zero());
 
             if self
@@ -398,16 +402,24 @@ impl<
                 .can_skip_node(&node, self.context.is_label_setting())
             {
                 self.performance_counters.suboptimal_opened_nodes += 1;
+                let existing_cost = self.closed_list.get(node.identifier()).unwrap().cost();
+                let existing_secondary_maximisable_score = self
+                    .closed_list
+                    .get(node.identifier())
+                    .unwrap()
+                    .secondary_maximisable_score();
 
                 if is_target
-                    && (node.cost() < target_cost
-                        || (node.cost() == target_cost
+                    && (node.cost() < target_cost.min(existing_cost)
+                        || (node.cost() == target_cost.min(existing_cost)
                             && node.secondary_maximisable_score()
-                                > target_secondary_maximisable_score))
+                                > target_secondary_maximisable_score
+                                    .max(existing_secondary_maximisable_score)))
                 {
                     if DEBUG_ASTAR {
                         trace!("Updating target to {node}");
                     }
+                    println!("Updating target to {node}");
                     target_identifier = Some(node.identifier().clone());
                     target_cost = node.cost();
                     target_secondary_maximisable_score = node.secondary_maximisable_score();
@@ -420,12 +432,33 @@ impl<
                             self.closed_list.insert(node.identifier().clone(), node);
                         self.performance_counters.closed_nodes += 1;
                         debug_assert!(
-                            previous_visit.is_none()
-                                || !self.context.is_label_setting()
-                                || is_continued_search,
+                            previous_visit.is_none() || !self.context.is_label_setting(),
                             "Visited node again even though we are label setting:\nprevious: {}",
                             previous_visit.unwrap(),
                         );
+                        break;
+                    }
+                } else if is_target
+                    && (existing_cost < target_cost
+                        || (existing_cost == target_cost
+                            && node.secondary_maximisable_score()
+                                > existing_secondary_maximisable_score))
+                {
+                    let node = self.closed_list.get(node.identifier()).unwrap();
+                    // Set target to existing node if it is better.
+                    if DEBUG_ASTAR {
+                        trace!("Updating target to {node}");
+                    }
+                    println!("Updating target to {node}");
+                    target_identifier = Some(node.identifier().clone());
+                    target_cost = node.cost();
+                    target_secondary_maximisable_score = node.secondary_maximisable_score();
+
+                    if self.context.is_label_setting() {
+                        if DEBUG_ASTAR {
+                            trace!("Context is label setting, so we return the first target found");
+                        }
+                        self.performance_counters.closed_nodes += 1;
                         break;
                     }
                 }
@@ -456,6 +489,7 @@ impl<
                 if DEBUG_ASTAR {
                     trace!("Updating target to {node}");
                 }
+                println!("Updating target to {node}");
                 target_identifier = Some(node.identifier().clone());
                 target_cost = node.cost();
                 target_secondary_maximisable_score = node.secondary_maximisable_score();
@@ -466,11 +500,7 @@ impl<
                     }
                     let previous_visit = self.closed_list.insert(node.identifier().clone(), node);
                     self.performance_counters.closed_nodes += 1;
-                    debug_assert!(
-                        previous_visit.is_none()
-                            || !self.context.is_label_setting()
-                            || is_continued_search
-                    );
+                    debug_assert!(previous_visit.is_none() || !self.context.is_label_setting());
                     break;
                 }
             }
@@ -493,7 +523,12 @@ impl<
         };
 
         let cost = self.closed_list.get(&target_identifier).unwrap().cost();
-        debug_assert_eq!(cost, target_cost);
+        debug_assert_eq!(
+            cost,
+            target_cost,
+            "Target node has lower cost than target_cost:\nnode: {}\ntarget_cost: {target_cost}",
+            self.closed_list.get(&target_identifier).unwrap(),
+        );
         self.state = AStarState::Terminated {
             result: AStarResult::FoundTarget {
                 identifier: target_identifier.clone(),
