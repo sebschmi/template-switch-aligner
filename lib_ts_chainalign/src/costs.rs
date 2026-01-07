@@ -14,17 +14,33 @@ pub struct GapAffineCosts<Cost> {
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct TsLimits {
+    /// The maximum range of the 12-jump of a template switch.
+    /// This parameter is ignored for now.
     pub jump_12: Range<isize>,
+    /// The maximum range of the 34-jump of a template switch.
+    /// This parameter is ignored for now.
     pub jump_34: Range<isize>,
+    /// The range for the length of the 23-alignment of a template switch.
     pub length_23: Range<usize>,
+    /// The range for the ancestor gap of a template switch.
+    /// This parameter is ignored for now.
     pub ancestor_gap: Range<isize>,
 }
 
+/// The cost function for alignments.
+///
+/// For convenience, it implements [`TryFrom<TemplateSwitchConfig<Alphabet, Cost>>`](std::convert::TryFrom).
+/// Note that the conversion is very strict and only allows to convert from a [`TemplateSwitchConfig`](lib_tsalign::config::TemplateSwitchConfig) if the conversion loses no information.
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct AlignmentCosts<Cost> {
+    /// Costs for primary alignment outside of template switches.
     pub primary_costs: GapAffineCosts<Cost>,
+    /// Costs for secondary alignment, i.e. for the 23-alignment of a template switch.
     pub secondary_costs: GapAffineCosts<Cost>,
+    /// The base cost of a template switch.
+    /// This is applied whenevera template switch is started.
     pub ts_base_cost: Cost,
+    /// Limits on the geometry of a template switch.
     pub ts_limits: TsLimits,
 }
 
