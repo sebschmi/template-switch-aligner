@@ -24,7 +24,9 @@ use compact_genome::{
         sequence_store::SequenceStore,
     },
 };
-use lib_ts_chainalign::chain_align::{ChainingClosedList, ChainingOpenList};
+use lib_ts_chainalign::chain_align::performance_parameters::{
+    ChainingClosedList, ChainingOpenList,
+};
 use lib_tsalign::{
     a_star_aligner::{
         alignment_geometry::{AlignmentCoordinates, AlignmentRange},
