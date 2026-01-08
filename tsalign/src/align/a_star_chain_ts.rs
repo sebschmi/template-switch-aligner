@@ -3,8 +3,8 @@ use compact_genome::interface::{
     sequence::GenomeSequence,
 };
 use lib_ts_chainalign::{
-    chain_align::AlignmentParameters, chaining_lower_bounds::ChainingLowerBounds,
-    costs::AlignmentCosts,
+    chain_align::performance_parameters::AlignmentPerformanceParameters,
+    chaining_lower_bounds::ChainingLowerBounds, costs::AlignmentCosts,
 };
 use lib_tsalign::{
     a_star_aligner::alignment_geometry::AlignmentRange, config::TemplateSwitchConfig,
@@ -93,7 +93,7 @@ pub fn align_a_star_chain_ts<
 
     let reference = reference.clone_as_vec();
     let query = query.clone_as_vec();
-    let parameters = AlignmentParameters {
+    let performance_parameters = AlignmentPerformanceParameters {
         max_successors: cli.max_chaining_successors,
         max_exact_cost_function_cost: cli.max_exact_cost_function_cost.into(),
         closed_list: cli.chaining_closed_list,
@@ -104,7 +104,7 @@ pub fn align_a_star_chain_ts<
         reference,
         query,
         range,
-        &parameters,
+        &performance_parameters,
         &|c| {
             AlphabetType::character_to_ascii(
                 AlphabetType::ascii_to_character(c).unwrap().complement(),
