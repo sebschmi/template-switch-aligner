@@ -19,7 +19,7 @@ use lib_tsalign::a_star_aligner::{
     alignment_result::AlignmentResult,
     template_switch_distance::{EqualCostRange, TemplateSwitchDirection},
 };
-use log::{debug, trace};
+use log::{debug, info, trace};
 use rustc_hash::FxHashMapSeed;
 use std::{
     fmt::Write,
@@ -148,6 +148,7 @@ fn actually_align<
     anchors: &Anchors,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
+    info!("Aligning...");
     let progress_bar = ProgressBar::new_spinner();
     progress_bar.enable_steady_tick(Duration::from_millis(200));
 
