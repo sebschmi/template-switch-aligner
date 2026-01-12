@@ -88,27 +88,23 @@ pub fn align<AlphabetType: Alphabet>(
         query,
         reference_name.to_string(),
         query_name.to_string(),
+        AlignmentCoordinates::new_primary(range.reference_offset(), range.query_offset()),
+        AlignmentCoordinates::new_primary(range.reference_limit(), range.query_limit()),
     );
     let k = chaining_lower_bounds.max_match_run() + 1;
 
     let anchors = Anchors::new(&sequences, range.clone(), k, rc_fn);
     trace!("Anchors:\n{anchors}");
-    let start = AlignmentCoordinates::new_primary(range.reference_offset(), range.query_offset());
-    let end = AlignmentCoordinates::new_primary(range.reference_limit(), range.query_limit());
     let mut chaining_cost_function = ChainingCostFunction::new_from_lower_bounds(
         chaining_lower_bounds,
         &anchors,
         &sequences,
-        start,
-        end,
         performance_parameters.max_exact_cost_function_cost,
         rc_fn,
     );
 
     chain_align::align::<AlphabetType, _>(
         &sequences,
-        start,
-        end,
         performance_parameters,
         chaining_lower_bounds.alignment_costs(),
         rc_fn,

@@ -8,24 +8,47 @@ pub struct AlignmentSequences {
     seq2: Vec<u8>,
     seq1_name: String,
     seq2_name: String,
+    start: AlignmentCoordinates,
+    end: AlignmentCoordinates,
 }
 
 impl AlignmentSequences {
-    pub fn new(seq1: Vec<u8>, seq2: Vec<u8>) -> Self {
-        Self {
+    pub fn new(
+        seq1: Vec<u8>,
+        seq2: Vec<u8>,
+        start: AlignmentCoordinates,
+        end: AlignmentCoordinates,
+    ) -> Self {
+        Self::new_named(
             seq1,
             seq2,
-            seq1_name: "seq1".to_string(),
-            seq2_name: "seq2".to_string(),
-        }
+            "seq1".to_string(),
+            "seq2".to_string(),
+            start,
+            end,
+        )
     }
 
-    pub fn new_named(seq1: Vec<u8>, seq2: Vec<u8>, seq1_name: String, seq2_name: String) -> Self {
+    pub fn new_complete(seq1: Vec<u8>, seq2: Vec<u8>) -> Self {
+        let end = AlignmentCoordinates::new_primary(seq1.len(), seq2.len());
+        Self::new(seq1, seq2, AlignmentCoordinates::new_primary(0, 0), end)
+    }
+
+    pub fn new_named(
+        seq1: Vec<u8>,
+        seq2: Vec<u8>,
+        seq1_name: String,
+        seq2_name: String,
+        start: AlignmentCoordinates,
+        end: AlignmentCoordinates,
+    ) -> Self {
         Self {
             seq1,
             seq2,
             seq1_name,
             seq2_name,
+            start,
+            end,
         }
     }
 
@@ -54,11 +77,11 @@ impl AlignmentSequences {
     }
 
     pub fn primary_start(&self) -> AlignmentCoordinates {
-        AlignmentCoordinates::new_primary(0, 0)
+        self.start
     }
 
     pub fn primary_end(&self) -> AlignmentCoordinates {
-        self.end(None)
+        self.end
     }
 
     pub fn secondary_end(&self, ts_kind: TsKind) -> AlignmentCoordinates {
@@ -67,7 +90,7 @@ impl AlignmentSequences {
 
     pub fn end(&self, ts_kind: Option<TsKind>) -> AlignmentCoordinates {
         match ts_kind {
-            None => AlignmentCoordinates::new_primary(self.seq1.len(), self.seq2.len()),
+            None => self.primary_end(),
             Some(ts_kind @ (TsKind::TS11 | TsKind::TS21)) => {
                 AlignmentCoordinates::new_secondary(0, self.seq1.len(), ts_kind)
             }

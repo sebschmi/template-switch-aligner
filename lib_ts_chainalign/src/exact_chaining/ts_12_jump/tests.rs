@@ -23,7 +23,7 @@ fn rc_fn(c: u8) -> u8 {
 fn test_start_end() {
     let seq1 = b"AAGG".to_vec();
     let seq2 = b"ACGTT".to_vec();
-    let sequences = AlignmentSequences::new(seq1, seq2);
+    let sequences = AlignmentSequences::new_complete(seq1, seq2);
     let cost_table = AlignmentCosts {
         primary_costs: GapAffineCosts::new(
             U32Cost::from(2u8),
@@ -72,7 +72,7 @@ fn test_start_end() {
 fn test_partial_alignment() {
     let seq1 = b"AAGG".to_vec();
     let seq2 = b"ACGTT".to_vec();
-    let sequences = AlignmentSequences::new(seq1, seq2);
+    let sequences = AlignmentSequences::new_complete(seq1, seq2);
     let cost_table = AlignmentCosts {
         primary_costs: GapAffineCosts::new(
             U32Cost::from(2u8),
@@ -120,7 +120,7 @@ fn test_partial_alignment() {
 fn test_gap_directions() {
     let seq1 = b"CCCCCCACCAACAAAAAA".to_vec();
     let seq2 = b"AAAAAACAAGGGGGGAGG".to_vec();
-    let sequences = AlignmentSequences::new(seq1, seq2);
+    let sequences = AlignmentSequences::new_complete(seq1, seq2);
     let cost_table = AlignmentCosts {
         primary_costs: GapAffineCosts::new(
             U32Cost::from(10u8),
@@ -175,7 +175,7 @@ fn test_gap_directions() {
 fn test_max_match_run_0() {
     let seq1 = b"GGAGGAGGAACAACAA".to_vec();
     let seq2 = b"AAAAAAAACCTCCTCC".to_vec();
-    let sequences = AlignmentSequences::new(seq1, seq2);
+    let sequences = AlignmentSequences::new_complete(seq1, seq2);
     let cost_table = AlignmentCosts {
         primary_costs: GapAffineCosts::new(
             U32Cost::from(2u8),
@@ -221,7 +221,7 @@ fn test_max_match_run_0() {
 fn test_max_match_run_1() {
     let seq1 = b"GGAGGAGGAACAACAA".to_vec();
     let seq2 = b"AAAAAAAACCTCCTCC".to_vec();
-    let sequences = AlignmentSequences::new(seq1, seq2);
+    let sequences = AlignmentSequences::new_complete(seq1, seq2);
     let cost_table = AlignmentCosts {
         primary_costs: GapAffineCosts::new(
             U32Cost::from(2u8),
@@ -269,7 +269,7 @@ fn test_max_match_run_1() {
 fn test_max_match_run_2() {
     let seq1 = b"GGAGGAGGAACAACAA".to_vec();
     let seq2 = b"AAAAAAAACCCCCCCC".to_vec();
-    let sequences = AlignmentSequences::new(seq1, seq2);
+    let sequences = AlignmentSequences::new_complete(seq1, seq2);
     let cost_table = AlignmentCosts {
         primary_costs: GapAffineCosts::new(
             U32Cost::from(2u8),
@@ -324,7 +324,7 @@ fn test_max_match_run_2() {
 fn test_only_jump() {
     let seq1 = b"ACGTACGTAC".to_vec();
     let seq2 = b"ACGTACGTAC".to_vec();
-    let sequences = AlignmentSequences::new(seq1, seq2);
+    let sequences = AlignmentSequences::new_complete(seq1, seq2);
     let cost_table = AlignmentCosts {
         primary_costs: GapAffineCosts::new(
             U32Cost::from(2u8),
@@ -367,7 +367,7 @@ fn test_only_jump() {
 fn test_only_jump_start() {
     let seq1 = b"ACGTACGTAC".to_vec();
     let seq2 = b"ACGTACGTAC".to_vec();
-    let sequences = AlignmentSequences::new(seq1, seq2);
+    let sequences = AlignmentSequences::new_complete(seq1, seq2);
     let cost_table = AlignmentCosts {
         primary_costs: GapAffineCosts::new(
             U32Cost::from(2u8),
@@ -410,7 +410,7 @@ fn test_only_jump_start() {
 fn test_only_jump_end() {
     let seq1 = b"ACGTACGTAC".to_vec();
     let seq2 = b"ACGTACGTAC".to_vec();
-    let sequences = AlignmentSequences::new(seq1, seq2);
+    let sequences = AlignmentSequences::new_complete(seq1, seq2);
     let cost_table = AlignmentCosts {
         primary_costs: GapAffineCosts::new(
             U32Cost::from(2u8),
