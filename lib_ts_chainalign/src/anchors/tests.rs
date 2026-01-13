@@ -17,7 +17,7 @@ fn rc_fn(c: u8) -> u8 {
 
 #[test]
 fn test_coordinates() {
-    let sequences = AlignmentSequences::new(b"ACAC".to_vec(), b"ACGT".to_vec());
+    let sequences = AlignmentSequences::new_complete(b"ACAC".to_vec(), b"ACGT".to_vec());
     let range = AlignmentRange::new_complete(sequences.seq1().len(), sequences.seq2().len());
     let k = 2;
 
@@ -40,7 +40,7 @@ fn test_coordinates() {
 
 #[test]
 fn test_coordinates_rev() {
-    let sequences = AlignmentSequences::new(b"ACGT".to_vec(), b"ACAC".to_vec());
+    let sequences = AlignmentSequences::new_complete(b"ACGT".to_vec(), b"ACAC".to_vec());
     let range = AlignmentRange::new_complete(sequences.seq1().len(), sequences.seq2().len());
     let k = 2;
 

@@ -19,7 +19,7 @@ use lib_tsalign::a_star_aligner::{
     alignment_result::AlignmentResult,
     template_switch_distance::{EqualCostRange, TemplateSwitchDirection},
 };
-use log::{debug, trace};
+use log::{debug, info, trace};
 use rustc_hash::FxHashMapSeed;
 use std::{
     fmt::Write,
@@ -28,7 +28,7 @@ use std::{
 };
 
 use crate::{
-    alignment::{AlignmentType, coordinates::AlignmentCoordinates, sequences::AlignmentSequences},
+    alignment::{AlignmentType, sequences::AlignmentSequences},
     anchors::Anchors,
     chain_align::{
         chainer::{Context, Identifier, Node, closed_list::ChainerClosedList},
@@ -45,11 +45,8 @@ mod chainer;
 mod evaluation;
 pub mod performance_parameters;
 
-#[expect(clippy::too_many_arguments)]
 pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     sequences: &AlignmentSequences,
-    start: AlignmentCoordinates,
-    end: AlignmentCoordinates,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
@@ -61,8 +58,6 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
         ChainingOpenList::StdHeap => {
             choose_closed_list::<AlphabetType, _, BinaryHeap<Node<Cost>, AStarNodeComparator>>(
                 sequences,
-                start,
-                end,
                 performance_parameters,
                 alignment_costs,
                 rc_fn,
@@ -73,8 +68,6 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
         }
         ChainingOpenList::LinearHeap => choose_closed_list::<AlphabetType, _, LinearHeap<_>>(
             sequences,
-            start,
-            end,
             performance_parameters,
             alignment_costs,
             rc_fn,
@@ -85,15 +78,12 @@ pub fn align<AlphabetType: Alphabet, Cost: AStarCost>(
     }
 }
 
-#[expect(clippy::too_many_arguments)]
 pub fn choose_closed_list<
     AlphabetType: Alphabet,
     Cost: AStarCost,
     OpenList: AStarOpenList<Node<Cost>>,
 >(
     sequences: &AlignmentSequences,
-    start: AlignmentCoordinates,
-    end: AlignmentCoordinates,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
@@ -105,8 +95,6 @@ pub fn choose_closed_list<
         ChainingClosedList::FxHashMap => {
             actually_align::<AlphabetType, _, FxHashMapSeed<_, _>, OpenList>(
                 sequences,
-                start,
-                end,
                 performance_parameters,
                 alignment_costs,
                 rc_fn,
@@ -118,8 +106,6 @@ pub fn choose_closed_list<
         ChainingClosedList::Special => {
             actually_align::<AlphabetType, _, ChainerClosedList<_>, OpenList>(
                 sequences,
-                start,
-                end,
                 performance_parameters,
                 alignment_costs,
                 rc_fn,
@@ -131,7 +117,6 @@ pub fn choose_closed_list<
     }
 }
 
-#[expect(clippy::too_many_arguments)]
 fn actually_align<
     AlphabetType: Alphabet,
     Cost: AStarCost,
@@ -139,8 +124,6 @@ fn actually_align<
     OpenList: AStarOpenList<Node<Cost>>,
 >(
     sequences: &AlignmentSequences,
-    start: AlignmentCoordinates,
-    end: AlignmentCoordinates,
     performance_parameters: &AlignmentPerformanceParameters<Cost>,
     alignment_costs: &AlignmentCosts<Cost>,
     rc_fn: &dyn Fn(u8) -> u8,
@@ -148,6 +131,7 @@ fn actually_align<
     anchors: &Anchors,
     chaining_cost_function: &mut ChainingCostFunction<Cost>,
 ) -> AlignmentResult<lib_tsalign::a_star_aligner::template_switch_distance::AlignmentType, Cost> {
+    info!("Aligning...");
     let progress_bar = ProgressBar::new_spinner();
     progress_bar.enable_steady_tick(Duration::from_millis(200));
 
@@ -280,8 +264,6 @@ fn actually_align<
         let (evaluated_cost, _) = chain_evaluator.evaluate_chain(
             anchors,
             &chain,
-            start,
-            end,
             max_match_run,
             astar.context_mut().chaining_cost_function,
             false,
@@ -370,8 +352,6 @@ fn actually_align<
     let (evaluated_cost, alignments) = chain_evaluator.evaluate_chain(
         anchors,
         &chain,
-        start,
-        end,
         max_match_run,
         astar.context_mut().chaining_cost_function,
         true,
@@ -464,8 +444,8 @@ fn actually_align<
             .as_genome_subsequence(),
         sequences.seq1_name(),
         sequences.seq2_name(),
-        start.primary_ordinate_a().unwrap(),
-        start.primary_ordinate_b().unwrap(),
+        sequences.primary_start().primary_ordinate_a().unwrap(),
+        sequences.primary_start().primary_ordinate_b().unwrap(),
         result.without_node_identifier(),
         duration_seconds,
         0,

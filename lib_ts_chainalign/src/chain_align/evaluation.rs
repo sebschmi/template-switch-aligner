@@ -5,9 +5,7 @@ use log::trace;
 use num_traits::Zero;
 
 use crate::{
-    alignment::{
-        Alignment, AlignmentType, coordinates::AlignmentCoordinates, sequences::AlignmentSequences,
-    },
+    alignment::{Alignment, AlignmentType, sequences::AlignmentSequences},
     anchors::{Anchors, primary::PrimaryAnchor, secondary::SecondaryAnchor},
     chain_align::chainer::Identifier,
     chaining_cost_function::ChainingCostFunction,
@@ -19,6 +17,7 @@ use crate::{
 };
 
 pub struct ChainEvaluator<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost> {
+    sequences: &'sequences AlignmentSequences,
     primary_aligner: GapAffineAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
     secondary_aligner: GapAffineAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
     ts_12_jump_aligner: Ts12JumpAligner<'sequences, 'alignment_costs, 'rc_fn, Cost>,
@@ -43,6 +42,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         max_match_run: u32,
     ) -> Self {
         Self {
+            sequences,
             primary_aligner: GapAffineAligner::new(
                 sequences,
                 &alignment_costs.primary_costs,
@@ -78,13 +78,10 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
         }
     }
 
-    #[expect(clippy::too_many_arguments)]
     pub fn evaluate_chain(
         &mut self,
         anchors: &Anchors,
         chain: &[Identifier],
-        start: AlignmentCoordinates,
-        end: AlignmentCoordinates,
         max_match_run: u32,
         chaining_cost_function: &mut ChainingCostFunction<Cost>,
         final_evaluation: bool,
@@ -124,8 +121,8 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                     if final_evaluation || !chaining_cost_function.is_start_to_end_exact() {
                         self.additional_primary_targets_buffer.clear();
                         let (cost, alignment) = self.primary_aligner.align(
-                            start,
-                            end,
+                            self.sequences.primary_start(),
+                            self.sequences.primary_end(),
                             &mut self.additional_primary_targets_buffer,
                             &mut PanicOnExtend,
                         );
@@ -158,7 +155,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                     {
                         self.additional_primary_targets_buffer.clear();
                         let (cost, alignment) = self.primary_aligner.align(
-                            start,
+                            self.sequences.primary_start(),
                             end,
                             &mut self.additional_primary_targets_buffer,
                             &mut PanicOnExtend,
@@ -196,7 +193,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                     {
                         self.additional_secondary_targets_buffer.clear();
                         let (cost, alignment) = self.ts_12_jump_aligner.align(
-                            start,
+                            self.sequences.primary_start(),
                             end,
                             &mut self.additional_secondary_targets_buffer,
                         );
@@ -231,7 +228,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         self.additional_primary_targets_buffer.clear();
                         let (cost, alignment) = self.primary_aligner.align(
                             start,
-                            end,
+                            self.sequences.primary_end(),
                             &mut self.additional_primary_targets_buffer,
                             &mut PanicOnExtend,
                         );
@@ -267,7 +264,7 @@ impl<'sequences, 'alignment_costs, 'rc_fn, Cost: AStarCost>
                         self.additional_primary_targets_buffer.clear();
                         let (cost, alignment) = self.ts_34_jump_aligner.align(
                             start,
-                            end,
+                            self.sequences.primary_end(),
                             &mut self.additional_primary_targets_buffer,
                         );
                         self.total_gap_fillings +=

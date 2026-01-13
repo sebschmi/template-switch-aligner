@@ -32,14 +32,14 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         chaining_lower_bounds: &ChainingLowerBounds<Cost>,
         anchors: &Anchors,
         sequences: &AlignmentSequences,
-        start: AlignmentCoordinates,
-        end: AlignmentCoordinates,
         max_exact_cost_function_cost: Cost,
         rc_fn: &dyn Fn(u8) -> u8,
     ) -> Self {
         info!("Initialising chaining cost function...");
         let start_time = Instant::now();
 
+        let start = sequences.primary_start();
+        let end = sequences.primary_end();
         let k = usize::try_from(chaining_lower_bounds.max_match_run() + 1).unwrap();
         let primary_anchor_amount = anchors.primary_len() + 2;
         let primary_start_anchor_index = AnchorIndex::zero();
@@ -84,7 +84,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         trace!("Fill primary");
         additional_primary_targets_output.clear();
         primary_aligner.align_until_cost_limit(
-            sequences.primary_start(),
+            start,
             max_exact_cost_function_cost,
             &mut additional_primary_targets_output,
             &mut PanicOnExtend,
@@ -663,7 +663,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let target = &mut self.primary[[from_primary_index + 1, to_primary_index + 1]];
         assert!(
             *target <= cost,
-            "Target is larger than cost.\ntarget: {target}; cost: {cost}; from_primary_index: {from_primary_index}; to_primary_index: {to_primary_index}; is_exact: {is_exact}"
+            "Target is larger than cost.\ntarget: {target}; cost: {cost}; from_primary_index: {from_primary_index}; to_primary_index: {to_primary_index}; is_exact: {is_exact}",
         );
         let result = *target < cost;
         *target = cost;
@@ -698,7 +698,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             self.primary.set_exact(primary_index + 1, end_index);
         }
         let target = &mut self.primary[[primary_index + 1, end_index]];
-        assert!(*target <= cost);
+        assert!(
+            *target <= cost,
+            "Target is larger than cost.\ntarget: {target}; cost: {cost}; from_primary_index: {primary_index}; is_exact: {is_exact}",
+        );
         let result = *target < cost;
         *target = cost;
         result
@@ -715,7 +718,10 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 .set_exact(Self::primary_start_anchor_index(), end_index);
         }
         let target = &mut self.primary[[Self::primary_start_anchor_index(), end_index]];
-        assert!(*target <= cost);
+        assert!(
+            *target <= cost,
+            "Target is larger than cost.\ntarget: {target}; cost: {cost}; is_exact: {is_exact}",
+        );
         let result = *target < cost;
         *target = cost;
         result
