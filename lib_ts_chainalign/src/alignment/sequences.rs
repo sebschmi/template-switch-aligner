@@ -42,6 +42,8 @@ impl AlignmentSequences {
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
     ) -> Self {
+        debug_assert!(start.is_primary());
+        debug_assert!(end.is_primary());
         Self {
             seq1,
             seq2,

@@ -47,6 +47,20 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
         assert!(
             start.is_primary() && end.is_primary() || start.is_secondary() && end.is_secondary()
         );
+
+        let minimum_primary_sequence_length =
+            (self.sequences.primary_end().primary_ordinate_a().unwrap()
+                - self.sequences.primary_start().primary_ordinate_a().unwrap())
+            .min(
+                self.sequences.primary_end().primary_ordinate_b().unwrap()
+                    - self.sequences.primary_start().primary_ordinate_b().unwrap(),
+            );
+        let allow_direct_chaining =
+            start == self.sequences.primary_start() || end == self.sequences.primary_end();
+        let allow_all_matches = start == self.sequences.primary_start()
+            && end == self.sequences.primary_end()
+            && u32::try_from(minimum_primary_sequence_length).unwrap() <= self.max_match_run;
+
         let enforce_non_match = true;
 
         let context = Context::new(

@@ -570,7 +570,7 @@ fn test_anchor_end_indirect() {
 }
 
 #[test]
-fn test_anchor_anchor_direct() {
+fn test_anchor_anchor_direct_primary() {
     let seq1 = b"ATTTTTTTTA".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(
@@ -610,7 +610,7 @@ fn test_anchor_anchor_direct() {
 }
 
 #[test]
-fn test_anchor_anchor_indirect() {
+fn test_anchor_anchor_indirect_primary() {
     let seq1 = b"ATTTTTTTTA".to_vec();
     let seq2 = b"GTTTTTTTTG".to_vec();
     let sequences = AlignmentSequences::new(
@@ -623,6 +623,85 @@ fn test_anchor_anchor_indirect() {
         GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
     let start = AlignmentCoordinates::new_primary(5, 5);
     let end = AlignmentCoordinates::new_primary(6, 6);
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, _alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+
+    assert!(!cost.is_zero());
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut additional_primary_targets = Vec::new();
+    aligner.align_until_cost_limit(
+        start,
+        U32Cost::max_value(),
+        &mut additional_primary_targets,
+        &mut Vec::new(),
+    );
+
+    let mut once = false;
+    for (anchor, cost) in additional_primary_targets {
+        if anchor.start() == end {
+            assert!(!once);
+            assert!(!cost.is_zero());
+            once = true;
+        }
+    }
+}
+
+#[test]
+fn test_anchor_anchor_direct_secondary() {
+    let seq1 = b"GAAAAAAAAG".to_vec();
+    let seq2 = b"GTTTTTTTTG".to_vec();
+    let sequences = AlignmentSequences::new(
+        seq1,
+        seq2,
+        AlignmentCoordinates::new_primary(1, 1),
+        AlignmentCoordinates::new_primary(9, 9),
+    );
+    let cost_table =
+        GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
+    let start = AlignmentCoordinates::new_secondary(5, 5, TsKind::TS12);
+    let end = AlignmentCoordinates::new_secondary(5, 5, TsKind::TS12);
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+
+    assert_eq!(alignment.alignment, vec![]);
+    assert_eq!(cost, U32Cost::max_value());
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut additional_primary_targets = Vec::new();
+    aligner.align_until_cost_limit(
+        start,
+        U32Cost::max_value(),
+        &mut additional_primary_targets,
+        &mut Vec::new(),
+    );
+
+    let mut once = false;
+    for (anchor, cost) in additional_primary_targets {
+        if anchor.start() == end {
+            assert!(!once);
+            assert_eq!(cost, U32Cost::max_value());
+            once = true;
+        }
+    }
+}
+
+#[test]
+fn test_anchor_anchor_indirect_secondary() {
+    let seq1 = b"GAAAAAAAAG".to_vec();
+    let seq2 = b"GTTTTTTTTG".to_vec();
+    let sequences = AlignmentSequences::new(
+        seq1,
+        seq2,
+        AlignmentCoordinates::new_primary(1, 1),
+        AlignmentCoordinates::new_primary(9, 9),
+    );
+    let cost_table =
+        GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
+    let start = AlignmentCoordinates::new_secondary(6, 4, TsKind::TS12);
+    let end = AlignmentCoordinates::new_secondary(5, 5, TsKind::TS12);
 
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
     let (cost, _alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());

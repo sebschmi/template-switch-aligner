@@ -60,6 +60,17 @@ impl<Cost: Zero> GapAffineCosts<Cost> {
     }
 }
 
+impl TsLimits {
+    pub fn new_unlimited() -> Self {
+        Self {
+            jump_12: isize::MIN..isize::MAX,
+            jump_34: isize::MIN..isize::MAX,
+            length_23: usize::MIN..usize::MAX,
+            ancestor_gap: isize::MIN..isize::MAX,
+        }
+    }
+}
+
 impl<Cost> AlignmentCosts<Cost> {
     pub fn new(
         primary_costs: GapAffineCosts<Cost>,
