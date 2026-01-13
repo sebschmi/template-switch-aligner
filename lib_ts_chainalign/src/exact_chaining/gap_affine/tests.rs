@@ -1,4 +1,5 @@
 use generic_a_star::cost::U32Cost;
+use num_traits::{Zero, bounds::UpperBounded};
 
 use crate::alignment::AlignmentType;
 use crate::alignment::ts_kind::TsKind;
@@ -266,4 +267,383 @@ fn test_secondary_21() {
         vec![(7, AlignmentType::Match), (1, AlignmentType::Substitution)]
     );
     assert_eq!(cost, U32Cost::from(2u8));
+}
+
+#[test]
+fn test_start_end_direct() {
+    let seq1 = b"GAAAAAAATG".to_vec();
+    let seq2 = b"GTTTTTTTTG".to_vec();
+    let sequences = AlignmentSequences::new(
+        seq1,
+        seq2,
+        AlignmentCoordinates::new_primary(5, 5),
+        AlignmentCoordinates::new_primary(5, 5),
+    );
+    let cost_table =
+        GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 4);
+    let (cost, alignment) = aligner.align(
+        sequences.primary_start(),
+        sequences.primary_end(),
+        &mut Vec::new(),
+        &mut Vec::new(),
+    );
+
+    assert_eq!(alignment.alignment, vec![]);
+    assert_eq!(cost, 0u8.into());
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 4);
+    let mut additional_primary_targets = Vec::new();
+    aligner.align_until_cost_limit(
+        sequences.primary_start(),
+        U32Cost::max_value(),
+        &mut additional_primary_targets,
+        &mut Vec::new(),
+    );
+
+    let mut once = false;
+    for (anchor, cost) in additional_primary_targets {
+        if anchor.start() == sequences.primary_start() {
+            assert!(!once);
+            assert_eq!(cost, 0u8.into());
+            once = true;
+        }
+    }
+}
+
+#[test]
+fn test_start_anchor_direct() {
+    let seq1 = b"GAAAAAAATG".to_vec();
+    let seq2 = b"GTTTTTTTTG".to_vec();
+    let sequences = AlignmentSequences::new(
+        seq1,
+        seq2,
+        AlignmentCoordinates::new_primary(5, 5),
+        AlignmentCoordinates::new_primary(6, 6),
+    );
+    let cost_table =
+        GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 4);
+    let (cost, alignment) = aligner.align(
+        sequences.primary_start(),
+        sequences.primary_start(),
+        &mut Vec::new(),
+        &mut Vec::new(),
+    );
+
+    assert_eq!(alignment.alignment, vec![]);
+    assert_eq!(cost, 0u8.into());
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 4);
+    let mut additional_primary_targets = Vec::new();
+    aligner.align_until_cost_limit(
+        sequences.primary_start(),
+        U32Cost::max_value(),
+        &mut additional_primary_targets,
+        &mut Vec::new(),
+    );
+
+    let mut once = false;
+    for (anchor, cost) in additional_primary_targets {
+        if anchor.start() == sequences.primary_start() {
+            assert!(!once);
+            assert_eq!(cost, 0u8.into());
+            once = true;
+        }
+    }
+}
+
+#[test]
+fn test_anchor_end_direct() {
+    let seq1 = b"GAAAAAAATG".to_vec();
+    let seq2 = b"GTTTTTTTTG".to_vec();
+    let sequences = AlignmentSequences::new(
+        seq1,
+        seq2,
+        AlignmentCoordinates::new_primary(5, 5),
+        AlignmentCoordinates::new_primary(6, 6),
+    );
+    let cost_table =
+        GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 4);
+    let (cost, alignment) = aligner.align(
+        sequences.primary_end(),
+        sequences.primary_end(),
+        &mut Vec::new(),
+        &mut Vec::new(),
+    );
+
+    assert_eq!(alignment.alignment, vec![]);
+    assert_eq!(cost, 0u8.into());
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 4);
+    let mut additional_primary_targets = Vec::new();
+    aligner.align_until_cost_limit(
+        sequences.primary_end(),
+        U32Cost::max_value(),
+        &mut additional_primary_targets,
+        &mut Vec::new(),
+    );
+
+    let mut once = false;
+    for (anchor, cost) in additional_primary_targets {
+        if anchor.start() == sequences.primary_end() {
+            assert!(!once);
+            assert_eq!(cost, 0u8.into());
+            once = true;
+        }
+    }
+}
+
+#[test]
+fn test_start_end_indirect_lt_k() {
+    let seq1 = b"ATTTTTTTTA".to_vec();
+    let seq2 = b"GTTTTTTTTG".to_vec();
+    let sequences = AlignmentSequences::new(
+        seq1,
+        seq2,
+        AlignmentCoordinates::new_primary(1, 1),
+        AlignmentCoordinates::new_primary(9, 9),
+    );
+    let cost_table =
+        GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 8);
+    let (cost, alignment) = aligner.align(
+        sequences.primary_start(),
+        sequences.primary_end(),
+        &mut Vec::new(),
+        &mut Vec::new(),
+    );
+
+    assert_eq!(alignment.alignment, vec![]);
+    assert_eq!(cost, 0u8.into());
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 8);
+    let mut additional_primary_targets = Vec::new();
+    aligner.align_until_cost_limit(
+        sequences.primary_start(),
+        U32Cost::max_value(),
+        &mut additional_primary_targets,
+        &mut Vec::new(),
+    );
+
+    let mut once = false;
+    for (anchor, cost) in additional_primary_targets {
+        if anchor.start() == sequences.primary_end() {
+            assert!(!once);
+            assert_eq!(cost, 0u8.into());
+            once = true;
+        }
+    }
+}
+
+#[test]
+fn test_start_end_indirect_geq_k() {
+    let seq1 = b"ATTTTTTTTA".to_vec();
+    let seq2 = b"GTTTTTTTTG".to_vec();
+    let sequences = AlignmentSequences::new(
+        seq1,
+        seq2,
+        AlignmentCoordinates::new_primary(1, 1),
+        AlignmentCoordinates::new_primary(9, 9),
+    );
+    let cost_table =
+        GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 7);
+    let (cost, _alignment) = aligner.align(
+        sequences.primary_start(),
+        sequences.primary_end(),
+        &mut Vec::new(),
+        &mut Vec::new(),
+    );
+
+    assert!(!cost.is_zero());
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 7);
+    let mut additional_primary_targets = Vec::new();
+    aligner.align_until_cost_limit(
+        sequences.primary_start(),
+        U32Cost::max_value(),
+        &mut additional_primary_targets,
+        &mut Vec::new(),
+    );
+
+    let mut once = false;
+    for (anchor, cost) in additional_primary_targets {
+        if anchor.start() == sequences.primary_end() {
+            assert!(!once);
+            assert!(!cost.is_zero());
+            once = true;
+        }
+    }
+}
+
+#[test]
+fn test_start_anchor_indirect() {
+    let seq1 = b"ATTTTTTTTA".to_vec();
+    let seq2 = b"GTTTTTTTTG".to_vec();
+    let sequences = AlignmentSequences::new(
+        seq1,
+        seq2,
+        AlignmentCoordinates::new_primary(1, 1),
+        AlignmentCoordinates::new_primary(9, 9),
+    );
+    let cost_table =
+        GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
+    let end = AlignmentCoordinates::new_primary(2, 2);
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, _alignment) = aligner.align(
+        sequences.primary_start(),
+        end,
+        &mut Vec::new(),
+        &mut Vec::new(),
+    );
+
+    assert!(!cost.is_zero());
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut additional_primary_targets = Vec::new();
+    aligner.align_until_cost_limit(
+        sequences.primary_start(),
+        U32Cost::max_value(),
+        &mut additional_primary_targets,
+        &mut Vec::new(),
+    );
+
+    let mut once = false;
+    for (anchor, cost) in additional_primary_targets {
+        if anchor.start() == end {
+            assert!(!once);
+            assert!(!cost.is_zero());
+            once = true;
+        }
+    }
+}
+
+#[test]
+fn test_anchor_end_indirect() {
+    let seq1 = b"ATTTTTTTTA".to_vec();
+    let seq2 = b"GTTTTTTTTG".to_vec();
+    let sequences = AlignmentSequences::new(
+        seq1,
+        seq2,
+        AlignmentCoordinates::new_primary(1, 1),
+        AlignmentCoordinates::new_primary(9, 9),
+    );
+    let cost_table =
+        GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
+    let start = AlignmentCoordinates::new_primary(8, 8);
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, _alignment) = aligner.align(
+        start,
+        sequences.primary_end(),
+        &mut Vec::new(),
+        &mut Vec::new(),
+    );
+
+    assert!(!cost.is_zero());
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut additional_primary_targets = Vec::new();
+    aligner.align_until_cost_limit(
+        start,
+        U32Cost::max_value(),
+        &mut additional_primary_targets,
+        &mut Vec::new(),
+    );
+
+    let mut once = false;
+    for (anchor, cost) in additional_primary_targets {
+        if anchor.start() == sequences.primary_end() {
+            assert!(!once);
+            assert!(!cost.is_zero());
+            once = true;
+        }
+    }
+}
+
+#[test]
+fn test_anchor_anchor_direct() {
+    let seq1 = b"ATTTTTTTTA".to_vec();
+    let seq2 = b"GTTTTTTTTG".to_vec();
+    let sequences = AlignmentSequences::new(
+        seq1,
+        seq2,
+        AlignmentCoordinates::new_primary(1, 1),
+        AlignmentCoordinates::new_primary(9, 9),
+    );
+    let cost_table =
+        GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
+    let start = AlignmentCoordinates::new_primary(5, 5);
+    let end = AlignmentCoordinates::new_primary(5, 5);
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+
+    assert_eq!(alignment.alignment, vec![]);
+    assert_eq!(cost, U32Cost::max_value());
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut additional_primary_targets = Vec::new();
+    aligner.align_until_cost_limit(
+        start,
+        U32Cost::max_value(),
+        &mut additional_primary_targets,
+        &mut Vec::new(),
+    );
+
+    let mut once = false;
+    for (anchor, cost) in additional_primary_targets {
+        if anchor.start() == end {
+            assert!(!once);
+            assert_eq!(cost, U32Cost::max_value());
+            once = true;
+        }
+    }
+}
+
+#[test]
+fn test_anchor_anchor_indirect() {
+    let seq1 = b"ATTTTTTTTA".to_vec();
+    let seq2 = b"GTTTTTTTTG".to_vec();
+    let sequences = AlignmentSequences::new(
+        seq1,
+        seq2,
+        AlignmentCoordinates::new_primary(1, 1),
+        AlignmentCoordinates::new_primary(9, 9),
+    );
+    let cost_table =
+        GapAffineCosts::new(U32Cost::from(2u8), U32Cost::from(3u8), U32Cost::from(1u8));
+    let start = AlignmentCoordinates::new_primary(5, 5);
+    let end = AlignmentCoordinates::new_primary(6, 6);
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let (cost, _alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+
+    assert!(!cost.is_zero());
+
+    let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
+    let mut additional_primary_targets = Vec::new();
+    aligner.align_until_cost_limit(
+        start,
+        U32Cost::max_value(),
+        &mut additional_primary_targets,
+        &mut Vec::new(),
+    );
+
+    let mut once = false;
+    for (anchor, cost) in additional_primary_targets {
+        if anchor.start() == end {
+            assert!(!once);
+            assert!(!cost.is_zero());
+            once = true;
+        }
+    }
 }
