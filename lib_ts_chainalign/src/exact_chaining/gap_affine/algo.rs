@@ -20,7 +20,8 @@ pub struct Context<'costs, 'sequences, 'rc_fn, Cost> {
     rc_fn: &'rc_fn dyn Fn(u8) -> u8,
     start: AlignmentCoordinates,
     end: AlignmentCoordinates,
-    enforce_non_match: bool,
+    allow_direct_chaining: bool,
+    allow_all_matches: bool,
     max_match_run: u32,
 }
 
@@ -41,13 +42,19 @@ pub struct Identifier {
 }
 
 impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost> {
+    ///
+    /// **Parameters:**
+    /// * `allow_direct_chaining`: allow reaching the target with zero alignment operations.
+    /// * `allow_all_matches`: allow reaching the target before any non-match was used. This still obeys the `max_match_run` parameter.
+    #[expect(clippy::too_many_arguments)]
     pub fn new(
         costs: &'costs GapAffineCosts<Cost>,
         sequences: &'sequences AlignmentSequences,
         rc_fn: &'rc_fn dyn Fn(u8) -> u8,
         start: AlignmentCoordinates,
         end: AlignmentCoordinates,
-        enforce_non_match: bool,
+        allow_direct_chaining: bool,
+        allow_all_matches: bool,
         max_match_run: u32,
     ) -> Self {
         Self {
@@ -56,7 +63,8 @@ impl<'costs, 'sequences, 'rc_fn, Cost> Context<'costs, 'sequences, 'rc_fn, Cost>
             rc_fn,
             start,
             end,
-            enforce_non_match,
+            allow_direct_chaining,
+            allow_all_matches,
             max_match_run,
         }
     }
@@ -174,8 +182,13 @@ impl<Cost: AStarCost> AStarContext for Context<'_, '_, '_, Cost> {
     }
 
     fn is_target(&self, node: &Self::Node) -> bool {
-        node.identifier.coordinates == self.end
-            && (node.identifier.has_non_match || !self.enforce_non_match)
+        if node.identifier.coordinates != self.end {
+            false
+        } else if self.start == self.end {
+            self.allow_direct_chaining
+        } else {
+            node.identifier.has_non_match || self.allow_all_matches
+        }
     }
 
     fn cost_limit(&self) -> Option<<Self::Node as generic_a_star::AStarNode>::Cost> {

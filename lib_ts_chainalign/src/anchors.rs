@@ -1,10 +1,11 @@
 use std::{fmt::Display, time::Instant};
 
-use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
 use log::{info, trace};
 
 use crate::{
-    alignment::{sequences::AlignmentSequences, ts_kind::TsKind},
+    alignment::{
+        coordinates::AlignmentCoordinates, sequences::AlignmentSequences, ts_kind::TsKind,
+    },
     anchors::{
         index::AnchorIndex,
         kmer_matches::find_kmer_matches,
@@ -30,20 +31,15 @@ pub struct Anchors {
 }
 
 impl Anchors {
-    pub fn new(
-        sequences: &AlignmentSequences,
-        range: AlignmentRange,
-        k: u32,
-        rc_fn: &dyn Fn(u8) -> u8,
-    ) -> Self {
+    pub fn new(sequences: &AlignmentSequences, k: u32, rc_fn: &dyn Fn(u8) -> u8) -> Self {
         if k <= 8 {
-            Self::new_with_kmer_store::<u16>(sequences, range, k, rc_fn)
+            Self::new_with_kmer_store::<u16>(sequences, k, rc_fn)
         } else if k <= 16 {
-            Self::new_with_kmer_store::<u32>(sequences, range, k, rc_fn)
+            Self::new_with_kmer_store::<u32>(sequences, k, rc_fn)
         } else if k <= 32 {
-            Self::new_with_kmer_store::<u64>(sequences, range, k, rc_fn)
+            Self::new_with_kmer_store::<u64>(sequences, k, rc_fn)
         } else if k <= 64 {
-            Self::new_with_kmer_store::<u128>(sequences, range, k, rc_fn)
+            Self::new_with_kmer_store::<u128>(sequences, k, rc_fn)
         } else {
             panic!("Only k-mer sizes up to 64 are supported, but got {k}");
         }
@@ -51,7 +47,6 @@ impl Anchors {
 
     fn new_with_kmer_store<Store: KmerStore>(
         sequences: &AlignmentSequences,
-        range: AlignmentRange,
         k: u32,
         rc_fn: &dyn Fn(u8) -> u8,
     ) -> Self {
@@ -63,18 +58,24 @@ impl Anchors {
         let s1_rc: Vec<_> = s1.iter().copied().rev().map(rc_fn).collect();
         let s2_rc: Vec<_> = s2.iter().copied().rev().map(rc_fn).collect();
 
-        let s1_kmer_count =
-            (range.reference_limit() - range.reference_offset() + 1).saturating_sub(k);
-        let s2_kmer_count = (range.query_limit() - range.query_offset() + 1).saturating_sub(k);
+        let s1_kmer_count = (sequences.primary_end().primary_ordinate_a().unwrap()
+            - sequences.primary_start().primary_ordinate_a().unwrap()
+            + 1)
+        .saturating_sub(k);
+        let s2_kmer_count = (sequences.primary_end().primary_ordinate_b().unwrap()
+            - sequences.primary_start().primary_ordinate_b().unwrap()
+            + 1)
+        .saturating_sub(k);
 
         // Compute k-mers.
-        let mut s1_kmers: Vec<_> = (range.reference_offset()
-            ..range.reference_offset() + s1_kmer_count)
+        let mut s1_kmers: Vec<_> = (sequences.primary_start().primary_ordinate_a().unwrap()
+            ..sequences.primary_start().primary_ordinate_a().unwrap() + s1_kmer_count)
             .map(|offset| (Kmer::<Store>::from(&s1[offset..offset + k]), offset))
             .collect();
         s1_kmers.sort();
         let s1_kmers = s1_kmers;
-        let mut s2_kmers: Vec<_> = (range.query_offset()..range.query_offset() + s2_kmer_count)
+        let mut s2_kmers: Vec<_> = (sequences.primary_start().primary_ordinate_b().unwrap()
+            ..sequences.primary_start().primary_ordinate_b().unwrap() + s2_kmer_count)
             .map(|offset| (Kmer::<Store>::from(&s2[offset..offset + k]), offset))
             .collect();
         s2_kmers.sort();
@@ -170,6 +171,16 @@ impl Anchors {
             .map(|(index, anchor)| (index.into(), anchor))
     }
 
+    pub fn primary_index_from_start_coordinates(
+        &self,
+        start: AlignmentCoordinates,
+    ) -> Option<AnchorIndex> {
+        let target_anchor = PrimaryAnchor::new_from_start(&start);
+        self.enumerate_primaries()
+            .filter_map(|(index, anchor)| (anchor == target_anchor).then_some(index))
+            .next()
+    }
+
     fn secondary_anchor_vec(&self, ts_kind: TsKind) -> &Vec<SecondaryAnchor> {
         &self.secondaries[ts_kind.index()]
     }
@@ -191,6 +202,16 @@ impl Anchors {
             .copied()
             .enumerate()
             .map(|(index, anchor)| (index.into(), anchor))
+    }
+
+    pub fn secondary_index_from_start_coordinates(
+        &self,
+        start: AlignmentCoordinates,
+    ) -> Option<AnchorIndex> {
+        let target_anchor = SecondaryAnchor::new_from_start(&start);
+        self.enumerate_secondaries(start.ts_kind().unwrap())
+            .filter_map(|(index, anchor)| (anchor == target_anchor).then_some(index))
+            .next()
     }
 }
 

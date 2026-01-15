@@ -19,6 +19,8 @@ use crate::{
 };
 
 mod cost_array;
+#[cfg(test)]
+mod tests;
 
 pub struct ChainingCostFunction<Cost> {
     primary: ChainingCostArray<Cost>,
