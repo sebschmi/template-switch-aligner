@@ -114,8 +114,8 @@ fn test_start_end_indirect_lt_k() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 9),
-        AlignmentCoordinates::new_primary(1, 9),
+        AlignmentCoordinates::new_primary(1, 1),
+        AlignmentCoordinates::new_primary(9, 9),
     );
     let (_, cost_function) = create_chaining_cost_function(&sequences, 8);
     assert!(cost_function.start_to_end().is_zero());
@@ -128,8 +128,8 @@ fn test_start_end_indirect_geq_k() {
     let sequences = AlignmentSequences::new(
         seq1,
         seq2,
-        AlignmentCoordinates::new_primary(1, 9),
-        AlignmentCoordinates::new_primary(1, 9),
+        AlignmentCoordinates::new_primary(1, 1),
+        AlignmentCoordinates::new_primary(9, 9),
     );
     let (_, cost_function) = create_chaining_cost_function(&sequences, 7);
     assert!(!cost_function.start_to_end().is_zero());
