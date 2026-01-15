@@ -58,6 +58,12 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
             && u32::try_from(minimum_primary_sequence_length).unwrap() <= self.max_match_run
     }
 
+    /// Align from start to end.
+    ///
+    /// Additionally continue the alignment to all nodes with the same cost as the alignment cost from start to end.
+    ///
+    /// Collect all closed nodes into the given output lists.
+    /// Note that the output lists may contain duplicate anchors with different cost.
     pub fn align(
         &mut self,
         start: AlignmentCoordinates,
@@ -107,6 +113,7 @@ impl<'sequences, 'cost_table, 'rc_fn, Cost: AStarCost>
     /// Align from start until the cost limit is reached.
     ///
     /// Collect all closed nodes into the given output lists.
+    /// Note that the output lists may contain duplicate anchors with different cost.
     pub fn align_until_cost_limit(
         &mut self,
         start: AlignmentCoordinates,

@@ -4,6 +4,7 @@ use num_traits::{Zero, bounds::UpperBounded};
 use crate::alignment::AlignmentType;
 use crate::alignment::ts_kind::TsKind;
 use crate::exact_chaining::gap_affine::{AlignmentCoordinates, GapAffineAligner};
+use crate::panic_on_extend::PanicOnExtend;
 use crate::{alignment::sequences::AlignmentSequences, costs::GapAffineCosts};
 
 fn rc_fn(c: u8) -> u8 {
@@ -27,7 +28,7 @@ fn test_start_end() {
     let start = AlignmentCoordinates::new_primary(0, 0);
     let end = AlignmentCoordinates::new_primary(4, 5);
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
-    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(
         alignment.alignment,
@@ -47,7 +48,7 @@ fn test_partial_alignment() {
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(4, 4);
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
-    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(
         alignment.alignment,
@@ -71,7 +72,7 @@ fn test_gap_directions() {
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(11, 11);
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
-    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(
         alignment.alignment,
@@ -97,7 +98,7 @@ fn test_extremity_gaps() {
     let start = AlignmentCoordinates::new_primary(3, 3);
     let end = AlignmentCoordinates::new_primary(10, 10);
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
-    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(
         alignment.alignment,
@@ -121,7 +122,7 @@ fn test_extremity_substitutions() {
     let start = AlignmentCoordinates::new_primary(0, 0);
     let end = AlignmentCoordinates::new_primary(5, 5);
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
-    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(
         alignment.alignment,
@@ -145,7 +146,7 @@ fn test_substitutions_as_gaps() {
     let start = AlignmentCoordinates::new_primary(0, 0);
     let end = AlignmentCoordinates::new_primary(20, 20);
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
-    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert!(
         alignment.alignment == vec![(20, AlignmentType::GapA), (20, AlignmentType::GapB),]
@@ -165,7 +166,7 @@ fn test_max_match_run_0() {
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(9, 9);
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 0);
-    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert!(
         alignment.alignment == vec![(8, AlignmentType::GapA), (8, AlignmentType::GapB),]
@@ -185,7 +186,7 @@ fn test_max_match_run_1() {
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(9, 9);
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 1);
-    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(
         alignment.alignment,
@@ -214,7 +215,7 @@ fn test_max_match_run_2() {
     let start = AlignmentCoordinates::new_primary(1, 1);
     let end = AlignmentCoordinates::new_primary(9, 9);
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 2);
-    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(
         alignment.alignment,
@@ -240,7 +241,7 @@ fn test_secondary_12() {
     let start = AlignmentCoordinates::new_secondary(9, 1, TsKind::TS12);
     let end = AlignmentCoordinates::new_secondary(1, 9, TsKind::TS12);
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
-    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+    let (cost, alignment) = aligner.align(start, end, &mut PanicOnExtend, &mut Vec::new());
 
     assert_eq!(
         alignment.alignment,
@@ -260,7 +261,7 @@ fn test_secondary_21() {
     let start = AlignmentCoordinates::new_secondary(9, 1, TsKind::TS21);
     let end = AlignmentCoordinates::new_secondary(1, 9, TsKind::TS21);
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
-    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+    let (cost, alignment) = aligner.align(start, end, &mut PanicOnExtend, &mut Vec::new());
 
     assert_eq!(
         alignment.alignment,
@@ -287,7 +288,7 @@ fn test_start_end_direct() {
         sequences.primary_start(),
         sequences.primary_end(),
         &mut Vec::new(),
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
     assert_eq!(alignment.alignment, vec![]);
@@ -299,17 +300,21 @@ fn test_start_end_direct() {
         sequences.primary_start(),
         U32Cost::max_value(),
         &mut additional_primary_targets,
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
-    let mut once = false;
-    for (anchor, cost) in additional_primary_targets {
-        if anchor.start() == sequences.primary_start() {
-            assert!(!once);
-            assert_eq!(cost, 0u8.into());
-            once = true;
-        }
-    }
+    let min_cost = additional_primary_targets
+        .into_iter()
+        .filter_map(|(anchor, cost)| {
+            if anchor.start() == sequences.primary_start() {
+                Some(cost)
+            } else {
+                None
+            }
+        })
+        .min()
+        .unwrap();
+    assert_eq!(min_cost, 0u8.into());
 }
 
 #[test]
@@ -330,7 +335,7 @@ fn test_start_anchor_direct() {
         sequences.primary_start(),
         sequences.primary_start(),
         &mut Vec::new(),
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
     assert_eq!(alignment.alignment, vec![]);
@@ -342,17 +347,21 @@ fn test_start_anchor_direct() {
         sequences.primary_start(),
         U32Cost::max_value(),
         &mut additional_primary_targets,
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
-    let mut once = false;
-    for (anchor, cost) in additional_primary_targets {
-        if anchor.start() == sequences.primary_start() {
-            assert!(!once);
-            assert_eq!(cost, 0u8.into());
-            once = true;
-        }
-    }
+    let min_cost = additional_primary_targets
+        .into_iter()
+        .filter_map(|(anchor, cost)| {
+            if anchor.start() == sequences.primary_start() {
+                Some(cost)
+            } else {
+                None
+            }
+        })
+        .min()
+        .unwrap();
+    assert_eq!(min_cost, 0u8.into());
 }
 
 #[test]
@@ -373,7 +382,7 @@ fn test_anchor_end_direct() {
         sequences.primary_end(),
         sequences.primary_end(),
         &mut Vec::new(),
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
     assert_eq!(alignment.alignment, vec![]);
@@ -385,17 +394,21 @@ fn test_anchor_end_direct() {
         sequences.primary_end(),
         U32Cost::max_value(),
         &mut additional_primary_targets,
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
-    let mut once = false;
-    for (anchor, cost) in additional_primary_targets {
-        if anchor.start() == sequences.primary_end() {
-            assert!(!once);
-            assert_eq!(cost, 0u8.into());
-            once = true;
-        }
-    }
+    let min_cost = additional_primary_targets
+        .into_iter()
+        .filter_map(|(anchor, cost)| {
+            if anchor.start() == sequences.primary_end() {
+                Some(cost)
+            } else {
+                None
+            }
+        })
+        .min()
+        .unwrap();
+    assert_eq!(min_cost, 0u8.into());
 }
 
 #[test]
@@ -416,10 +429,10 @@ fn test_start_end_indirect_lt_k() {
         sequences.primary_start(),
         sequences.primary_end(),
         &mut Vec::new(),
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
-    assert_eq!(alignment.alignment, vec![]);
+    assert_eq!(alignment.alignment, vec![(8, AlignmentType::Match)]);
     assert_eq!(cost, 0u8.into());
 
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, 8);
@@ -428,17 +441,21 @@ fn test_start_end_indirect_lt_k() {
         sequences.primary_start(),
         U32Cost::max_value(),
         &mut additional_primary_targets,
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
-    let mut once = false;
-    for (anchor, cost) in additional_primary_targets {
-        if anchor.start() == sequences.primary_end() {
-            assert!(!once);
-            assert_eq!(cost, 0u8.into());
-            once = true;
-        }
-    }
+    let min_cost = additional_primary_targets
+        .into_iter()
+        .filter_map(|(anchor, cost)| {
+            if anchor.start() == sequences.primary_end() {
+                Some(cost)
+            } else {
+                None
+            }
+        })
+        .min()
+        .unwrap();
+    assert_eq!(min_cost, 0u8.into());
 }
 
 #[test]
@@ -459,7 +476,7 @@ fn test_start_end_indirect_geq_k() {
         sequences.primary_start(),
         sequences.primary_end(),
         &mut Vec::new(),
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
     assert!(!cost.is_zero());
@@ -470,17 +487,21 @@ fn test_start_end_indirect_geq_k() {
         sequences.primary_start(),
         U32Cost::max_value(),
         &mut additional_primary_targets,
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
-    let mut once = false;
-    for (anchor, cost) in additional_primary_targets {
-        if anchor.start() == sequences.primary_end() {
-            assert!(!once);
-            assert!(!cost.is_zero());
-            once = true;
-        }
-    }
+    let min_cost = additional_primary_targets
+        .into_iter()
+        .filter_map(|(anchor, cost)| {
+            if anchor.start() == sequences.primary_end() {
+                Some(cost)
+            } else {
+                None
+            }
+        })
+        .min()
+        .unwrap();
+    assert!(!min_cost.is_zero());
 }
 
 #[test]
@@ -502,7 +523,7 @@ fn test_start_anchor_indirect() {
         sequences.primary_start(),
         end,
         &mut Vec::new(),
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
     assert!(!cost.is_zero());
@@ -513,17 +534,21 @@ fn test_start_anchor_indirect() {
         sequences.primary_start(),
         U32Cost::max_value(),
         &mut additional_primary_targets,
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
-    let mut once = false;
-    for (anchor, cost) in additional_primary_targets {
-        if anchor.start() == end {
-            assert!(!once);
-            assert!(!cost.is_zero());
-            once = true;
-        }
-    }
+    let min_cost = additional_primary_targets
+        .into_iter()
+        .filter_map(|(anchor, cost)| {
+            if anchor.start() == end {
+                Some(cost)
+            } else {
+                None
+            }
+        })
+        .min()
+        .unwrap();
+    assert!(!min_cost.is_zero());
 }
 
 #[test]
@@ -545,7 +570,7 @@ fn test_anchor_end_indirect() {
         start,
         sequences.primary_end(),
         &mut Vec::new(),
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
     assert!(!cost.is_zero());
@@ -556,17 +581,21 @@ fn test_anchor_end_indirect() {
         start,
         U32Cost::max_value(),
         &mut additional_primary_targets,
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
-    let mut once = false;
-    for (anchor, cost) in additional_primary_targets {
-        if anchor.start() == sequences.primary_end() {
-            assert!(!once);
-            assert!(!cost.is_zero());
-            once = true;
-        }
-    }
+    let min_cost = additional_primary_targets
+        .into_iter()
+        .filter_map(|(anchor, cost)| {
+            if anchor.start() == sequences.primary_end() {
+                Some(cost)
+            } else {
+                None
+            }
+        })
+        .min()
+        .unwrap();
+    assert!(!min_cost.is_zero());
 }
 
 #[test]
@@ -585,7 +614,7 @@ fn test_anchor_anchor_direct_primary() {
     let end = AlignmentCoordinates::new_primary(5, 5);
 
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
-    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert_eq!(alignment.alignment, vec![]);
     assert_eq!(cost, U32Cost::max_value());
@@ -596,17 +625,21 @@ fn test_anchor_anchor_direct_primary() {
         start,
         U32Cost::max_value(),
         &mut additional_primary_targets,
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
-    let mut once = false;
-    for (anchor, cost) in additional_primary_targets {
-        if anchor.start() == end {
-            assert!(!once);
-            assert_eq!(cost, U32Cost::max_value());
-            once = true;
-        }
-    }
+    let min_cost = additional_primary_targets
+        .into_iter()
+        .filter_map(|(anchor, cost)| {
+            if anchor.start() == end {
+                Some(cost)
+            } else {
+                None
+            }
+        })
+        .min()
+        .unwrap_or_else(U32Cost::max_value);
+    assert_eq!(min_cost, U32Cost::max_value());
 }
 
 #[test]
@@ -625,7 +658,7 @@ fn test_anchor_anchor_indirect_primary() {
     let end = AlignmentCoordinates::new_primary(6, 6);
 
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
-    let (cost, _alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+    let (cost, _alignment) = aligner.align(start, end, &mut Vec::new(), &mut PanicOnExtend);
 
     assert!(!cost.is_zero());
 
@@ -635,17 +668,21 @@ fn test_anchor_anchor_indirect_primary() {
         start,
         U32Cost::max_value(),
         &mut additional_primary_targets,
-        &mut Vec::new(),
+        &mut PanicOnExtend,
     );
 
-    let mut once = false;
-    for (anchor, cost) in additional_primary_targets {
-        if anchor.start() == end {
-            assert!(!once);
-            assert!(!cost.is_zero());
-            once = true;
-        }
-    }
+    let min_cost = additional_primary_targets
+        .into_iter()
+        .filter_map(|(anchor, cost)| {
+            if anchor.start() == end {
+                Some(cost)
+            } else {
+                None
+            }
+        })
+        .min()
+        .unwrap();
+    assert!(!min_cost.is_zero());
 }
 
 #[test]
@@ -664,28 +701,32 @@ fn test_anchor_anchor_direct_secondary() {
     let end = AlignmentCoordinates::new_secondary(5, 5, TsKind::TS12);
 
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
-    let (cost, alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+    let (cost, alignment) = aligner.align(start, end, &mut PanicOnExtend, &mut Vec::new());
 
     assert_eq!(alignment.alignment, vec![]);
     assert_eq!(cost, U32Cost::max_value());
 
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
-    let mut additional_primary_targets = Vec::new();
+    let mut additional_secondary_targets = Vec::new();
     aligner.align_until_cost_limit(
         start,
         U32Cost::max_value(),
-        &mut additional_primary_targets,
-        &mut Vec::new(),
+        &mut PanicOnExtend,
+        &mut additional_secondary_targets,
     );
 
-    let mut once = false;
-    for (anchor, cost) in additional_primary_targets {
-        if anchor.start() == end {
-            assert!(!once);
-            assert_eq!(cost, U32Cost::max_value());
-            once = true;
-        }
-    }
+    let min_cost = additional_secondary_targets
+        .into_iter()
+        .filter_map(|(anchor, cost)| {
+            if anchor.start(TsKind::TS12) == end {
+                Some(cost)
+            } else {
+                None
+            }
+        })
+        .min()
+        .unwrap_or_else(U32Cost::max_value);
+    assert_eq!(min_cost, U32Cost::max_value());
 }
 
 #[test]
@@ -704,25 +745,29 @@ fn test_anchor_anchor_indirect_secondary() {
     let end = AlignmentCoordinates::new_secondary(5, 5, TsKind::TS12);
 
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
-    let (cost, _alignment) = aligner.align(start, end, &mut Vec::new(), &mut Vec::new());
+    let (cost, _alignment) = aligner.align(start, end, &mut PanicOnExtend, &mut Vec::new());
 
     assert!(!cost.is_zero());
 
     let mut aligner = GapAffineAligner::new(&sequences, &cost_table, &rc_fn, u32::MAX);
-    let mut additional_primary_targets = Vec::new();
+    let mut additional_secondary_targets = Vec::new();
     aligner.align_until_cost_limit(
         start,
         U32Cost::max_value(),
-        &mut additional_primary_targets,
-        &mut Vec::new(),
+        &mut PanicOnExtend,
+        &mut additional_secondary_targets,
     );
 
-    let mut once = false;
-    for (anchor, cost) in additional_primary_targets {
-        if anchor.start() == end {
-            assert!(!once);
-            assert!(!cost.is_zero());
-            once = true;
-        }
-    }
+    let min_cost = additional_secondary_targets
+        .into_iter()
+        .filter_map(|(anchor, cost)| {
+            if anchor.start(TsKind::TS12) == end {
+                Some(cost)
+            } else {
+                None
+            }
+        })
+        .min()
+        .unwrap();
+    assert!(!min_cost.is_zero());
 }
