@@ -99,19 +99,21 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
             anchors.primary_anchor_to_index_iter(additional_primary_targets_output.iter().copied())
         {
             let to_index = to_index + 1;
-            primary[[primary_start_anchor_index, to_index]] = cost;
+            primary[[primary_start_anchor_index, to_index]] =
+                primary[[primary_start_anchor_index, to_index]].min(cost);
             if cost <= max_exact_cost_function_cost {
                 primary.set_exact(primary_start_anchor_index, to_index);
             }
         }
-        if additional_primary_targets_output
+        if let Some(start_end_cost) = additional_primary_targets_output
+            .iter()
+            .rev()
+            .map_while(|(anchor, cost)| (anchor.start() == end).then_some(cost))
+            .copied()
             .last()
-            .map(|(anchor, _)| anchor.start() == end)
-            .unwrap_or(false)
         {
-            let cost = additional_primary_targets_output.last().unwrap().1;
-            primary[[primary_start_anchor_index, primary_end_anchor_index]] = cost;
-            if cost <= max_exact_cost_function_cost {
+            primary[[primary_start_anchor_index, primary_end_anchor_index]] = start_end_cost;
+            if start_end_cost <= max_exact_cost_function_cost {
                 primary.set_exact(primary_start_anchor_index, primary_end_anchor_index);
             }
         }
@@ -144,19 +146,20 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                 .primary_anchor_to_index_iter(additional_primary_targets_output.iter().copied())
             {
                 let to_index = to_index + 1;
-                primary[[from_index, to_index]] = cost;
+                primary[[from_index, to_index]] = primary[[from_index, to_index]].min(cost);
                 if cost <= max_exact_cost_function_cost {
                     primary.set_exact(from_index, to_index);
                 }
             }
-            if additional_primary_targets_output
+            if let Some(to_end_cost) = additional_primary_targets_output
+                .iter()
+                .rev()
+                .map_while(|(anchor, cost)| (anchor.start() == end).then_some(cost))
+                .copied()
                 .last()
-                .map(|(anchor, _)| anchor.start() == end)
-                .unwrap_or(false)
             {
-                let cost = additional_primary_targets_output.last().unwrap().1;
-                primary[[from_index, primary_end_anchor_index]] = cost;
-                if cost <= max_exact_cost_function_cost {
+                primary[[from_index, primary_end_anchor_index]] = to_end_cost;
+                if to_end_cost <= max_exact_cost_function_cost {
                     primary.set_exact(from_index, primary_end_anchor_index);
                 }
             }
@@ -223,7 +226,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                     additional_secondary_targets_output.iter().copied(),
                     ts_kind,
                 ) {
-                    secondary[[from_index, to_index]] = cost;
+                    secondary[[from_index, to_index]] = secondary[[from_index, to_index]].min(cost);
                     if cost <= max_exact_cost_function_cost {
                         secondary.set_exact(from_index, to_index);
                     }
@@ -338,7 +341,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                         ts_kind,
                     ) {
                         additional_secondary_anchor_count += 1;
-                        jump_12[[from_index, to_index]] = cost;
+                        jump_12[[from_index, to_index]] = jump_12[[from_index, to_index]].min(cost);
                         if cost
                             <= max_exact_cost_function_cost
                                 + chaining_lower_bounds.alignment_costs().ts_base_cost
@@ -398,19 +401,20 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                     .primary_anchor_to_index_iter(additional_primary_targets_output.iter().copied())
                 {
                     let to_index = to_index + 1;
-                    jump_34[[from_index, to_index]] = cost;
+                    jump_34[[from_index, to_index]] = jump_34[[from_index, to_index]].min(cost);
                     if cost <= max_exact_cost_function_cost {
                         jump_34.set_exact(from_index, to_index);
                     }
                 }
-                if additional_primary_targets_output
+                if let Some(to_end_cost) = additional_primary_targets_output
+                    .iter()
+                    .rev()
+                    .map_while(|(anchor, cost)| (anchor.start() == end).then_some(cost))
+                    .copied()
                     .last()
-                    .map(|(anchor, _)| anchor.start() == end)
-                    .unwrap_or(false)
                 {
-                    let cost = additional_primary_targets_output.last().unwrap().1;
-                    jump_34[[from_index, primary_end_anchor_index]] = cost;
-                    if cost <= max_exact_cost_function_cost {
+                    primary[[from_index, primary_end_anchor_index]] = to_end_cost;
+                    if to_end_cost <= max_exact_cost_function_cost {
                         jump_34.set_exact(from_index, primary_end_anchor_index);
                     }
                 }
@@ -722,7 +726,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
         let target = &mut self.primary[[Self::primary_start_anchor_index(), end_index]];
         assert!(
             *target <= cost,
-            "Target is larger than cost.\ntarget: {target}; cost: {cost}; is_exact: {is_exact}",
+            "Start-to-end target is larger than cost.\ntarget: {target}; cost: {cost}; is_exact: {is_exact}",
         );
         let result = *target < cost;
         *target = cost;
