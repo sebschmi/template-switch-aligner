@@ -413,7 +413,7 @@ impl<Cost: AStarCost> ChainingCostFunction<Cost> {
                     .copied()
                     .last()
                 {
-                    primary[[from_index, primary_end_anchor_index]] = to_end_cost;
+                    jump_34[[from_index, primary_end_anchor_index]] = to_end_cost;
                     if to_end_cost <= max_exact_cost_function_cost {
                         jump_34.set_exact(from_index, primary_end_anchor_index);
                     }
