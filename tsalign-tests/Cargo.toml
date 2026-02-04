@@ -2,7 +2,7 @@
 name = "tsalign-tests"
 license.workspace = true
 authors = ["Sebastian Schmidt <sebastian.schmidt@helsinki.fi>", "Jasper Krauter <jasper.krauter@helsinki.fi>"]
-version = "0.6.1"
+version = "0.6.2"
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
