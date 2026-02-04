@@ -576,7 +576,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             TemplateSwitchPrimary::Reference => {
                 let query_index = entrance_query_index as isize + anti_primary_gap;
 
-                if query_index < 0 {
+                // TODO the latter condition should never be true if we generate TS exit nodes correctly.
+                if query_index < 0 || query_index as usize >= context.query.len() {
                     return None;
                 }
 
@@ -585,7 +586,8 @@ impl<Strategies: AlignmentStrategySelector> Node<Strategies> {
             TemplateSwitchPrimary::Query => {
                 let reference_index = entrance_reference_index as isize + anti_primary_gap;
 
-                if reference_index < 0 {
+                // TODO the latter condition should never be true if we generate TS exit nodes correctly.
+                if reference_index < 0 || reference_index as usize >= context.reference.len() {
                     return None;
                 }
 
