@@ -13,6 +13,14 @@ use crate::{
 pub mod io;
 
 #[derive(Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        deserialize = "Cost: serde::Deserialize<'de>", // omit AlphabetType
+        serialize = "Cost: serde::Serialize" // omit AlphabetType
+    ))
+)]
 pub struct TemplateSwitchConfig<AlphabetType, Cost> {
     // Limits
     pub left_flank_length: isize,
@@ -39,6 +47,7 @@ pub struct TemplateSwitchConfig<AlphabetType, Cost> {
     pub reverse_anti_primary_gap_costs: CostFunction<isize, Cost>,
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BaseCost<Cost> {
     /// Primary: reference; secondary: reference; direction: forward.

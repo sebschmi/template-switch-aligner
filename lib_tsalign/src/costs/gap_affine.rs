@@ -5,13 +5,27 @@ use generic_a_star::cost::AStarCost;
 
 pub mod io;
 
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        deserialize = "Cost: serde::Deserialize<'de>", // omit AlphabetType
+        serialize = "Cost: serde::Serialize" // omit AlphabetType
+    ))
+)]
 #[derive(Debug, Eq, PartialEq)]
 pub struct GapAffineAlignmentCostTable<AlphabetType, Cost> {
     name: String,
     substitution_cost_table: Vec<Cost>,
     gap_open_cost_vector: Vec<Cost>,
     gap_extend_cost_vector: Vec<Cost>,
-    phantom_data: PhantomData<AlphabetType>,
+
+    // Establish invariance over AlphabetType
+    // Because we don't actually store any data of type AlphabetType,
+    // we do not want to use PhantomData<AlphabetType> directly,
+    // for example so that AlphabetType does not need to be Send + Sync for
+    // this cost table to be Send + Sync.
+    phantom_data: PhantomData<fn(AlphabetType) -> AlphabetType>,
 
     // Cache some values that are potentially used often.
     min_substitution_cost: Cost,

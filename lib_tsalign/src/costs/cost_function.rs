@@ -17,6 +17,7 @@ pub mod io;
 /// * `f(x) = 3` for `2 <= x`.
 ///
 /// The function can be evaluated via its [`evaluate`](Self::evaluate) function.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CostFunction<SourceType, Cost> {
     function: Vec<(SourceType, Cost)>,
