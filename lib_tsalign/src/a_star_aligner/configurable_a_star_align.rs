@@ -53,7 +53,7 @@ pub use compact_genome::implementation::alphabets;
 pub use compact_genome::interface::alphabet::Alphabet;
 
 #[derive(Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum MinLengthStrategySelector {
     None,
@@ -68,7 +68,7 @@ pub enum MinLengthStrategySelector {
 }
 
 #[derive(Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum ChainingStrategySelector {
     #[default]
@@ -78,7 +78,7 @@ pub enum ChainingStrategySelector {
 }
 
 #[derive(Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum TotalLengthStrategySelector {
     None,
@@ -97,10 +97,9 @@ struct QueryData<'a> {
     memory_limit: Option<usize>,
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))] // Mostly used for kwargs in python bindings
-#[cfg_attr(feature = "serde", serde(default))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(default, bound = ""))]
 pub struct Aligner<AlphabetType: Alphabet = DnaAlphabetOrN> {
-    #[cfg_attr(feature = "serde", serde(skip))] // Not deserializable
     costs: TemplateSwitchConfig<AlphabetType, U64Cost>,
 
     // ↓ Settings for how the alignment (definition)
