@@ -7,3 +7,5 @@ pub mod config;
 pub mod costs;
 pub mod error;
 mod io;
+#[cfg(test)]
+mod tests;

@@ -156,6 +156,12 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
             unreachable!("Only called with a secondary root node.")
         };
 
+        let output = template_switch_primary == TemplateSwitchPrimary::Query
+            && template_switch_secondary == TemplateSwitchSecondary::Query
+            && template_switch_direction == TemplateSwitchDirection::Reverse
+            && primary_index == 199
+            && secondary_index == 220;
+
         let memory_key = LookaheadMemoryKey {
             template_switch_primary,
             template_switch_secondary,
@@ -164,9 +170,25 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
             secondary_index,
         };
 
+        if output {
+            println!(
+                "Lookahead {}{}{} at {}/{} with cost {}",
+                template_switch_primary,
+                template_switch_secondary,
+                template_switch_direction,
+                primary_index,
+                secondary_index,
+                secondary_root_node.cost(),
+            );
+        }
+
         let secondary_root_node = if let Some(a_star_lower_bound) =
             context.memory.template_switch_min_length.get(&memory_key)
         {
+            if output {
+                println!("Found cached lower bound {a_star_lower_bound}");
+            }
+
             secondary_root_node.node_data.a_star_lower_bound = secondary_root_node
                 .node_data
                 .a_star_lower_bound
@@ -187,6 +209,9 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
                 let target_cost = a_star.closed_node(&identifier).unwrap().cost();
                 context.a_star_buffers = a_star.into_buffers();
                 let lower_bound = target_cost - initial_cost;
+                if output {
+                    println!("Computed lower bound {lower_bound}");
+                }
 
                 context
                     .memory
@@ -199,6 +224,10 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
 
                 secondary_root_node
             } else {
+                if output {
+                    println!("No target found");
+                }
+
                 context.a_star_buffers = a_star.into_buffers();
                 // If there is no template switch with minimum length, then we can ignore this path.
                 return None;
