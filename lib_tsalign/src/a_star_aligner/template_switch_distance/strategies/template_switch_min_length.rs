@@ -156,11 +156,7 @@ impl<Cost: AStarCost> TemplateSwitchMinLengthStrategy<Cost>
             unreachable!("Only called with a secondary root node.")
         };
 
-        let output = template_switch_primary == TemplateSwitchPrimary::Query
-            && template_switch_secondary == TemplateSwitchSecondary::Query
-            && template_switch_direction == TemplateSwitchDirection::Reverse
-            && primary_index == 199
-            && secondary_index == 220;
+        let output = false;
 
         let memory_key = LookaheadMemoryKey {
             template_switch_primary,
@@ -664,7 +660,9 @@ impl<
     }
 
     fn generate_successors(&mut self, node: &Self::Node, output: &mut impl Extend<Self::Node>) {
+        self.context.is_toplevel_search = false;
         self.context.generate_successors(node, output);
+        self.context.is_toplevel_search = true;
     }
 
     fn is_target(&self, node: &Self::Node) -> bool {

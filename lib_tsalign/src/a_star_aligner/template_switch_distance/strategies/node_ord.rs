@@ -1,5 +1,5 @@
 use compact_genome::interface::sequence::GenomeSequence;
-use generic_a_star::cost::AStarCost;
+use generic_a_star::{AStarNode, cost::AStarCost};
 
 use crate::a_star_aligner::template_switch_distance::{AlignmentType, Context, Identifier, Node};
 
@@ -29,9 +29,12 @@ impl<Cost: AStarCost, PrimaryMatch: PrimaryMatchStrategy<Cost>> NodeOrdStrategy<
         n1: &Node<Strategies>,
         n2: &Node<Strategies>,
     ) -> std::cmp::Ordering {
+        // Nodes with the lower-bound costs must be ordered by their actual cost.
+        // This is because nodes with the same identifier but higher cost and lower lower bound result in worse solutions.
         n1.node_data
             .lower_bound_cost()
             .cmp(&n2.node_data.lower_bound_cost())
+            .then_with(|| n1.cost().cmp(&n2.cost()))
     }
 }
 
@@ -43,10 +46,13 @@ impl<Cost: AStarCost, PrimaryMatch: PrimaryMatchStrategy<Cost>> NodeOrdStrategy<
         n1: &Node<Strategies>,
         n2: &Node<Strategies>,
     ) -> std::cmp::Ordering {
+        // Nodes with the lower-bound costs must be ordered by their actual cost.
+        // This is because nodes with the same identifier but higher cost and lower lower bound result in worse solutions.
         match n1
             .node_data
             .lower_bound_cost()
             .cmp(&n2.node_data.lower_bound_cost())
+            .then_with(|| n1.cost().cmp(&n2.cost()))
         {
             // This secondary ordering may make things actually slower.
             // While it does reduce the number of visited nodes a little bit,

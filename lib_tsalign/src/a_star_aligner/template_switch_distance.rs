@@ -2,7 +2,6 @@ use std::fmt::Display;
 
 use compact_genome::interface::sequence::GenomeSequence;
 use generic_a_star::{AStarNode, cost::AStarCost};
-use identifier::GapType;
 use num_traits::{Bounded, Zero};
 use strategies::{
     AlignmentStrategiesNodeMemory, AlignmentStrategySelector, node_ord::NodeOrdStrategy,
@@ -21,7 +20,7 @@ pub mod strategies;
 pub use alignment_type::{AlignmentType, equal_cost_range::EqualCostRange};
 pub use context::Context;
 pub use identifier::{
-    Identifier, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
+    GapType, Identifier, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
 };
 
 use crate::config::BaseCost;

@@ -410,6 +410,7 @@ impl<
                 .closed_list
                 .can_skip_node(&node, self.context.is_label_setting())
             {
+                //println!("Skipping node {node}.");
                 self.performance_counters.suboptimal_opened_nodes += 1;
                 let existing_cost = self.closed_list.get(node.identifier()).unwrap().cost();
                 let existing_secondary_maximisable_score = self

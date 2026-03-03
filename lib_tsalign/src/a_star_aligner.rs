@@ -1,4 +1,7 @@
-use std::{fmt::Debug, time::Instant};
+use std::{
+    fmt::{Debug, Display},
+    time::Instant,
+};
 
 use alignment_geometry::AlignmentRange;
 use alignment_result::{AlignmentResult, IAlignmentType};
@@ -16,7 +19,7 @@ use template_switch_distance::{
 };
 use traitsequence::interface::Sequence;
 
-use crate::config;
+use crate::{a_star_aligner::alignment_result::alignment::Alignment, config};
 
 pub mod alignment_geometry;
 pub mod alignment_result;
@@ -48,9 +51,11 @@ pub trait AlignmentContext: AStarContext {
 
 fn a_star_align<Context: AStarContext + AlignmentContext>(
     context: Context,
+    debug_backtracking_identifiers: Vec<<Context::Node as AStarNode>::Identifier>,
 ) -> AlignmentResult<Context::AlignmentType, <<Context as AStarContext>::Node as AStarNode>::Cost>
 where
-    <Context::Node as AStarNode>::EdgeType: IAlignmentType,
+    <Context::Node as AStarNode>::Identifier: Display,
+    <Context::Node as AStarNode>::EdgeType: IAlignmentType + Display,
 {
     info!("Aligning on subsequence {}", context.range());
     debug!("Is label setting: {}", context.is_label_setting());
@@ -62,6 +67,29 @@ where
     a_star.initialise();
     let result = a_star.search();
     let has_target = matches!(result, AStarResult::FoundTarget { .. });
+
+    for identifier in &debug_backtracking_identifiers {
+        let mut debug_alignment = Vec::new();
+        if let Some(backtracking_iterator) = a_star.backtrack_from(identifier) {
+            for alignment_type in backtracking_iterator {
+                if !alignment_type.is_internal() {
+                    if let Some((count, previous_alignment_type)) = debug_alignment.last_mut() {
+                        if alignment_type.is_repeated(previous_alignment_type) {
+                            *count += 1;
+                        } else {
+                            debug_alignment.push((1, alignment_type));
+                        }
+                    } else {
+                        debug_alignment.push((1, alignment_type));
+                    }
+                }
+            }
+
+            debug_alignment.reverse();
+            let debug_alignment = Alignment::from(debug_alignment).cigar();
+            println!("Alignment for identifier {identifier}: {debug_alignment}");
+        }
+    }
 
     let mut alignment = Vec::new();
 
@@ -135,11 +163,10 @@ pub fn gap_affine_edit_distance_a_star_align<
     query: &SubsequenceType,
     scoring_table: gap_affine_edit_distance::ScoringTable<Cost>,
 ) -> AlignmentResult<gap_affine_edit_distance::AlignmentType, Cost> {
-    a_star_align(gap_affine_edit_distance::Context::new(
-        reference,
-        query,
-        scoring_table,
-    ))
+    a_star_align(
+        gap_affine_edit_distance::Context::new(reference, query, scoring_table),
+        vec![],
+    )
 }
 
 #[expect(clippy::too_many_arguments)]
@@ -183,21 +210,21 @@ where
     };
 
     info!("Calling aligner...");
-    let mut result = a_star_align(template_switch_distance::Context::<
-        SubsequenceType,
-        Strategies,
-    >::new(
-        reference,
-        query,
-        reference_name,
-        query_name,
-        range.clone(),
-        config.clone(),
-        memory,
-        cost_limit,
-        memory_limit,
-        force_label_correcting,
-    ));
+    let mut result = a_star_align(
+        template_switch_distance::Context::<SubsequenceType, Strategies>::new(
+            reference,
+            query,
+            reference_name,
+            query_name,
+            range.clone(),
+            config.clone(),
+            memory,
+            cost_limit,
+            memory_limit,
+            force_label_correcting,
+        ),
+        vec![],
+    );
     info!("Main alignment finished");
 
     info!("Extending template switches");

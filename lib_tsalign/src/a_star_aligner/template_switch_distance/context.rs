@@ -38,7 +38,6 @@ pub struct Context<
 
     pub config: TemplateSwitchConfig<Strategies::Alphabet, Strategies::Cost>,
 
-    #[allow(clippy::type_complexity)]
     pub a_star_buffers: AStarBuffers<Box<Node<Strategies>>>,
     pub memory: Memory<Strategies>,
 
@@ -48,6 +47,7 @@ pub struct Context<
     ///
     /// This is for debug purposes only.
     force_label_correcting: bool,
+    pub(crate) is_toplevel_search: bool,
 }
 
 pub struct Memory<Strategies: AlignmentStrategySelector> {
@@ -92,6 +92,7 @@ impl<
             cost_limit,
             memory_limit,
             force_label_correcting,
+            is_toplevel_search: true,
         }
     }
 }
@@ -144,6 +145,11 @@ impl<
                 debug_assert!(query_index != usize::MAX, "{node:?}");
                 debug_assert!(reference_index < isize::MAX as usize, "{node:?}");
                 debug_assert!(query_index < isize::MAX as usize, "{node:?}");
+
+                let output = false;
+                if output {
+                    println!("Generating successors for node {node}");
+                }
 
                 let can_start_another_template_switch = node
                     .strategies
@@ -483,6 +489,12 @@ impl<
                 // TODO * nodes who get closer than `right_flank_length` to the end of the not-primary sequence,
                 // TODO   assuming a `length_difference` of zero
 
+                let output = false;
+                let output_detail = false;
+                if output {
+                    println!("Generating successors for node {node}");
+                }
+
                 let primary_sequence = match template_switch_primary {
                     TemplateSwitchPrimary::Reference => self.reference,
                     TemplateSwitchPrimary::Query => self.query,
@@ -514,16 +526,28 @@ impl<
                             }
                         };
 
-                        opened_nodes_output.extend(
-                            node.generate_secondary_diagonal_successor(
-                                config
-                                    .secondary_edit_costs(template_switch_direction)
-                                    .match_or_substitution_cost(p.clone(), s.clone()),
-                                p == s,
-                                self,
-                            )
-                            .map(Into::into),
-                        );
+                        let cost_increment = config
+                            .secondary_edit_costs(template_switch_direction)
+                            .match_or_substitution_cost(p.clone(), s.clone());
+
+                        if output_detail {
+                            println!(
+                                "Generating secondary diagonal successor with p={p}, s={s}, cost_increment={cost_increment}"
+                            );
+                        }
+
+                        let successor = node
+                            .generate_secondary_diagonal_successor(cost_increment, p == s, self)
+                            .map(Into::into);
+                        if output_detail {
+                            if let Some(successor) = successor.as_ref() {
+                                println!("Generated secondary diagonal successor {successor}");
+                            } else {
+                                println!("Generated secondary diagonal successor None");
+                            }
+                        }
+
+                        opened_nodes_output.extend(successor);
                     }
 
                     if match template_switch_direction {
