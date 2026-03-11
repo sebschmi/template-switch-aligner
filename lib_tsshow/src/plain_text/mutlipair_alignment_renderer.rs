@@ -212,6 +212,7 @@ impl<SequenceName: Eq + Ord, CharacterData>
         do_lowercasing: bool,
         invert_alignment: bool,
     ) -> AlignmentRenderResult {
+        let alignment = alignment.into_iter();
         let mut reference_gaps = Vec::new();
 
         let (reference_sequence_name, mut translated_reference_sequence) = self
@@ -223,6 +224,14 @@ impl<SequenceName: Eq + Ord, CharacterData>
             translated_reference_sequence.len()
         );
         trace!("translated_reference_sequence_offset: {rendered_sequence_offset}");
+        trace!(
+            "alignment_length: ({}, {})",
+            alignment.size_hint().0,
+            alignment
+                .size_hint()
+                .1
+                .map_or(String::from("unknown"), |len| len.to_string())
+        );
 
         let (query_sequence_name, mut translated_query_sequence) =
             self.sequences.remove_entry(query_sequence_name).unwrap();
@@ -233,14 +242,14 @@ impl<SequenceName: Eq + Ord, CharacterData>
         let mut query_offset_column = None;
         let mut query_limit_column = None;
 
-        for alignment_type in alignment.into_iter().map(|alignment_type| {
+        for alignment_type in alignment.map(|alignment_type| {
             if invert_alignment {
                 alignment_type.inverted()
             } else {
                 alignment_type
             }
         }) {
-            //trace!("alignment_type: {alignment_type}");
+            trace!("alignment_type: {alignment_type}");
 
             while matches!(
                 translated_reference_sequence
@@ -248,7 +257,7 @@ impl<SequenceName: Eq + Ord, CharacterData>
                     .map(Character::kind),
                 Some(CharacterKind::Blank)
             ) {
-                //trace!("Skipping blank");
+                trace!("Skipping blank");
                 translated_query_sequence.push(Character::new_blank(blank_data_generator()));
                 index += 1;
             }
@@ -348,7 +357,11 @@ impl<SequenceName: Eq + Ord, CharacterData>
                 }
             }
 
-            assert!(index <= translated_reference_sequence.len());
+            assert!(
+                index <= translated_reference_sequence.len(),
+                "index: {index}, translated_reference_sequence.len(): {}",
+                translated_reference_sequence.len(),
+            );
         }
 
         assert!(extension.next().is_none());
