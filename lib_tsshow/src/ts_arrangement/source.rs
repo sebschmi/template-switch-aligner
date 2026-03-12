@@ -6,7 +6,7 @@ use lib_tsalign::a_star_aligner::{
         AlignmentType, TemplateSwitchDirection, TemplateSwitchPrimary, TemplateSwitchSecondary,
     },
 };
-use log::trace;
+use log::{debug, trace};
 use tagged_vec::TaggedVec;
 
 use super::{
@@ -98,6 +98,12 @@ impl TsSourceArrangement {
         debug_assert_eq!(current_reference_index, current_query_index);
 
         while let Some(alignment_type) = alignment.next() {
+            trace!(
+                "Source alignment type: {alignment_type}; R/Q indices: {current_reference_index}/{current_query_index} {}/{}",
+                result.reference_arrangement_to_source_column(current_reference_index),
+                result.query_arrangement_to_source_column(current_query_index),
+            );
+
             match alignment_type {
                 AlignmentType::PrimaryInsertion | AlignmentType::PrimaryFlankInsertion => {
                     result.reference.insert(
@@ -213,6 +219,7 @@ impl TsSourceArrangement {
         current_reference_index: &mut ArrangementColumn,
         current_query_index: &mut ArrangementColumn,
     ) -> TemplateSwitch {
+        debug!("Aligning template switch #{ts_index}");
         let sp1_reference =
             self.reference_arrangement_to_arrangement_char_column(*current_reference_index);
         let sp1_query = self.query_arrangement_to_arrangement_char_column(*current_query_index);
@@ -220,18 +227,23 @@ impl TsSourceArrangement {
             TemplateSwitchSecondary::Reference => {
                 let source_current_reference_index =
                     self.reference_arrangement_to_source_column(*current_reference_index);
+                let adjusted_source_current_reference_index = source_current_reference_index
+                    - self
+                        .count_reference_copy_chars_before_next_real_char(*current_reference_index);
                 trace!(
-                    "current_reference_index: {current_reference_index} -> {source_current_reference_index}"
+                    "current_reference_index: {current_reference_index} -> {source_current_reference_index} -> {adjusted_source_current_reference_index}"
                 );
-                source_current_reference_index
+                adjusted_source_current_reference_index
             }
             TemplateSwitchSecondary::Query => {
                 let source_current_query_index =
                     self.query_arrangement_to_source_column(*current_query_index);
+                let adjusted_source_current_query_index = source_current_query_index
+                    - self.count_query_copy_chars_before_next_real_char(*current_query_index);
                 trace!(
-                    "current_query_index: {current_query_index} -> {source_current_query_index}"
+                    "current_query_index: {current_query_index} -> {source_current_query_index} -> {adjusted_source_current_query_index}"
                 );
-                source_current_query_index
+                adjusted_source_current_query_index
             }
         } + first_offset;
         trace!("first_offset: {first_offset}");
@@ -242,21 +254,22 @@ impl TsSourceArrangement {
         let mut inner_alignment = Alignment::new();
 
         let anti_primary_gap = loop {
-            match alignment.next() {
-                Some(AlignmentType::TemplateSwitchExit { anti_primary_gap }) => {
+            let alignment_type = alignment.next().unwrap_or_else(|| unreachable!());
+            trace!("Secondary alignment type: {alignment_type}");
+
+            match alignment_type {
+                AlignmentType::TemplateSwitchExit { anti_primary_gap } => {
                     break anti_primary_gap;
                 }
-                Some(alignment_type @ AlignmentType::SecondaryDeletion) => {
+                AlignmentType::SecondaryDeletion => {
                     match ts_direction {
                         TemplateSwitchDirection::Forward => sp3_secondary += 1,
                         TemplateSwitchDirection::Reverse => sp3_secondary -= 1,
                     }
                     inner_alignment.push(alignment_type);
                 }
-                Some(
-                    alignment_type @ (AlignmentType::SecondarySubstitution
-                    | AlignmentType::SecondaryMatch),
-                ) => {
+
+                AlignmentType::SecondarySubstitution | AlignmentType::SecondaryMatch => {
                     match ts_direction {
                         TemplateSwitchDirection::Forward => sp3_secondary += 1,
                         TemplateSwitchDirection::Reverse => sp3_secondary -= 1,
@@ -264,11 +277,11 @@ impl TsSourceArrangement {
                     primary_inner_length += 1;
                     inner_alignment.push(alignment_type);
                 }
-                Some(alignment_type @ AlignmentType::SecondaryInsertion) => {
+                AlignmentType::SecondaryInsertion => {
                     primary_inner_length += 1;
                     inner_alignment.push(alignment_type);
                 }
-                Some(AlignmentType::SecondaryRoot) => { /* Do nothing */ }
+                AlignmentType::SecondaryRoot => { /* Do nothing */ }
                 _ => unreachable!(),
             }
         };
@@ -690,6 +703,26 @@ impl TsSourceArrangement {
             .nth(column.primitive())
             .unwrap()
     }
+
+    fn count_reference_copy_chars_before_next_real_char(&self, offset: ArrangementColumn) -> usize {
+        Self::count_copy_chars_before_next_real_char(&self.reference, offset)
+    }
+
+    fn count_query_copy_chars_before_next_real_char(&self, offset: ArrangementColumn) -> usize {
+        Self::count_copy_chars_before_next_real_char(&self.query, offset)
+    }
+
+    fn count_copy_chars_before_next_real_char(
+        sequence: &TaggedVec<ArrangementColumn, SourceChar>,
+        offset: ArrangementColumn,
+    ) -> usize {
+        sequence
+            .iter_values()
+            .skip(offset.into())
+            .take_while(|c| !c.is_source_char())
+            .filter(|c| c.is_copy() && c.is_char())
+            .count()
+    }
 }
 
 impl SourceChar {
@@ -808,6 +841,7 @@ impl Char for SourceChar {
         matches!(self, Self::Blank)
     }
 
+    /// Returns true if this is a source char and not a copy of a source char.
     fn is_source_char(&self) -> bool {
         matches!(
             self,
