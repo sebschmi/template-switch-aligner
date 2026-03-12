@@ -102,20 +102,29 @@ tsalign align -p pair.fa -o alignment.toml -c sample_tsa_config --memory-limit 1
 tsalign align -p pair.fa -o alignment-no-ts.toml -c sample_tsa_config --memory-limit 1000000000 --no-ts
 ```
 
-Then, create the visualisation as follows:
+Then, create the visualisation as follows (`-t` is for plain text):
 
 ```bash
-tsalign show -i alignment.toml -n alignment-no-ts.toml
+tsalign show -i alignment.toml -n alignment-no-ts.toml -t
 ```
 
-If you want more than just a simple command-line visualisation, use the parameter `-s visualisation.svg` to render the visualisation as SVG.
+Note that `-t` supports only simple cases of template switches, and may crash for more complicated cases.
+For a more detailed and robust visualisation, use the parameter `-s visualisation.svg` to render the visualisation as SVG.
 Since SVGs are not always well supported, you can also use the switch `-p` to render the visualisation also as PNG.
 Note that the `-p` switch requires setting the `-s` parameter.
+
+```bash
+tsalign show -i alignment.toml -n alignment-no-ts.toml -ps visualisation.svg
+```
 
 There are some switches to add more detail to the SVG and PNG visualisation.
 
 * `-a` adds arrows for the jumps of the alignments
 * `-c` renders more of the complements of the input sequences
+
+```bash
+tsalign show -i alignment.toml -n alignment-no-ts.toml -ps visualisation.svg -ac
+```
 
 ### Setting the alignment range
 
