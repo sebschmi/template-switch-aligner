@@ -11,7 +11,7 @@ use lib_tsshow::{
     svg::{SvgConfig, create_error_svg, create_ts_svg},
     svg_to_png,
 };
-use log::{LevelFilter, info, warn};
+use log::{LevelFilter, error, info, warn};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 
 #[derive(Parser)]
@@ -65,6 +65,11 @@ pub fn cli(cli: Cli) -> Result<()> {
         ColorChoice::Auto,
     )
     .unwrap();
+
+    if cli.svg.is_none() && !cli.plain_text {
+        error!("Neither --svg nor --plain-text is set. Nothing to do.");
+        return Ok(());
+    }
 
     info!("Reading tsalign output toml file {:?}", cli.input);
     let mut buffer = String::new();
