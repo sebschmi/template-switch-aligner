@@ -4,14 +4,14 @@ use std::{
     path::PathBuf,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::Parser;
 use lib_tsshow::{
     plain_text::show_template_switches,
     svg::{SvgConfig, create_error_svg, create_ts_svg},
     svg_to_png,
 };
-use log::{LevelFilter, info, warn};
+use log::{LevelFilter, error, info, warn};
 use simplelog::{ColorChoice, TermLogger, TerminalMode};
 
 #[derive(Parser)]
@@ -40,6 +40,10 @@ pub struct Cli {
     #[clap(long, short = 'p')]
     png: bool,
 
+    /// Output the template switches in plain text format to stdout.
+    #[clap(long, short = 't')]
+    plain_text: bool,
+
     /// Always render the SVG (and optionally PNG), even if an error occurs. In the case of an error, the SVG simply contains the error message.
     #[clap(long, short = 'r')]
     render_always: bool,
@@ -62,6 +66,11 @@ pub fn cli(cli: Cli) -> Result<()> {
     )
     .unwrap();
 
+    if cli.svg.is_none() && !cli.plain_text {
+        error!("Neither --svg nor --plain-text is set. Nothing to do.");
+        bail!("Neither --svg nor --plain-text is set. Nothing to do.");
+    }
+
     info!("Reading tsalign output toml file {:?}", cli.input);
     let mut buffer = String::new();
     File::open(cli.input)
@@ -81,7 +90,9 @@ pub fn cli(cli: Cli) -> Result<()> {
         toml::from_str(&buffer).unwrap_or_else(|error| panic!("Error parsing input file: {error}"))
     });
 
-    show_template_switches(stdout(), &result, &no_ts_result)?;
+    if cli.plain_text {
+        show_template_switches(stdout(), &result, &no_ts_result)?;
+    }
 
     if let Some(svg_out_path) = cli.svg.as_ref() {
         let mut svg = Vec::new();

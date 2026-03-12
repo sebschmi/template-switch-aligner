@@ -75,7 +75,7 @@ pub fn create_ts_svg(
     else {
         return Err(Error::AlignmentHasNoTarget);
     };
-    debug!("Alignment: {alignment:?}");
+    debug!("Alignment: {}", alignment.cigar());
 
     let reference = &statistics.sequences.reference;
     let query = &statistics.sequences.query;

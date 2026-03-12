@@ -56,24 +56,43 @@ impl TsInnerArrangement {
         );
 
         for ts in template_switches {
-            trace!("source_inner: {:?}", ts.inner);
+            trace!(
+                "source_inner: {:?}",
+                ts.inner
+                    .iter()
+                    .map(|c| format!("{}", c.source_column()))
+                    .collect::<Vec<_>>()
+            );
+            trace!("inner_alignment: {:?}", ts.inner_alignment.cigar());
 
             let (mut sp2_secondary, mut sp3_secondary) = match ts.secondary {
                 TemplateSwitchSecondary::Reference => (
                     source_arrangement
                         .try_reference_source_to_arrangement_column(ts.sp2_secondary)
-                        .unwrap_or_else(|| source_arrangement.reference().len().into()),
+                        .unwrap_or_else(|| {
+                            trace!("SP2 is at reference end");
+                            source_arrangement.reference().len().into()
+                        }),
                     source_arrangement
                         .try_reference_source_to_arrangement_column(ts.sp3_secondary)
-                        .unwrap_or_else(|| source_arrangement.reference().len().into()),
+                        .unwrap_or_else(|| {
+                            trace!("SP3 is at reference end");
+                            source_arrangement.reference().len().into()
+                        }),
                 ),
                 TemplateSwitchSecondary::Query => (
                     source_arrangement
                         .try_query_source_to_arrangement_column(ts.sp2_secondary)
-                        .unwrap_or_else(|| source_arrangement.query().len().into()),
+                        .unwrap_or_else(|| {
+                            trace!("SP2 is at query end");
+                            source_arrangement.query().len().into()
+                        }),
                     source_arrangement
                         .try_query_source_to_arrangement_column(ts.sp3_secondary)
-                        .unwrap_or_else(|| source_arrangement.query().len().into()),
+                        .unwrap_or_else(|| {
+                            trace!("SP3 is at query end");
+                            source_arrangement.query().len().into()
+                        }),
                 ),
             };
             let forward = sp2_secondary < sp3_secondary;
