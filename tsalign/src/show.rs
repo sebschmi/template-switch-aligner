@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::Parser;
 use lib_tsshow::{
     plain_text::show_template_switches,
@@ -68,7 +68,7 @@ pub fn cli(cli: Cli) -> Result<()> {
 
     if cli.svg.is_none() && !cli.plain_text {
         error!("Neither --svg nor --plain-text is set. Nothing to do.");
-        return Ok(());
+        bail!("Neither --svg nor --plain-text is set. Nothing to do.");
     }
 
     info!("Reading tsalign output toml file {:?}", cli.input);
