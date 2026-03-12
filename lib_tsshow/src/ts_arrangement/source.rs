@@ -227,9 +227,12 @@ impl TsSourceArrangement {
             TemplateSwitchSecondary::Reference => {
                 let source_current_reference_index =
                     self.reference_arrangement_to_source_column(*current_reference_index);
-                let adjusted_source_current_reference_index = source_current_reference_index
-                    - self
-                        .count_reference_copy_chars_before_next_real_char(*current_reference_index);
+                let adjusted_source_current_reference_index =
+                    source_current_reference_index
+                        .checked_sub(self.count_reference_copy_chars_before_next_real_char(
+                            *current_reference_index,
+                        ))
+                        .unwrap();
                 trace!(
                     "current_reference_index: {current_reference_index} -> {source_current_reference_index} -> {adjusted_source_current_reference_index}"
                 );
@@ -239,7 +242,10 @@ impl TsSourceArrangement {
                 let source_current_query_index =
                     self.query_arrangement_to_source_column(*current_query_index);
                 let adjusted_source_current_query_index = source_current_query_index
-                    - self.count_query_copy_chars_before_next_real_char(*current_query_index);
+                    .checked_sub(
+                        self.count_query_copy_chars_before_next_real_char(*current_query_index),
+                    )
+                    .unwrap();
                 trace!(
                     "current_query_index: {current_query_index} -> {source_current_query_index} -> {adjusted_source_current_query_index}"
                 );
@@ -720,7 +726,7 @@ impl TsSourceArrangement {
             .iter_values()
             .skip(offset.into())
             .take_while(|c| !c.is_source_char())
-            .filter(|c| c.is_copy() && c.is_char())
+            .filter(|c| c.is_char() && c.is_copy())
             .count()
     }
 }
