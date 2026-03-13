@@ -25,7 +25,6 @@ use crate::{
         TsArrangement,
         character::Char,
         complement::ComplementChar,
-        index_types::ArrangementColumn,
         inner::InnerChar,
         row::TsArrangementRow,
         source::{SourceChar, TsSourceArrangement},
@@ -145,7 +144,7 @@ pub fn create_ts_svg(
         },
     ) in ts_arrangement.template_switches()
     {
-        let anti_primary_sp4_minus_one = match primary {
+        /*let anti_primary_sp4_minus_one = match primary {
             TemplateSwitchPrimary::Reference => sp4_query.checked_sub(1).map(|column| {
                 ts_arrangement.query_arrangement_char_to_arrangement_column(column) + 1usize
             }),
@@ -196,7 +195,7 @@ pub fn create_ts_svg(
                     anti_primary_row,
                 ));
             }
-        }
+        }*/
 
         let primary_sp4_minus_one = match primary {
             TemplateSwitchPrimary::Reference => sp4_reference.checked_sub(1).map(|column| {
