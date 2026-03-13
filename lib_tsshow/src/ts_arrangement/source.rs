@@ -333,7 +333,7 @@ impl TsSourceArrangement {
                 .rev()
                 .filter_map(|c| {
                     if c.is_char() {
-                        Some(c.make_copy())
+                        Some(c.make_visible_copy())
                     } else {
                         None
                     }
@@ -814,6 +814,22 @@ impl SourceChar {
             },
             Self::Hidden { column, copy_depth } => Self::Hidden {
                 column: *column,
+                copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
+            },
+            Self::Gap { .. } | Self::Separator | Self::Spacer | Self::Blank => {
+                panic!("Should never be copied: {self:?}")
+            }
+        }
+    }
+
+    pub fn make_visible_copy(&self) -> Self {
+        match self {
+            Self::Source {
+                column, copy_depth, ..
+            }
+            | Self::Hidden { column, copy_depth } => Self::Source {
+                column: *column,
+                lower_case: false,
                 copy_depth: Some(copy_depth.map(|copy_depth| copy_depth + 1).unwrap_or(0)),
             },
             Self::Gap { .. } | Self::Separator | Self::Spacer | Self::Blank => {
