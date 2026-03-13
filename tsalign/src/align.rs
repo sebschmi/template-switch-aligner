@@ -69,6 +69,10 @@ pub struct Cli {
     #[clap(long)]
     cache_directory: Option<PathBuf>,
 
+    /// If set, then the aligner performs no preprocessing, but instead crashes if the cached file is missing.
+    #[clap(long)]
+    force_no_preprocessing: bool,
+
     /// The alphabet present in the input files.
     ///
     /// This must also match the alphabet used in the config.

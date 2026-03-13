@@ -53,6 +53,11 @@ pub fn align_a_star_chain_ts<
         assert_eq!(chaining_lower_bounds.max_match_run(), max_match_run);
         chaining_lower_bounds
     } else {
+        assert!(
+            !cli.force_no_preprocessing,
+            "Forcing no preprocessing, but no cache file found."
+        );
+
         info!("Preprocessing...");
         let chaining_lower_bounds =
             lib_ts_chainalign::preprocess(max_n, max_match_run, alignment_costs);
