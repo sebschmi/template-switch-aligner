@@ -1,6 +1,10 @@
-use std::{collections::BTreeSet, fs::File, path::PathBuf};
+use std::{
+    collections::BTreeSet,
+    fs::{File, create_dir_all},
+    path::PathBuf,
+};
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use clap::{Parser, ValueEnum};
 use compact_genome::{
     implementation::alphabets::{
@@ -95,6 +99,8 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
         warn!("No cache directory specified, dropping files into current working directory.");
         PathBuf::new()
     });
+    create_dir_all(&cache_directory)
+        .with_context(|| format!("Creating cache directory {cache_directory:?}"))?;
 
     if let Some(k) = cli.k {
         info!("Using fixed k = {k} for all lengths");
@@ -102,17 +108,14 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
         info!("Computing up to max_n = {max_n}");
 
         let mut current_max_n = max_n;
-        while current_max_n >= 1 && current_max_n >= k.try_into().unwrap() {
+        while current_max_n >= 1 && current_max_n >= k.try_into()? {
             info!("Preprocessing for max_n = {current_max_n}...");
             let lower_bounds = preprocess(current_max_n, k - 1, costs.clone());
-            let mut file = File::create(&tschain_preprocess_cache_file(
-                &costs,
-                &cache_directory,
-                k,
-                current_max_n,
-            )?)
-            .unwrap();
-            lower_bounds.write(&mut file).unwrap();
+            let cache_file =
+                tschain_preprocess_cache_file(&costs, &cache_directory, k, current_max_n)?;
+            let mut file = File::create(&cache_file)
+                .with_context(|| format!("Creating cache file {cache_file:?}"))?;
+            lower_bounds.write(&mut file)?;
 
             current_max_n /= 2;
         }
@@ -139,14 +142,11 @@ fn execute_with_alphabet<AlphabetType: Alphabet>(cli: Cli) -> Result<()> {
             for k in ks {
                 info!("Preprocessing for max_n = {current_max_n} and k = {k}...");
                 let lower_bounds = preprocess(current_max_n, k - 1, costs.clone());
-                let mut file = File::create(&tschain_preprocess_cache_file(
-                    &costs,
-                    &cache_directory,
-                    k,
-                    current_max_n,
-                )?)
-                .unwrap();
-                lower_bounds.write(&mut file).unwrap();
+                let cache_file =
+                    tschain_preprocess_cache_file(&costs, &cache_directory, k, current_max_n)?;
+                let mut file = File::create(&cache_file)
+                    .with_context(|| format!("Creating cache file {cache_file:?}"))?;
+                lower_bounds.write(&mut file)?;
             }
 
             current_max_n = next_max_n;
