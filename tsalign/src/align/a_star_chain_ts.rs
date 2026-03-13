@@ -6,17 +6,15 @@ use lib_ts_chainalign::{
     chain_align::performance_parameters::AlignmentPerformanceParameters,
     chaining_lower_bounds::ChainingLowerBounds, costs::AlignmentCosts,
 };
-use lib_tsalign::{
-    a_star_aligner::alignment_geometry::AlignmentRange, config::TemplateSwitchConfig,
-};
+use lib_tsalign::a_star_aligner::alignment_geometry::AlignmentRange;
 use log::{debug, info, warn};
-use sha::{
-    sha1::Sha1,
-    utils::{Digest, DigestExt},
-};
+
 use std::{fmt::Debug, fs::File, path::PathBuf};
 
-use crate::align::Cli;
+use crate::{
+    align::Cli,
+    util::{infer_tschain_k, infer_tschain_max_n, load_tsa_config, tschain_preprocess_cache_file},
+};
 
 pub fn align_a_star_chain_ts<
     AlphabetType: Alphabet + Debug + Clone + Eq,
@@ -29,50 +27,24 @@ pub fn align_a_star_chain_ts<
     reference_name: &str,
     query_name: &str,
 ) {
-    let mut config_path = cli.configuration_directory.clone();
-    info!("Loading alignment config directory {config_path:?}");
-
-    config_path.push("config.tsa");
-    let config_file = std::io::BufReader::new(
-        std::fs::File::open(&config_path)
-            .unwrap_or_else(|error| panic!("Error opening config file {config_path:?}: {error}")),
-    );
-    let alignment_costs = TemplateSwitchConfig::<AlphabetType, _>::read_plain(config_file)
-        .unwrap_or_else(|error| panic!("Error parsing template switch config:\n{error}"));
+    let alignment_costs = load_tsa_config::<AlphabetType, _>(&cli.configuration_directory).unwrap();
     let alignment_costs: AlignmentCosts<_> = alignment_costs.into();
 
     let cache_directory = cli.cache_directory.clone().unwrap_or_else(|| {
         warn!("No cache directory specified, dropping files into current working directory.");
         PathBuf::new()
     });
-    let max_n = 1 << (usize::BITS - (reference.len().max(query.len()) - 1).leading_zeros());
-    let k = cli.k.unwrap_or_else(|| {
-        // This evaluates to ceil(log_2(length_sum)).
-        // The motivation is that there are length_sum k-mers,
-        // so for each to be different, k needs to be at least ceil(log_4(length_sum)).
-        // However, the birthday paradoxon states that for avoiding collisions,
-        // the amount of possible k-mers needs to grow in the square of the amount available k-mers,
-        // so we square that and arrive at ceil(log_2(length_sum)).
-        let k = usize::BITS - ((reference.len() + query.len()) - 1).leading_zeros();
-        // Decrease k a little, because we can hopefully afford a few more anchors.
-        k.saturating_sub(3).max(2)
-    });
+    let max_n = infer_tschain_max_n(reference.len(), query.len());
+    let k = if let Some(k) = cli.k {
+        k
+    } else {
+        infer_tschain_k(reference.len(), query.len()).unwrap()
+    };
     debug!("Using max_n = {max_n}");
     info!("Using k = {k}");
     let max_match_run = k - 1;
-    let cost_hash = Sha1::default()
-        .digest(
-            &bincode::serde::encode_to_vec(&alignment_costs, bincode::config::standard()).unwrap(),
-        )
-        .to_hex();
-    debug!("Using cost_hash = {cost_hash}");
-
-    let cache_file: PathBuf = [
-        cache_directory,
-        PathBuf::from(format!("{cost_hash}-{k}-{max_n}.tsc")),
-    ]
-    .iter()
-    .collect();
+    let cache_file =
+        tschain_preprocess_cache_file(&alignment_costs, &cache_directory, k, max_n).unwrap();
 
     let chaining_lower_bounds = if let Ok(mut file) = File::open(&cache_file) {
         info!("Loading preprocessed data from cache at {cache_file:?}");

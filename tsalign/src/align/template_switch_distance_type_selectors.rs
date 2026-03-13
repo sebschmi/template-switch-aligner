@@ -29,12 +29,12 @@ use lib_tsalign::{
         },
         template_switch_distance_a_star_align,
     },
-    config::TemplateSwitchConfig,
     costs::U64Cost,
 };
 use log::info;
 
 use super::Cli;
+use crate::util::load_tsa_config;
 
 #[derive(Clone, ValueEnum)]
 pub enum TemplateSwitchNodeOrdStrategySelector {
@@ -329,16 +329,7 @@ fn align_a_star_template_switch_distance_call<
     query_name: &str,
     template_switch_count_memory: <TemplateSwitchCount as TemplateSwitchCountStrategy>::Memory,
 ) {
-    let mut config_path = cli.configuration_directory.clone();
-    info!("Loading alignment config directory {config_path:?}");
-
-    config_path.push("config.tsa");
-    let config_file = std::io::BufReader::new(
-        std::fs::File::open(&config_path)
-            .unwrap_or_else(|error| panic!("Error opening config file {config_path:?}: {error}")),
-    );
-    let costs = TemplateSwitchConfig::read_plain(config_file)
-        .unwrap_or_else(|error| panic!("Error parsing template switch config:\n{error}"));
+    let costs = load_tsa_config(&cli.configuration_directory).unwrap();
 
     let alignment = template_switch_distance_a_star_align::<
         AlignmentStrategySelection<

@@ -1367,6 +1367,7 @@ dependencies = [
  "bincode",
  "clap",
  "compact-genome",
+ "generic_a_star",
  "lib_ts_chainalign",
  "lib_tsalign",
  "lib_tsshow",

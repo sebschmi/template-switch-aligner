@@ -4,7 +4,9 @@ use anyhow::Result;
 use clap::Parser;
 
 mod align;
+mod preprocess;
 mod show;
+mod util;
 
 #[derive(Parser)]
 
@@ -16,6 +18,7 @@ struct Cli {
 #[derive(clap::Subcommand)]
 enum Subcommand {
     Align(Box<align::Cli>),
+    Preprocess(preprocess::Cli),
     Show(show::Cli),
 }
 
@@ -24,6 +27,7 @@ fn main() -> Result<()> {
 
     match cli.subcommand {
         Subcommand::Align(cli) => align::cli(*cli),
+        Subcommand::Preprocess(cli) => preprocess::cli(cli),
         Subcommand::Show(cli) => show::cli(cli),
     }
 }
