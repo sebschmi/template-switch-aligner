@@ -5,14 +5,14 @@ use serde::{Deserialize, Serialize};
 
 mod compat;
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct GapAffineCosts<Cost> {
     pub substitution: Cost,
     pub gap_open: Cost,
     pub gap_extend: Cost,
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct TsLimits {
     /// The maximum range of the 12-jump of a template switch.
     /// This parameter is ignored for now.
@@ -31,7 +31,7 @@ pub struct TsLimits {
 ///
 /// For convenience, it implements [`TryFrom<TemplateSwitchConfig<Alphabet, Cost>>`](std::convert::TryFrom).
 /// Note that the conversion is very strict and only allows to convert from a [`TemplateSwitchConfig`](lib_tsalign::config::TemplateSwitchConfig) if the conversion loses no information.
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct AlignmentCosts<Cost> {
     /// Costs for primary alignment outside of template switches.
     pub primary_costs: GapAffineCosts<Cost>,
