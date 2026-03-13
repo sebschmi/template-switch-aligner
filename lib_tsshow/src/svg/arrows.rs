@@ -52,6 +52,7 @@ pub enum ArrowStyle {
 }
 
 impl<Row> Arrow<Row> {
+    #[expect(dead_code)]
     pub fn new_skip(from_column: ArrangementColumn, to_column: ArrangementColumn, row: Row) -> Self
     where
         Row: Clone,
