@@ -24,6 +24,6 @@ fn match_overtakes_gap() {
         scoring_table,
     );
 
-    assert_eq!(alignment_result.cigar(), "1D2M2I");
+    assert_eq!(alignment_result.cigar(), "1D2=2I");
     assert!((alignment_result.statistics().cost - 9.0).abs() < 1e-6);
 }
