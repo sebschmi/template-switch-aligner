@@ -16,8 +16,8 @@ impl Display for AlignmentType {
             }
             Self::PrimarySubstitution
             | Self::PrimaryFlankSubstitution
-            | Self::SecondarySubstitution => write!(f, "S"),
-            Self::PrimaryMatch | Self::PrimaryFlankMatch | Self::SecondaryMatch => write!(f, "M"),
+            | Self::SecondarySubstitution => write!(f, "X"),
+            Self::PrimaryMatch | Self::PrimaryFlankMatch | Self::SecondaryMatch => write!(f, "="),
             Self::TemplateSwitchEntrance {
                 primary,
                 secondary,
@@ -45,7 +45,7 @@ impl Display for GapType {
         match self {
             Self::Insertion => write!(f, "I"),
             Self::Deletion => write!(f, "D"),
-            Self::None => write!(f, "M/S"),
+            Self::None => write!(f, "=/X"),
         }
     }
 }

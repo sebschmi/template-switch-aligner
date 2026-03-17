@@ -45,7 +45,7 @@ impl Alignment {
 impl Display for GapType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GapType::None => write!(f, "M/S"),
+            GapType::None => write!(f, "=/X"),
             GapType::InA => write!(f, "GA"),
             GapType::InB => write!(f, "GB"),
         }
@@ -84,8 +84,8 @@ impl Display for Alignment {
 impl Display for AlignmentType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AlignmentType::Match => write!(f, "M"),
-            AlignmentType::Substitution => write!(f, "S"),
+            AlignmentType::Match => write!(f, "="),
+            AlignmentType::Substitution => write!(f, "X"),
             AlignmentType::GapA => write!(f, "GA"),
             AlignmentType::GapB => write!(f, "GB"),
             AlignmentType::TsStart { jump, ts_kind } => write!(f, "TS{}[{jump}]", ts_kind.digits()),

@@ -338,8 +338,8 @@ impl std::fmt::Display for AlignmentType {
         match self {
             AlignmentType::Insertion => write!(f, "I"),
             AlignmentType::Deletion => write!(f, "D"),
-            AlignmentType::Substitution => write!(f, "S"),
-            AlignmentType::Match => write!(f, "M"),
+            AlignmentType::Substitution => write!(f, "X"),
+            AlignmentType::Match => write!(f, "="),
             AlignmentType::Root => Ok(()),
         }
     }
@@ -350,7 +350,7 @@ impl std::fmt::Display for GapType {
         match self {
             GapType::Insertion => write!(f, "I"),
             GapType::Deletion => write!(f, "D"),
-            GapType::None => write!(f, "M/S"),
+            GapType::None => write!(f, "=/X"),
         }
     }
 }
