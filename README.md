@@ -127,10 +127,10 @@ right_flank_length = 0
 
 #### TSM base cost
 
-Each TSM incurs cost based on its type.
+Each TSM incurs a cost based on its type.
 The type is written as `<descendant><ancestor><direction>`.
 In descendant and ancestor, the letter `r` refers to the first sequence (reference), and the letter `q` refers to the second sequence (query).
-In direction, the letter `f` referes to a repeat, and `r` to a TSM.
+In direction, the letter `f` refers to a repeat, and the letter `r` refers to a TSM.
 Repeats are not well supported, so consider giving them cost `inf` to disable them entirely.
 
 ```txt
@@ -149,14 +149,14 @@ qqr_cost = 3
 #### TSM jump costs
 
 Each TSM additionally incurs cost based on its geometry.
-The costs are a piecewise constant function, where the first row is the first input value that the constant cost applies, and the second row is the constant cost.
+The costs are a piecewise constant function, where the first row is the first input value that the constant cost applies to, and the second row is the constant cost.
 The cost functions must be V-shaped, i.e. there must be some input value X such that the function is non-ascending before X and non-descending after X.
 
 `RQQROffset` and `RRQQOffset` are costs based on the length of the 1-2-jump of the TSM.
 `RQQROffset` is applied to TSMs where ancestor and descendant are different, while `RRQQOffset` is applied to TSMs where ancestor and descendant are the same.
-`Length` are costs based on the length of the 2-3-alignment of the TSM.
-`LengthDifference` are costs based on the difference between the length of the 2-3-alignment and the difference between points 1 and 4.
-`ForwardAntiPrimaryGap` are costs based on the difference between points 1 and 4, specifically `SP4 - SP1`.
+`Length` is the cost based on the length of the 2-3-alignment of the TSM.
+`LengthDifference` is the cost based on the difference between the length of the 2-3-alignment and the difference between points 1 and 4.
+`ForwardAntiPrimaryGap` is the cost based on the difference between points 1 and 4, specifically `SP4 - SP1`.
 
 ```txt
 # Jump Costs
