@@ -23,7 +23,7 @@
 
 ## Features
 
-* Align two genomic sequences while allowing for template switch mutations (TSMs).
+* Align two genomic sequences while allowing for template switch mutations (TSMs) based on the [four-point model](https://doi.org/10.1101/gr.214973.116).
 * Visualise the alignment with template switching jumps.
 
 ## Installation
@@ -104,6 +104,133 @@ This does not pertain the special `|` character if `--use-embedded-rq-ranges` is
 
 If you want to compute an alignment without template switches, you can use the `--no-ts` parameter.
 This can be useful for comparing the optimal template switching alignment with the optimal alignment without template switches.
+
+### Modifying the cost function
+
+We designed tsalign to allow for very detailed alignment costs regarding not just the gap-affine alignment, but also the geometry of a TSM.
+Consult [`sample_tsa_config/config.tsa`](sample_tsa_config/config.tsa) for an example.
+The file format is very strict in that the order of options must stay the same.
+We explain the content of the file step-by-step.
+
+#### Using different gap-affine costs for TSM flanks
+
+You can use different gap-affine costs for the upstream and downstream sequences (flanks) of TSMs.
+Increasing the size of these flanks affects performance a lot.
+The flank lengths are set here, and the different costs are set at the end of the file.
+
+```txt
+# Limits
+
+left_flank_length = 0
+right_flank_length = 0
+```
+
+#### TSM base cost
+
+Each TSM incurs a cost based on its type.
+The type is written as `<descendant><ancestor><direction>`.
+In descendant and ancestor, the letter `r` refers to the first sequence (reference), and the letter `q` refers to the second sequence (query).
+In direction, the letter `f` refers to a repeat, and the letter `r` refers to a TSM.
+Repeats are not well supported, so consider giving them cost `inf` to disable them entirely.
+
+```txt
+# Base Cost
+
+rrf_cost = inf
+rqf_cost = inf
+qrf_cost = inf
+qqf_cost = inf
+rrr_cost = 3
+rqr_cost = 2
+qrr_cost = 2
+qqr_cost = 3
+```
+
+#### TSM jump costs
+
+Each TSM additionally incurs cost based on its geometry.
+The costs are a piecewise constant function, where the first row is the first input value that the constant cost applies to, and the second row is the constant cost.
+`RQQROffset`, `RRQQOffset`, and `LengthDifference` must be 0-centered V-shaped, i.e. non-ascending for inputs `< 0` and non-descending for inputs `>= 0`.
+
+`RQQROffset` and `RRQQOffset` are costs based on the length of the 1-2-jump of the TSM.
+`RQQROffset` is applied to TSMs where ancestor and descendant are different, while `RRQQOffset` is applied to TSMs where ancestor and descendant are the same.
+`Length` is the cost based on the length of the 2-3-alignment of the TSM.
+`LengthDifference` is the cost based on the difference between the length of the 2-3-alignment and the difference between points 1 and 4.
+`ForwardAntiPrimaryGap` is the cost based on the difference between points 1 and 4, specifically `SP4 - SP1`.
+
+```txt
+# Jump Costs
+
+RQQROffset
+ -inf -100 101
+  inf    0 inf
+
+RRQQOffset
+ -inf -100 101
+  inf    0 inf
+
+Length
+   0 5 6 7 8 100
+ inf 5 3 1 0 inf
+
+LengthDifference
+ -inf -100 101
+  inf    0 inf
+
+ForwardAntiPrimaryGap
+ -inf   1
+    0 inf
+
+ReverseAntiPrimaryGap
+ -inf
+    0
+```
+
+#### Gap-affine edit costs
+
+Different gap-affine edit costs are applied to different parts of the alignment.
+Outside of any TSM, the primary costs are applied.
+The `SubstitutionCostTable`, `GapOpenCostVector`, and `GapExtendCostVector` must have the letters of the chosen alphabet.
+The example is made for `dna-n`.
+For e.g. `dna`, the rows and columns with `N` must be removed, while for other alphabets, other columns need to be removed or added.
+The costs are gap-affine, where the first character of a gap is priced with `GapOpenCostVector`, and all following characters are priced with `GapExtendCostVector`.
+
+```txt
+# Primary Edit Costs
+
+SubstitutionCostTable
+  |  A  C  G  T  N
+--+---------------
+A |  0  2  2  2  0
+C |  2  0  2  2  0
+G |  2  2  0  2  0
+T |  2  2  2  0  0
+N |  0  0  0  0  0
+
+GapOpenCostVector
+ A C G T N
+ 3 3 3 3 3
+
+GapExtendCostVector
+ A C G T N
+ 1 1 1 1 1
+```
+
+Following the primary edit costs, there are analogous sections.
+`Secondary Forward Edit Costs` are the costs for the 2-3-alignment of a repeat.
+`Secondary Reverse Edit Costs` are the costs for the 2-3-alignment of a TSM.
+`Left Flank Edit Costs` are the costs in the upstream flank of a TSM.
+`Right Flank Edit Costs` are the costs in the downstream flank of a TSM.
+
+```txt
+# Secondary Forward Edit Costs
+
+# Secondary Reverse Edit Costs
+
+# Left Flank Edit Costs
+
+# Right Flank Edit Costs
+```
 
 ### SVG/PNG Visualisation
 

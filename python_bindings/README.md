@@ -41,7 +41,7 @@ result = aligner.align("ACGTACGT", "ACGACGT")
 ## Custom cost configuration
 
 Costs are specified in `.tsa` format.  Use `sample_tsa_config/config.tsa`
-as a starting point and consult the main repository README for a description
+as a starting point and consult the [main repository README](../README.md#modifying-the-cost-function) for a description
 of each parameter.
 
 ```python
