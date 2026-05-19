@@ -23,8 +23,8 @@
 
 ## Features
 
-* Align two genomic sequences while allowing for template switches.
-* Visualise the alignment with template switch jumps.
+* Align two genomic sequences while allowing for template switch mutations (TSMs).
+* Visualise the alignment with template switching jumps.
 
 ## Installation
 
@@ -133,7 +133,7 @@ There are additional switches and parameters to influence the visualisation.
 * `-a` adds arrows for the jumps of the alignments
 * `-c` renders more of the complements of the input sequences
 * `-e` renders the heuristically computed uncertainties of a TSM with grey characters
-* `-z X` renders only `x` bases of context around the TSMs
+* `-z X` renders only `X` bases of context around the TSMs
 
 ```bash
 tsalign show -i alignment.toml -n alignment-no-ts.toml -ps visualisation.svg -ace -z 5
