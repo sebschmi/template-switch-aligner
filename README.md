@@ -190,7 +190,7 @@ ReverseAntiPrimaryGap
 
 Different gap-affine edit costs are applied to different parts of the alignment.
 Outside of any TSM, the primary costs are applied.
-The `SubstitutionCostTable` and `GapOpenCostVector` must have the letters of the chosen alphabet.
+The `SubstitutionCostTable`, `GapOpenCostVector`, and `GapExtendCostVector` must have the letters of the chosen alphabet.
 The example is made for `dna-n`.
 For e.g. `dna`, the rows and columns with `N` must be removed, while for other alphabets, other columns need to be removed or added.
 The costs are gap-affine, where the first character of a gap is priced with `GapOpenCostVector`, and all following characters are priced with `GapExtendCostVector`.
