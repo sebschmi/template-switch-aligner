@@ -41,11 +41,11 @@ If you ever want to update to a new release, simply run `cargo install tsalign` 
 
 ### Python bindings
 
-1. Install the python package manager [`pip`](https://pypi.org/project/pip/).
+1. Install the Python package manager [`pip`](https://pypi.org/project/pip/).
 
 2. Run `pip install tsalign`.
 
-3. Refer to [the python bindings README](python_bindings/README.md) for more information.
+3. Refer to [the Python bindings README](python_bindings/README.md) for more information.
 
 ### From Source (For Developers)
 
