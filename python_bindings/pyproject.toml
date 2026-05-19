@@ -6,9 +6,12 @@ build-backend = "maturin"
 name = "tsalign"
 requires-python = ">=3.8"
 classifiers = [
-    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Intended Audience :: Science/Research",
+    "Environment :: Console",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Rust",
 ]
 dynamic = ["version"]
 [tool.maturin]
