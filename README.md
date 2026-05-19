@@ -13,6 +13,12 @@
     <td><a href="https://crates.io/crates/lib_tsalign"><img src="https://img.shields.io/crates/d/lib_tsalign.svg?style=flat-square" alt="Library downloads" /></a></td>
     <td><a href="https://docs.rs/lib_tsalign"><img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square" alt="Library docs" /></a></td>
  </tr>
+ <tr>
+    <td>Python bindings:</td>
+    <td><a href="https://pypi.org/project/tsalign/"><img src="https://img.shields.io/pypi/v/tsalign?style=flat-square" alt="Python bindings version" /></a></td>
+    <td><a href="https://pypi.org/project/tsalign/"><img src="https://img.shields.io/pypi/dm/tsalign?style=flat-square" alt="Python bindings downloads" /></a></td>
+    <td></td>
+ </tr>
 </table>
 
 ## Features
@@ -32,6 +38,14 @@
 3. You can now run `tsalign` on your command line from anywhere.
 
 If you ever want to update to a new release, simply run `cargo install tsalign` again.
+
+### Python bindings
+
+1. Install the python package manager [`pip`](https://pypi.org/project/pip/).
+
+2. Run `pip install tsalign`.
+
+3. Refer to [the python bindings README](python_bindings/README.md) for more information.
 
 ### From Source (For Developers)
 
@@ -91,7 +105,7 @@ This does not pertain the special `|` character if `--use-embedded-rq-ranges` is
 If you want to compute an alignment without template switches, you can use the `--no-ts` parameter.
 This can be useful for comparing the optimal template switching alignment with the optimal alignment without template switches.
 
-### Visualisation
+### SVG/PNG Visualisation
 
 To visualise the alignment, you can use the `tsalign show` subcommand.
 For an optimal experience, compute both the alignment with template switches and the alignment without template switches.
@@ -102,28 +116,27 @@ tsalign align -p pair.fa -o alignment.toml -c sample_tsa_config --memory-limit 1
 tsalign align -p pair.fa -o alignment-no-ts.toml -c sample_tsa_config --memory-limit 1000000000 --no-ts
 ```
 
-Then, create the visualisation as follows (`-t` is for plain text):
+Then, create the visualisation in SVG format as follows:
 
 ```bash
-tsalign show -i alignment.toml -n alignment-no-ts.toml -t
+tsalign show -i alignment.toml -n alignment-no-ts.toml -s alignment.svg
 ```
-
-Note that `-t` supports only simple cases of template switches, and may crash for more complicated cases.
-For a more detailed and robust visualisation, use the parameter `-s visualisation.svg` to render the visualisation as SVG.
 Since SVGs are not always well supported, you can also use the switch `-p` to render the visualisation also as PNG.
 Note that the `-p` switch requires setting the `-s` parameter.
 
 ```bash
-tsalign show -i alignment.toml -n alignment-no-ts.toml -ps visualisation.svg
+tsalign show -i alignment.toml -n alignment-no-ts.toml -p -s visualisation.svg
 ```
 
-There are some switches to add more detail to the SVG and PNG visualisation.
+There are additional switches and parameters to influence the visualisation.
 
 * `-a` adds arrows for the jumps of the alignments
 * `-c` renders more of the complements of the input sequences
+* `-e` renders the heuristically computed uncertainties of a TSM with grey characters
+* `-z X` renders only `x` bases of context around the TSMs
 
 ```bash
-tsalign show -i alignment.toml -n alignment-no-ts.toml -ps visualisation.svg -ac
+tsalign show -i alignment.toml -n alignment-no-ts.toml -ps visualisation.svg -ace -z 5
 ```
 
 ### Setting the alignment range
@@ -156,5 +169,10 @@ ACACA|CCCAAC|GCGGG
 ACAAA|CGTGTC|GCGCG
 ```
 
-Now we can run `tsalign align -p input.delimited.fa --use-embedded-rq-ranges`.
+Now we can run tsalign as follows:
+
+```bash
+tsalign align -p input.delimited.fa --use-embedded-rq-ranges
+```
+
 Now, tsalign will use much less resources, as it can ignore the non-matches before and after the focus region.
