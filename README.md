@@ -150,7 +150,7 @@ qqr_cost = 3
 
 Each TSM additionally incurs cost based on its geometry.
 The costs are a piecewise constant function, where the first row is the first input value that the constant cost applies to, and the second row is the constant cost.
-The cost functions must be V-shaped, i.e. there must be some input value X such that the function is non-ascending before X and non-descending after X.
+`RQQROffset`, `RRQQOffset`, and `LengthDifference` must be 0-centered V-shaped, i.e. non-ascending for inputs `< 0` and non-descending for inputs `>= 0`.
 
 `RQQROffset` and `RRQQOffset` are costs based on the length of the 1-2-jump of the TSM.
 `RQQROffset` is applied to TSMs where ancestor and descendant are different, while `RRQQOffset` is applied to TSMs where ancestor and descendant are the same.
